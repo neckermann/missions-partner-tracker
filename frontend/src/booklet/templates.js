@@ -1,32 +1,14 @@
-// The booklet template catalog -- mirrors the registry/definitions split
-// backend/src/reporting/registry.js + definitions.js established for
-// Reports (#296): a template is a small data object (a token set), not a
-// hand-duplicated ~150-line CSS block. AdminBooklet.jsx's picker renders
-// from TEMPLATES below instead of a literal array, and the one shared
-// frontend/src/styles/booklet.css reads a template's tokens as CSS custom
-// properties and a couple of data-* attributes (for the handful of things
-// that are structurally, not just numerically, different -- see that
-// file's own comments). Adding template #3 means adding another entry
-// here with its own token values, not another CSS block.
-//
-// #322 shipped exactly two: Classic (the original warm/relational look,
-// unchanged in behavior from before this rebuild) and Modern (clean/
-// structured). Traditional/Keepsake/Portfolio/Friendly existed before this
-// rebuild but are not offered here -- see booklet.css's header comment for
-// why their CSS was deleted rather than ported.
+// The booklet template catalog: a template is a small data object (a token set), not a CSS block.
+// booklet.css reads the tokens as CSS custom properties and a few data-* attributes. Adding a
+// template means adding an entry here.
 export const TEMPLATES = [
   {
     id: "classic",
     label: "Classic",
     description: "Warm accent-colored circles, a soft tinted callout, a circular photo — the original look.",
     tokens: {
-      // "brand" resolves the accent from ChurchSettings.primaryColor, with
-      // the fallback rotation (FALLBACK_ACCENTS below) only for an
-      // instance that hasn't set a brand color. "rotate" would skip
-      // primaryColor entirely and always use the rotation -- no v1
-      // template does this, but the token exists for a future template
-      // whose look intentionally varies accent per entry regardless of
-      // brand color (see resolveAccent()).
+      // "brand" takes the accent from ChurchSettings.primaryColor (FALLBACK_ACCENTS only when unset).
+      // "rotate" always uses the rotation, ignoring primaryColor (see resolveAccent()).
       accentSource: "brand",
       fontFamily: 'Georgia, "Times New Roman", serif',
       headingWeight: 700,
@@ -61,8 +43,7 @@ export const TEMPLATES = [
 
 export const DEFAULT_TEMPLATE_ID = "classic";
 
-// AdminBooklet.jsx's picker: { value, label, description } per template,
-// derived from the catalog instead of its own literal array.
+// The picker's { value, label, description } per template.
 export const TEMPLATE_OPTIONS = TEMPLATES.map((t) => ({
   value: t.id,
   label: t.label,
@@ -73,33 +54,20 @@ export function getTemplate(id) {
   return TEMPLATES.find((t) => t.id === id) || TEMPLATES.find((t) => t.id === DEFAULT_TEMPLATE_ID);
 }
 
-// Kept only as the fallback now that --accent defaults to
-// ChurchSettings.primaryColor (see resolveAccent) -- previously this (as
-// PALETTE, paired with its own hand-picked --tint hex per entry) was the
-// only accent source the booklet had. The matching tinted-callout
-// background Classic needs is no longer a second hardcoded hex per entry;
-// booklet.css derives it from whichever --accent is actually in play via
-// color-mix(), so one fallback list (accents only) is enough.
+// Fallback accents for an instance with no primaryColor. booklet.css derives the tinted callout
+// background from the active --accent via color-mix().
 const FALLBACK_ACCENTS = ["#C97A3D", "#4C7A79", "#6B5B4C", "#7A8B6F"];
 
-// The accent color for one booklet page/entry. `primaryColor` is
-// ChurchSettings' own brand accent (SettingsContext's --brand-color role);
-// null on an instance that hasn't set one. `index` is the per-section
-// running index used to rotate through the fallback list (the same
-// rotation every page already used before this template had any concept
-// of brand color at all).
+// The accent for one booklet page/entry. `primaryColor` is ChurchSettings' brand color (null if
+// unset); `index` is the per-section running index used to rotate the fallback list.
 export function resolveAccent(template, primaryColor, index) {
   if (template.tokens.accentSource === "brand" && primaryColor) return primaryColor;
   return FALLBACK_ACCENTS[index % FALLBACK_ACCENTS.length];
 }
 
-// Everything a template's wrapper <div> needs so booklet.css's shared,
-// token-driven rules pick up this template's look: a data-template
-// attribute (useful for debugging/e2e, mirrors the old tpl-${template}
-// class), the structural data-* attributes booklet.css branches on, and
-// the handful of tokens that are plain CSS values -- as a `--tpl-*` custom
-// property each. --accent/--tint stay separate (set per-page/per-entry,
-// not per-template) and are threaded through unchanged by callers.
+// Everything a template's wrapper <div> needs for booklet.css's token-driven rules: data-template,
+// the structural data-* attributes, and plain-value tokens as `--tpl-*` properties. --accent and
+// --tint are set per page/entry by callers.
 export function templateAttributes(template) {
   const t = template.tokens;
   return {
@@ -122,17 +90,12 @@ export function templateStyleVars(template) {
   };
 }
 
-// Quote-escapes a value headed into a double-quoted HTML attribute --
-// fontFamily token values (e.g. Georgia, "Times New Roman", serif)
-// contain literal double quotes that would otherwise terminate the
-// attribute early.
+// Escapes a value for a double-quoted HTML attribute: fontFamily tokens contain literal quotes.
 function escapeAttr(value) {
   return String(value).replaceAll('"', "&quot;");
 }
 
-// buildBookletHtml builds a raw HTML string (see AdminBooklet.jsx), not
-// JSX, so the wrapper's attributes/style need to come back as literal
-// markup rather than a React props object.
+// buildBookletHtml builds a raw HTML string, not JSX, so attributes/style come back as markup.
 export function templateWrapperMarkup(template) {
   const attrs = templateAttributes(template);
   const vars = templateStyleVars(template);

@@ -1,15 +1,8 @@
 import React from "react";
 
-// Shared by every place an admin approves a restricted partner's exact
-// text to send/save as-is: the creation-time "approve now" checkbox, the
-// Pending Dispatches page's Quick Approve, and DispatchReviewModal's
-// own Save and Approve. All three used to carry their own near-identical
-// window.confirm string (same warning, same masking guarantee, same
-// quoted text, differing only in which verb their own flow used) --
-// renamed from the creation-only ApproveNowConfirmBody once it became
-// clear "now" only described one of the three callers. The
-// flow-specific verb ("approve and save" vs. "approve and send") belongs
-// in the caller's own confirm({ title, confirmLabel }), not here.
+// Shared by every place an admin approves a restricted partner's exact text: the creation-time
+// "approve now" checkbox, Pending Dispatches' Quick Approve, and DispatchReviewModal's Save and
+// Approve. The flow-specific verb belongs in the caller's confirm({ title, confirmLabel }).
 export default function ApproveRestrictedTextConfirmBody({ text }) {
   return (
     <div>

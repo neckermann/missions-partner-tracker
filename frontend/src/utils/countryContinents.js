@@ -1,11 +1,7 @@
-// Country name -> continent, for the country/continent filters on the
-// public directory and admin partners pages. Uses the exact same country
-// names (including aliases like "Turkey" for "Türkiye") as
-// backend/src/utils/maskData.js's COUNTRY_CENTROIDS, sourced from the same
-// dataset (mledoze/countries, MIT-licensed,
-// github.com/mledoze/countries) — kept in sync so "does this app recognize
-// this country" means the same thing everywhere it comes up (map pins,
-// country filter, continent filter).
+// Country name -> continent for the country/continent filters. Uses the same names (including
+// aliases like "Turkey" for "Türkiye") as backend/src/utils/maskData.js COUNTRY_CENTROIDS, from
+// the same dataset (mledoze/countries, MIT-licensed), so "recognized country" means the same
+// everywhere.
 export const COUNTRY_CONTINENTS = {
   Afghanistan: "Asia",
   "Åland Islands": "Europe",
@@ -265,11 +261,8 @@ export const COUNTRY_CONTINENTS = {
   "Democratic Republic of the Congo": "Africa", // alias for DR Congo
 };
 
-// Countries are free text (no picker — see AddressFields.jsx), so a typo
-// or unusual spelling won't resolve to a continent. Returns null rather
-// than guessing, same failure mode as the country filter itself: the
-// partner just won't match a continent filter, but isn't hidden from
-// "All Continents".
+// Countries are free text (see AddressFields.jsx), so a typo won't resolve. Returns null rather
+// than guessing: the partner just misses continent filters but still shows under "All Continents".
 export function getContinent(countryName) {
   return COUNTRY_CONTINENTS[countryName] || null;
 }

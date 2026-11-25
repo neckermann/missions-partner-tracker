@@ -1,11 +1,5 @@
-// Urgent-send/approve-now copy, shared by every creation form that has
-// these controls (PrayerRequestSection, PartnerFinancialSection,
-// AdminPrayerRequests, AdminOneTimeNeeds) -- same reasoning as format.js's
-// own header comment: this was copy-pasted text naming all three channels
-// unconditionally, which went stale the moment a church running with
-// GroupMe or the public digest off read a promise about audiences urgent
-// send was never actually going to reach. One set of functions, called
-// identically everywhere, instead of four copies that can drift.
+// Urgent-send/approve-now copy shared by every creation form with these controls, so the
+// audiences it promises match the channels that are actually on.
 
 export function joinWithAnd(items) {
   if (items.length <= 1) return items[0] || "";
@@ -17,14 +11,10 @@ function pluralize(count, singular, plural = `${singular}s`) {
   return `${count} ${count === 1 ? singular : plural}`;
 }
 
-// Mirrors the backend's own channel-level gating
-// (dispatchOrchestrator.js's sendUrgentDispatch): GroupMe and
+// Mirrors the backend's channel gating (dispatchOrchestrator.js sendUrgentDispatch): GroupMe and
 // WhatsApp each need their own feature; admins need outboundEmail; public subscribers need BOTH
-// outboundEmail and publicPrayerDigest, since turning the public digest
-// off must stop their mail even while the admin digest keeps sending.
-// The one place this is decided -- both the checkbox's own description
-// and the confirm dialog's recipient summary build off this, so they
-// can't drift from each other or from the backend's real behavior.
+// outboundEmail and publicPrayerDigest (turning the public digest off must stop their mail). The
+// checkbox text and the confirm summary both build on this so they can't drift from the backend.
 export function reachableUrgentChannels(enabledFeatures) {
   return {
     groupme: !!enabledFeatures.groupme,
@@ -39,9 +29,7 @@ export function chatChannelNames(reach) {
   return [reach.groupme && "GroupMe", reach.whatsapp && "WhatsApp"].filter(Boolean);
 }
 
-// The "Mark as urgent" checkbox's own helper text -- settings-only, no
-// recipient counts (those aren't known until the confirm dialog fetches
-// them).
+// The "Mark as urgent" checkbox helper text: settings-only, no recipient counts.
 export function urgentSendDescription(enabledFeatures) {
   const reach = reachableUrgentChannels(enabledFeatures);
   const audiences = [];
@@ -61,11 +49,8 @@ export function urgentSendDescription(enabledFeatures) {
   );
 }
 
-// The confirm dialog's own recipient line -- same reachable-channel
-// gating as above, with real counts substituted in for admins/public
-// subscribers once known (fetchUrgentRecipientCount already returns 0
-// for an audience whose feature is off, so this only needs to decide
-// whether to mention that audience at all, not re-derive the count).
+// The confirm dialog's recipient line: same gating, with real counts for admins/public once known
+// (fetchUrgentRecipientCount returns 0 for an audience whose feature is off).
 export function urgentRecipientSummary(enabledFeatures, { adminCount, publicCount }) {
   const reach = reachableUrgentChannels(enabledFeatures);
   const parts = [];

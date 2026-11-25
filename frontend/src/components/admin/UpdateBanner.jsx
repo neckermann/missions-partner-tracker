@@ -3,16 +3,10 @@ import { fetchVersionCheck } from "../../api/client.js";
 
 const DISMISSED_KEY = "missions-tracker-update-dismissed-version";
 
-// A heads-up banner across the top of the admin dashboard when this
-// instance is running behind the latest tagged release upstream — see
-// backend/src/utils/versionCheck.js. Non-admin roles get a 403 from
-// /api/version-check (admin-only), which this treats the same as "no
-// update to show" rather than surfacing an error -- this banner is a
-// courtesy, never something that should make the dashboard look broken.
-//
-// Dismissal is remembered per-version (localStorage), not permanently --
-// dismissing today's update notice shouldn't silently suppress next
-// month's too.
+// A banner on the admin dashboard when this instance is behind the latest upstream release
+// (backend/src/utils/versionCheck.js). Non-admins get a 403 from /api/version-check, treated as
+// "no update": the banner is a courtesy and must never make the dashboard look broken. Dismissal
+// is remembered per version in localStorage, so it doesn't suppress the next release's notice.
 export default function UpdateBanner() {
   const [info, setInfo] = useState(null);
   const [dismissed, setDismissed] = useState(false);
@@ -26,8 +20,7 @@ export default function UpdateBanner() {
         }
       })
       .catch(() => {
-        // Not an admin, or the check failed/GitHub unreachable -- either
-        // way, no banner. Never surface this as a dashboard error.
+        // Not an admin, or the check failed/GitHub unreachable: no banner, never a dashboard error.
       });
   }, []);
 

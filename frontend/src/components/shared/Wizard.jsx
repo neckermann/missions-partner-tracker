@@ -1,27 +1,11 @@
 import React, { useState } from "react";
 
-// Generic multi-step form shell -- zero resource-specific logic, so a
-// "New Partner" or "New Trip" flow (Phase 6 of the UX-rebuild plan)
-// wires its own step content in without this component knowing what a
-// Partner or a Trip is.
-//
-// `steps` is `[{ key, label, render({ values, setValue }), validate?(values)
-// => string|null, optional?, show?(values) => boolean }]`, rendered one at a
-// time. A step whose `show` returns false for the current values is left out
-// entirely (no label, no progress dot, never visited) -- e.g. a step that only
-// applies to one choice made on an earlier step. `validate`
-// returning a non-empty string blocks Next and shows that string as the
-// step's error; returning null/undefined (or omitting `validate`) means
-// the step always passes. `optional: true` adds a Skip control alongside
-// Next, for a step that's genuinely not required to finish the wizard
-// (e.g. an advanced/rarely-filled-in section).
-//
-// Fully controlled on completion: nothing here calls an API. `onFinish
-// (values)` fires after Next on the last step passes validation; the
-// caller decides what "finishing" means. Pass `finishing: true` while
-// that call is in flight to disable the last step's button and prevent
-// a double-submit -- this component has no idea whether `onFinish` is
-// sync or async, so it can't infer that state on its own.
+// Generic multi-step form shell with no resource-specific logic.
+// `steps`: [{ key, label, render({ values, setValue }), validate?(values) => string|null,
+// optional?, show?(values) => boolean }], shown one at a time. `show` false leaves a step out
+// entirely; a non-empty `validate` string blocks Next and is shown as the error; `optional` adds
+// Skip. Nothing here calls an API: `onFinish(values)` fires after the last step validates, and
+// `finishing: true` (set by the caller while its call is in flight) disables the last button.
 export default function Wizard({
   steps: allSteps,
   initialValues = {},
@@ -71,11 +55,7 @@ export default function Wizard({
 
   return (
     <div className="wizard">
-      {/* Purely decorative step-dot bar, matching the design-reference
-          artifact's .wizard-progress -- not shown for a 1-step wizard
-          (e.g. New User), the same call that artifact's own "New User"
-          example makes: a progress bar isn't worth showing when there's
-          only one step to begin with. */}
+      {/* Decorative step-dot bar; omitted for a one-step wizard. */}
       {steps.length > 1 && (
         <div className="wizard-progress">
           {steps.map((s, i) => (

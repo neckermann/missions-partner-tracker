@@ -4,31 +4,18 @@ import { revealPendingDispatch, updatePendingDispatch } from "../../api/client.j
 import ApproveRestrictedTextConfirmBody from "./ApproveRestrictedTextConfirmBody.jsx";
 import ApproveCareTeamTextConfirmBody from "./ApproveCareTeamTextConfirmBody.jsx";
 
-// Lets an admin see the real (unmasked) text behind a queued dispatch
-// and edit it before it sends (#187) -- available on any row, not just
-// a restricted partner's. For a restricted row that's still
-// `needsReview`, saving here is what clears it to send (see
-// dispatchEligibility.js's own needsReview()); for everything else it's
-// purely a content edit with no effect on whether/when it sends.
-//
-// `blurb` is the row object as already loaded in AdminPendingDispatches.jsx's
-// `pending` list (needs at least `id`, `isRestricted`, `needsReview`) --
-// the real text itself is fetched fresh on mount via
-// revealPendingDispatch rather than trusting the already-masked
-// `bodyText` the list carries.
+// Shows the real (unmasked) text behind a queued dispatch and lets an admin edit it before it
+// sends. For a restricted row still `needsReview`, saving clears it to send
+// (dispatchEligibility.js needsReview()). `blurb` is the row from the pending list (needs `id`,
+// `isRestricted`, `needsReview`); the real text is fetched on mount, not taken from the masked
+// `bodyText`.
 export default function DispatchReviewModal({ blurb, onSaved, onClose }) {
   const [status, setStatus] = useState("loading"); // loading | ready | error
   const [text, setText] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
-  // Confirming the exact text swaps this modal's own body in place,
-  // rather than opening a second Modal on top of this one -- two Modal
-  // instances would both register their own document-level Escape
-  // listener, and neither's stopPropagation() stops the other's handler
-  // from also firing (they're both listeners on the same document
-  // target), so Escape would close both at once. One dialog, two steps,
-  // is correct here even though the other three approve flows (which
-  // aren't already inside a Modal) use the shared useConfirmDialog hook.
+  // Confirming swaps this modal's body in place instead of opening a second Modal: two Modals each
+  // register a document-level Escape listener and Escape would close both.
   const [confirmingApproval, setConfirmingApproval] = useState(false);
 
   useEffect(() => {
@@ -48,11 +35,8 @@ export default function DispatchReviewModal({ blurb, onSaved, onClose }) {
       setError("Enter some text before saving");
       return;
     }
-    // Same real-world consequence as the row's own "Approve" button --
-    // for a held restricted row, saving here is what clears it to send,
-    // so it gets the same confirm gate and the same "here's the exact
-    // text" framing, even though it's already visible above -- the
-    // confirm step should stand on its own as the final checkpoint.
+    // Saving a held restricted row clears it to send, so it gets the same confirm gate and exact-text
+    // framing as the row's Approve button.
     if (blurb.needsReview && !confirmingApproval) {
       setConfirmingApproval(true);
       return;

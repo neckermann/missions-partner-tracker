@@ -1,29 +1,13 @@
 import React, { useCallback, useRef, useState } from "react";
 import Modal from "../components/Modal.jsx";
 
-// A styled, accessible stand-in for window.confirm()/prompt(), built on
-// Modal.jsx -- the app's one confirmation pattern (CONTRIBUTING.md §
-// Code style bans new window.confirm()/prompt() calls). `await
-// confirm({...})` resolves to true/false like window.confirm, so callers
-// keep their control flow; `body` is JSX instead of a string so it can
-// lay out more than one flat line of text.
-//
-// `typedConfirmation: { word, label }` adds a stricter gate for a
-// genuinely irreversible action (e.g. permanently deleting a partner) --
-// Confirm stays disabled until the typed value matches `word`,
-// case/whitespace-insensitive.
-//
-// `textInput: { label, placeholder?, rows? }` collects free text alongside
-// the confirmation (e.g. a reason for declining something) -- rendered
-// and owned by this hook itself, not by the caller's `body`, for the same
-// reason `typedConfirmation`'s own input is: a controlled input whose
-// value/onChange live inside the caller's `body` JSX would freeze at
-// whatever it was when `confirm()` was called, since `dialog.body` is a
-// snapshot stored once in this hook's own state, never recreated on every
-// keystroke. Opt-in and additive -- a call that doesn't pass `textInput`
-// gets back a plain boolean exactly as before; one that does gets back
-// `{ confirmed, text }` instead, since the caller asking for text already
-// expects a different shape.
+// A styled stand-in for window.confirm()/prompt() on Modal.jsx; the app's one confirmation
+// pattern (CONTRIBUTING.md § Code style). `await confirm({...})` resolves true/false; `body` is JSX.
+// `typedConfirmation: { word, label }` keeps Confirm disabled until the typed value matches `word`
+// (case/whitespace-insensitive), for irreversible actions.
+// `textInput: { label, placeholder?, rows? }` collects free text and resolves `{ confirmed, text }`
+// instead of a boolean. The hook owns that input because `dialog.body` is a snapshot, so a
+// controlled input inside the caller's `body` would freeze.
 export default function useConfirmDialog() {
   const [dialog, setDialog] = useState(null);
   const [typedValue, setTypedValue] = useState("");

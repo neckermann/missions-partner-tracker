@@ -10,16 +10,8 @@ import { useRecordRecentlyViewed } from "../../hooks/useRecentlyViewed.js";
 import useCurrentUser from "../../hooks/useCurrentUser.js";
 import TabBar from "../shared/TabBar.jsx";
 
-// Phase 3 (UX rebuild) split of the former single 2,100-line
-// AdminTripDetail.jsx into real sub-pages -- team / meetings /
-// requirements / budget / flights, boundary names coordinated with
-// issue #271's own planned trips.js split (tripMeetings,
-// tripRequirements, tripParticipants/applications) even though the
-// backend file itself isn't split here (that's #271's own track; the
-// frontend calls the same URL paths regardless of which backend file
-// serves them). This layout owns the one fetch/reload cycle and the
-// header/subnav chrome; each child route gets everything via
-// useOutletContext() instead of re-fetching.
+// Owns the one fetch/reload for a trip and the header/subnav chrome; the team / meetings /
+// requirements / budget / flights child routes get everything via useOutletContext().
 export default function TripDetailLayout() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -32,11 +24,8 @@ export default function TripDetailLayout() {
     canAccessTrip,
     loading: userLoading,
   } = useCurrentUser();
-  // A guest's global canWrite is false (role is neither admin nor
-  // editor) -- but on a trip they hold a grant for they have editor-equivalent
-  // write access (the backend's own requireTripScope already enforces
-  // this per route; this just makes the UI match it instead of showing
-  // every popup here as read-only for them).
+  // A guest's global canWrite is false, but on a trip they hold a grant for they have
+  // editor-equivalent write access (the backend's requireTripScope enforces it per route).
   const canWrite = globalCanWrite || canAccessTrip(id);
   const [trip, setTrip] = useState(null);
   const [applications, setApplications] = useState([]);
@@ -103,12 +92,8 @@ export default function TripDetailLayout() {
     { to: "flights", label: "Flights" },
   ];
 
-  // A Trip Leader has no access to the Partners directory or a cross-trip
-  // "Trips" list (AdminLayout.jsx's own role check 403-redirects them away
-  // from both) -- those two breadcrumb segments were a real, previously-
-  // unnoticed way this role could silently bounce back to this exact page
-  // with no explanation. Their own linked Partner IS something they can
-  // open, so that segment stays.
+  // A Trip Leader has no access to the Partners directory or the cross-trip Trips list (AdminLayout
+  // redirects them away), so those breadcrumb segments are omitted. Their own Partner stays.
   const breadcrumbItems = isGuest
     ? [
         ...(trip.partner?.id
@@ -137,7 +122,7 @@ export default function TripDetailLayout() {
       <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginTop: "0.5rem" }}>
         <h2 style={{ margin: 0 }}>{trip.name || trip.type || "Trip"}</h2>
         <TripStatusBadge status={trip.status} />
-        {/* #358: finishing a trip is its own guided step; a finished one is edited from its debrief. */}
+        {/* Finishing a trip is its own guided step; a finished one is edited from its debrief. */}
         {canWrite && trip.status !== "completed" && (
           <Link className="btn small" to="wrap-up" style={{ marginLeft: "auto" }}>
             Wrap up trip

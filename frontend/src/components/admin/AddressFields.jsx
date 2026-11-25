@@ -3,9 +3,8 @@ import { COUNTRY_CONTINENTS } from "../../utils/countryContinents.js";
 
 const COUNTRY_NAMES = Object.keys(COUNTRY_CONTINENTS).sort();
 
-// Geocoding (and manual entry) routinely hands back 15+ decimal places,
-// which is noise -- 5 decimals is ~1m of precision, plenty for a map pin.
-// Exported so view-mode summaries round the same way as this edit form.
+// Geocoding often returns 15+ decimals; 5 (~1m) is plenty for a map pin. Exported so view-mode
+// summaries round the same way.
 export function roundGps(n) {
   if (n === null || n === undefined || n === "") return "";
   return Math.round(Number(n) * 1e5) / 1e5;

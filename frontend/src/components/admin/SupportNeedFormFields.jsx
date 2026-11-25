@@ -2,19 +2,12 @@ import React from "react";
 import SourcePicker from "./SourcePicker.jsx";
 import { urgentSendDescription } from "../../utils/urgentSend.js";
 
-// Phase 2 of the UX-rebuild plan: the one-time-need field set duplicated
-// between PartnerFinancialSection.jsx (embedded, fixed partnerId -- add +
-// decide only, no edit) and AdminOneTimeNeeds.jsx (consolidated, partner
-// picked from a dropdown -- add, edit, and decide). Same pattern as
-// PrayerRequestFormFields.jsx: renders only the form-grid body, `mode`
-// controls the create-only isUrgent/approveNow blocks, `partnerPicker` is
-// injected when given.
-//
-// `limited` (#289) is a care team member who isn't staff. They have what an
-// editor has for their partner except anything that sends right away: the
-// urgent and "approve now" controls are left out, because their dispatch is
-// always held for staff review instead. (The decision on a need -- approve or
-// decline -- isn't in this form at all; it's staff's, via Record Decision.)
+// The one-time-need field set shared by PartnerFinancialSection.jsx (fixed partnerId, add and
+// decide only) and AdminOneTimeNeeds.jsx. Like PrayerRequestFormFields.jsx: form-grid body only,
+// `mode` controls the create-only isUrgent/approveNow blocks, `partnerPicker` is injected when
+// given. `limited` is a care team member who isn't staff: urgent and "approve now" are left out
+// because their dispatch is always held for staff review. The decision on a need isn't in this
+// form; it is staff's, via Record Decision.
 export default function SupportNeedFormFields({
   form,
   setForm,

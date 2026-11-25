@@ -1,11 +1,8 @@
 import React from "react";
 
-// The care-team counterpart of ApproveRestrictedTextConfirmBody (#289): shown
-// when an admin/editor approves an item a care team member entered. It's held
-// out of every channel until reviewed -- not because the partner is restricted,
-// but because nothing a non-staff login enters is sent before someone on staff
-// has read it. Same shape as the restricted version: the exact wording that
-// will go out, quoted, as the final checkpoint.
+// The care-team counterpart of ApproveRestrictedTextConfirmBody: shown when staff approve an item a
+// care team member entered. Nothing a non-staff login enters is sent before staff read it. Quotes
+// the exact wording that will go out as the final checkpoint.
 export default function ApproveCareTeamTextConfirmBody({ text }) {
   return (
     <div>

@@ -2,12 +2,9 @@ import React, { useState } from "react";
 import { createUser } from "../../api/client.js";
 import QuickActionModal from "../shared/QuickActionModal.jsx";
 
-// "Give this participant a guest login for their trip" -- the participant
-// page's entry into guest access (#356), the counterpart of the trip page's
-// own Guest access section and the Add User wizard. Creates the account
-// with a single grant on this trip and sends the usual welcome email (or
-// hands back a manual setup link when outbound email is off). The guest
-// gets two-factor authentication required automatically.
+// The participant page's entry into guest access: creates an account with one grant on this trip
+// and sends the welcome email (or hands back a manual setup link when outbound email is off).
+// Two-factor is required automatically for the guest.
 export default function GiveGuestAccessModal({ tripId, participant, onClose, onCreated }) {
   const [form, setForm] = useState({
     email: participant.email || "",

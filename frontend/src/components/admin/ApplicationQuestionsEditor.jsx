@@ -1,21 +1,8 @@
 import React, { useState } from "react";
 
-// Shared editor for an application-question list -- used for a trip's own
-// applicationQuestions (AdminTripTeam.jsx), the church-wide
-// tripApplicationTemplate, and the tripQuestionLibrary picker source
-// (both AdminSettingsTrips.jsx). One component so all three stay in sync
-// as the question shape evolves, instead of three hand-copied UIs.
-//
-// Redesigned for clarity (flagged as confusing from a real screenshot):
-// every control is now a labeled, stacked field instead of one dense
-// unlabeled row, and the two ways to add a question ("from your saved
-// questions" vs. "a brand-new one") are visually separated sections with
-// their own headings, not two forms running together.
-//
-// Fully controlled: the parent owns persistence. `onAdd`/`onUpdate`/
-// `onRemove` are called with the new full intent; what happens next
-// (save immediately, or just update local form state until a page-level
-// Save button is clicked) is entirely up to the caller.
+// Shared editor for an application-question list: a trip's own questions, the church-wide template
+// and the question library. Fully controlled: `onAdd`/`onUpdate`/`onRemove` get the new intent and
+// the caller decides when to persist.
 const QUESTION_TYPES = [
   { value: "text", label: "Short text" },
   { value: "textarea", label: "Long text" },
@@ -24,12 +11,8 @@ const QUESTION_TYPES = [
   { value: "date", label: "Date" },
 ];
 
-// One choice per line, not comma-separated -- a comma-joined single line
-// can't round-trip losslessly once any one choice contains a comma of its
-// own (e.g. "No, but I can apply in time"), which would otherwise silently
-// re-split into extra choices the next time this field is edited. A
-// newline can't appear inside a single typed choice at all, so this has
-// no equivalent failure mode.
+// One choice per line, not comma-separated: a comma-joined line can't round-trip a choice that
+// contains a comma ("No, but I can apply in time").
 function optionsToText(options) {
   return (options || []).join("\n");
 }
@@ -43,9 +26,7 @@ function needsOptionsFor(type) {
   return type === "select" || type === "checkboxes";
 }
 
-// Move-up/move-down, not drag-and-drop -- this app has no existing
-// drag-and-drop precedent anywhere, and a new library dependency isn't
-// worth it for a list that's realistically a handful of questions long.
+// Move-up/move-down rather than drag-and-drop: the lists are short and the app has no dnd dependency.
 function moveItem(list, index, delta) {
   const target = index + delta;
   if (target < 0 || target >= list.length) return list;
@@ -55,10 +36,7 @@ function moveItem(list, index, delta) {
   return next;
 }
 
-// One labeled "Answer choices" field, shared by an existing question's
-// editor and the two add-a-question forms below -- same markup, same
-// helper text, so a select/checkboxes question never looks different
-// depending on where it's being edited.
+// One "Answer choices" field shared by the editor and the add-a-question forms.
 function OptionsField({ defaultValue, value, onChange, onBlur }) {
   return (
     <label style={{ display: "block", marginTop: "0.6rem", fontWeight: 400, fontSize: "0.85rem" }}>

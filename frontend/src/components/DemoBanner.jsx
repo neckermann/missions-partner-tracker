@@ -1,13 +1,9 @@
 import React from "react";
 import { useSettings } from "../context/SettingsContext.jsx";
 
-// Shown only on a public demo deployment (DEMO_RESET_TOKEN set -- see the
-// comment on isDemo in routes/publicSettings.js), entirely separate from
-// a real church's own About Church content, which this never touches.
-//
-// Lists every published login a visitor can try: the admin, plus the
-// limited-access ones (a care team member, a trip leader -- see
-// utils/demoLogins.js), so they can see what each kind of person gets.
+// Shown only on a public demo deployment (DEMO_RESET_TOKEN set; see isDemo in
+// routes/publicSettings.js). Lists every published login a visitor can try, including the
+// limited-access ones (utils/demoLogins.js).
 export default function DemoBanner() {
   const { isDemo, demoLoginEmail, demoLoginPassword, demoGuestLogins } = useSettings();
   if (!isDemo) return null;

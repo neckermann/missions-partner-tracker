@@ -2,26 +2,13 @@ import React, { useEffect, useRef, useState } from "react";
 
 const SEARCH_DEBOUNCE_MS = 250;
 
-// Generic filter-bar shell, resource-agnostic -- a resource page supplies
-// a `fields` array ({ name, label, type, options?, showWhen? }, the exact
-// contract backend/src/reporting/registry.js's listReports() (each report's `fields`) already returns)
-// plus its current `values` and an `onChange(name, value)` -- typically
-// backed by hooks/useFilterState.js, which owns syncing those values to
-// the URL query string.
-//
-// `pills` is optional -- a quick-filter row bound to one of `fields` by
-// name (e.g. Trip status), rendered as buttons above the chip row instead
-// of as a chip itself. The named field is skipped in the chip row so it
-// isn't rendered twice.
-//
-// Only active (non-default) fields render as removable chips; everything
-// else lives behind "+ Add filter" until picked. A field's default is
-// `false` for a checkbox, `"all"` for a select, `""` for anything else --
-// the convention every fields/emptyFilters pair in this app already uses.
-//
-// `extraChips` is optional -- pre-rendered chip-styled content (e.g.
-// PartnerFilterChip) that doesn't fit the generic fields model, shown
-// after the search box.
+// Generic filter-bar shell. `fields` is ({ name, label, type, options?, showWhen? }) the contract
+// of backend/src/reporting/registry.js listReports(); `values`/`onChange(name, value)` are
+// typically backed by hooks/useFilterState.js (which syncs to the URL). `pills` is an optional
+// quick-filter row bound to one field by name (skipped in the chip row). Only active fields render
+// as removable chips; the rest sit behind "+ Add filter". A field's default is `false` for a
+// checkbox, "all" for a select, "" otherwise. `extraChips` is pre-rendered chip content that
+// doesn't fit the fields model.
 function renderField(field, values, onChange) {
   const value = values[field.name] ?? (field.type === "checkbox" ? false : "");
   switch (field.type) {
@@ -55,10 +42,7 @@ function renderField(field, values, onChange) {
   }
 }
 
-// "all" is the empty-filter sentinel this app's fields/emptyFilters pairs
-// use, not just for type: "select" -- AdminPartners.jsx's own `country`
-// field is untyped (free text) but still defaults to "all", same
-// convention as its sibling selects.
+// "all" is the empty-filter sentinel for selects, and for untyped fields like AdminPartners' `country`.
 function fieldIsDefault(field, values) {
   const v = values[field.name];
   if (field.type === "checkbox") return !v;
@@ -81,8 +65,7 @@ function SearchBox({ field, value, onChange }) {
       if (local !== (value || "")) onChange(field.name, local);
     }, SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(timer);
-    // Only `local` should retrigger the debounce timer -- `value`/`onChange`
-    // changing on their own (e.g. a parent re-render) shouldn't restart it.
+    // Only `local` should retrigger the debounce timer, not `value`/`onChange` changing on their own.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [local]);
 
@@ -224,11 +207,8 @@ export default function FilterBar({ fields, values, onChange, onReset, pills, ex
         <AddFilterPopover
           fields={availableFields}
           onAdd={(field) => {
-            // A checkbox field's only two states are its default (off,
-            // not shown) and added (on) -- there's no third "added but
-            // still off" state worth a visible inner checkbox for, so
-            // adding one from the popover turns it on directly instead
-            // of leaving a redundant unchecked box inside the chip.
+            // A checkbox field has only default (off, not shown) and added (on), so adding it from the
+            // popover turns it on directly.
             if (field.type === "checkbox") {
               onChange(field.name, true);
             } else {

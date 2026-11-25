@@ -1,8 +1,5 @@
-// Shared across every PartnerFile UI (AdminPartnerFiles.jsx, PartnerFileSection.jsx,
-// SourcePicker.jsx) so they never drift apart. Keys match
-// backend/src/routes/fileKinds.js's FILE_KINDS exactly -- that's what's
-// actually stored on PartnerFile.kind. "newsletter" sorts first since
-// it's the overwhelming majority of what partners actually send.
+// Shared by every PartnerFile UI. Keys match backend/src/routes/fileKinds.js FILE_KINDS exactly
+// (what is stored on PartnerFile.kind). "newsletter" sorts first as the most common kind.
 export const FILE_KINDS = [
   { value: "newsletter", label: "Newsletter" },
   { value: "survey_response", label: "Survey Response" },
@@ -14,8 +11,7 @@ export const FILE_KINDS = [
 
 const LABEL_BY_VALUE = Object.fromEntries(FILE_KINDS.map((k) => [k.value, k.label]));
 
-// For "other", prefer the free-typed customKind over the generic "Other"
-// label, since that's the whole point of that kind.
+// For "other", prefer the free-typed customKind over the generic "Other" label.
 export function fileKindLabel(file) {
   if (file.kind === "other" && file.customKind) return file.customKind;
   return LABEL_BY_VALUE[file.kind] || file.kind;

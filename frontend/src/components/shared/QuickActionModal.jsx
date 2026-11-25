@@ -1,13 +1,9 @@
 import React, { useState } from "react";
 import Modal from "../Modal.jsx";
 
-// One consistent chrome for every quick add/update action launched from a
-// Partner Detail summary card: same error display, same "Saved ✓"
-// confirmation as EditableSection.jsx uses, same submit-button states.
-// `onSubmit` does the actual API call (and may itself show further
-// confirmations, e.g. useUrgentApprovalGate) -- this component only owns
-// the saving/error/justSaved chrome around it, not any resource-specific
-// logic.
+// Common chrome for quick add/update actions from a Partner Detail summary card: error display,
+// "Saved ✓" confirmation, submit-button states. `onSubmit` does the API call (and may show further
+// confirmations, e.g. useUrgentApprovalGate); nothing resource-specific lives here.
 export default function QuickActionModal({
   title,
   onClose,
@@ -29,8 +25,7 @@ export default function QuickActionModal({
     try {
       const proceeded = await onSubmit();
       if (proceeded === false) {
-        // A nested confirmation (e.g. "Send now?") was declined -- leave
-        // the form open exactly as the user left it, no error, no close.
+        // A nested confirmation (e.g. "Send now?") was declined: leave the form open as the user left it.
         return;
       }
       setJustSaved(true);

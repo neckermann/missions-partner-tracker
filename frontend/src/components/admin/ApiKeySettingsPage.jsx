@@ -9,11 +9,8 @@ export default function ApiKeySettingsPage({
   saveErrorMessage,
   fetchSettings,
   updateSettings,
-  // Optional (#324): one extra plain-text, non-secret field that rides
-  // alongside the write-only key -- { key, label, placeholder, helpText }.
-  // Unlike apiKey, its current value IS echoed back by fetchSettings/
-  // updateSettings (it's not a secret), so it's readable/editable as plain
-  // text rather than the password-style write-only UX the key field gets.
+  // Optional: one extra plain-text, non-secret field { key, label, placeholder, helpText } shown
+  // beside the write-only key. Unlike apiKey, its value is echoed back and editable as plain text.
   textField,
 }) {
   const [configured, setConfigured] = useState(false);
@@ -29,15 +26,12 @@ export default function ApiKeySettingsPage({
       })
       .catch((err) => setLoadError(err.response?.data?.error || loadErrorMessage))
       .finally(() => setLoading(false));
-    // fetchSettings/loadErrorMessage/textField come from the caller's own
-    // module-level imports/string literals, never recreated on re-render.
+    // fetchSettings/loadErrorMessage/textField are module-level or literals, never recreated.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function save(draft) {
-    // Built conditionally rather than always sending both keys -- a church
-    // that only wants to rotate the API key shouldn't have to also retype
-    // (or accidentally blank out) the model field, and vice versa.
+    // Built conditionally so rotating the API key doesn't require retyping (or blanking) the model, and vice versa.
     const payload = {};
     if (draft.apiKey?.trim()) payload.apiKey = draft.apiKey.trim();
     if (textField) payload[textField.key] = draft[textField.key]?.trim() || null;

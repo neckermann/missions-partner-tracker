@@ -1,16 +1,10 @@
 import React, { useState } from "react";
 import { formatUtcDate } from "../../utils/format.js";
 
-// One row per trip grant for a guest login (#356), with the controls an
-// admin needs: extend, end now, go back to the automatic date, or remove.
-// Presentational only -- the caller owns the API calls and passes the
-// handlers, so the same list serves the Users page (grants of one guest)
-// and a trip's own page (guests of one trip).
-//
-// `grants` is the API shape: { tripId, trip: { name, type, partner },
-// expiresAt (override or null), effectiveExpiresAt, expiresIsOverride,
-// active }. `labelFor(grant)` decides the row's headline, since the Users
-// page labels a row by trip and a trip's page labels it by guest.
+// One row per trip grant for a guest login, with extend, end now, back-to-automatic-date and
+// remove controls. Presentational: the caller owns the API calls, so one list serves the Users page
+// and a trip's page. `grants` is { tripId, trip: { name, type, partner }, expiresAt (override or
+// null), effectiveExpiresAt, expiresIsOverride, active }; `labelFor(grant)` picks the headline.
 export function describeExpiry(grant) {
   if (!grant.active) {
     return `Ended ${formatUtcDate(grant.effectiveExpiresAt)}`;

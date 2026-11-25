@@ -1,10 +1,8 @@
 import React from "react";
 
-// Chooses the partners whose care team a new login joins, in the Add User
-// wizard (#289). Value is `[{ partnerId }]` -- the shape POST /api/users takes
-// as `careTeam`. Everyone added this way is a plain Member; the Lead is picked
-// from the partner's own Care team panel afterwards. Managing a team that
-// already exists is CareTeamPanel.
+// Chooses the partners whose care team a new login joins, in the Add User wizard. Value is
+// `[{ partnerId }]` (the `careTeam` shape of POST /api/users). All are plain Members; the Lead is
+// picked later in the partner's Care team panel. Existing teams are managed in CareTeamPanel.
 export default function CareSeatPicker({ partners, value, onChange }) {
   const chosen = new Set(value.map((c) => c.partnerId));
   const remaining = partners.filter((p) => !p.archived && !chosen.has(p.id));

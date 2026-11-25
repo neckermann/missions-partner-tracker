@@ -1,6 +1,5 @@
-// The ILR (Interagency Language Roundtable) scale -- the standard used in
-// missions-agency field-language assessment. Keys match
-// backend/src/routes/proficiencyLevels.js's PROFICIENCY_LEVELS exactly.
+// The ILR (Interagency Language Roundtable) scale, standard in missions field-language assessment.
+// Keys match backend/src/routes/proficiencyLevels.js PROFICIENCY_LEVELS exactly.
 export const PROFICIENCY_LEVELS = [
   { value: "0", label: "0 — No Proficiency" },
   { value: "0+", label: "0+ — Memorized Proficiency" },

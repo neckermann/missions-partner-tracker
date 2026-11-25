@@ -2,29 +2,12 @@ import React from "react";
 import SourcePicker from "./SourcePicker.jsx";
 import { urgentSendDescription } from "../../utils/urgentSend.js";
 
-// Phase 2 of the UX-rebuild plan: the field set duplicated verbatim
-// between PrayerRequestSection.jsx (embedded in a Partner's own page,
-// fixed partnerId) and AdminPrayerRequests.jsx (consolidated list,
-// partner picked from a dropdown) -- extracted once, used by both. Only
-// renders the <div className="form-grid">...</div> body, not a <form>
-// wrapper or a submit button, so each caller keeps its own onSubmit,
-// save/cancel buttons, and error display exactly as before.
-//
-// `mode="create"` adds the untracked/isUrgent/approveNow blocks, which
-// only make sense at creation time (status/isUrgent broadcasting/approval
-// review are one-time decisions, not something an edit should silently
-// redo) -- `mode="edit"` (the default) omits them, matching both callers'
-// existing startEdit()/submitEdit() scope boundary comment.
-//
-// `limited` (#289) is a care team member who isn't staff. They have what an
-// editor has for their partner except anything that sends right away: the
-// urgent and "approve now" controls are left out, because their dispatch is
-// always held for staff review instead. (The server ignores both from such a
-// login regardless -- this just doesn't offer them.)
-//
-// `partnerPicker`, when given, renders first -- only the consolidated
-// page's create form needs it (the embedded section already has a fixed
-// partnerId from its own props).
+// The field set shared by PrayerRequestSection.jsx (fixed partnerId) and AdminPrayerRequests.jsx.
+// Renders only the form-grid body; callers keep their own onSubmit and buttons.
+// `mode="create"` adds the untracked/isUrgent/approveNow blocks (one-time decisions an edit
+// shouldn't redo); the default "edit" omits them. `limited` is a care team member who isn't staff:
+// urgent and "approve now" are left out because their dispatch is always held for staff review
+// (the server ignores both from them regardless). `partnerPicker`, when given, renders first.
 export default function PrayerRequestFormFields({
   form,
   setForm,

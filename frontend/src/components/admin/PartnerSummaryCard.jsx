@@ -2,24 +2,11 @@ import React from "react";
 import { Link } from "react-router-dom";
 import LoadMoreButton from "../LoadMoreButton.jsx";
 
-// A lightweight stand-in for a full embedded CRUD widget on Partner
-// Detail, for a collection that already has its own real, filterable
-// admin page elsewhere (One-Time Needs, Trips, Prayer Requests,
-// Newsletters & Docs) -- managing those moves entirely to that page,
-// pre-filtered to this partner via "View all", omitted when there's no
-// `viewAllTo` (Monthly Support's consolidated page is being pulled out,
-// so everything for it now lives right here instead). `actions` (e.g.
-// "+ Add", "Mark Answered") open the real add/edit forms in a quick popup
-// right here instead -- see QuickActionModal.jsx -- so this still isn't a
-// second copy of those forms, just a faster way to reach the same ones.
-// `items`, when given, lists up to a few of the most recent entries (one
-// per line) instead of the single-line `summary`. An item is either a
-// pre-formatted string, or `{ text, onClick }` to make that one row open
-// something (a view/edit popup, say) -- this component doesn't know how
-// to summarize or act on a record, just how to lay out what it's handed.
-// `hasMore`/`remaining`/`onShowMore`, when given (straight from a caller's
-// own useLoadMore.js), render a "Load More" button under `items` -- for a
-// card whose everything lives right here instead of behind "View all".
+// A lightweight stand-in for an embedded CRUD widget on Partner Detail, for a collection with its
+// own admin page: "View all" links there pre-filtered (omitted without `viewAllTo`), and `actions`
+// open the real add/edit forms in a QuickActionModal. `items` lists a few recent entries instead
+// of the one-line `summary`; each is a string or `{ text, onClick }`. `hasMore`/`remaining`/
+// `onShowMore` (from useLoadMore.js) render Load More under `items`.
 export default function PartnerSummaryCard({
   icon,
   title,

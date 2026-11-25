@@ -1,25 +1,10 @@
-// Date helpers, in one place.
-//
-// Everything here exists because this app deals in *calendar dates* --
-// a birthday, the day a newsletter arrived, the date support takes effect --
-// not in instants. A calendar date has no time zone, but JavaScript's Date
-// always does, and that mismatch is where both bugs below came from.
-//
-// These were previously copy-pasted: `formatDate` was defined in 16 files
-// and `todayInputValue` in 10. That is not just repetition -- it means a fix
-// applied to one copy silently doesn't reach the other fifteen, which is
-// exactly what happened with the bug described next.
+// Date helpers. This app deals in calendar dates (a birthday, the day support takes effect), not
+// instants: a calendar date has no time zone but JavaScript's Date always does, and that
+// mismatch is behind the traps below. Keep date handling here, not copy-pasted per file.
 
-// Today, as the *user's calendar* sees it, formatted for <input type="date">.
-//
-// The previous implementation was `new Date().toISOString().slice(0, 10)`,
-// which is the date in UTC. For anyone west of UTC that is tomorrow's date
-// for the last hours of their day -- from 5pm in California, every date
-// field in the app pre-filled the wrong day, and whoever accepted the
-// default recorded a support entry or prayer request dated tomorrow.
-//
-// Built from local components rather than a locale format, so it can't
-// depend on which locale data the browser happens to ship.
+// Today in the user's calendar, formatted for <input type="date">. Not toISOString().slice(0,10):
+// that is the UTC date, which is tomorrow for the evening hours west of UTC. Built from local
+// components so it doesn't depend on the browser's locale data.
 export function todayInputValue(now = new Date()) {
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, "0");
@@ -27,29 +12,21 @@ export function todayInputValue(now = new Date()) {
   return `${year}-${month}-${day}`;
 }
 
-// An API date ("1979-05-04T00:00:00.000Z") trimmed to what <input
-// type="date"> wants. Deliberately a string slice: parsing it into a Date
-// first would re-interpret that UTC midnight in the local zone and shift it
+// An API date ("1979-05-04T00:00:00.000Z") trimmed for <input type="date">. A string slice on
+// purpose: parsing into a Date would re-read that UTC midnight in the local zone and shift it
 // back a day west of UTC.
 export function toDateInputValue(value) {
   return value ? String(value).slice(0, 10) : "";
 }
 
-// supportingSince is a full date under the hood but only the year is ever
-// meaningful to show publicly (the public directory and map both use this).
-// A plain string slice, same as toDateInputValue -- there's no local-vs-UTC
-// trap here since nothing downstream of this reads the result as a Date.
+// Only the year of supportingSince is shown publicly (directory and map). A plain string slice.
 export function formatYear(value) {
   return value ? String(value).slice(0, 4) : null;
 }
 
-// Same string-slice discipline as toDateInputValue, but returning the raw
-// {year, month, day} integers instead of a formatted string -- for a caller
-// that needs to compare or bucket a calendar date (a report's date-range
-// filter, a "same month" check) without ever constructing a Date at all.
-// Comparing integers sidesteps the trap entirely rather than requiring the
-// caller to remember not to read one back with a local getter. month is
-// 1-indexed. Returns null for an empty/invalid value.
+// Same string-slice approach, returning raw {year, month, day} integers for comparing or
+// bucketing a calendar date without constructing a Date. month is 1-indexed; null for an
+// empty/invalid value.
 export function dateOnlyParts(value) {
   if (!value) return null;
   const [year, month, day] = String(value).slice(0, 10).split("-").map(Number);
@@ -57,28 +34,19 @@ export function dateOnlyParts(value) {
   return { year, month, day };
 }
 
-// The same decomposition for "now" -- so a caller comparing an API date
-// against today never has its own local getter call to get wrong either.
-// Safe to read now.getFullYear()/getMonth()/getDate() directly here (and
-// nowhere else in this app outside this file): now is a live Date
-// representing the current instant, not a reconstructed date-only value,
-// so there is no UTC-midnight-reinterpreted-locally trap to fall into.
+// The same decomposition for "now". Reading local getters is safe here (and only in this file)
+// because now is a live instant, not a reconstructed date-only value.
 export function nowParts(now = new Date()) {
   return { year: now.getFullYear(), month: now.getMonth() + 1, day: now.getDate() };
 }
 
-// The last calendar day of a given month (1-indexed) -- the "day 0 of next
-// month" trick. Lives here, not at each call site, for the same reason as
-// the rest of this file: this is the one place allowed to construct a Date
-// from local components and read a local getter off it.
+// The last calendar day of a given month (1-indexed): the "day 0 of next month" trick.
 export function lastDayOfMonth(year, month) {
   return new Date(year, month, 0).getDate();
 }
 
-// The same trap in the other direction. Date-only columns come back as UTC
-// midnight, so `new Date(isoString).toLocaleDateString()` renders the
-// previous day for anyone west of UTC. Splitting the Y/M/D out and handing
-// them to the local-time Date constructor keeps it the calendar date it is.
+// Date-only columns come back as UTC midnight, so `new Date(iso).toLocaleDateString()` shows the
+// previous day west of UTC. Splitting Y/M/D into the local Date constructor keeps the calendar date.
 function toLocalDate(value) {
   const [year, month, day] = String(value).slice(0, 10).split("-").map(Number);
   if (!year || !month || !day) return null;
@@ -102,14 +70,8 @@ export function formatDateLong(value, { fallback = null } = {}) {
     : fallback;
 }
 
-// "$1,000" — amounts in this app are whole dollars (the columns are Int),
-// so no cents.
-//
-// This was defined three times with identical Intl options and only the
-// null fallback differing, which is what the `fallback` option is for —
-// same shape as formatDate above. Currency is a parameter because hardcoding
-// USD in a project other churches fork is the kind of assumption that is
-// annoying to unpick later; nothing passes it yet.
+// "$1,000": amounts are whole dollars (Int columns), so no cents. Currency is a parameter so
+// forks aren't tied to USD.
 export function formatCurrency(amount, { fallback = null, currency = "USD" } = {}) {
   if (amount == null) return fallback;
   return amount.toLocaleString(undefined, {
@@ -119,23 +81,16 @@ export function formatCurrency(amount, { fallback = null, currency = "USD" } = {
   });
 }
 
-// "512 KB" / "2.3 MB" -- for an uploaded file's size, next to a
-// PartnerFile's other metadata. Copy-pasted identically across
-// AdminPartnerFiles.jsx and PartnerFileSection.jsx (see #135); same
-// hoisting reasoning as the rest of this file.
+// "512 KB" / "2.3 MB" for an uploaded file's size.
 export function formatFileSize(bytes) {
   if (bytes == null) return "";
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-// "5 November" from the month/day integers the reports API returns.
-//
-// Takes integers rather than a date string on purpose: a birthday is a
-// calendar day with no year attached once you are looking at it as "whose
-// birthday is this month", and turning it back into a Date to format it is
-// how the timezone bug gets reintroduced. 2001 is an arbitrary non-leap
-// year used only as a formatting vehicle; it never reaches the output.
+// "5 November" from the month/day integers the reports API returns. Takes integers, not a date
+// string, so a year-less birthday never round-trips through a Date (the timezone trap). 2001 is an
+// arbitrary non-leap year used only as a formatting vehicle.
 export function formatMonthDay(month, day, { locale = undefined } = {}) {
   if (!Number.isFinite(month) || !Number.isFinite(day)) return null;
   return new Date(2001, month - 1, day).toLocaleDateString(locale, {
@@ -144,15 +99,9 @@ export function formatMonthDay(month, day, { locale = undefined } = {}) {
   });
 }
 
-// #278: mirrors backend/src/utils/tripParticipantSchema.js's own
-// isMinorForTrip exactly (same "age as of the trip's own startDate, not
-// today" reasoning, same "missing data defaults to not-a-minor" choice)
-// -- the frontend needs this too, to hide a minors-only requirement
-// from an adult participant's row in the admin roster table rather
-// than showing a confusing Missing/✕ for something that was never
-// theirs to fulfill. Two copies because frontend/backend are separate
-// runtimes, not because the rule itself is allowed to drift -- keep
-// both in sync if this logic ever changes.
+// Mirrors backend/src/utils/tripParticipantSchema.js isMinorForTrip exactly (age as of the trip's
+// startDate, missing data means not-a-minor). Two copies because frontend and backend are
+// separate runtimes: keep both in sync.
 export function isMinorForTrip(dateOfBirth, tripStartDate) {
   if (!dateOfBirth || !tripStartDate) return false;
   const dob = new Date(dateOfBirth);
@@ -165,9 +114,8 @@ export function isMinorForTrip(dateOfBirth, tripStartDate) {
   return age < 18;
 }
 
-// A grant's expiry is a UTC instant that stands for "through the end of this
-// calendar day" (see backend utils/tripAccessRules.js), so show its UTC date
-// -- converting to local time would roll it onto the next day east of UTC.
+// A grant's expiry is a UTC instant meaning "through the end of this calendar day" (backend
+// utils/tripAccessRules.js), so show its UTC date; local time would roll it to the next day east of UTC.
 export function formatUtcDate(value, { fallback = null } = {}) {
   if (!value) return fallback;
   const date = new Date(value);

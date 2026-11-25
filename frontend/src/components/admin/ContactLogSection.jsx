@@ -12,15 +12,10 @@ import useConfirmDialog from "../../hooks/useConfirmDialog.jsx";
 import ConfirmMessageBody from "../ConfirmMessageBody.jsx";
 import { formatDateLong, toDateInputValue, todayInputValue } from "../../utils/format.js";
 
-// The partner's contact log (#288): every call, text, visit or card, newest
-// first. Anyone who can see the partner can log one (quick chips, not a long
-// form); only admin/editor can fix or delete an entry (`canFix`). The fixed
-// type / direction / topic lists come from the server, so nothing here keeps a
-// copy that could drift.
-//
-// `entries` is owned by the page (the contact card at the top reads the same
-// list); `onChanged` reloads it. `teammates` ([{ userId, name }]) feeds the
-// "Who" picker when care teams are on -- "Me" is always there and the default.
+// The partner's contact log, newest first. Anyone who can see the partner can log an entry; only
+// admin/editor can fix or delete one (`canFix`). The type/direction/topic lists come from the
+// server. `entries` is owned by the page; `onChanged` reloads it. `teammates` ([{ userId, name }])
+// feeds the "Who" picker when care teams are on ("Me" is the default).
 
 const nameOf = (u) => [u?.firstName, u?.lastName].filter(Boolean).join(" ") || "Someone";
 
@@ -61,8 +56,7 @@ export default function ContactLogSection({
   const [editingId, setEditingId] = useState(null);
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
 
-  // Church visits and newsletters filed (#364): read from their own records and shown among the
-  // entries as read-only rows. A failure just leaves the log on its own.
+  // Church visits and newsletters filed, shown as read-only rows. A failure leaves the log alone.
   const [events, setEvents] = useState([]);
 
   useEffect(() => {
@@ -74,8 +68,8 @@ export default function ContactLogSection({
       .catch(() => setEvents([]));
   }, [partnerId]);
 
-  // A decided need or an answered prayer still waiting to be passed on (#364). Refreshed when the
-  // log changes, since logging the thank-you is what clears it.
+  // A decided need or answered prayer still waiting to be passed on; refreshed when the log changes
+  // since logging the thank-you clears it.
   const [updates, setUpdates] = useState([]);
   useEffect(() => {
     fetchContactUpdates(partnerId)
@@ -90,8 +84,7 @@ export default function ContactLogSection({
     setForm(blankForm());
   }
 
-  // A prefilled "we reached out" for passing an update on: the right topic is already ticked, so
-  // saving it clears the item from the bell (a person still chooses how they got in touch).
+  // A prefilled "we reached out" with the right topic ticked, so saving clears the bell item.
   function openThankYou(update) {
     setEditingId(null);
     setForm({ ...blankForm(), direction: "outbound", topics: [update.topic] });

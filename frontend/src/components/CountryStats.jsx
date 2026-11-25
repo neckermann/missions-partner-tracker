@@ -1,14 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { fetchCountryInfo } from "../api/client.js";
 
-// Joshua Project's own progress-scale tiers (#157). JPScaleCtry is the
-// authoritative numeric 1-5 tier (confirmed against a real API response --
-// Spain returns JPScaleCtry: 3 alongside JPScaleText: "Superficially
-// Reached"); the substring match against JPScaleText is only a fallback
-// for the rare case JPScaleCtry is absent, since JPScaleText's exact
-// wording isn't contractually documented and this degrades gracefully
-// (plain text, no color) rather than risk showing a wrong color. "frontier"
-// is checked before the bare "unreached" it's a more specific variant of.
+// Joshua Project's progress-scale tiers. JPScaleCtry is the authoritative 1-5 tier; matching
+// JPScaleText is only a fallback when it is absent (its wording isn't documented), degrading to
+// plain text rather than a wrong color. "frontier" is checked before the bare "unreached".
 const JP_SCALE_TEXT_TIERS = [
   { match: /frontier/i, tier: 1 },
   { match: /unreached/i, tier: 1 },
@@ -26,24 +21,16 @@ function jpScaleTier(info) {
   return hit ? hit.tier : null;
 }
 
-// Window1040's exact wire shape isn't documented (boolean vs "Y"/"N" vs
-// 1/0) -- only render the badge when it's unambiguously affirmative, never
-// a "No" badge, since a false negative here (silently not shown) is a far
-// smaller problem than a wrong claim about a real place.
+// Window1040's wire shape isn't documented (boolean vs "Y"/"N" vs 1/0): render the badge only when
+// unambiguously affirmative, never a "No" badge, since a wrong claim about a place is worse than silence.
 function isAffirmative(value) {
   if (value === true || value === 1) return true;
   return typeof value === "string" && /^(y|yes|true)$/i.test(value.trim());
 }
 
-// Renders in its own non-clickable card on Partner Detail (not nested
-// inside the clickable Serving Location EditableSection -- it used to be,
-// behind a toggle button, but that button's click bubbled up into the
-// card's own onClick and silently opened the edit popup instead of
-// expanding the stats). Shown by default now rather than lazy-behind-a-
-// toggle: the backend (utils/joshuaProject.js) already caches each
-// country's response for 24h, so auto-loading here doesn't "hammer the
-// API" the way a per-missionary live call would -- most loads are a cache
-// hit, not a real upstream request.
+// Rendered in its own non-clickable card, not nested in the clickable Serving Location
+// EditableSection (a toggle click bubbled up and opened the edit popup). Loads by default: the
+// backend (utils/joshuaProject.js) caches each country's response for 24h.
 export default function CountryStats({ countryCode }) {
   const [info, setInfo] = useState(null);
   const [loading, setLoading] = useState(false);

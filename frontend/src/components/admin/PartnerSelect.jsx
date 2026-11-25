@@ -1,14 +1,7 @@
 import React from "react";
 
-// A partner picker, grouped by kind. Every "add X against a partner" form
-// needs one, and before missionaries and organizations merged each of them
-// hand-rolled two <optgroup>s over two separately-fetched lists and encoded
-// the choice as a "missionary:<id>" string that the submit handler had to
-// split apart again. The value is just a partnerId now, so this is a plain
-// controlled <select>.
-//
-// `partners` is whatever fetchPartners() returned — it only reads id, kind
-// and displayName, so a summary row is enough.
+// A partner picker, grouped by kind: a plain controlled <select> whose value is a partnerId.
+// `partners` is whatever fetchPartners() returned; only id, kind and displayName are read.
 export default function PartnerSelect({
   partners,
   value,

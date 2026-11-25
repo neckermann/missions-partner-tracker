@@ -1,17 +1,8 @@
 import React, { useState } from "react";
 
-// Shown wherever a feature's own email would have gone out, but this
-// church hasn't enabled Email (Sending) -- the link/content itself never
-// needed Postmark to exist, only the automatic delivery did (see SPEC.md
-// § 4), so this hands it back for an admin to copy and send however they
-// actually have (personal email, text, in person) instead of the feature
-// just quietly doing nothing.
-//
-// `recipients` is one { name?, email?, url } or an array of them -- the
-// single-recipient shape (a password setup link, a participant's own
-// access link) and the multi-recipient shape (a meeting invite, a
-// checklist notice fanned out to a trip's participants) share this one
-// component rather than each page rolling its own copy-link UI.
+// Shown where a feature's email would have gone out but Email (Sending) isn't enabled (SPEC.md
+// § 4): hands the link/content to an admin to copy and send themselves. `recipients` is one
+// { name?, email?, url } or an array of them.
 export default function ManualSendNotice({ recipients, title = "Email sending isn't enabled here" }) {
   const list = Array.isArray(recipients) ? recipients : [recipients];
   const [copiedIndex, setCopiedIndex] = useState(null);
@@ -24,9 +15,7 @@ export default function ManualSendNotice({ recipients, title = "Email sending is
       setCopiedIndex(index);
       setTimeout(() => setCopiedIndex((i) => (i === index ? null : i)), 2000);
     } catch {
-      // Clipboard access can be denied (permissions, non-HTTPS context) --
-      // the link is still selectable/copyable by hand in the input below,
-      // so this isn't a dead end, just a missed convenience.
+      // Clipboard access can be denied; the link is still selectable by hand in the input below.
     }
   }
 

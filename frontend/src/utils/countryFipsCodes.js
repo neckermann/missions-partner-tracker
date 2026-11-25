@@ -1,26 +1,9 @@
-// Country name -> FIPS 10-4 country code, for auto-filling the "Country
-// Code (FIPS/ISO)" field from the physical address's country (see
-// AdminMissionaryForm.jsx / AdminOrganizationForm.jsx). Uses the exact
-// same country names as COUNTRY_CONTINENTS (./countryContinents.js) so
-// every entry there either has a FIPS code here or is deliberately
-// omitted below.
-//
-// FIPS 10-4 is genuinely different from ISO 3166-1 alpha-2 for many
-// countries -- this is the whole reason auto-fill is useful rather than
-// redundant. Some examples: Philippines is RP (not PH), Bolivia is BL
-// (not BO), Cambodia is CB (not KH), Japan is JA (not JP), Vietnam is VM
-// (not VN), Mongolia is MG (not MN), Zambia is ZA (not the ISO code for
-// South Africa that "ZA" looks like it should be). The Joshua Project API
-// (see backend/src/utils/joshuaProject.js) expects FIPS-style codes
-// specifically, which is why this field exists as a separate value from
-// the address's country name at all.
-//
-// A handful of COUNTRY_CONTINENTS entries have no single clean FIPS
-// mapping and are deliberately left out here (auto-fill just won't fire
-// for these -- manual entry still works): Åland Islands (no distinct FIPS
-// code, treated as part of Finland), Caribbean Netherlands (no single
-// code covering Bonaire/Sint Eustatius/Saba), and Palestine (FIPS splits
-// this into separate Gaza Strip/West Bank codes with no unified one).
+// Country name -> FIPS 10-4 code, to auto-fill the "Country Code (FIPS/ISO)" field from the address.
+// FIPS 10-4 differs from ISO 3166-1 alpha-2 for many countries (Philippines RP, Bolivia BL,
+// Cambodia CB, Japan JA, Zambia ZA), and the Joshua Project API (backend/src/utils/joshuaProject.js)
+// expects FIPS-style codes. Uses the same names as COUNTRY_CONTINENTS; entries with no single
+// clean FIPS code are deliberately omitted (auto-fill won't fire, manual entry still works):
+// Åland Islands, Caribbean Netherlands, Palestine (FIPS splits it into Gaza Strip/West Bank).
 export const COUNTRY_FIPS_CODES = {
   Afghanistan: "AF",
   Albania: "AL",

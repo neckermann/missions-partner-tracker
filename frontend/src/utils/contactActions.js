@@ -1,10 +1,7 @@
-// The tap-to-call/text/email/WhatsApp links on a partner's contact card
-// (#288). Pure so the number handling is testable on its own.
+// The tap-to-call/text/email/WhatsApp links on a contact card. Pure so number handling is testable.
 
-// Digits only, keeping nothing else. A number written with a leading "+" is
-// already international; a bare 10-digit number is assumed to be a US/Canada
-// number (the church's own), which is the only case where adding a country
-// code is safe -- anything else is passed through as the digits typed.
+// Digits only. A leading "+" means international; a bare 10-digit number is assumed US/Canada (the
+// church's own), the only case where adding a country code is safe.
 export function whatsappDigits(phone) {
   if (!phone) return null;
   const trimmed = String(phone).trim();
