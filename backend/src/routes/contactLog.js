@@ -13,7 +13,12 @@ const {
   TOPIC_VALUES,
 } = require("../utils/contactLog");
 const { careTimings } = require("../utils/careSettings");
-const { loadAssignedPartners, loadUpdatesToPassOn } = require("../utils/contactLogQueries");
+const { isFeatureEnabled } = require("../utils/features");
+const {
+  loadAssignedPartners,
+  loadUpdatesToPassOn,
+  enabledFeaturesOf,
+} = require("../utils/contactLogQueries");
 
 // The partner contact log. Gated by the `contactLog` feature (404 when off,
 // data kept).
@@ -130,15 +135,19 @@ router.get("/timeline", async (req, res, next) => {
     const partnerId = String(req.query.partnerId || "");
     if (!partnerId) return res.status(400).json({ error: "partnerId is required" });
     if (!canUse(req.user, partnerId)) return res.status(403).json({ error: "Insufficient permissions" });
+    // Newsletters only appear while Newsletters & Docs is on; church visits have no switch.
+    const filesOn = isFeatureEnabled(await enabledFeaturesOf(), "partnerFiles");
     const [visits, newsletters] = await Promise.all([
       prisma.churchVisit.findMany({
         where: { partnerId },
         select: { id: true, visitDate: true, notes: true },
       }),
-      prisma.partnerFile.findMany({
-        where: { partnerId, kind: "newsletter" },
-        select: { id: true, receivedDate: true, title: true, fileName: true },
-      }),
+      filesOn
+        ? prisma.partnerFile.findMany({
+            where: { partnerId, kind: "newsletter" },
+            select: { id: true, receivedDate: true, title: true, fileName: true },
+          })
+        : [],
     ]);
     const day = (d) => d.toISOString().slice(0, 10);
     const events = [
