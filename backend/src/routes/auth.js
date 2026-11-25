@@ -19,6 +19,12 @@ const { passwordSchema } = require("../utils/password");
 const { recordAuditSafe } = require("../utils/auditLog");
 const { isTwoFactorRequired } = require("../utils/twoFactor");
 const { replaceRequirementItems } = require("../utils/tripTemplates");
+const {
+  isPasswordlessOn,
+  isEmailReady,
+  redeemSignInLink,
+  sendSignInLinkEmail,
+} = require("../utils/passwordless");
 
 const router = express.Router();
 const MFA_PENDING_TTL = "5m";
@@ -59,6 +65,26 @@ async function completeLogin(res, user, req) {
   return { user: await sanitizeUser(user) };
 }
 
+// What happens once a first factor (a correct password, or a spent emailed link) has proved who is
+// signing in: a second factor to check, enrolment to finish, or the session itself.
+async function afterFirstFactor(res, user, req) {
+  if (user.mfaEnabled) {
+    const passkeyCount = await prisma.userPasskey.count({ where: { userId: user.id } });
+    return {
+      mfaRequired: true,
+      pendingToken: signMfaPendingToken(user),
+      methods: { authenticatorApp: Boolean(user.mfaSecret), passkey: passkeyCount > 0 },
+    };
+  }
+  // Not enrolled: sent to enrolment, with no session until they finish, when the church
+  // requires two-factor of everyone (#385, which passwordless sign-in implies) or an admin
+  // required it of this one account.
+  if (user.mfaSetupRequired || (await isTwoFactorRequired())) {
+    return { mfaSetupRequired: true, setupToken: signMfaSetupToken(user) };
+  }
+  return completeLogin(res, user, req);
+}
+
 // --- First-run setup ---
 // Replaces the old "run node prisma/createAdmin.js from a shell with
 // DATABASE_URL set" step with something doable entirely in the browser —
@@ -73,7 +99,8 @@ async function completeLogin(res, user, req) {
 router.get("/setup-status", async (req, res, next) => {
   try {
     const count = await prisma.user.count();
-    res.json({ needed: count === 0 });
+    // `passwordless` (#386): the sign-in page offers a passkey and an emailed link, not a password.
+    res.json({ needed: count === 0, passwordless: await isPasswordlessOn() });
   } catch (err) {
     next(err);
   }
@@ -142,6 +169,14 @@ router.post("/setup", async (req, res, next) => {
 // --- Local (username/password) ---
 router.post("/login", async (req, res, next) => {
   try {
+    // #386 Layer 2: with passwordless on, nobody signs in with a password -- a passkey, or an
+    // emailed link for someone who hasn't added one yet. Church-wide, so it reveals nothing.
+    if (await isPasswordlessOn()) {
+      return res.status(403).json({
+        error: "This church signs in with a passkey or an emailed link, not a password",
+        passwordless: true,
+      });
+    }
     const { email, password } = req.body;
     if (!email || !password) {
       return res.status(400).json({ error: "Email and password required" });
@@ -177,21 +212,55 @@ router.post("/login", async (req, res, next) => {
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
-    if (user.mfaEnabled) {
-      const passkeyCount = await prisma.userPasskey.count({ where: { userId: user.id } });
-      return res.json({
-        mfaRequired: true,
-        pendingToken: signMfaPendingToken(user),
-        methods: { authenticatorApp: Boolean(user.mfaSecret), passkey: passkeyCount > 0 },
-      });
-    }
-    // Not enrolled: sent to enrolment, with no session until they finish, when the church
-    // requires two-factor of everyone (#385) or an admin required it of this one account.
-    if (user.mfaSetupRequired || (await isTwoFactorRequired())) {
-      return res.json({ mfaSetupRequired: true, setupToken: signMfaSetupToken(user) });
-    }
+    res.json(await afterFirstFactor(res, user, req));
+  } catch (err) {
+    next(err);
+  }
+});
 
-    res.json(await completeLogin(res, user, req));
+// --- Passwordless sign-in (#386 Layer 2) ---
+
+// "Email me a sign-in link." The same reply for every address, and the email goes out after
+// responding, so neither the message nor the response time reveals whether an account exists.
+// Only an account with no passkey gets one: someone who has a passkey signs in with it, and one
+// who lost it asks an admin (Reset MFA), so an inbox alone never replaces a passkey.
+router.post("/passwordless/email-link", async (req, res) => {
+  if (!(await isPasswordlessOn().catch(() => false))) {
+    return res.status(404).json({ error: "Not found" });
+  }
+  res.json({ ok: true, message: "If that email has an account, a sign-in link is on its way." });
+  try {
+    const email = String(req.body?.email || "")
+      .toLowerCase()
+      .trim();
+    if (!email || !(await isEmailReady())) return;
+    const user = await prisma.user.findUnique({
+      where: { email },
+      include: { _count: { select: { passkeys: true } } },
+    });
+    await recordAuditSafe(null, {
+      action: "auth.sign_in_link_requested",
+      target: user || { email },
+      req,
+    });
+    if (user && user.active && user.authProvider === "local" && user._count.passkeys === 0) {
+      await sendSignInLinkEmail(user);
+    }
+  } catch {
+    // Deliberately swallowed: this endpoint must never signal a difference.
+  }
+});
+
+// Spends the emailed link. Proves the inbox, not a second factor: the person is then taken to
+// whatever the account still needs (a code, or adding a passkey), exactly as after a password.
+router.post("/passwordless/link/redeem", async (req, res, next) => {
+  try {
+    if (!(await isPasswordlessOn())) return res.status(404).json({ error: "Not found" });
+    const user = await redeemSignInLink(req.body?.token);
+    if (!user) {
+      return res.status(400).json({ error: "This link has expired or was already used. Ask for a new one." });
+    }
+    res.json(await afterFirstFactor(res, user, req));
   } catch (err) {
     next(err);
   }
@@ -260,7 +329,15 @@ router.get("/me", requireAuth, async (req, res, next) => {
     }
     // twoFactorRequired: the church-wide requirement (#385), so My account can say it is
     // required and hide the switch-off, and the admin toggle can show its state.
-    res.json({ user: { ...(await sanitizeUser(user)), twoFactorRequired: await isTwoFactorRequired() } });
+    res.json({
+      user: {
+        ...(await sanitizeUser(user)),
+        twoFactorRequired: await isTwoFactorRequired(),
+        // #386 Layer 2, for the Manage Users switch: is it on, and can email carry a sign-in link.
+        passwordlessRequired: await isPasswordlessOn(),
+        emailReady: await isEmailReady(),
+      },
+    });
   } catch (err) {
     next(err);
   }

@@ -117,6 +117,7 @@ const MODELS = [
   "savedReport", // savedReport.ownerId -> user
   "reportSchedule", // reportSchedule.savedReportId -> savedReport
   "passwordSetupToken", // -> user
+  "signInLinkToken", // -> user (#386)
   "notificationSeen", // -> user
   "userFollowedPartner", // -> user, partner
   "publicSubscriber",

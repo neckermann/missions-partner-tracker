@@ -90,6 +90,10 @@ async function sendWelcomeEmail(user, { requireMfa = false } = {}) {
   const prisma = require("../prismaClient");
   const { sendEmail } = require("./email");
   const { issueSetupToken } = require("./passwordSetup");
+  // #386 Layer 2: with passwordless sign-in on there is no password to choose, so the new person
+  // gets a sign-in link instead (and adds a passkey after it).
+  const { isPasswordlessOn, sendSignInLinkEmail } = require("./passwordless");
+  if (await isPasswordlessOn()) return sendSignInLinkEmail(user);
   if (!buildSetupUrl("probe")) {
     const err = new Error("APP_BASE_URL isn't set, so a setup link can't be built");
     err.status = 400;

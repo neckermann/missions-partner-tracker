@@ -2012,6 +2012,13 @@ model ChurchSettings {
   // its admins have enrolled (the toggle refuses unless the person turning it on has).
   requireTwoFactor Boolean @default(false)
 
+  // #386 Layer 2: passwordless sign-in, church-wide. On: nobody signs in with a password. A person
+  // with a passkey signs in with it alone (it is both factors); one without gets a one-time emailed
+  // link and is then taken through adding a passkey. It implies the two-factor requirement above,
+  // needs working outbound email, and is only turned on by an admin who has a passkey. Passwords
+  // are kept, not deleted, so turning it off puts everyone back where they were.
+  requirePasswordless Boolean @default(false)
+
   // Schedule for the admin/public email dispatch's three cadence tiers --
   // biweekly/monthly/quarterly (weekly was retired along with the old
   // church-wide batch mechanism this replaced; see emailDispatchDelivery.js
@@ -2312,7 +2319,8 @@ model User {
   // unaffected. Self-service from My account.
   keyDateEmailOptOut Boolean @default(false)
 
-  passkeys UserPasskey[]
+  passkeys         UserPasskey[]
+  signInLinkTokens SignInLinkToken[]
 
   // Opt-in per user, self-service from Account Settings -- same pattern
   // as MFA above. null = not subscribed to the admin digest email (see
@@ -2580,6 +2588,22 @@ model RequirementTemplateItem {
   minorsOnly       Boolean @default(false)
 
   @@index([scope, position])
+}
+
+// #386 Layer 2: a one-time sign-in link, emailed to someone who has no passkey yet while the church
+// signs in without passwords. Like PasswordSetupToken, only a SHA-256 hash of the random token is
+// stored, a link is dead once used or expired, and issuing a new one deletes the older unused ones.
+model SignInLinkToken {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 // #386: a passkey (WebAuthn credential) a person has added as a second sign-in factor, next to or

@@ -769,6 +769,7 @@ CREATE TABLE "ChurchSettings" (
     "backupReminderDisabled" BOOLEAN NOT NULL DEFAULT false,
     "auditRetentionDays" INTEGER NOT NULL DEFAULT 90,
     "requireTwoFactor" BOOLEAN NOT NULL DEFAULT false,
+    "requirePasswordless" BOOLEAN NOT NULL DEFAULT false,
     "emailDispatchDayOfWeek" INTEGER,
     "emailDispatchDayOfMonth" INTEGER,
     "emailDispatchHour" INTEGER,
@@ -979,6 +980,18 @@ CREATE TABLE "RequirementTemplateItem" (
     "minorsOnly" BOOLEAN NOT NULL DEFAULT false,
 
     CONSTRAINT "RequirementTemplateItem_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "SignInLinkToken" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "tokenHash" TEXT NOT NULL,
+    "expiresAt" TIMESTAMP(3) NOT NULL,
+    "usedAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "SignInLinkToken_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -1250,6 +1263,15 @@ CREATE INDEX "TripApplicationAnswer_questionId_idx" ON "TripApplicationAnswer"("
 CREATE INDEX "RequirementTemplateItem_scope_position_idx" ON "RequirementTemplateItem"("scope", "position");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "SignInLinkToken_tokenHash_key" ON "SignInLinkToken"("tokenHash");
+
+-- CreateIndex
+CREATE INDEX "SignInLinkToken_userId_idx" ON "SignInLinkToken"("userId");
+
+-- CreateIndex
+CREATE INDEX "SignInLinkToken_expiresAt_idx" ON "SignInLinkToken"("expiresAt");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "UserPasskey_credentialId_key" ON "UserPasskey"("credentialId");
 
 -- CreateIndex
@@ -1449,6 +1471,9 @@ ALTER TABLE "TripApplicationAnswer" ADD CONSTRAINT "TripApplicationAnswer_applic
 
 -- AddForeignKey
 ALTER TABLE "TripApplicationAnswer" ADD CONSTRAINT "TripApplicationAnswer_questionId_fkey" FOREIGN KEY ("questionId") REFERENCES "ApplicationQuestion"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SignInLinkToken" ADD CONSTRAINT "SignInLinkToken_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "UserPasskey" ADD CONSTRAINT "UserPasskey_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;

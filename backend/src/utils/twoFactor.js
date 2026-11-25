@@ -6,13 +6,15 @@ const { isDemoDeployment } = require("./demoMode");
 
 // Never on a public demo: its accounts are shared and have no authenticator, and the settings
 // route refuses to turn it on there; this also covers a value left over from before.
+//
+// Passwordless sign-in (#386 Layer 2) implies it: with no password, a passkey is the factor.
 async function isTwoFactorRequired(db = prisma) {
   if (isDemoDeployment()) return false;
   const settings = await db.churchSettings.findUnique({
     where: { id: "singleton" },
-    select: { requireTwoFactor: true },
+    select: { requireTwoFactor: true, requirePasswordless: true },
   });
-  return settings?.requireTwoFactor === true;
+  return settings?.requireTwoFactor === true || settings?.requirePasswordless === true;
 }
 
 module.exports = { isTwoFactorRequired };
