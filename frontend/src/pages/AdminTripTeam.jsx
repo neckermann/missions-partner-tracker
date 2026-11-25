@@ -105,6 +105,11 @@ export default function AdminTripTeam() {
       sortBy: (p) => `${p.lastName || ""} ${p.firstName || ""}`.toLowerCase(),
     },
     {
+      key: "reach",
+      label: "Phone / Email",
+      render: (p) => [p.phone, p.email].filter(Boolean).join(" · ") || "—",
+    },
+    {
       key: "support",
       label: "Support Raising",
       render: (p) => {

@@ -269,7 +269,9 @@ router.get("/by-trip/:tripId", async (req, res, next) => {
       where: { tripId: req.params.tripId },
       select: {
         ...GRANT_SELECT,
-        user: { select: { id: true, email: true, firstName: true, lastName: true, active: true } },
+        user: {
+          select: { id: true, email: true, phone: true, firstName: true, lastName: true, active: true },
+        },
       },
       orderBy: { createdAt: "asc" },
     });
