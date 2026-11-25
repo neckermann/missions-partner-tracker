@@ -229,6 +229,32 @@ prayer digest nested under Email (Sending) since it depends on it), and
 
 ![The Admin Features dialog, with the Contact log, Key-date reminders and Care teams toggles](docs/assets/screenshots/enabled-features-admin.png)
 
+### What each feature needs
+
+Most toggles stand alone. These depend on another feature or on a connection. Where a feature is off,
+the sections, pages and alerts that belong to it disappear rather than showing empty, and nothing is
+deleted: turning it back on brings the records back.
+
+| Feature | Needs | When it is off |
+|---|---|---|
+| Public trip discovery | Mission trips | No public Trip Opportunities page. A trip's own private application links still work. |
+| Public prayer digest | Public directory and Email (Sending) | No public Subscribe page. |
+| Key-date reminders | Care teams. The daily email also needs Email (Sending). | No key-date alert on the bell or Home. Without Email (Sending) the bell alert still works and no email goes out. |
+| Support preferences | Care teams | No Support Preferences card or settings page, and no Support preferences survey question. |
+| Partner surveys | Care teams. Emailed links also need Email (Sending) and `APP_BASE_URL`. | No Surveys settings, card, Survey Updates page or bell items. Without Email (Sending), **Get link** still makes a personal link to send yourself. |
+| Contact log | Care teams, for "who should reach out" and the bell | No log, contact card log or My partners follow-ups. A contact card still shows who to reach. |
+| Email (Sending) | A Postmark account (Settings, Email) | No email anywhere: trip emails fall back to "tell people yourself" wording, survey links use **Get link**, and the daily key-date and digest emails stop. |
+| Email (Receiving) | A Postmark account and its inbound webhook | Newsletters are not filed by email. |
+| GroupMe / WhatsApp dispatch | Their own connection settings | Nothing is posted there. |
+| AI Features | An Anthropic API key, and Newsletters & Docs to have something to scan | No automatic prayer request or need extraction. |
+| Joshua Project stats | A Joshua Project API key, and a country code (FIPS) on the partner | No country statistics on partner pages. |
+
+Features that only add pages or sections (Prayer requests, One-time needs, Monthly support,
+Newsletters & Docs, Mission trips, Reports, Print booklet, Audit log) can each be left off without
+affecting any other feature, with two small exceptions: the Contact Log also lists church visits and
+newsletter filings, and its "Updates to pass on" box reads decided needs and answered prayers, so those
+lines disappear when One-time needs, Prayer requests or Newsletters & Docs is off.
+
 The registry backing this list lives in `backend/src/utils/features.js` —
 adding a new toggle later is a one-line entry there plus a `requireFeature("key")`
 check on the relevant route(s), not a database migration.

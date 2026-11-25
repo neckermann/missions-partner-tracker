@@ -3208,6 +3208,55 @@ async function seedSurveysDemo() {
     await proposeFromResponse(response.id);
   }
   console.log(`  seeded annual update answers for ${withAdults.length} partners`);
+
+  // A support-menu survey (built from its pack) with one partner's answer waiting on Survey updates,
+  // so a visitor can see a partner picking from the church's menu and the change waiting for approval.
+  const menu = await prisma.supportOption.findMany({
+    where: { active: true, staffOnly: false },
+    orderBy: [{ group: "asc" }, { sortOrder: "asc" }, { createdAt: "asc" }],
+  });
+  const offer = menu.find((o) => o.kind === "offer");
+  const multiple = menu.find((o) => o.kind === "multiple" && o.choices.length >= 2);
+  if (offer || multiple) {
+    const importedSupport = await importPackFile("survey-support-menu");
+    const supportSurvey = await prisma.survey.update({
+      where: { id: importedSupport.surveyId },
+      data: { status: "open" },
+      include: { questions: { orderBy: { position: "asc" } } },
+    });
+    const supportQ = supportSurvey.questions.find((q) => q.kind === "support");
+    const takenIds = withAdults.map((p) => p.id);
+    const picker = await prisma.partner.findFirst({
+      where: { archived: false, kind: "missionary", id: { notIn: takenIds } },
+      orderBy: [{ displayName: "asc" }, { id: "asc" }],
+      select: { id: true },
+    });
+    if (supportQ && picker) {
+      const picks = {};
+      if (offer) picks[offer.id] = { selected: true };
+      if (multiple) picks[multiple.id] = { choices: multiple.choices.slice(0, 2).sort() };
+      const response = await prisma.surveyResponse.create({
+        data: {
+          surveyId: supportSurvey.id,
+          partnerId: picker.id,
+          submittedAt: new Date(Date.now() - 2 * 86400000),
+          answers: {
+            create: [
+              {
+                questionId: supportQ.id,
+                position: supportQ.position,
+                label: supportQ.label,
+                kind: "support",
+                value: JSON.stringify(picks),
+              },
+            ],
+          },
+        },
+      });
+      await proposeFromResponse(response.id);
+      console.log("  seeded a support-menu survey answer");
+    }
+  }
 }
 
 // Trip debriefs demo: a few completed trips with a wrap-up debrief, the most recent
