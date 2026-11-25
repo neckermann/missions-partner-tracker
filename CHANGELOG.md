@@ -23,6 +23,7 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 - **Action buttons in tables no longer wrap onto two lines** and come out different sizes; Delete, Retire and the like stay the same height as their neighbours.
 - **One tab bar for Trips, a trip's own pages and Partners**, with the same look in both themes. The active Trips tab was nearly invisible in dark mode.
 - **Cards placed one after another on a page (Reports, Care Team Settings, GroupMe, WhatsApp, the top of a partner page) now have space between them.**
+## [0.1.0-beta.2] - 2026-11-25
 
 ### Security
 
@@ -32,6 +33,10 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 - **Passkey enrolment ([#408](https://github.com/neckermann/missions-partner-tracker/issues/408)):** a forced-enrolment setup token is refused once the account has enrolled, the first passkey ends sessions opened before it (the tab that added it stays signed in), and removing a passkey, which asks for the password, is rate limited.
 - **A care team seat sees a trip's names and dates only ([#409](https://github.com/neckermann/missions-partner-tracker/issues/409)).** A guest who can read a trip only because they sit on its partner's care team now gets the trip's name, type, status, dates and who is on the team, and no longer its private apply-link and share tokens, participants' contact details and dates of birth, applications (declined ones included), documents, contributions, budget, flights, requirements or meetings. The applications list and document downloads are refused to them. A trip leader with a grant and the full roles are unchanged.
 - **The printed booklet withholds more for a partner who isn't safe to contact ([#411](https://github.com/neckermann/missions-partner-tracker/issues/411)):** their serving and mailing addresses, and their sending church or organization's contact person and phone, no longer print (the names still do). The restricted-access toggle is unchanged: including restricted partners remains a deliberate staff choice.
+
+### Upgrading
+
+- **A database that ran `0.1.0-beta.1` must be reset again (pre-1.0).** The single baseline migration (`20261122092854_init`) gained the `SpentPasskeyChallenge` table, so `npx prisma migrate deploy` against a beta.1 database reads the baseline as already applied and does not add it. Reset with the same steps and data-loss warning as before: `npx prisma migrate reset --force` from `backend/` (**erases all data**; back up first and re-create the admin with `node prisma/createAdmin.js`), or `npm run demo:reset:remote` / `npm run dev:reset:remote` for the demo and dev-test sites.
 
 ## [0.1.0-beta.1] - 2026-11-25
 
