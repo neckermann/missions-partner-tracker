@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import {
   login,
   verifyMfaLogin,
@@ -45,6 +45,8 @@ export default function Login() {
   const [error, setError] = useState("");
   // #386 Layer 2: the church signs in without passwords.
   const [passwordless, setPasswordless] = useState(false);
+  // "Forgot your password?" is offered when the site can email a link (never on a demo).
+  const [canReset, setCanReset] = useState(false);
   const [linkSent, setLinkSent] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
@@ -66,6 +68,7 @@ export default function Login() {
       .then((status) => {
         if (status.needed) navigate("/setup", { replace: true });
         setPasswordless(status.passwordless === true);
+        setCanReset(status.passwordReset === true);
       })
       .catch(() => {});
   }, [navigate]);
@@ -362,6 +365,11 @@ export default function Login() {
         <button type="submit" className="btn">
           Sign in
         </button>
+        {canReset && (
+          <p style={{ margin: 0, fontSize: "0.9rem" }}>
+            <Link to="/forgot-password">Forgot your password?</Link>
+          </p>
+        )}
       </form>
     </div>
   );

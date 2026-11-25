@@ -30,6 +30,16 @@ for why.
 
 ![The login page](docs/assets/screenshots/login-page.png)
 
+**Forgot your password?** When your church's site can send email, a **Forgot
+your password?** link under the sign-in button asks for your email address and
+sends a link that lets you choose a new one. The link works once and expires
+in an hour, and the page says the same thing whether or not that address has
+an account. Choosing a new password signs you out on your other devices, and
+if you use two-factor you're still asked for it next time you sign in. If the
+site can't send email, the link isn't offered: ask an administrator for a new
+setup link (**Settings → Manage Users**). It's not available on the public demo
+or while passwordless sign-in is on.
+
 If your account has two-factor authentication enabled, you'll be prompted
 for a 6-digit code from your authenticator app, or to **Use a passkey**
 (your fingerprint, face or screen lock), after your password. If
@@ -55,11 +65,11 @@ they'll hand you a fresh way in.
 
 Every user has one of three full roles:
 
-| Role | Can change |
-|---|---|
-| `viewer` | Nothing. Read-only. |
+| Role     | Can change                                                                                                                                                                                                       |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `viewer` | Nothing. Read-only.                                                                                                                                                                                              |
 | `editor` | Create, edit, and archive/unarchive partners; add support entries, one-time needs, trips, and prayer requests; upload newsletters and documents. Can't delete anything, manage users, or change Church Settings. |
-| `admin` | Everything above, plus delete records, manage users, and edit Church Settings. |
+| `admin`  | Everything above, plus delete records, manage users, and edit Church Settings.                                                                                                                                   |
 
 **Roles control what you can change, not what you can see.** Every account,
 including a `viewer`, can read every partner's full record — home address
@@ -342,7 +352,7 @@ entirely rather than shown empty. Status pills under the header
 summarize the flags at a glance (contact-safe, public/not, restricted,
 sent-by-us, on-furlough, archived) and hovering one that lives in a
 specific section (like "Sent by {your church}") says where to go edit
-it. **Back to list** returns you to Partners. This page *is* where every
+it. **Back to list** returns you to Partners. This page _is_ where every
 edit happens — each section's own **Edit** button, not a separate form
 — including newsletters & docs, and photos (see
 [Newsletters & Docs](#newsletters--docs), and
@@ -379,7 +389,7 @@ on the partner's own detail page. **Archive** removes a partner from the
 public site and zeros out their monthly support total (by adding a new
 $0 entry, not by touching existing history), while keeping their full
 history — reversible any time via **Unarchive**. Unarchiving only clears
-the archived flag, though: it does *not* automatically turn "Show on
+the archived flag, though: it does _not_ automatically turn "Show on
 public site" back on or add a new support entry — those are deliberate
 decisions to make again once someone's actually back, from
 [Editing a partner](#editing-a-partner). **Delete** is only available on
@@ -390,6 +400,7 @@ to proceed. When in doubt, archive.
 
 Two checkboxes on every missionary/organization control what the public
 site can see, independently of each other:
+
 - **Show on public site** (`isPublic`) — whether the partner appears on
   the public site at all. Leave it unchecked for internal-only records
   (e.g. someone your church supports but doesn't publicize).
@@ -489,7 +500,7 @@ or leave it as "None."
   flag. If you don't intend to follow up on a specific request for a
   formal answer (many situational ones), check **Not tracking this one
   for a specific answer** when adding it.
-- When a request *is* answered, click **Record Answer** on it — the date
+- When a request _is_ answered, click **Record Answer** on it — the date
   and an optional note on how it was answered (shown as a quiet "✓
   Answered" line, never a colored badge). This is the part worth keeping
   long-term: a public strategic request's answer note shows on that
@@ -561,7 +572,7 @@ each answering a different question:
     photos/videos themselves, just the link, and it's admin-only — it
     never appears on the public site.
 - The **Plan a Trip** tab answers a different question — which partner
-  to plan the *next* trip for — blending three kinds of row per
+  to plan the _next_ trip for — blending three kinds of row per
   partner so nobody falls off the list just because nothing's on the
   calendar yet: an **Open** row (already recruiting), a **Committed**
   row (team finalized, hasn't happened), or a **No trip scheduled** row
@@ -572,7 +583,7 @@ each answering a different question:
   partner gets its own badge here too, name withheld — see
   restricted-partner handling below. Starting a brand-new trip works
   from either tab now — use whichever you're already on; Plan a Trip is
-  still the better tool when you don't yet know *which* partner needs
+  still the better tool when you don't yet know _which_ partner needs
   one.
 
 ![The Plan a Trip tab](docs/assets/screenshots/trip-opportunities.png)
@@ -738,10 +749,10 @@ can't be used to check whether someone has a trip record at all.
 
 #### Wrapping up a trip
 
-When a trip is over, **Wrap up trip** (a button beside the trip's name, for admins, editors and the trip's own leaders) walks through finishing it. It is called *wrap up*, not *close*, because the status **Closed** already means applications are closed and the team is committed, which is not the trip being over.
+When a trip is over, **Wrap up trip** (a button beside the trip's name, for admins, editors and the trip's own leaders) walks through finishing it. It is called _wrap up_, not _close_, because the status **Closed** already means applications are closed and the team is committed, which is not the trip being over.
 
 1. **What happened.** Confirm the actual start and end dates. Finishing marks the trip **Completed**.
-2. **Debrief.** A short plain-text answer under each of four prompts: *What did the team do? What went well? What was hard? What does the partner need next?* Every prompt is optional.
+2. **Debrief.** A short plain-text answer under each of four prompts: _What did the team do? What went well? What was hard? What does the partner need next?_ Every prompt is optional.
 3. **Follow-up.** With the [Contact log](#contact-log) on, tick **Log a visit for this trip** to add it to the partner's contact log (topic "Trip", we reached out) with an optional follow-up date. A trip leader who has a trip grant but isn't on the partner's care team doesn't see this step, since they never reach the contact log.
 4. **Loose ends.** Links to the Requirements, Financial and Team tabs for anything still open.
 5. **Photos.** The album link, if the trip has none.
@@ -763,14 +774,14 @@ worth keeping on file long-term, or any other document — distinguished
 by a single **Kind** field rather than separate newsletter/document
 systems to choose between:
 
-| Kind | For |
-|---|---|
-| Newsletter | A ministry/prayer update — what most uploads actually are. |
-| Survey Response | A completed survey or check-in questionnaire sent back by the partner. |
-| Signed Policy | A policy acknowledgment (child protection, code of conduct, etc.) signed and returned. |
-| Email Communication | An email exchange worth keeping on file long-term. |
-| Office Document | A Word/Excel/PDF document that doesn't fit the other kinds. |
-| Other | Anything else — pick this and type your own label (e.g. "Background Check"). |
+| Kind                | For                                                                                    |
+| ------------------- | -------------------------------------------------------------------------------------- |
+| Newsletter          | A ministry/prayer update — what most uploads actually are.                             |
+| Survey Response     | A completed survey or check-in questionnaire sent back by the partner.                 |
+| Signed Policy       | A policy acknowledgment (child protection, code of conduct, etc.) signed and returned. |
+| Email Communication | An email exchange worth keeping on file long-term.                                     |
+| Office Document     | A Word/Excel/PDF document that doesn't fit the other kinds.                            |
+| Other               | Anything else — pick this and type your own label (e.g. "Background Check").           |
 
 Upload from the central **Newsletters & Docs** page (**+ Upload File**:
 pick the partner, choose a file — PDF, Word `.doc`/`.docx`, Excel `.xls`/
@@ -849,17 +860,17 @@ export as **Download CSV** (same rows and columns as the screen) or
 
 The current reports, by group:
 
-| Group | Reports |
-|---|---|
-| Money | Support summary · Support changes |
-| Partner care | Prayer requests · One-time needs · Data completeness |
-| Partners & relationships | Partner roster & tenure · Last heard from |
-| Upcoming | Families & key dates |
-| Trips | Trip fundraising · Trip readiness · Application funnel |
-| Coverage | Language coverage · Where we serve |
-| Communication | Dispatch health |
-| Contacts | Mailing list |
-| System | Users & access (admin only) |
+| Group                    | Reports                                                |
+| ------------------------ | ------------------------------------------------------ |
+| Money                    | Support summary · Support changes                      |
+| Partner care             | Prayer requests · One-time needs · Data completeness   |
+| Partners & relationships | Partner roster & tenure · Last heard from              |
+| Upcoming                 | Families & key dates                                   |
+| Trips                    | Trip fundraising · Trip readiness · Application funnel |
+| Coverage                 | Language coverage · Where we serve                     |
+| Communication            | Dispatch health                                        |
+| Contacts                 | Mailing list                                           |
+| System                   | Users & access (admin only)                            |
 
 A report tied to a feature that's turned off (see
 [ADMIN_GUIDE.md § Feature toggles](ADMIN_GUIDE.md#feature-toggles))
@@ -920,12 +931,14 @@ With **Contact log** turned on in [Enabled Features](ADMIN_GUIDE.md#feature-togg
 - **The contact card** shows who to reach first (the adult marked **Primary contact**, or an organization's named contact), how they prefer to be reached, and one-tap **Call**, **Text**, **Email** and **WhatsApp** buttons, plus when anyone last was in touch.
 
 ![A partner's Contact card, and the special communication instructions that replace the buttons when a partner isn't safe to contact](docs/assets/screenshots/contact-card-instructions.png)
+
 - **If a partner isn't safe to contact**, the buttons and numbers are replaced by the **special communication instructions** staff wrote (edit them under Status & Visibility). The printed booklet also leaves out their phone, email and preferred method.
 - **Log a contact** with **+ Log contact**: pick what happened (call, text, email, visit, card, video, prayed for them), who reached out, optional topics, the date, who made the contact (you, by default), an optional note and an optional **follow up by** date. Anyone who can see the partner can log one. Only an admin or editor can edit or delete an entry.
 
 ![The Log a contact dialog](docs/assets/screenshots/log-a-contact.png)
 
 ![A partner's Contact Log, newest first](docs/assets/screenshots/contact-log.png)
+
 - **A prayer request a care team member enters** also logs the contact, so it isn't typed twice.
 - **Church visits and newsletters filed** for the partner also appear in the Contact Log, among the entries and newest first, as read-only rows (a visit, "Newsletter filed"). They are read from their own records when you open the page, not copied, so editing or deleting a visit or newsletter updates the log at once. Only a logged contact can be edited or deleted here.
 - **Updates to pass on.** When a one-time need has been decided or a prayer answered and nobody has passed it on yet, the Contact Log shows an **Updates to pass on** box with a **Log a thank-you** (or **Log passing it on**) button. It opens **+ Log contact** already set to "We reached out" with the right topic ticked, so saving it clears the bell's "Updates to pass on to partners". You still choose how you got in touch.
@@ -940,12 +953,15 @@ With **Key-date reminders** turned on (it needs [Care teams](#care-teams)), the 
 - **On the bell and the Home page** as "Key dates coming up". Open it to find the partner. The **My partners** tab also flags a key date inside the window. A key date is raised **7 days ahead** by default; an admin can change that (1 to 60 days) under Settings → Care Teams → Timing.
 
 ![The bell, with Key dates coming up among a care team member's alerts](docs/assets/screenshots/bell-alerts.png)
+
 - **By email**, one message a day, only on a day something is due, listing everything coming up for your partners (not one email per partner). It needs Email (Sending) turned on, and it's sent at 7am church time. **You can turn the email off for yourself** under **My account → Key-date email** (a Guest on a care team can too); the alert on the bell stays either way.
 
 ![The grouped key-date email](docs/assets/screenshots/key-date-email.png)
+
 - **Who gets it:** the whole care team, lead and members. A partner with no care team goes to the **default lead** an admin picks under Settings → Care Teams; with neither, nobody hears about it. A staff default lead also sees those partners under **Partners to reach out to** (on My partners they are marked **Default lead**). A Guest default lead only gets the key-date reminders: it never widens which partners a guest can see.
 
 ![Settings → Care Teams, where an admin picks the default lead](docs/assets/screenshots/care-teams-settings.png)
+
 - **To clear a reminder**, send the card or make the call and **log it as a contact with the topic "Key date"**. That stops the reminders for that occasion, and it counts as being in touch.
 - The app never sends the card for you, and a restricted partner appears in the email by initials only. A partner who isn't safe to contact is marked in the email so a reminder to "send a card" isn't read as "call them".
 
@@ -1209,7 +1225,6 @@ several queued items packed into as few messages as fit GroupMe's
 
 ![A new newsletter dispatch, with a direct link to the letter](docs/assets/screenshots/groupme-notification-newsletter.png)
 
-
 ### WhatsApp dispatch (Admin only)
 
 Posts the same new prayer requests, one-time needs, and newsletters to
@@ -1308,7 +1323,7 @@ else a restricted partner appears, regardless of anything below.
 **Editing any item.** Every queued item has an **Edit** button — opens
 the real (unmasked) text in a small editor, for a quick wording fix
 before it goes out. Saving takes effect on that item's next send; it
-has no effect on *whether* an item is eligible to send, except for a
+has no effect on _whether_ an item is eligible to send, except for a
 held item (next).
 
 **Reviewing a restricted partner's request or need.** A restricted
@@ -1440,12 +1455,12 @@ Below are the same batch of items from the Snapshot example rendered as
 both an actual email, Classic on the left and Snapshot on the right, so
 you can see exactly what changes between the two before picking one.
 
-| Classic | Snapshot |
-| --- | --- |
+| Classic                                                                                     | Snapshot                                                                                                                                    |
+| ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | ![An example Classic-layout digest email](docs/assets/screenshots/digest-email-classic.png) | ![An example Snapshot-layout digest email, including a restricted partner's masked card](docs/assets/screenshots/digest-email-snapshot.png) |
 
 The layout choice above is shared by both audiences, but what each one
-actually *receives* isn't — a public subscriber's email only ever
+actually _receives_ isn't — a public subscriber's email only ever
 includes prayer requests, with no source link and no one-time-need
 amount, regardless of layout. See [ADMIN_GUIDE.md § Dispatch:
 GroupMe, the admin digest, and the public
@@ -1489,7 +1504,7 @@ channel's own connection setup, on its own page):
   to give them different hours.
 - **Mute Prayer Requests / One-Time Needs / Newsletters** — three
   independent checkboxes, shared by GroupMe and WhatsApp. Muting one
-  just stops *that type* from posting to either chat channel; it never
+  just stops _that type_ from posting to either chat channel; it never
   affects whether that type gets recorded at all, so the email digest
   and the restricted-partner review queue are completely unaffected by
   any of these three.
@@ -1569,7 +1584,7 @@ email arrives:
 
 **Unmatched Emails** (its own nav item, next to Partners) lists what's
 waiting: From, Subject, Received. **View raw** opens the original email.
-**Assign** (editor or admin) picks the right partner *and* what kind of
+**Assign** (editor or admin) picks the right partner _and_ what kind of
 file it actually is — Newsletter, Survey Response, Signed Policy, Email
 Communication, Office Document, or Other (with your own label) — the same
 choices as uploading any other file on a partner's own page, defaulting to
@@ -1703,6 +1718,7 @@ urgent](#marking-something-urgent).
 
 Worth understanding what visitors actually see, since it's driven
 entirely by what you check in the admin dashboard:
+
 - **Partner Directory** (`/`) — a searchable, filterable grid (same
   continent/country/type filters as the admin Partners list) of everyone
   with `isPublic` checked. Search also matches the same way (diacritic-
@@ -1711,6 +1727,7 @@ entirely by what you check in the admin dashboard:
   church/org name.
 
   ![The public partner directory, with search and photo cards](docs/assets/screenshots/public-directory.jpg)
+
 - **Map** (`/map`) — the same partners plotted on an interactive Leaflet
   map. Restricted partners show at country-level precision only, if they
   show at all — see
@@ -1719,6 +1736,7 @@ entirely by what you check in the admin dashboard:
   their pins are still clickable any time.
 
   ![The public map, with partner pins and a sidebar list](docs/assets/screenshots/public-map.jpg)
+
 - **Partner detail page** — the fuller write-up linked from both the
   directory and the map, masked the same way for restricted partners. If
   the Joshua Project stats feature is turned on (see
@@ -1731,6 +1749,7 @@ entirely by what you check in the admin dashboard:
   admin side, here for visitors.
 
   ![A public partner profile, with the per-partner "follow this partner" subscribe form and Joshua Project country statistics expanded](docs/assets/screenshots/public-partner-detail.png)
+
 - **Subscribe** (`/subscribe`) — only shown once an admin turns on
   [Public prayer digest](ADMIN_GUIDE.md#feature-toggles). A dedicated page
   for getting prayer-request updates by email: no login, just an email
@@ -1763,6 +1782,7 @@ entirely by what you check in the admin dashboard:
 The map can automatically cycle through missionary pins, flying to each
 one and opening its popup — useful for an unattended display (e.g. a
 lobby kiosk) as well as regular visitors:
+
 - **Manual**: the "Start Tour" / "Stop Tour" button in the header toggles
   it. Clicking any pin or list card stops the tour and holds on that pin.
 - **Auto-start via URL**: append `?tour=1` to the map's URL to start the

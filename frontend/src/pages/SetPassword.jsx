@@ -7,8 +7,7 @@ import { validatePasswordSetup, completePasswordSetup, requestPasswordSetupLink 
 // generic message and offers a fresh link by email (the server answers that
 // request identically whether or not an account exists). While this site can't send email it
 // says so and points to an administrator instead of promising a link that won't come.
-const GENERIC_REQUEST_MESSAGE =
-  "If that email has an account waiting to be set up, a new link is on its way.";
+const GENERIC_REQUEST_MESSAGE = "If that email has an account, a link to choose a password is on its way.";
 
 export default function SetPassword() {
   const [params] = useSearchParams();
@@ -77,10 +76,16 @@ export default function SetPassword() {
 
       {state === "form" && (
         <>
-          <h2>{info?.firstName ? `Welcome, ${info.firstName}` : "Welcome"}</h2>
+          <h2>
+            {info?.reset
+              ? "Choose a new password"
+              : info?.firstName
+                ? `Welcome, ${info.firstName}`
+                : "Welcome"}
+          </h2>
           <p style={{ color: "var(--muted)" }}>
-            Choose a password for <strong>{info?.email}</strong>. Use at least 8 characters -- a few random
-            words makes a strong, easy-to-remember password.
+            {info?.reset ? "Choose a new password" : "Choose a password"} for <strong>{info?.email}</strong>.
+            Use at least 8 characters -- a few random words makes a strong, easy-to-remember password.
           </p>
           <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
             <label>
@@ -122,9 +127,11 @@ export default function SetPassword() {
 
       {state === "done" && (
         <>
-          <h2>Password set</h2>
+          <h2>{info?.reset ? "Password changed" : "Password set"}</h2>
           <p style={{ color: "var(--muted)" }}>
-            You're all set.
+            {info?.reset
+              ? "Your password is changed, and other devices have been signed out."
+              : "You're all set."}
             {done.mfaRequired
               ? " Next, sign in -- you'll be guided through setting up two-factor authentication with an authenticator app on your phone."
               : " You can sign in now."}

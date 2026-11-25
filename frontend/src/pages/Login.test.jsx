@@ -152,3 +152,27 @@ describe("passwordless sign-in (#386 Layer 2)", () => {
     expect(screen.queryByRole("button", { name: "Sign in with a passkey" })).not.toBeInTheDocument();
   });
 });
+
+describe("Forgot your password?", () => {
+  const renderLogin = () =>
+    render(
+      <MemoryRouter>
+        <Login />
+      </MemoryRouter>
+    );
+
+  test("is offered when the site can email a link", async () => {
+    client.fetchSetupStatus.mockResolvedValue({ needed: false, passwordless: false, passwordReset: true });
+    renderLogin();
+    const link = await screen.findByRole("link", { name: "Forgot your password?" });
+    expect(link).toHaveAttribute("href", "/forgot-password");
+  });
+
+  test("is not offered when it can't (email off, a demo, or passwordless)", async () => {
+    client.fetchSetupStatus.mockResolvedValue({ needed: false, passwordless: false, passwordReset: false });
+    renderLogin();
+    await screen.findByLabelText("Password");
+    await waitFor(() => expect(client.fetchSetupStatus).toHaveBeenCalled());
+    expect(screen.queryByRole("link", { name: "Forgot your password?" })).not.toBeInTheDocument();
+  });
+});
