@@ -153,15 +153,21 @@ async function loadUpdatesToPassOn(partnerIds, now = new Date()) {
   const since = new Date(
     Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) - UPDATE_WINDOW_DAYS * 86400000
   );
+  // A church that has switched Needs or Prayer Requests off isn't told about old ones.
+  const features = await enabledFeaturesOf();
   const [needs, prayers, logs] = await Promise.all([
-    prisma.supportNeed.findMany({
-      where: { partnerId: { in: partnerIds }, approvedDate: { gte: since } },
-      select: { id: true, partnerId: true, approvedDate: true, description: true },
-    }),
-    prisma.prayerRequest.findMany({
-      where: { partnerId: { in: partnerIds }, status: "answered", dateAnswered: { gte: since } },
-      select: { id: true, partnerId: true, dateAnswered: true, requestText: true },
-    }),
+    isFeatureEnabled(features, "oneTimeNeeds")
+      ? prisma.supportNeed.findMany({
+          where: { partnerId: { in: partnerIds }, approvedDate: { gte: since } },
+          select: { id: true, partnerId: true, approvedDate: true, description: true },
+        })
+      : [],
+    isFeatureEnabled(features, "prayerRequests")
+      ? prisma.prayerRequest.findMany({
+          where: { partnerId: { in: partnerIds }, status: "answered", dateAnswered: { gte: since } },
+          select: { id: true, partnerId: true, dateAnswered: true, requestText: true },
+        })
+      : [],
     prisma.contactLog.findMany({
       where: { partnerId: { in: partnerIds }, direction: "outbound", contactDate: { gte: since } },
       select: { partnerId: true, contactDate: true, topics: true },
@@ -201,12 +207,16 @@ async function loadUpdatesToPassOn(partnerIds, now = new Date()) {
   ];
 }
 
-async function isContactLogEnabled() {
+async function enabledFeaturesOf() {
   const settings = await prisma.churchSettings.findUnique({
     where: { id: "singleton" },
     select: { enabledFeatures: true },
   });
-  return isFeatureEnabled(settings?.enabledFeatures, "contactLog");
+  return settings?.enabledFeatures;
+}
+
+async function isContactLogEnabled() {
+  return isFeatureEnabled(await enabledFeaturesOf(), "contactLog");
 }
 
 // A care team member's new prayer request is also a contact they just had.
@@ -227,5 +237,6 @@ module.exports = {
   loadUpdatesToPassOn,
   openFollowUp,
   isContactLogEnabled,
+  enabledFeaturesOf,
   logContactForPrayerRequest,
 };

@@ -18,6 +18,7 @@ import PageHeader from "../components/shared/PageHeader.jsx";
 import StatTiles from "../components/shared/StatTiles.jsx";
 import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
 import { describeSavedAnswer, choiceRowStyle, choiceInputStyle } from "../components/SurveyQuestions.jsx";
+import { useSettings } from "../context/SettingsContext.jsx";
 import { formatDate } from "../utils/format.js";
 
 const KINDS = [
@@ -58,6 +59,8 @@ export default function AdminSettingsSurveyDetail() {
   const [details, setDetails] = useState({ title: "", intro: "", closesAt: "" });
   const [recipients, setRecipients] = useState([]);
   const [fields, setFields] = useState([]);
+  const { enabledFeatures } = useSettings();
+  const emailOn = Boolean(enabledFeatures?.outboundEmail);
   const [chosen, setChosen] = useState(new Set());
   const [linkInfo, setLinkInfo] = useState(null); // { name, url, expiresAt } of the last link made
   const [search, setSearch] = useState("");
@@ -461,6 +464,14 @@ export default function AdminSettingsSurveyDetail() {
             </p>
           ) : (
             <>
+              {!emailOn && (
+                <p role="note" style={{ marginTop: 0, color: "var(--muted)" }}>
+                  Email (Sending) is off, so links can&apos;t be emailed from here. Use{" "}
+                  <strong>Get link</strong> beside a partner to copy their personal link and send it yourself
+                  (a text, WhatsApp, or your own email), or turn on Email (Sending) in Settings → Enabled
+                  Features.
+                </p>
+              )}
               <p style={{ color: "var(--muted)", marginTop: 0 }}>
                 Choose who to send a personal link to. Partners the app may not email (restricted, or marked
                 not to be contacted directly) or with no address can&apos;t be picked; fill the survey in for
@@ -579,7 +590,7 @@ export default function AdminSettingsSurveyDetail() {
                 <button
                   type="button"
                   className="btn"
-                  disabled={chosen.size === 0}
+                  disabled={!emailOn || chosen.size === 0}
                   onClick={() => send(false)}
                 >
                   Send to {chosen.size}
@@ -587,7 +598,7 @@ export default function AdminSettingsSurveyDetail() {
                 <button
                   type="button"
                   className="btn secondary"
-                  disabled={chosen.size === 0}
+                  disabled={!emailOn || chosen.size === 0}
                   onClick={() => send(true)}
                 >
                   Send as a reminder

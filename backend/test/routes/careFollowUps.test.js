@@ -407,6 +407,60 @@ describe("updates to pass on, for one partner", () => {
     assert.deepEqual(await list(), []);
   });
 
+  test("leaves out a decided need, an answered prayer and newsletters while those features are off", async () => {
+    const partner = await newPartner("updates-off");
+    await prisma.supportNeed.create({
+      data: {
+        partnerId: partner.id,
+        description: "Old need",
+        requestedAmount: 100,
+        requestDate: daysAgo(20),
+        approvedAmount: 100,
+        approvedDate: daysAgo(2),
+      },
+    });
+    await prisma.prayerRequest.create({
+      data: {
+        partnerId: partner.id,
+        category: "situational",
+        requestText: "Old prayer",
+        dateReceived: daysAgo(40),
+        status: "answered",
+        dateAnswered: daysAgo(1),
+      },
+    });
+    await prisma.partnerFile.create({
+      data: {
+        partnerId: partner.id,
+        kind: "newsletter",
+        title: "Old newsletter",
+        receivedDate: daysAgo(3),
+        fileName: "old.pdf",
+        contentType: "application/pdf",
+      },
+    });
+    const kinds = async () =>
+      (await admin(`/api/contact-log/updates?partnerId=${partner.id}`)).body.updates
+        .map((u) => u.kind)
+        .sort();
+    const sources = async () =>
+      (await admin(`/api/contact-log/timeline?partnerId=${partner.id}`)).body.events.map((e) => e.source);
+    try {
+      await setFeatures({ oneTimeNeeds: true, prayerRequests: true, partnerFiles: true });
+      assert.deepEqual(await kinds(), ["need", "prayer"]);
+      assert.deepEqual(await sources(), ["newsletter"]);
+
+      await setFeatures({ oneTimeNeeds: false });
+      assert.deepEqual(await kinds(), ["prayer"]);
+      await setFeatures({ prayerRequests: false });
+      assert.deepEqual(await kinds(), []);
+      await setFeatures({ partnerFiles: false });
+      assert.deepEqual(await sources(), []);
+    } finally {
+      await setFeatures({ oneTimeNeeds: true, prayerRequests: true, partnerFiles: true });
+    }
+  });
+
   test("is closed to someone with no reach to the partner", async () => {
     const partner = await newPartner("updates-closed");
     const outsider = await makeUser("up-outsider");

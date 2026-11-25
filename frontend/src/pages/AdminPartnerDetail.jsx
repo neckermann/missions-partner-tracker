@@ -263,14 +263,20 @@ export default function AdminPartnerDetail() {
         if (idRef.current === requestId) setP(data);
       }),
       Promise.all([
-        fetchPrayerRequests({ partnerId: id }),
-        fetchPartnerFiles({ partnerId: id }),
+        // A list is fetched only while its feature is on: a feature that is off answers 404, and
+        // one rejected request would take the whole page down as "not found".
+        enabledFeatures.prayerRequests ? fetchPrayerRequests({ partnerId: id }) : Promise.resolve([]),
+        enabledFeatures.partnerFiles ? fetchPartnerFiles({ partnerId: id }) : Promise.resolve([]),
         // Monthly support is never shown to a guest, and its route 403s for them. One-time
         // needs they do read.
-        isGuest ? Promise.resolve([]) : fetchSupportEntries({ partnerId: id }),
+        isGuest || !enabledFeatures.monthlySupport
+          ? Promise.resolve([])
+          : fetchSupportEntries({ partnerId: id }),
         // One-time needs are a care team view: a guest reaching this partner only through a
         // trip never sees them, and their route 403s.
-        isGuest && !isOnCareTeamFor(id) ? Promise.resolve([]) : fetchSupportNeeds({ partnerId: id }),
+        !enabledFeatures.oneTimeNeeds || (isGuest && !isOnCareTeamFor(id))
+          ? Promise.resolve([])
+          : fetchSupportNeeds({ partnerId: id }),
         enabledFeatures.trips ? fetchTrips({ partnerId: id }) : Promise.resolve([]),
         fetchAdults({ partnerId: id }),
         fetchChildren({ partnerId: id }),
@@ -339,8 +345,18 @@ export default function AdminPartnerDetail() {
         )
         .catch(console.error);
     }
+    // The lists reload() asks for depend on which features are on, and the settings can arrive after
+    // the first render, so a change to one of those reloads the page.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, userLoading, contactLogShown]);
+  }, [
+    id,
+    userLoading,
+    contactLogShown,
+    enabledFeatures.prayerRequests,
+    enabledFeatures.partnerFiles,
+    enabledFeatures.monthlySupport,
+    enabledFeatures.oneTimeNeeds,
+  ]);
 
   useEffect(() => {
     // Wait for the role: what to fetch depends on it (a guest skips support amounts, whose
