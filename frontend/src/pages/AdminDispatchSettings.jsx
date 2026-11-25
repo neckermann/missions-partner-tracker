@@ -4,6 +4,7 @@ import { useSettings } from "../context/SettingsContext.jsx";
 import { joinWithAnd } from "../utils/urgentSend.js";
 import SettingsPageHeader from "../components/admin/SettingsPageHeader.jsx";
 import EditableSection from "../components/admin/EditableSection.jsx";
+import StatTiles from "../components/shared/StatTiles.jsx";
 
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -110,20 +111,14 @@ export default function AdminDispatchSettings() {
             Subscribe page or a partner's own public page. Counts only, no email addresses.
           </p>
           {summary ? (
-            <div className="admin-card-grid">
-              <div className="admin-card" style={{ cursor: "default" }}>
-                <h3>{summary.adminSubscribedCount}</h3>
-                <p>Admin account(s) subscribed.</p>
-              </div>
-              <div className="admin-card" style={{ cursor: "default" }}>
-                <h3>{summary.publicConfirmedCount}</h3>
-                <p>Confirmed public subscribers.</p>
-              </div>
-              <div className="admin-card" style={{ cursor: "default" }}>
-                <h3>{summary.publicUnconfirmedCount}</h3>
-                <p>Public subscribers awaiting confirmation.</p>
-              </div>
-            </div>
+            <StatTiles
+              ariaLabel="Email subscriber counts"
+              items={[
+                { label: "Admin accounts subscribed", value: summary.adminSubscribedCount },
+                { label: "Confirmed public subscribers", value: summary.publicConfirmedCount },
+                { label: "Awaiting confirmation", value: summary.publicUnconfirmedCount },
+              ]}
+            />
           ) : (
             <p>Loading…</p>
           )}

@@ -38,6 +38,7 @@ import useCurrentUser from "../hooks/useCurrentUser.js";
 import LastUpdatedCell, { lastUpdatedSortKey } from "../components/shared/LastUpdatedCell.jsx";
 import AdminTripContributions from "./AdminTripContributions.jsx";
 import TabBar from "../components/shared/TabBar.jsx";
+import StatTiles from "../components/shared/StatTiles.jsx";
 
 // Merged (design review, post-#252) from two previously separate pages/
 // nav items -- AdminTrips.jsx ("Trips": every real Trip row, a
@@ -444,38 +445,21 @@ function ExistingTripsTab() {
         }
       />
 
-      <div className="admin-section">
-        <div style={{ display: "flex", gap: "2rem", flexWrap: "wrap" }}>
-          <div>
-            <div style={{ fontSize: "0.75rem", color: "var(--muted)", textTransform: "uppercase" }}>
-              Trips
-            </div>
-            <div style={{ fontSize: "1.3rem", fontWeight: 700 }}>
-              {filteredTrips.length}
-              {filteredTrips.length !== allTimeTripCount && (
-                <span style={{ fontSize: "0.9rem", fontWeight: 400, color: "var(--muted)" }}>
-                  {" "}
-                  of {allTimeTripCount} total
-                </span>
-              )}
-            </div>
-          </div>
-          <div>
-            <div style={{ fontSize: "0.75rem", color: "var(--muted)", textTransform: "uppercase" }}>
-              Total Participants
-            </div>
-            <div style={{ fontSize: "1.3rem", fontWeight: 700 }}>
-              {totalParticipants}
-              {totalParticipants !== allTimeParticipants && (
-                <span style={{ fontSize: "0.9rem", fontWeight: 400, color: "var(--muted)" }}>
-                  {" "}
-                  of {allTimeParticipants} total
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
+      <StatTiles
+        ariaLabel="Trip counts"
+        items={[
+          {
+            label: "Trips",
+            value: filteredTrips.length,
+            hint: filteredTrips.length !== allTimeTripCount ? `of ${allTimeTripCount} total` : null,
+          },
+          {
+            label: "Total participants",
+            value: totalParticipants,
+            hint: totalParticipants !== allTimeParticipants ? `of ${allTimeParticipants} total` : null,
+          },
+        ]}
+      />
 
       <Table
         className="admin-table"
