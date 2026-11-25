@@ -94,6 +94,7 @@ CREATE TABLE "Address" (
     "gpsLng" DOUBLE PRECISION,
     "receiveMail" BOOLEAN,
     "receivePackages" BOOLEAN,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "lastEditedById" TEXT,
     "lastEditedByName" TEXT,
     "lastEditedAt" TIMESTAMP(3),
@@ -336,6 +337,7 @@ CREATE TABLE "TripBudgetLine" (
     "tripId" TEXT NOT NULL,
     "label" TEXT NOT NULL,
     "estimatedAmount" INTEGER NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "lastEditedById" TEXT,
     "lastEditedByName" TEXT,
     "lastEditedAt" TIMESTAMP(3),
@@ -353,6 +355,7 @@ CREATE TABLE "TripFlightSegment" (
     "departureAt" TIMESTAMP(3),
     "arrivalAirport" TEXT,
     "arrivalAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "lastEditedById" TEXT,
     "lastEditedByName" TEXT,
     "lastEditedAt" TIMESTAMP(3),
@@ -503,6 +506,7 @@ CREATE TABLE "SendingParty" (
     "stateProvinceRegion" TEXT,
     "postalCode" TEXT,
     "country" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "lastEditedById" TEXT,
     "lastEditedByName" TEXT,
     "lastEditedAt" TIMESTAMP(3),
@@ -951,6 +955,7 @@ CREATE TABLE "ApplicationQuestion" (
     "required" BOOLEAN NOT NULL DEFAULT false,
     "type" TEXT NOT NULL DEFAULT 'text',
     "options" TEXT[],
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "ApplicationQuestion_pkey" PRIMARY KEY ("id")
 );
