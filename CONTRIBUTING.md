@@ -165,11 +165,21 @@ the suite.
   `npx prettier --write .` before pushing rather than finding out from
   CI. Where neither tool has an opinion, match the style of the
   surrounding file.
-- Comments should explain *why*, not *what* — the existing codebase leans
-  on this heavily (e.g. why a field is masked a certain way, why a route
-  requires one role vs. another). If you can't explain why a change works
-  the way it does in a sentence, that's worth a comment; if the code is
-  self-explanatory, skip it.
+- **Comments explain why, never history.** Keep a comment only when a
+  reader can't get the point from the code and its names: a non-obvious
+  reason, a constraint, a workaround for a real quirk, security or
+  privacy reasoning a later change could undo (why a value is masked, why
+  a check must stay), a rule that comes from outside the code (a format,
+  a database behaviour, a limit), or a warning about something that looks
+  wrong but is intentional. Don't write what the code already says, what
+  it used to be, why it changed from one approach to another, or which
+  issue prompted it: that story belongs in the commit message, the pull
+  request and the issue, where it can't go stale. Don't leave
+  commented-out code. Where a rule is already written in SPEC.md or a
+  guide, point at it in one line instead of repeating it. In
+  `schema.prisma`, comment a column when its meaning, units, allowed
+  values or privacy rule isn't clear from its name, not to repeat the
+  name.
 - Prefer extending existing patterns over introducing new ones. For
   example, a new record type that can support a missionary or an
   organization should probably follow the existing nullable dual-FK +
@@ -197,6 +207,27 @@ the suite.
   (e.g. `confirmDialog`) — the native global of the same name is exactly
   what it replaces, and shadowing it in a file that still has another use
   of the real one is an easy, silent bug.
+
+### Phone-width checklist
+
+People use this app on a phone, especially church members with a guest
+login and care team members. Before you open a pull request that adds or
+changes a page, a table, a form or a dialog, look at it at 390px wide and
+check that:
+
+- nothing scrolls sideways, and nothing is pushed past the screen edge (a
+  long unbroken URL or a wide table is the usual cause: wrap it, or put the
+  table in `.table-scroll`);
+- buttons and links are comfortable to tap, and action buttons in a table
+  don't wrap onto two lines;
+- dropdowns, popups and the notification bell open on screen;
+- the page still reads in dark mode as well as light (use theme tokens such
+  as `var(--text)`, `var(--muted)` and `var(--surface)`, never a hardcoded
+  grey or white).
+
+`frontend/e2e/mobile-layout.spec.js` walks the main admin pages at 390px
+and fails on sideways scrolling or anything off the edge; add a new page to
+it when you add one.
 
 ## Extending the data model
 
