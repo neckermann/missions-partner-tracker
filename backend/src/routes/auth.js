@@ -18,6 +18,7 @@ const { listTripGrants, isCareTeamEnabled } = require("../utils/guestAccess");
 const { passwordSchema } = require("../utils/password");
 const { recordAuditSafe } = require("../utils/auditLog");
 const { isTwoFactorRequired } = require("../utils/twoFactor");
+const { isDemoDeployment, endOtherSessions } = require("../utils/demoMode");
 const { replaceRequirementItems } = require("../utils/tripTemplates");
 const {
   isPasswordlessOn,
@@ -69,6 +70,9 @@ async function completeLogin(res, user, req) {
 // What happens once a first factor (a correct password, or a spent emailed link) has proved who is
 // signing in: a second factor to check, enrolment to finish, or the session itself.
 async function afterFirstFactor(res, user, req) {
+  // A public demo never asks for a second factor, even when a visitor has added one to a shared
+  // login: a passkey or app added there is only to try out, and must not lock anyone else out.
+  if (isDemoDeployment()) return completeLogin(res, user, req);
   if (user.mfaEnabled) {
     const passkeyCount = await prisma.userPasskey.count({ where: { userId: user.id } });
     return {
@@ -602,7 +606,7 @@ router.post("/mfa/verify-setup", requireAuthOrMfaSetup, async (req, res, next) =
         mfaEnabled: true,
         mfaSetupRequired: false,
         mfaLastTimeStep: timeStep,
-        sessionVersion: { increment: 1 },
+        ...endOtherSessions(),
       },
     });
     await recordAuditSafe(null, { action: "auth.mfa_enabled", actor: updated, req });
@@ -644,7 +648,7 @@ router.post("/mfa/disable", requireAuth, async (req, res, next) => {
       data: {
         mfaSecret: null,
         mfaEnabled: hasPasskeys,
-        sessionVersion: { increment: 1 },
+        ...endOtherSessions(),
       },
     });
     setSessionCookie(res, updated);
