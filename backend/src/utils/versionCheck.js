@@ -1,29 +1,21 @@
-// Checks this instance's running version against the latest tagged release
-// on the public upstream repo, so a church running their own fork gets a
-// heads-up in the admin dashboard instead of needing to know to check
-// GitHub for new releases themselves (see UPGRADING.md).
+// Checks the running version against the latest tagged release on the public
+// upstream repo, so a fork gets a dashboard heads-up (see UPGRADING.md).
 //
-// backend/package.json's version is the source of truth for "what's
-// running" -- not frontend/package.json, since only backend/ ships in the
-// deployed artifact (the build workflow zips backend/ after copying the
-// built frontend into backend/public; frontend/package.json itself never
-// reaches the deployed instance). Every release bumps backend/package.json
-// to the release's version number from here on, even for a frontend-only
-// change, specifically so this stays accurate.
+// backend/package.json's version is the source of truth, not frontend/package.json:
+// only backend/ ships in the deployed artifact. Every release bumps it, even for a
+// frontend-only change, so this stays accurate.
 const APP_VERSION = require("../../package.json").version;
 const UPSTREAM_REPO = "neckermann/missions-partner-tracker";
 
-// Release checks barely change day to day, and this is a public,
-// unauthenticated GitHub API call (60 req/hr per IP) -- caching avoids
-// burning through that budget on every admin dashboard load.
+// Release checks barely change and this is an unauthenticated GitHub API call
+// (60 req/hr per IP); caching avoids burning that budget on every dashboard load.
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 let cache = null; // { currentVersion, latestVersion, updateAvailable, releaseUrl, checkedAt }
 
-// SemVer, including pre-releases (0.1.0-beta.2): the pre-1.0 work ships as betas toward each
-// release (see CONTRIBUTING.md § Versioning), so the running version can be a beta of the very
-// release GitHub calls "latest". A pre-release sorts BELOW its own final release
-// (0.1.0-beta.2 < 0.1.0), and betas sort among themselves identifier by identifier, numbers
-// numerically (beta.2 < beta.10). Build metadata (+abc) is ignored, as SemVer says.
+// SemVer including pre-releases (0.1.0-beta.2): pre-1.0 work ships as betas, so
+// the running version can be a beta of the release GitHub calls "latest". A
+// pre-release sorts BELOW its final release; betas compare identifier by
+// identifier, numbers numerically (beta.2 < beta.10). Build metadata (+abc) is ignored.
 function parseVersion(v) {
   const [core, ...rest] = String(v).trim().replace(/^v/, "").replace(/\+.*$/, "").split("-");
   const numbers = core.split(".").map((n) => parseInt(n, 10) || 0);
@@ -64,10 +56,8 @@ function isNewer(latest, current) {
   return compareVersions(latest, current) > 0;
 }
 
-// Never throws -- a failed/unreachable check should just mean no banner,
-// not a broken admin dashboard. Returns the last good cached result (even
-// if stale) rather than a scary "no data" state when GitHub is briefly
-// unreachable.
+// Never throws: an unreachable check means no banner, not a broken dashboard.
+// Returns the last good cached result (even stale) when GitHub is briefly unreachable.
 async function checkForUpdate() {
   if (cache && Date.now() - cache.checkedAt < CACHE_TTL_MS) return cache;
 

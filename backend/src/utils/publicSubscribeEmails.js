@@ -1,8 +1,4 @@
-// #271 Finding: email-content-building belongs in utils/, never inline
-// in a route file -- every other notification channel in this app
-// already follows this (groupmeChannel.js, whatsappChannel.js,
-// adminEmailDispatchContent.js, publicEmailDispatchContent.js); this was
-// the one holdout, split out of routes/publicSubscribe.js.
+// Subscribe/confirm email content; email-building belongs in utils/, never inline in a route file.
 const { sendEmail } = require("./email");
 const { buildSubscriberConfirmUrl, buildSubscriberConfirmChangeUrl } = require("./emailDispatchShell");
 const { escapeHtml, PRIVACY_LINE } = require("./subscriberPage");
@@ -18,12 +14,9 @@ async function sendConfirmEmail(subscriber) {
   });
 }
 
-// #327 Finding 11 -- a change to an already-confirmed subscriber's
-// preferences is proposed, not applied, until this link is clicked (see
-// routes/publicSubscribe.js's POST / and GET /confirm). Deliberately a
-// different subject/copy than sendConfirmEmail's first-time version, so
-// an existing subscriber doesn't read this as "you weren't subscribed
-// before" -- they were; this is about a requested *change*.
+// A change to an already-confirmed subscriber's preferences is proposed, not
+// applied, until this link is clicked (routes/publicSubscribe.js POST / and GET
+// /confirm). Different copy from sendConfirmEmail so they don't read it as "you weren't subscribed".
 async function sendConfirmChangeEmail(subscriber, proposed) {
   const confirmUrl = buildSubscriberConfirmChangeUrl(subscriber.id, proposed);
   if (!confirmUrl) return; // APP_BASE_URL not set -- nothing clickable to send

@@ -1,15 +1,11 @@
-// Shared shape behind every file-upload route's multer config (see #135):
-// resolve a file's real extension from its MIME type, with an optional
-// filename-based fallback for formats a browser's own reported MIME type
-// can't be trusted for (an .eml's is often blank/application-octet-stream;
-// HEIC/HEIF has no reliable Windows MIME registration), then reject the
-// upload outright in multer's own fileFilter if neither resolves.
+// Shared shape behind every upload route's multer config: resolve a file's real
+// extension from its MIME type, with an optional filename-based fallback for
+// formats whose browser-reported MIME can't be trusted (.eml, HEIC/HEIF), then
+// reject in multer's fileFilter if neither resolves.
 const multer = require("multer");
 
-// mimeToExt: { [mimeType]: extension }. fallback (optional): a single
-// { test(fileName), ext } pair, or an array of them (tried in order) when a
-// route needs more than one unreliable-MIME-type format recognized by
-// extension -- e.g. partners.js needs both HEIC and webp.
+// mimeToExt: { [mimeType]: extension }. fallback (optional): one { test(fileName),
+// ext } pair or an array tried in order (e.g. partners.js needs HEIC and webp).
 function makeExtResolver(mimeToExt, fallback) {
   const fallbacks = !fallback ? [] : Array.isArray(fallback) ? fallback : [fallback];
   return function resolveExt(file) {
@@ -19,10 +15,8 @@ function makeExtResolver(mimeToExt, fallback) {
   };
 }
 
-// A memoryStorage multer instance that 400s via fileFilter whenever
-// resolveExt can't place the upload, with the caller's own rejection
-// message (every route accepts a different file-type set, so the message
-// is never shared, only the mechanics are).
+// A memoryStorage multer instance that 400s via fileFilter when resolveExt can't
+// place the upload, with the caller's own message (each route accepts different types).
 function uploadFilteredBy(resolveExt, { maxFileSize, message }) {
   return multer({
     storage: multer.memoryStorage(),
@@ -38,13 +32,9 @@ function uploadFilteredBy(resolveExt, { maxFileSize, message }) {
   });
 }
 
-// Shared by the admin TripDocument upload route and the public
-// self-service document-upload route (both trips.js/publicTrips.js) --
-// one allowlist and one size cap for both, so a future change to either
-// only ever happens in one place. The admin route previously had no
-// filter at all (any MIME type, any extension); the public route needs
-// one from day one since it's reachable by anyone who has a
-// participant's access-token link, not just a logged-in admin/editor.
+// Shared by the admin TripDocument upload and the public self-service upload: one
+// allowlist and one size cap. The public route is reachable by anyone with a
+// participant's access-token link, so it needs the filter.
 const TRIP_DOCUMENT_MIME_TO_EXT = {
   "image/jpeg": "jpg",
   "image/png": "png",

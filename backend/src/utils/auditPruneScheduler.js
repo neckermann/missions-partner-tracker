@@ -1,7 +1,5 @@
-// Daily prune of the audit trail (#341) -- its own cron registration in the
-// worker, same shape as keyDateReminderScheduler.js. 03:30 church-local (the
-// worker applies ChurchSettings.timezone to TZ), a quiet hour. Idempotent:
-// running it twice deletes nothing the second time.
+// Daily audit-trail prune: its own worker cron, like keyDateReminderScheduler.js.
+// 03:30 church-local. Idempotent.
 const cron = require("node-cron");
 const { pruneAuditLog } = require("./auditLog");
 

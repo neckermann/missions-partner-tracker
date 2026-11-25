@@ -1,23 +1,19 @@
-// The admin audit trail (#341): who did what, when, for the sensitive
-// actions. One append-only table (AuditLog), gated by the `auditTrail`
-// feature, kept for ChurchSettings.auditRetentionDays and then pruned.
+// The admin audit trail: who did what, when, for sensitive actions. One
+// append-only table (AuditLog), gated by the `auditTrail` feature, pruned after
+// ChurchSettings.auditRetentionDays.
 //
-// Two things this is deliberately NOT:
-//  - "Last edited by" on a record. That is a current-state fact stored on the
-//    record itself and never expires (see utils/lastEdited.js). This is the
-//    event history.
-//  - A log of routine work. A new prayer request or an edited overview is
-//    already visible through the record and its timestamps; logging it would
-//    only be noise. The list below is the line.
+// Deliberately NOT:
+//  - "Last edited by" on a record (a current-state fact that never expires; see
+//    utils/lastEdited.js). This is event history.
+//  - A log of routine work (visible through the record and its timestamps).
 //
-// Actor and target are stored as ids PLUS an email/name snapshot, with no
-// foreign keys, so the entry stays readable after either account is deleted.
-// `details` holds old/new values for context and must never hold a secret's
-// value -- note that a key changed, not what it was (see `secretChange`).
+// Actor and target are stored as ids PLUS an email/name snapshot, with no foreign
+// keys, so entries stay readable after an account is deleted. `details` holds
+// old/new values and must never hold a secret's value (see `secretChange`).
 const prisma = require("../prismaClient");
 const { isFeatureEnabled } = require("./features");
 
-// code -> { label, category }. Categories group the Audit log page's filter.
+// code -> { label, category }; categories group the Audit log page's filter.
 const AUDIT_ACTIONS = {
   "auth.login_success": { label: "Signed in", category: "Sign-in" },
   "auth.login_failed": { label: "Failed sign-in", category: "Sign-in" },
@@ -86,10 +82,8 @@ async function isAuditEnabled(now = Date.now()) {
 
 const nameOf = (u) => [u?.firstName, u?.lastName].filter(Boolean).join(" ") || null;
 
-// A person as stored on a row: id plus the email/name they had right now. A
-// session's req.user carries only id/email/role, so a person given by id with
-// no name fields is looked up -- the snapshot should say "Dana Whitfield", not
-// just an address.
+// A person as stored on a row: id plus the email/name they have now. A session's
+// req.user carries only id/email/role, so a person given by id alone is looked up.
 async function resolvePerson(db, user) {
   if (!user) return null;
   if (user.id && user.firstName === undefined && user.lastName === undefined) {

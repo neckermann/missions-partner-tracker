@@ -1,5 +1,5 @@
-// #386 Layer 2: passwordless sign-in, a church-wide switch (ChurchSettings.requirePasswordless).
-// Everything that decides "is it on", "can it be turned on", and the emailed sign-in link lives
+// Passwordless sign-in, a church-wide switch (ChurchSettings.requirePasswordless).
+// Whether it's on, whether it can be turned on, and the emailed sign-in link live
 // here; the routes are in routes/auth.js and routes/passkeys.js.
 const prisma = require("../prismaClient");
 const { isDemoDeployment } = require("./demoMode");
@@ -8,7 +8,7 @@ const { appBaseUrl } = require("./dispatchBlurbs");
 const { hashToken, generateToken } = require("./passwordSetup");
 
 const LINK_TTL_MINUTES = 15;
-// At most one emailed link per account in this window (#412).
+// At most one emailed link per account in this window.
 const LINK_COOLDOWN_MS = 60 * 1000;
 
 // Never on a public demo (shared logins, no email), whatever a leftover value says.

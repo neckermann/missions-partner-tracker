@@ -1,9 +1,6 @@
-// The one reusable template for one-off (transactional) emails: welcome
-// and account-setup mail, trip meeting invites and reminders, checklist
-// and date-change notices. Everything renders inside the same branded
-// shell as the digests (emailDispatchShell.js: church colors, logo,
-// contact footer) so every message from the app looks like it came from
-// the same church.
+// The reusable template for one-off (transactional) emails: welcome/account
+// setup, trip meeting invites and reminders, checklist and date-change notices.
+// Renders inside the same branded shell as the digests (emailDispatchShell.js).
 //
 // Usage:
 //   const { renderEmail, blocks } = require("./emailTemplate");
@@ -20,10 +17,9 @@
 //     footerNote: "Small print above the church contact block.",
 //   });
 //
-// A block is a function of the theme that returns { html, text }, so
-// every block gets the church's accent color and always has a matching
-// plain-text rendering (the text part is what screen readers and strict
-// mail clients use). Pure -- no I/O -- so it's unit-testable.
+// A block is a function of the theme returning { html, text }, so each gets the
+// church's accent color and a plain-text rendering (for screen readers and strict
+// mail clients). Pure, so unit-testable.
 const { buildTransactionalMessage, accentColorFor, escapeHtml, nl2br } = require("./emailDispatchShell");
 
 const BORDER = "#e5e5e5";
@@ -34,25 +30,21 @@ function safeUrl(url) {
 }
 
 const blocks = {
-  // Body copy. Newlines become line breaks.
   paragraph: (text) => () => ({
     html: `<p style="margin:0 0 16px;">${nl2br(text)}</p>`,
     text: String(text),
   }),
 
-  // Big section heading inside the body.
   heading: (text) => () => ({
     html: `<h3 style="margin:8px 0 10px;font-size:17px;line-height:1.3;color:#222;">${escapeHtml(text)}</h3>`,
     text: String(text).toUpperCase(),
   }),
 
-  // Small grey print.
   note: (text) => () => ({
     html: `<p style="margin:0 0 16px;font-size:13px;line-height:1.5;color:#666;">${nl2br(text)}</p>`,
     text: String(text),
   }),
 
-  // One call-to-action button in the church's accent color.
   button: (url, label) => (theme) => {
     const href = safeUrl(url);
     if (!href) return { html: "", text: "" };

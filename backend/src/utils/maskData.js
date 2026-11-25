@@ -1,9 +1,7 @@
 const { silhouetteFor } = require("./silhouette");
 const { withPhotoUrl } = require("./photoUrls");
 
-/**
- * Turns a name into initials, e.g. "Jordan Rivera" -> "J.R."
- */
+/** Turns a name into initials, e.g. "Jordan Rivera" -> "J.R." */
 function toInitials(fullName = "") {
   return fullName
     .split(/\s+/)
@@ -12,13 +10,10 @@ function toInitials(fullName = "") {
     .join("");
 }
 
-// #327 Finding 10 -- shown wherever a restricted partner's name can surface
-// outside the signed-in app: the public site/API, GroupMe/WhatsApp dispatch
-// messages, email digests, and shared report exports. Previously always
-// initials; ChurchSettings.restrictedPartnerInitialsEnabled (default true,
-// unchanged behavior unless a church turns it off) now gates that, falling
-// back to the partner's own fieldDisplayName (e.g. "Northern Uganda") if
-// set, else a fixed generic label -- never the real name either way.
+// Shown wherever a restricted partner's name can surface outside the signed-in
+// app: public site/API, GroupMe/WhatsApp dispatches, email digests, report
+// exports. Initials when ChurchSettings.restrictedPartnerInitialsEnabled (default
+// true), else the partner's fieldDisplayName, else a generic label; never the real name.
 const GENERIC_RESTRICTED_LABEL = "A restricted-access partner";
 
 function maskedDisplayName(partner, settings) {
@@ -29,20 +24,12 @@ function maskedDisplayName(partner, settings) {
   return toInitials(partner.displayName);
 }
 
-// Country-level fallback pin for restricted missionaries, keyed by the
-// country name resolved on their physical address. Covers every country
-// (source: mledoze/countries, MIT-licensed, github.com/mledoze/countries),
-// plus a handful of common-usage aliases (e.g. "Turkey" alongside the
-// official "Türkiye") for names people are likely to type differently
-// than the canonical form below.
+// Country-level fallback pin for restricted missionaries, keyed by the country
+// name on their physical address. Source: mledoze/countries (MIT), plus common
+// aliases (e.g. "Turkey" beside "Türkiye").
 //
-// `physical.country` is free text (AddressFields.jsx has no country
-// picker), so this is still an exact-string match — a restricted
-// missionary whose country was typed in some other form (a typo, a
-// different spelling, "USA" instead of "United States", etc.) won't match
-// and will get no pin at all, same failure mode as before this list was
-// filled out, just less likely to hit now that it's comprehensive rather
-// than 4 countries.
+// `physical.country` is free text (no country picker), so this is an exact-string
+// match: a typo or "USA" for "United States" gets no pin.
 const COUNTRY_CENTROIDS = {
   Afghanistan: { lat: 33, lng: 65 },
   "Åland Islands": { lat: 60.116667, lng: 19.9 },
@@ -302,11 +289,9 @@ const COUNTRY_CENTROIDS = {
   Zimbabwe: { lat: -20, lng: 30 },
 };
 
-// "single" | "couple" | "family" -- which generic silhouette a restricted
-// missionary's household gets on the public site (see toPublicPartner
-// below). Any child at all means "family" regardless of adult count,
-// since the shape itself is what communicates "this is a household with
-// kids," not a precise headcount.
+// "single" | "couple" | "family": which generic silhouette a restricted
+// missionary's household gets publicly. Any child means "family" regardless of
+// adult count, since the shape conveys "household with kids", not a headcount.
 function missionaryHouseholdCategory(m) {
   if ((m.children?.length ?? 0) > 0) return "family";
   if ((m.adults?.length ?? 0) >= 2) return "couple";
@@ -326,20 +311,12 @@ function missionaryHouseholdCategory(m) {
  *      pin only (never the precise serving-location coordinates), no
  *      contact info, no family data, generic overview.
  *
- * This was two near-identical functions (toPublicMissionary /
- * toPublicOrganization) before Missionary and Organization merged into
- * Partner. Only two differences between the kinds survive:
+ * Only the stand-in image (household silhouette vs. building icon) and the
+ * missionary-only fields (languages / sendingChurch / sendingOrg) differ by kind.
  *
- *  - The generic stand-in image (household silhouette vs. building icon).
- *  - languages / sendingChurch / sendingOrg are missionary-only.
- *
- * Name masking is deliberately the same for both. An earlier version left
- * a restricted organization's name visible, reasoning that an institution
- * isn't a person and so has no equivalent privacy claim. That was the
- * wrong call for the threat this flag actually exists for: a named
- * Christian organization in a hostile country is a fixed, physically
- * locatable target, so publishing the name while coarsening the map pin
- * gives away more than it withholds. Both kinds now get initials.
+ * Name masking is deliberately the same for organizations: a named Christian
+ * organization in a hostile country is a fixed, locatable target, so publishing
+ * the name while coarsening the pin gives away more than it withholds.
  */
 function toPublicPartner(p, settings) {
   if (!p || !p.isPublic || p.archived) return null;
@@ -353,15 +330,11 @@ function toPublicPartner(p, settings) {
     orgType: p.orgType ?? null, // organization-only; null for a missionary
     fieldDisplayName: p.fieldDisplayName,
     supportingSince: p.supportingSince,
-    // Country code (not name) for looking up Joshua Project stats, and
-    // nothing else -- deliberately not a fallback for `country` below. A
-    // partner with no address country on file shows as uncategorized on
-    // the public directory's filters rather than silently inheriting
-    // whatever FIPS code happens to still be on the record.
+    // Country code (not name) for Joshua Project stats, deliberately not a
+    // fallback for `country` below: a partner with no address country shows as
+    // uncategorized in the directory filters.
     fipsCountryCode: p.fipsCountryCode || null,
-    // Same country-level value in both branches (already considered safe to
-    // expose when restricted) — needed for the country/continent filters and
-    // search on the public directory, not just for restricted records.
+    // Same in both branches (safe when restricted); the directory's country/continent filters and search need it.
     country: physical?.country || null,
   };
 
@@ -370,28 +343,22 @@ function toPublicPartner(p, settings) {
     return {
       ...base,
       isRestricted: true,
-      // Both kinds -- see the note on name masking above.
+      // Both kinds; see the note on name masking above.
       displayName: maskedDisplayName(p, settings),
-      // #327 Finding 10 -- dropped for a restricted record. Combined with
-      // country (kept -- needed for the directory's own filters) and the
-      // masked name, "supported since 2014" narrows a small country's
-      // expat community further than it needs to.
+      // Dropped for a restricted record: with country (kept for filters) and a
+      // masked name, "supported since 2014" narrows a small expat community.
       supportingSince: null,
-      // Coarsen location to a country-level pin only — never the precise
-      // serving-location coordinates.
+      // Country-level pin only, never the precise serving-location coordinates.
       gpsLat: centroid?.lat ?? null,
       gpsLng: centroid?.lng ?? null,
       overviewShort: "Restricted-access location.",
       overview: isOrg
         ? "Partnering in a restricted-access location. Specific details are withheld for security."
         : "Serving in a restricted-access location. Specific details are withheld for security.",
-      // A generic stand-in, never the real uploaded photo — even a generic
-      // *human* photo would undercut the anonymity isRestricted exists for,
-      // so this is a plain shape icon, not a stock photo. #327 Finding 10:
-      // used to match the real household shape (single/couple/family),
-      // which is itself identifying info -- always the plain single-person
-      // shape now, regardless of actual household. Orgs still get a
-      // building icon (that was never household-shape-derived).
+      // A generic stand-in, never the real photo: even a generic human photo would
+      // undercut the anonymity isRestricted exists for. Always the plain
+      // single-person shape (a real household shape is itself identifying);
+      // organizations get a building icon.
       photo: silhouetteFor(isOrg ? "organization" : "single"),
     };
   }
@@ -406,9 +373,7 @@ function toPublicPartner(p, settings) {
     overviewShort: p.overviewShort,
     focusArea: p.focusArea,
     links: (p.links || []).map((l) => ({ type: l.type, url: l.url })),
-    // Only the current photo (see the Photo model / publicPartners.js's
-    // `take: 1` include) is ever surfaced publicly — never the upload
-    // history, and never at all for a restricted record (see above).
+    // Only the current photo (`take: 1` in publicPartners.js), never upload history, and never for a restricted record.
     photo: p.photos?.[0] ? withPhotoUrl(p.photos[0]).url : null,
     // --- Missionary-only below ---
     ...(isOrg

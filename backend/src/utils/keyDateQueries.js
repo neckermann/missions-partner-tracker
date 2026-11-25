@@ -1,6 +1,5 @@
-// #291: the database half of key-date reminders -- who a coming birthday /
-// anniversary / milestone is for, and which are still open. Shared by the bell
-// category and the daily email so the two can never disagree.
+// The database half of key-date reminders: who a coming birthday/anniversary/
+// milestone is for and which are still open. Shared by the bell and the daily email.
 //
 // Recipients: a partner's whole care team (lead + members), else the church's
 // default lead, else nobody. Everything here counts nothing while either the
@@ -24,8 +23,7 @@ async function keyDatesSettings() {
   return { enabled, defaultLeadId: settings?.defaultCareLeadUserId || null, keyDateLeadDays };
 }
 
-// Every open key date in the window, each with the people it goes to.
-// `today` is a Date (UTC day). Returns [] while the features are off.
+// Every open key date in the window, each with its recipients. `today` is a UTC-day Date. Returns [] while the features are off.
 //   item: { partnerId, partner:{...}, kind, subjectId, who, occasion, date,
 //           daysUntil, turning, recipientIds:[userId] }
 async function loadOpenKeyDates(today = new Date()) {

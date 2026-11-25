@@ -1,16 +1,8 @@
-// Generic placeholder photos, as inline SVG data URIs -- no external image
-// service at all, so there's zero risk of an inappropriate or unavailable
-// image and no extra network round-trip. Two callers share this:
-//
-// - maskData.js uses `silhouetteFor()` with the fixed NEUTRAL_ACCENT color
-//   to give restricted-access partners a real (but anonymous) public
-//   photo instead of no photo at all -- a plain shape-only icon, never a
-//   real human photo (even a generic one), keeps this consistent with
-//   the whole point of isRestricted masking.
-// - prisma/seed.js calls the individual shape builders directly with a
-//   randomly-picked color per record, purely for demo-data variety when
-//   Pexels isn't configured (a different use case, so it doesn't want
-//   the fixed neutral color `silhouetteFor` defaults to).
+// Generic placeholder photos as inline SVG data URIs: no external image service,
+// so no risk of an inappropriate or unavailable image. Two callers:
+// - maskData.js `silhouetteFor()` with the fixed NEUTRAL_ACCENT gives restricted
+//   partners an anonymous shape-only photo, never a real human photo.
+// - prisma/seed.js calls the shape builders with a random color for demo variety.
 const NEUTRAL_ACCENT = "#6b7280"; // slate-500 -- neutral enough not to clash with any church's own brand color
 
 function svgDataUri(svg) {
@@ -36,9 +28,8 @@ const BUILDERS = {
   organization: buildingSilhouette,
 };
 
-// `category` is one of BUILDERS' keys above; anything else falls back to
-// the single-person shape rather than throwing, since a masked public
-// record is exactly the wrong place for an unhandled-category crash.
+// `category` is one of BUILDERS' keys; anything else falls back to the single-person
+// shape, since a masked public record is the wrong place for a crash.
 function silhouetteMarkup(category, bg = NEUTRAL_ACCENT) {
   const build = BUILDERS[category] || personSilhouette;
   return build(bg);

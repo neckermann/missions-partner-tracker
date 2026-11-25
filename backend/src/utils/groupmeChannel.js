@@ -1,20 +1,11 @@
-// GroupMe-only: posting (Prayer Requests, One-Time Needs, and
-// Newsletters each to their own configured Topic), its own independent
-// daily-hour schedule, and its own stamping. Consolidates the old
-// groupme.js (posting/API-client logic, unchanged) and the GroupMe half
-// of notificationFlush.js (the other half -- the now-retired email
-// mechanism and the cross-channel clearing step -- went to
-// dispatchOrchestrator.js instead) into one file matching its name.
+// GroupMe-only posting (Prayer Requests, One-Time Needs, Newsletters, each to its
+// configured Topic), its own daily-hour schedule and stamping.
 //
-// Posts as the admin's own GroupMe identity via the Messages API
-// (X-Access-Token + POST /groups/:id/messages), not a bot -- the Bots
-// API has no awareness of Topics at all, and Topics are the whole point
-// here. Undocumented in GroupMe's public API reference but real and
-// confirmed working: each Topic ("a group chat inside your group chat,"
-// per GroupMe's own user-facing docs) is internally a "subgroup" with
-// its own id (GET /groups/:groupId/subgroups), and the ordinary
-// messages endpoint posts into it when pointed at that id instead of
-// the parent group's.
+// Posts as the admin's own GroupMe identity via the Messages API (X-Access-Token
+// + POST /groups/:id/messages), not a bot: the Bots API doesn't know Topics. A
+// Topic is internally a "subgroup" with its own id (GET /groups/:groupId/subgroups;
+// undocumented but confirmed), and the ordinary messages endpoint posts into it
+// when given that id.
 const crypto = require("crypto");
 const prisma = require("../prismaClient");
 const { decryptField } = require("./crypto");
@@ -25,17 +16,13 @@ const { shouldFlushDailyChatChannel } = require("./chatSchedule");
 const { packMessages } = require("./messagePacking");
 
 const BASE_URL = "https://api.groupme.com/v3";
-// GroupMe rejects message text over 1,000 characters outright --
-// packMessages (below) guarantees every message it hands to postMessage
-// is already under this, splitting a single over-long blurb across
-// several messages rather than truncating it (#244 was this exact bug:
-// a blurb over 1,000 chars got silently cut to 999 chars + "…", dropping
-// the rest of the text, yet the row was still stamped sent).
+// GroupMe rejects text over 1,000 characters. packMessages (below) guarantees
+// every message is under this by splitting an over-long blurb across messages;
+// truncating dropped text while the row was still stamped sent (#244).
 const MAX_MESSAGE_LENGTH = 1000;
 
-// Every GroupMe response is wrapped in { response, meta } -- success has
-// response populated and no meta.errors; failure has response: null and
-// meta.code/meta.errors. See https://dev.groupme.com/docs/v3.
+// Every GroupMe response is { response, meta }: success has response populated and
+// no meta.errors; failure has response: null and meta.code/meta.errors. See https://dev.groupme.com/docs/v3.
 async function groupmeRequest(accessToken, method, path, body) {
   const res = await fetch(`${BASE_URL}${path}`, {
     method,
@@ -50,8 +37,7 @@ async function groupmeRequest(accessToken, method, path, body) {
   return payload?.response ?? null;
 }
 
-// Lists the groups the token's own account belongs to, for the admin's
-// "pick a group" dropdown.
+// Lists the groups the token's account belongs to, for the "pick a group" dropdown.
 async function listGroups(accessToken) {
   const groups = await groupmeRequest(accessToken, "GET", "/groups?per_page=100");
   return (groups || []).map((g) => ({ id: String(g.id), name: g.name }));
@@ -63,12 +49,9 @@ async function listTopics(accessToken, groupId) {
   return (topics || []).map((t) => ({ id: String(t.id), name: t.topic || t.name || "(untitled topic)" }));
 }
 
-// Throws rather than silently truncating -- packMessages (messagePacking.js)
-// already guarantees every message it produces is under MAX_MESSAGE_LENGTH,
-// so this firing loudly would mean that guarantee broke, not that this
-// function should paper over it by cutting text again (the exact failure
-// mode #244 was -- a truncation here silently dropping text that packMessages
-// should already have split out).
+// Throws rather than truncating: packMessages already guarantees messages are
+// under MAX_MESSAGE_LENGTH, so firing means that guarantee broke, and cutting
+// text here would hide it (the #244 failure).
 async function postMessage(accessToken, targetId, text) {
   if (text.length > MAX_MESSAGE_LENGTH) {
     throw new Error(`postMessage received ${text.length} chars, over the ${MAX_MESSAGE_LENGTH} limit`);
@@ -78,13 +61,10 @@ async function postMessage(accessToken, targetId, text) {
   });
 }
 
-// Takes already-eligible DispatchRecord rows (the caller already
-// filtered through isEligibleForChannel), builds each row's blurb, and
-// posts to each type's own configured Topic (falling back to the main
-// group if that topic isn't set), packed to minimize message count.
-// Returns the Set of row ids that actually posted successfully -- one
-// Topic failing (a bad GroupMe token, a deleted Topic) must not block
-// rows headed to a different Topic from stamping groupmeDispatchedAt.
+// Takes already-eligible DispatchRecord rows, builds each blurb and posts to its
+// type's Topic (falling back to the main group), packed to minimize messages.
+// Returns the Set of row ids that posted; one Topic failing (bad token, deleted
+// Topic) must not stop other rows stamping groupmeDispatchedAt.
 async function postToGroupMe(eligibleRows, partnerById, settings) {
   const sentIds = new Set();
   if (!settings?.groupmeAccessToken) return sentIds;
@@ -93,13 +73,10 @@ async function postToGroupMe(eligibleRows, partnerById, settings) {
   try {
     accessToken = decryptField(settings.groupmeAccessToken);
   } catch (err) {
-    // A corrupted/undecryptable stored token (e.g. FIELD_ENCRYPTION_KEY
-    // rotated since this was saved) must never take down the whole pass
-    // -- every row just stays queued for GroupMe (retried next pass).
+    // An undecryptable stored token (e.g. FIELD_ENCRYPTION_KEY rotated) must not
+    // take down the pass; rows stay queued for the next one.
     console.error("GroupMe post failed to decrypt the stored access token:", err);
-    // See the in-app notifications plan's "Dispatch send failures" --
-    // every row that would have gone to GroupMe this pass gets the
-    // failure recorded, not just logged, so it's visible after the fact.
+    // Record the failure for every row bound for GroupMe (the "Dispatch send failures" notification), not just log it.
     await prisma.dispatchRecord.updateMany({
       where: { id: { in: eligibleRows.map((r) => r.id) } },
       data: { groupmeError: `Could not decrypt stored GroupMe token: ${err.message}` },
@@ -121,11 +98,9 @@ async function postToGroupMe(eligibleRows, partnerById, settings) {
     const targetId = settings[topicKey] || settings.groupmeGroupId;
     if (!targetId) continue; // nothing configured to send to -- stays queued
 
-    // failedParts tracks a split blurb's own id once one of its pieces
-    // fails -- every later piece of that same blurb is then skipped
-    // (message.partOf matches it) rather than posting an out-of-order
-    // fragment, leaving the whole blurb queued for the next pass instead
-    // of stamping it sent on a partial delivery (#244).
+    // failedParts holds a split blurb's id once a piece fails: later pieces
+    // (message.partOf) are skipped rather than posted out of order, leaving the
+    // whole blurb queued instead of stamped sent on partial delivery (#244).
     const failedParts = new Set();
     for (const message of packMessages(topicBlurbs, MAX_MESSAGE_LENGTH)) {
       if (message.partOf && failedParts.has(message.partOf)) continue;
@@ -133,9 +108,7 @@ async function postToGroupMe(eligibleRows, partnerById, settings) {
         await postMessage(accessToken, targetId, message.text);
         message.completes.forEach((id) => sentIds.add(id));
       } catch (err) {
-        // One message's failure must never stop the rest of the pass --
-        // those rows just stay queued for the next one. Recorded, not
-        // just logged -- see the decrypt-failure branch above.
+        // One message's failure must not stop the pass; its rows stay queued. Recorded, not just logged.
         console.error("GroupMe post failed:", err);
         await prisma.dispatchRecord.updateMany({
           where: { id: { in: message.completes } },
@@ -149,26 +122,16 @@ async function postToGroupMe(eligibleRows, partnerById, settings) {
   return sentIds;
 }
 
-// Weekly/biweekly/monthly's own minimum-gap constants live in
-// emailDispatchScheduler.js now (GroupMe no longer shares any of those tiers);
-// this is GroupMe's own, much simpler daily check, shared with
-// WhatsApp's identical one via chatSchedule.js -- see
-// test/groupmeChannel.test.js. GroupMe never actually had its own
-// schedule before this (see schema.prisma's own comment on
-// chatDispatchHour) -- a single daily batch hour, not a tier pick,
-// fits a chat-style channel better than any weekly/monthly tier would
-// have.
+// GroupMe's daily-hour check, shared with WhatsApp via chatSchedule.js (see
+// test/groupmeChannel.test.js). A single daily batch hour suits a chat channel
+// better than a weekly/monthly tier.
 function shouldFlushGroupMe(settings, now) {
   return shouldFlushDailyChatChannel(settings, now, "lastGroupmeChatDispatchSentAt");
 }
 
-// GroupMe's own schedule check + pass -- no awareness of the
-// cross-channel clearing step that must run after it; that lives in
-// emailDispatchScheduler.js instead (registers this as its own independent
-// cron alongside the email tiers' tick), so this file and
-// dispatchOrchestrator.js stay a one-way dependency. A no-op if the
-// feature's off or the hour/dedupe gate doesn't pass. Returns nothing
-// -- callers read back what was stamped via the usual query.
+// Schedule check + pass; no-op if the feature is off or the hour/dedupe gate
+// fails. The cross-channel clearing step lives in emailDispatchScheduler.js,
+// keeping this and dispatchOrchestrator.js a one-way dependency. Returns nothing.
 async function runGroupMePass(settings, now) {
   if (!isFeatureEnabled(settings?.enabledFeatures, "groupme")) return;
   if (!shouldFlushGroupMe(settings, now)) return;

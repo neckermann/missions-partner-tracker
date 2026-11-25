@@ -1,10 +1,6 @@
-// The raw, server-rendered HTML page shown after clicking a confirm or
-// unsubscribe link from a scoped-digest email (#202) -- same pattern
-// routes/auth.js's existing GET /unsubscribe already uses for User
-// recipients, shared here since publicSubscribe.js (confirm) and
-// publicUnsubscribe.js (unsubscribe) both need the identical branded
-// shell. A link clicked from an email, not an API call, so it's a page,
-// not JSON.
+// The server-rendered HTML page shown after clicking a confirm or unsubscribe link
+// in a digest email (a page, not JSON, since it's a click from email). Shared by
+// publicSubscribe.js and publicUnsubscribe.js; same pattern as routes/auth.js's GET /unsubscribe.
 const prisma = require("../prismaClient");
 const { appBaseUrl } = require("./dispatchBlurbs");
 
@@ -18,16 +14,11 @@ function escapeHtml(str) {
   );
 }
 
-// footerLine defaults to the subscriber-digest privacy line (both
-// existing callers -- confirm/unsubscribe -- rely on that default and
-// pass nothing); a caller rendering a different kind of click-from-
-// email confirmation (e.g. the meeting-RSVP page) passes its own line,
-// or "" to omit the footer paragraph entirely rather than show a
-// privacy sentence about digest emails that doesn't apply to it.
+// footerLine defaults to the subscriber-digest privacy line; another click-from-email
+// page (e.g. the meeting-RSVP page) passes its own, or "" to omit the footer.
 //
-// `message` is a plain string, or a (highlightColor) => string function
-// for a caller that needs the real brand color inline (#327 Finding 6's
-// confirm buttons) without a second settings query of their own.
+// `message` is a plain string, or a (highlightColor) => string function for a
+// caller that needs the brand color inline without a second settings query.
 async function renderSubscriberPage(message, footerLine = PRIVACY_LINE, title = "Prayer updates") {
   const settings = await prisma.churchSettings.findUnique({
     where: { id: "singleton" },

@@ -1,22 +1,13 @@
-// Canonical registry of gate-able optional features -- the single source of
-// truth for which `enabledFeatures` keys are valid (see the ChurchSettings
-// model comment in schema.prisma). The label and description travel to the
-// frontend with the settings payload (routes/settings.js), so the Features
-// page renders whatever is written here -- there is no second copy to keep
-// in sync. Adding a feature is adding an entry here.
+// Canonical registry of gate-able optional features: the single source of truth
+// for valid `enabledFeatures` keys (see ChurchSettings in schema.prisma). The
+// label and description travel to the frontend with the settings payload, so
+// adding a feature is adding an entry here.
 //
-// `group` is "public" for a toggle a logged-out visitor can actually
-// notice (a public page appearing/disappearing -- "/", "/map", or the Trip
-// Opportunities page) and "admin" for everything else, which only ever
-// changes what a logged-in admin sees in their own nav -- drives the
-// Public site/Admin features split in pages/AdminSettingsFeatures.jsx.
-// Order within "admin" mirrors the nav's
-// own grouping (AdminSidebar.jsx/AdminHome.jsx): core content features
-// first, then Communications (send and/or receive), then Integrations
-// (pull data in / process content, never communicate with anyone) --
-// `section` ("communications" | "integrations" | omitted for core) is
-// what further splits the Admin features list into those same three
-// visual blocks on that page, so it reads the same way the nav does.
+// `group` is "public" for a toggle a logged-out visitor can notice ("/", "/map",
+// or Trip Opportunities) and "admin" otherwise; it drives the split in
+// pages/AdminSettingsFeatures.jsx. Admin order mirrors the nav: core content,
+// then Communications, then Integrations; `section` ("communications" |
+// "integrations" | omitted for core) splits the list into those blocks.
 const FEATURES = {
   publicDirectory: {
     label: "Public directory",
@@ -59,12 +50,9 @@ const FEATURES = {
     defaultEnabled: true,
     group: "admin",
   },
-  // Covers the whole recruiting/team/support-raising feature area --
-  // baseline CRUD, applications/review, meetings, documents,
-  // contributions. defaultEnabled flipped from true to false (#252):
-  // this flag now also gates a public application form, a public
-  // support-raising page, and outbound email, not just an admin-only page,
-  // so "on by default" stopped making sense.
+  // The whole recruiting/team/support-raising area. Off by default because it
+  // also gates a public application form, a public support-raising page and
+  // outbound email.
   trips: {
     label: "Mission trips",
     description:
@@ -72,12 +60,9 @@ const FEATURES = {
     defaultEnabled: false,
     group: "admin",
   },
-  // Broad public discoverability only -- the discovery listing page and
-  // the plain, id-addressed application route for an isPublic trip.
-  // Nested under trips. Deliberately separate from trips itself (same
-  // "backend capability" vs. "public exposure" split publicDirectory
-  // already draws for the directory/map) so a church can run trips
-  // entirely by private link with zero public footprint.
+  // Public discoverability only: the discovery listing and the id-addressed
+  // application route for an isPublic trip. Separate from trips (like
+  // publicDirectory) so a church can run trips by private link with no public footprint.
   publicTripDiscovery: {
     label: "Public trip discovery",
     description:
@@ -98,15 +83,9 @@ const FEATURES = {
     defaultEnabled: true,
     group: "admin",
   },
-  // Outbound sending capability (see #71) and its matching inbound half
-  // (see #72) -- two independent flags on purpose, not one: a church may
-  // want only one direction. They share a single settings page
-  // (Settings -> Email) since it's one Postmark account, but
-  // each flag gates its own routes independently (the send-test route
-  // checks "outboundEmail" only; the inbound webhook/review-queue routes
-  // check "inboundEmail" only) -- enabling one never requires or unlocks
-  // the other. Off by default, same "off until it does something"
-  // reasoning as every other integration here.
+  // Outbound sending and its inbound half are independent flags: a church may want
+  // one direction. They share the Settings -> Email page (one Postmark account) but
+  // each gates its own routes. Off by default.
   outboundEmail: {
     label: "Email (Sending)",
     description:
@@ -138,10 +117,7 @@ const FEATURES = {
     group: "admin",
     section: "communications",
   },
-  // Listed last -- unlike the three toggles above (each independently
-  // useful on its own), this one builds on top of outboundEmail (and
-  // publicDirectory, elsewhere), so it reads better after the thing it
-  // depends on rather than sandwiched in the middle of the Email pair.
+  // Listed last because it builds on outboundEmail.
   publicPrayerDigest: {
     label: "Public prayer digest",
     description:
@@ -150,14 +126,10 @@ const FEATURES = {
     group: "admin",
     section: "communications",
   },
-  // #289: a lead plus members per partner, who keep in touch with it.
-  // Terms ("Care team", "Lead", "Member", "Guest") are plain fixed
-  // defaults, not ChurchSettings fields, in v1. Off by default: nothing
-  // changes for a church that doesn't turn it on (one office contact, no
-  // care teams).
-  // #288: a log of every touchpoint with a partner, a contact card on the
-  // partner page, an "My partners" view and a "needs reaching out" alert.
-  // Off by default so nothing changes for a church that doesn't want it.
+  // A lead plus members per partner who keep in touch with it. Terms are fixed
+  // defaults, not ChurchSettings fields. Off by default.
+  // A log of every touchpoint with a partner, a contact card, a "My partners" view
+  // and a "needs reaching out" alert. Off by default.
   contactLog: {
     label: "Contact log",
     description:
@@ -165,10 +137,8 @@ const FEATURES = {
     defaultEnabled: false,
     group: "admin",
   },
-  // #291: a bell alert and one grouped daily email for the people on a
-  // partner's care team when a birthday, anniversary or supported-since
-  // milestone is coming up. Needs care teams (that is where the recipients
-  // come from); the email also needs email sending.
+  // A bell alert and grouped daily email for a care team when a birthday,
+  // anniversary or supported-since milestone is coming. Needs care teams; the email needs email sending.
   keyDates: {
     label: "Key-date reminders",
     description:
@@ -183,9 +153,8 @@ const FEATURES = {
     defaultEnabled: false,
     group: "admin",
   },
-  // #374: a menu of the ways the church and a partner's care team can support the partner,
-  // owned by the church (edited in Settings, never code), and each partner's choices from
-  // it. Needs Care teams (the care team is who records and reads it). Off by default.
+  // A church-owned menu of ways to support a partner (edited in Settings, never
+  // code) and each partner's choices from it. Needs Care teams. Off by default.
   supportPreferences: {
     label: "Support preferences",
     description:
@@ -208,12 +177,8 @@ const FEATURES = {
     group: "admin",
     section: "integrations",
   },
-  // One switch for the integration as a whole -- *where* it then shows
-  // (public partner pages, admin partner pages, or both) is a plain
-  // setting on the Joshua Project settings page itself, not a
-  // second/third feature-registry entry, since it's display placement
-  // rather than something with its own nav/page to hide. Off by default
-  // until an API key is configured, same reasoning as groupme.
+  // One switch for the whole integration; where it shows (public, admin, or both)
+  // is a setting on the Joshua Project page, not another entry. Off by default until an API key is configured.
   joshuaProject: {
     label: "Joshua Project stats",
     description:
@@ -226,10 +191,9 @@ const FEATURES = {
 
 const FEATURE_KEYS = Object.keys(FEATURES);
 
-// A key with no explicit entry in enabledFeatures falls back to its
-// registry default -- so existing deployments upgrading onto this column
-// (which defaults to `{}`) keep every current feature turned on, and a
-// brand-new feature like aiExtraction stays off until deliberately enabled.
+// A key with no entry in enabledFeatures falls back to its registry default:
+// existing deployments keep current features on, and a new feature like
+// aiExtraction stays off until enabled.
 function isFeatureEnabled(enabledFeatures, key) {
   const feature = FEATURES[key];
   if (!feature) return false;
@@ -238,11 +202,8 @@ function isFeatureEnabled(enabledFeatures, key) {
   return on;
 }
 
-// The public missionary/organization data routes back both the directory
-// and map pages (same underlying list -- see PublicDirectory.jsx and
-// PublicMap.jsx), and the partner-detail page is linked from either one --
-// so that data stays reachable as long as at least one of the two is on,
-// only 404ing once a church has turned off both.
+// The public data routes back both the directory and map (and the detail page
+// links from either), so they stay reachable while at least one is on.
 function isAnyFeatureEnabled(enabledFeatures, keys) {
   return keys.some((key) => isFeatureEnabled(enabledFeatures, key));
 }

@@ -1,18 +1,15 @@
-// "Last updated" for a master record (a partner, a trip), as a person reads it:
-// the latest change to the record OR to any section shown on its page (a
-// partner's family, addresses, links, visits, support; a trip's team, meetings,
-// requirements, documents, money). The stamp itself (lastEditedBy*/At, written by
-// the Prisma extension in prismaClient.js) lives on each row, so editing a
-// family member stamps that row, not the partner -- this reads across them.
+// "Last updated" for a master record (partner, trip) as a person reads it: the
+// latest change to the record OR any section on its page (family, addresses, links,
+// visits, support; team, meetings, requirements, documents, money). The stamp
+// (lastEditedBy*/At, written by the Prisma extension in prismaClient.js) lives on
+// each row, so this reads across them.
 //
-// Done at read time rather than by also stamping the parent on every child write:
-// a second write from the extension would run outside the request's transaction
-// and could block on the parent row that transaction already holds. One UNION
-// query over a fixed list of tables (never user input) instead.
+// Done at read time, not by also stamping the parent on every child write: that
+// second write would run outside the request's transaction and could block on the
+// parent row it holds. One UNION query over a fixed table list (never user input).
 //
-// Deletes are not seen (a deleted row has nothing left to read). Notes, prayer
-// requests, needs, newsletters and contact-log entries have their own pages and
-// are not folded into the partner's date.
+// Deletes are not seen. Notes, prayer requests, needs, newsletters and contact-log
+// entries have their own pages and aren't folded into the date.
 const prisma = require("../prismaClient");
 
 const direct = (table, fk) => ({

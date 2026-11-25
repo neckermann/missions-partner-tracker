@@ -1,7 +1,6 @@
-// #365: the two timings the care features share, now church settings instead of fixed numbers:
-// how many days ahead a key date is raised, and how many days without a logged contact make a
-// partner "quiet". One read here, so the bell, the daily email, the My partners tab and the
-// report can never use different numbers. Defaults are the old fixed values.
+// The two timings the care features share, as church settings: days ahead a key
+// date is raised, and days without a logged contact that make a partner "quiet".
+// One read here so the bell, daily email, My partners tab and report agree.
 const prisma = require("../prismaClient");
 const { KEY_DATE_LEAD_DAYS } = require("./keyDates");
 const { CONTACT_STALE_DAYS } = require("./contactLog");

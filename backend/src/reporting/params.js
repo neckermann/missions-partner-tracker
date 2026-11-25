@@ -1,6 +1,5 @@
-// Small zod building blocks shared by every report's parameters, so a date
-// or a checkbox means the same thing and fails the same way everywhere.
-// An empty string from a form field is treated as "not provided."
+// Small zod building blocks shared by every report's parameters, so a date or a
+// checkbox means the same everywhere. An empty form string means "not provided."
 const { z } = require("zod");
 
 const blankToUndefined = (v) => (v === "" || v === null ? undefined : v);
@@ -31,18 +30,16 @@ const oneOf = (values, defaultValue) => z.preprocess(blankToUndefined, z.enum(va
 const positiveInt = (defaultValue, max = 3650) =>
   z.preprocess(blankToUndefined, z.coerce.number().int().min(1).max(max).default(defaultValue));
 
-// Date -> "YYYY-MM-DD" (or null). Report rows carry calendar days as plain
-// strings so JSON, CSV and the table all agree and nothing shifts with a
-// timezone.
+// Date -> "YYYY-MM-DD" (or null). Report rows carry calendar days as strings so
+// JSON, CSV and the table agree and nothing shifts with a timezone.
 function ymd(value) {
   if (!value) return null;
   return new Date(value).toISOString().slice(0, 10);
 }
 
-// "Sending church" scope for any report about partners (or their records): "all",
-// "__ours__" (sent by our church), or a church name. Options for the filter come
-// from GET /api/partners/sending-churches, so the field is flagged to be filled in
-// by the page rather than listed here.
+// "Sending church" scope for partner reports: "all", "__ours__" (sent by our
+// church), or a church name. Options come from GET /api/partners/sending-churches,
+// so the page fills the field in rather than listing them here.
 const sendingChurchParam = z.preprocess(blankToUndefined, z.string().optional());
 const sendingChurchField = {
   name: "sendingChurch",

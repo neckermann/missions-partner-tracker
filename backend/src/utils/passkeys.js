@@ -1,5 +1,5 @@
-// #386: the pieces of passkey (WebAuthn) support that aren't routes. The relying-party identity,
-// and the short-lived signed "challenge token" that stands in for server-side challenge storage.
+// Passkey (WebAuthn) pieces that aren't routes: the relying-party identity and the
+// short-lived signed "challenge token" that stands in for server-side challenge storage.
 const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
 
@@ -16,8 +16,8 @@ function relyingParty(req) {
   } catch {
     url = null;
   }
-  // In production the site's own address must be configured: the relying-party id is the identity a
-  // passkey is bound to, so it can't be taken from a request header (#412).
+  // In production the site's address must be configured: the relying-party id is
+  // what a passkey is bound to, so it can't come from a request header.
   if (!url && process.env.NODE_ENV === "production") {
     const err = new Error("APP_BASE_URL isn't set, so passkeys can't be used on this site");
     err.status = 500;
@@ -32,10 +32,10 @@ function relyingParty(req) {
   return { rpID, origins, rpName: process.env.MFA_ISSUER || "Missions Partner Tracker" };
 }
 
-// The challenge travels to the browser and back inside a signed token, so nothing about it is
-// stored up front. `purpose` keeps a registration challenge from being spent as a sign-in one. A
-// token is accepted once: its id is recorded (SpentPasskeyChallenge) until it would have expired
-// anyway, in the database so "once" survives a restart and holds across instances (#412).
+// The challenge travels to the browser and back in a signed token, so nothing is
+// stored up front. `purpose` keeps a registration challenge from being spent as a
+// sign-in one. A token is accepted once: its id is recorded (SpentPasskeyChallenge)
+// until it would have expired, in the database so "once" survives restarts and holds across instances.
 
 function signChallenge({ challenge, purpose, userId }) {
   return jwt.sign(

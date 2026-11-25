@@ -5,60 +5,35 @@ const crypto = require("crypto");
 const { Prisma } = require("@prisma/client");
 const { APP_VERSION } = require("./versionCheck");
 
-// #271 Finding 8: this list used to be 19 hand-maintained names while the
-// schema grew to 44 real models -- the other 25 (the entire Trip
-// sub-resource tree, DispatchRecord, SavedReport/ReportSchedule,
-// PasswordSetupToken, the public-subscriber tables, ...) were silently
-// skipped by every backup/restore, with no error. A model can no longer
-// fall off the *list* that way: MODELS_COMPLETE_ASSERTION below compares
-// this file's own MODELS against every model prisma/schema.prisma
-// actually declares (via Prisma.dmmf, read fresh at require time) and
-// throws loudly if they've drifted, before this module is even usable.
+// MODELS_COMPLETE_ASSERTION below compares this list against every model in
+// prisma/schema.prisma (via Prisma.dmmf, read at require time) and throws if
+// they drift, so a model can't be silently skipped by backup/restore.
 //
-// This can't derive MODELS itself from the DMMF, though -- only the *set*
-// of models, not the FK-safe *order* restoreRows needs to insert them in.
-// Prisma 7's runtime DMMF is deliberately trimmed for bundle size: each
-// field here is just { name, kind, type, relationName } -- no
-// relationFromFields/relationToFields/isRequired, so there's no reliable
-// way to tell "A has a column that points at B" apart from "B has a
-// column that points at A" from this object alone. Guessing a direction
-// from relationName's own "AToB" text would be exactly the kind of
-// fragile, undocumented-internal-format assumption worth avoiding, so the
-// order below stays hand-maintained, verified by hand against
-// schema.prisma (see the comments inline), and backed by the completeness
-// assertion so at least *membership* can never drift unnoticed again.
+// MODELS can't be derived from the DMMF: Prisma 7's runtime DMMF is trimmed
+// (no relationFromFields/isRequired), so the FK-safe order restoreRows needs
+// can't be determined from it. The order stays hand-maintained.
 //
 // FK-safe order: parents before children, since restore (scripts/restore-
-// backup.js) inserts in this same order and a child row references its
-// parent's id.
+// backup.js) inserts in this same order.
 //
-// WhatsAppAuthEntry is the one model deliberately excluded (see
-// EXCLUDED_MODELS below), not just left off by omission -- it's live
-// credential material tied to one running socket, and a restored copy
-// would be stale at best -- or, restored onto a second instance, fight the
-// real session and get it logged out. After a restore the admin re-pairs
-// (the app notices the missing session and clears the "paired" state on
-// its own -- see whatsappClient.js).
+// WhatsAppAuthEntry is deliberately excluded (see EXCLUDED_MODELS): it is live
+// credential material for one socket, and a restored copy would fight the real
+// session and get it logged out. After a restore the admin re-pairs.
 //
 // A *Bytes table (partnerFileBytes, photoBytes, churchSettingsLogo,
-// tripParticipantPhoto, tripDocumentBytes, inboundEmailBytes) always sits
-// immediately after its own parent model -- same FK-safe reasoning, one
-// level down: its id doubles as its FK into that parent, which must
-// already exist by the time restoreRows gets to it.
+// tripParticipantPhoto, tripDocumentBytes, inboundEmailBytes) sits immediately
+// after its parent: its id doubles as its FK into that parent.
 const MODELS = [
   "partner",
 
-  // The whole Trip sub-resource tree -- grouped here, right after
-  // partner (trip.partnerId is nullable but still a real FK when set),
-  // rather than interleaved with partner's other direct children below.
-  // tripApplication before tripParticipant: a participant created via
-  // application approval carries applicationId pointing at its own
-  // application row, which must already exist.
+  // The Trip sub-resource tree, right after partner (trip.partnerId is nullable
+  // but a real FK when set). tripApplication precedes tripParticipant because an
+  // approved participant carries applicationId.
   "trip",
   "tripApplication",
-  "applicationQuestion", // -> trip (#394)
-  "tripApplicationAnswer", // -> tripApplication, applicationQuestion (#394)
-  "requirementTemplateItem", // (#394)
+  "applicationQuestion", // -> trip
+  "tripApplicationAnswer", // -> tripApplication, applicationQuestion
+  "requirementTemplateItem",
   "tripParticipant",
   "tripParticipantPhoto",
   "tripMeeting",
@@ -71,8 +46,7 @@ const MODELS = [
   "tripBudgetLine",
   "tripFlightSegment",
 
-  // Partner's other direct children -- no FKs into each other, so their
-  // relative order among themselves doesn't matter.
+  // Partner's other direct children: no FKs into each other, so order among them is free.
   "adult",
   "child",
   "address",
@@ -83,10 +57,8 @@ const MODELS = [
   "partnerLanguage",
   "tripType",
 
-  // partnerFile sits *before* supportNeed/prayerRequest, not after --
-  // those two have a non-deferrable FK into it (sourceFileId), so it must
-  // already exist by the time a request/need referencing one is inserted
-  // inside this same transaction (see restoreRows below).
+  // partnerFile precedes supportNeed/prayerRequest: they have a non-deferrable
+  // FK into it (sourceFileId) inside the same restore transaction.
   "partnerFile",
   "partnerFileBytes",
   "supportEntry",
@@ -95,7 +67,7 @@ const MODELS = [
   "photo",
   "photoBytes",
 
-  // Standalone -- no FK into partner or anything else above.
+  // Standalone: no FK into partner or anything above.
   "inboundEmail",
   "inboundEmailBytes",
   "inboundEmailFailure",
@@ -106,47 +78,39 @@ const MODELS = [
   "churchSettingsLogo",
 
   "user",
-  "tripAccess", // -> user, trip (#356)
-  "userPasskey", // -> user (#386)
-  "careTeamMember", // -> partner, user (#289)
-  "contactLog", // -> partner, user (#288)
-  "keyDateReminder", // -> partner, user (#291)
-  "supportOption", // standalone: the church's menu (#374)
-  "partnerSupportPreference", // -> partner, supportOption (#374)
-  "auditLog", // standalone: ids and snapshots, no FKs (#341)
+  "tripAccess", // -> user, trip
+  "userPasskey", // -> user
+  "careTeamMember", // -> partner, user
+  "contactLog", // -> partner, user
+  "keyDateReminder", // -> partner, user
+  "supportOption", // standalone: the church's menu
+  "partnerSupportPreference", // -> partner, supportOption
+  "auditLog", // standalone: ids and snapshots, no FKs
   "savedReport", // savedReport.ownerId -> user
   "reportSchedule", // reportSchedule.savedReportId -> savedReport
   "passwordSetupToken", // -> user
-  "signInLinkToken", // -> user (#386)
+  "signInLinkToken", // -> user
   "notificationSeen", // -> user
   "userFollowedPartner", // -> user, partner
   "publicSubscriber",
   "publicSubscriberPartner", // -> publicSubscriber, partner
 ];
 
-// Models that exist in the schema but must never be backed up or
-// restored -- see each one's own comment for why. Anything NOT in this
-// set must appear in MODELS above, or MODELS_COMPLETE_ASSERTION below
-// throws at require time.
+// Models that must never be backed up or restored. Anything NOT in this set
+// must appear in MODELS, or MODELS_COMPLETE_ASSERTION throws at require time.
 const EXCLUDED_MODELS = new Set([
-  // Live WhatsApp (Baileys) session/credential state tied to one running
-  // socket -- see schema.prisma's own comment on this model, and MODELS'
-  // comment above.
+  // Live WhatsApp (Baileys) session/credential state tied to one running socket.
   "WhatsAppAuthEntry",
-  // Used passkey challenges (#412): seconds-lived security state, deleted as it expires.
+  // Used passkey challenges: seconds-lived security state, deleted as it expires.
   "SpentPasskeyChallenge",
 ]);
 
-// Prisma's generated client exposes each model under the camelCase of
-// its schema name (e.g. "TripMeeting" -> prisma.tripMeeting) -- verified
-// directly against this repo's actual @prisma/client output, not assumed.
+// Prisma exposes each model under the camelCase of its schema name (TripMeeting -> prisma.tripMeeting).
 function clientAccessorName(modelName) {
   return modelName.charAt(0).toLowerCase() + modelName.slice(1);
 }
 
-// The authoritative "what models exist right now" list, read straight off
-// prisma/schema.prisma via Prisma.dmmf -- not re-derived by hand, so it
-// can never itself be the thing that's out of date.
+// Every model in prisma/schema.prisma, read via Prisma.dmmf rather than by hand.
 const SCHEMA_MODEL_NAMES = new Set(
   Prisma.dmmf.datamodel.models
     .map((m) => m.name)
@@ -154,12 +118,8 @@ const SCHEMA_MODEL_NAMES = new Set(
     .map(clientAccessorName)
 );
 
-// Runs once, at require time -- fails the moment this module is loaded
-// (backend boot, a test file, scripts/restore-backup.js) rather than
-// partway through an actual backup/restore. This is the guard against a
-// repeat of #271 Finding 8: add model #46 to schema.prisma without
-// touching this file, and every build/boot that requires backup.js now
-// throws instead of the new table just silently never getting backed up.
+// Runs at require time so a model added to schema.prisma without updating this
+// file fails at boot/test/restore instead of silently never being backed up.
 (function assertModelsComplete() {
   const missing = [...SCHEMA_MODEL_NAMES].filter((n) => !MODELS.includes(n));
   const stale = MODELS.filter((n) => !SCHEMA_MODEL_NAMES.has(n));
@@ -174,21 +134,14 @@ const SCHEMA_MODEL_NAMES = new Set(
   }
 })();
 
-// Prisma returns a Node Buffer for every `Bytes` column -- JSON.stringify
-// on a Buffer produces a bulky {type:"Buffer",data:[...]} array of byte
-// values (roughly 4x the original size), so these are base64-encoded
-// explicitly instead (roughly 1.33x) and decoded back to a Buffer on
-// restore.
-// #274's hardening follow-up moved each of these onto its own one-to-one
-// table (see schema.prisma) -- the bytes field names stayed the same,
-// just keyed by the new table's model name instead of its parent's.
+// Prisma returns a Node Buffer for every `Bytes` column. JSON.stringify would
+// bloat it ~4x ({type:"Buffer",data:[...]}), so these are base64-encoded
+// (~1.33x) and decoded on restore. Each lives on its own one-to-one table, keyed by that model name.
 const BYTES_FIELDS = {
   partnerFileBytes: ["bytes"],
   photoBytes: ["bytes"],
   churchSettingsLogo: ["logoBytes"],
-  // #271 Finding 8: these three were among the models missing from
-  // MODELS entirely, so their Bytes columns were never a concern before
-  // either -- same base64 encode/decode treatment as the three above.
+  // Same base64 treatment as the three above.
   tripParticipantPhoto: ["photo"],
   tripDocumentBytes: ["bytes", "signatureImage"],
   inboundEmailBytes: ["bytes"],
@@ -199,12 +152,9 @@ function encodeBytesFields(model, row) {
   if (!fields) return row;
   const copy = { ...row };
   for (const field of fields) {
-    // Prisma 7's driver-adapter client returns a plain Uint8Array for a
-    // Bytes column, not a Node Buffer -- Buffer.isBuffer() on one of those
-    // is false, which silently skipped this encoding and let a raw
-    // Uint8Array through to JSON.stringify (producing a bulky
-    // {"0":70,"1":114,...} object with no way back to binary). Buffer is
-    // itself a Uint8Array subclass, so this check covers both.
+    // Prisma 7's driver-adapter client returns a plain Uint8Array for Bytes, not
+    // a Buffer, so Buffer.isBuffer() would skip encoding. Buffer subclasses
+    // Uint8Array, so this covers both.
     if (copy[field] instanceof Uint8Array) copy[field] = Buffer.from(copy[field]).toString("base64");
   }
   return copy;
@@ -220,12 +170,9 @@ function decodeBytesFields(model, row) {
   return copy;
 }
 
-// The migration folder Prisma most recently created, read straight off
-// disk rather than queried from the live DB's _prisma_migrations table --
-// this reflects the *code's* migration state at backup time, which is
-// what restore needs to compare against (the code it's running at restore
-// time), not whatever the source database happened to already have
-// applied when the backup was taken.
+// The newest migration folder, read from disk rather than the live
+// _prisma_migrations table: restore must compare against the code's migration
+// state, not whatever the source database had applied.
 function latestMigrationName() {
   const dir = path.join(__dirname, "..", "..", "prisma", "migrations");
   const entries = fs
@@ -236,12 +183,9 @@ function latestMigrationName() {
   return entries[entries.length - 1] || null;
 }
 
-// Builds the full backup as a gzipped buffer: one manifest line (app
-// version, migration name, timestamp, per-model row counts, a sha256
-// checksum of every line that follows) followed by one JSON line per row,
-// each tagged with which model it belongs to. Export order doesn't
-// strictly need to be FK-safe the way restore does, but using the same
-// order keeps the file easy to reason about either direction.
+// Builds the full backup as a gzipped buffer: one manifest line (app version,
+// migration name, timestamp, per-model row counts, sha256 of every following
+// line), then one JSON line per row tagged with its model. Uses the restore order.
 async function buildBackup(prisma) {
   const rowCounts = {};
   const dataLines = [];
@@ -272,10 +216,8 @@ async function buildBackup(prisma) {
   return { buffer, manifest };
 }
 
-// Parses a (decompressed) backup file's text content back into its
-// manifest and per-model rows, verifying the checksum before returning
-// anything -- a corrupted or hand-edited file should fail loudly here,
-// not partway through a restore with some rows already written.
+// Parses decompressed backup text into manifest and per-model rows, verifying
+// the checksum first so a corrupt or edited file fails before any row is written.
 function parseBackup(text) {
   const lines = text.split("\n").filter(Boolean);
   if (!lines.length) throw new Error("Empty backup file");
@@ -299,10 +241,8 @@ function parseBackup(text) {
   return { manifest, rowsByModel };
 }
 
-// Inserts every row from a parsed backup (parseBackup's rowsByModel) in
-// FK-safe order, inside a single transaction -- shared by scripts/restore-
-// backup.js and its own test, rather than duplicating the insert loop or
-// having the test shell out to the CLI script.
+// Inserts every parsed row in FK-safe order inside one transaction; shared by
+// scripts/restore-backup.js and its test.
 async function restoreRows(prisma, rowsByModel, { timeout = 10 * 60 * 1000 } = {}) {
   const counts = {};
   await prisma.$transaction(

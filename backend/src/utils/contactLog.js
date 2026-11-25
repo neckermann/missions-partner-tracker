@@ -1,8 +1,7 @@
-// #288: the contact log's fixed vocabularies and the few pure rules around
-// them. Fixed lists in code, stored as plain validated Strings (SPEC §3: no
-// native enums, a fork can add a value without a migration) -- deliberately
-// not a ChurchSettings list. The API serves them (GET /api/contact-log/
-// options) so the frontend never keeps its own copy to drift.
+// The contact log's fixed vocabularies and the few pure rules around them. Fixed
+// lists in code, stored as validated Strings (SPEC §3: no native enums, so a fork
+// can add a value without a migration), not a ChurchSettings list. The API serves
+// them (GET /api/contact-log/options) so the frontend keeps no copy.
 
 const CONTACT_TYPES = [
   { value: "call", label: "Phone call" },
@@ -28,21 +27,18 @@ const TOPICS = [
   { value: "update", label: "Ministry update" },
   { value: "trip", label: "Trip" },
   { value: "furlough", label: "Furlough / visit" },
-  // #291: logging a card/call for an upcoming birthday or anniversary with
-  // this topic is what clears that key-date reminder.
+  // Logging a card/call for an upcoming birthday or anniversary with this topic clears that key-date reminder.
   { value: "keydate", label: "Key date" },
 ];
 
 const values = (list) => list.map((x) => x.value);
 
-// A partner nobody has been in touch with for this long is "quiet". One
-// number for the report's default, the "My partners" tab and the
-// notification, so they can't disagree about who is overdue.
+// A partner nobody has contacted for this long is "quiet": one number for the
+// report, the "My partners" tab and the notification so they agree.
 const CONTACT_STALE_DAYS = 90;
 
-// The log entry a care team member's new prayer request makes for them:
-// hearing a request from the partner is a contact, and typing it in shouldn't
-// mean typing it twice. Marked with the request's id so the link can be shown.
+// The log entry a care team member's new prayer request makes for them: hearing a
+// request is a contact. Marked with the request's id so the link can be shown.
 function autoLogForPrayerRequest(request, userId, { answered = false } = {}) {
   return {
     partnerId: request.partnerId,

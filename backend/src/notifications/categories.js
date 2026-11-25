@@ -1,34 +1,17 @@
-// The in-app notification registry -- one declared list of categories
-// instead of a growing pile of ad hoc frontend checks (the old
-// useNeedsAttention() hook's problem: it could only answer "what does this
-// page already have fetched," not a real cross-trip/cross-partner count).
-// Each category is computed live against real DB state here, backend-side,
-// on every call -- cheap at this app's scale, no caching needed.
+// The in-app notification registry: one declared list of categories, each
+// computed live against DB state on every call (cheap at this scale, no caching).
 //
-// Two different count semantics exist, both intentional, not a bug:
+// Two intentional count semantics:
+// 1. SHARED (most categories): an objective query over unresolved data, the
+//    same for every viewer; `resolve()` ignores `userId`. The summary route
+//    does the seen-comparison: new = latest > the user's NotificationSeen.seenAt
+//    for the category, or everything if no row exists.
+// 2. PER-USER ("New Prayer Requests"/"New One-Time Needs"/"Time to check your
+//    backups"): nothing is ever "unresolved", so these read NotificationSeen
+//    inside resolve(). The backups one is inverted: due when enough time has passed.
 //
-// 1. SHARED count (most categories): an objective, live query against
-//    unresolved real data -- how many dispatches actually still need
-//    approval, how many emails are actually still unmatched. Identical for
-//    every viewer regardless of who's asking; drops the moment anyone
-//    resolves the underlying item. `resolve()` ignores `userId` for these.
-//
-// 2. PER-USER count ("New Prayer Requests"/"New One-Time Needs"/"Time to
-//    check your backups"): there's no "unresolved" state to query --
-//    a prayer request doesn't get resolved, it just exists. The only
-//    meaningful count here is "how many (or whether) this specific user
-//    hasn't seen yet," so these categories read NotificationSeen
-//    themselves inside resolve() rather than leaving the seen-comparison
-//    to the caller. "Time to check your backups" is further inverted: due
-//    for a nudge when enough time has passed, not when new data arrived.
-//
-// For every other (shared) category, the caller (the summary route) does
-// the seen-comparison itself: new = latest > (that user's NotificationSeen
-// row for this category).seenAt, or everything is new if no row exists yet.
-//
-// `scopeTripIds` is null for every full role (no filter) and a guest's
-// granted trip ids otherwise (#356) -- only the `tripScoped` categories
-// below read it; every other category ignores it.
+// `scopeTripIds` is null for full roles and a guest's granted trip ids otherwise;
+// only the `tripScoped` categories read it.
 
 const prisma = require("../prismaClient");
 const { needsReview } = require("../utils/dispatchEligibility");
@@ -61,11 +44,10 @@ async function getSeenAt(userId, category) {
   return row?.seenAt ?? null;
 }
 
-// #288: partners on this login's care team that nobody has been in touch with
-// for the church's quiet threshold (default 90 days), or whose follow-up date has come. Counted live from
-// the same read model as the My partners tab, so the two always agree.
-// Counts nothing while either feature is off. `latest` is when the most
-// recent partner became overdue, so the bell only lights up for NEW ones.
+// Partners on this login's care team nobody has contacted within the church's
+// quiet threshold (default 90 days), or whose follow-up date has come. Same read
+// model as the My partners tab. Counts nothing while either feature is off.
+// `latest` is when the most recent partner became overdue, so the bell lights up only for NEW ones.
 async function partnersNeedingContact({ userId }) {
   if (!userId || !(await isContactLogEnabled()) || !(await isCareTeamEnabled())) {
     return { count: 0, latest: null };
@@ -78,12 +60,11 @@ async function partnersNeedingContact({ userId }) {
   return { count: due.length, latest, linkTo: "/admin/partners?assigned=1" };
 }
 
-// #291: birthdays, anniversaries and supported-since milestones coming up for
-// the partners this login looks after (its care team seats, or -- for a
-// partner with no team -- the church's default lead). Live, from the same
-// read model as the daily email; one logged "key date" contact clears an item.
-// Counts nothing while keyDates or careTeam is off. `latest` is when the most
-// recent item became due, so the bell only lights up for NEW ones.
+// Upcoming birthdays, anniversaries and supported-since milestones for the
+// partners this login looks after (care team seats, or the church's default
+// lead for a partner with no team). Same read model as the daily email; one
+// logged "key date" contact clears an item. Counts nothing while keyDates or
+// careTeam is off. `latest` is when the most recent item became due.
 async function keyDatesComing({ userId }) {
   if (!userId) return { count: 0, latest: null };
   const items = await loadOpenKeyDatesFor(userId);
@@ -101,8 +82,6 @@ async function keyDatesComing({ userId }) {
     linkTo: partnerIds.length === 1 ? `/admin/partners/${partnerIds[0]}` : "/admin/partners?assigned=1",
   };
 }
-
-// --- All-roles categories --------------------------------------------
 
 async function dispatchesNeedingApproval() {
   const rows = await prisma.dispatchRecord.findMany({ orderBy: { createdAt: "asc" } });
@@ -142,17 +121,13 @@ async function tripsDepartingSoon(_opts, scopeTripIds) {
     },
     select: { id: true, startDate: true },
   });
-  // A generic "/admin/trips" is a dead end for finding which trip --
-  // link straight to it whenever exactly one trip is responsible; only
-  // fall back to the list when several are (AdminTrips.jsx's own list
-  // then needs a per-row indicator, which it has -- see annotateTripFlags
-  // in trips.js).
+  // Link straight to the trip when exactly one is responsible; otherwise the list.
   const linkTo = rows.length === 1 ? `/admin/trips/${rows[0].id}` : undefined;
   return { count: rows.length, latest: latestOf(rows, (r) => r.startDate), linkTo };
 }
 
-// #358: a trip whose end date has passed and that hasn't been wrapped up (marked completed). For a
-// trip leader it is their own trip (scopeTripIds); linked straight to the trip when there is one.
+// A trip whose end date has passed and isn't marked completed. For a trip leader
+// it is their own trip (scopeTripIds); linked to the trip when there is one.
 async function tripsReadyToWrapUp(_opts, scopeTripIds) {
   const now = new Date();
   const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
@@ -168,9 +143,9 @@ async function tripsReadyToWrapUp(_opts, scopeTripIds) {
   return { count: rows.length, latest: latestOf(rows, (r) => r.endDate), linkTo };
 }
 
-// #358: a trip wrapped up in the last two weeks, for the partner's care team: the debrief is the
-// most useful thing to read before the next contact. Counts nothing while trips or care teams are
-// off, and only the partners this login holds a seat on.
+// A trip wrapped up in the last two weeks, for the partner's care team (the
+// debrief is useful before the next contact). Counts nothing while trips or care
+// teams are off, and only partners this login holds a seat on.
 const WRAPPED_UP_WINDOW_DAYS = 14;
 async function tripsWrappedUp({ userId }) {
   if (!userId || !(await isCareTeamEnabled())) return { count: 0, latest: null };
@@ -193,11 +168,9 @@ async function tripsWrappedUp({ userId }) {
   return { count: rows.length, latest: latestOf(rows, (r) => r.wrappedUpAt), linkTo };
 }
 
-// A requirement is fulfilled the same way tripReminderScheduler.js already
-// decides it, not a separate reinvented rule: a "task"-kind row is
-// fulfilled by its own TripRequirementStatus.completedAt; "document"/
-// "esignature" kinds are fulfilled by a matching TripDocument existing at
-// all (completedAt stays permanently null for those kinds by design).
+// Fulfilled the same way tripReminderScheduler.js decides it: a "task" row by its
+// TripRequirementStatus.completedAt; "document"/"esignature" by any matching
+// TripDocument (completedAt stays null for those kinds by design).
 function isRequirementFulfilledForParticipant(requirement, participantId, documents) {
   if (requirement.kind === "task") {
     const status = requirement.requirementStatuses.find((s) => s.participantId === participantId);
@@ -265,10 +238,8 @@ async function tripApplicationsPending(_opts, scopeTripIds) {
   return { count: rows.length, latest: latestOf(rows, (r) => r.createdAt), linkTo };
 }
 
-// Per-user count: "how many of these has this teammate not looked at yet,"
-// not "how many exist" -- see this file's own header comment.
-// `partnerIds`: null for every full role (all partners); a guest's care team
-// partners otherwise (#292) -- an empty list counts nothing.
+// Per-user count: how many this teammate hasn't looked at yet (see header).
+// `partnerIds`: null for full roles; a guest's care team partners otherwise. Empty counts nothing.
 async function newRowsSince(model, userId, category, partnerIds = null) {
   const seenAt = await getSeenAt(userId, category);
   const rows = await prisma[model].findMany({
@@ -289,19 +260,15 @@ async function newOneTimeNeeds({ userId }, _scopeTripIds, scopePartnerIds) {
   return newRowsSince("supportNeed", userId, "newOneTimeNeeds", scopePartnerIds);
 }
 
-// #292: what the church decided or heard that a care team member should pass on
-// to the partner -- the app never contacts a partner itself, a person does.
-// Two kinds, both in the last UPDATE_WINDOW_DAYS on a partner this login has a
-// care team seat on:
-//   - a one-time need that was DECIDED (approvedDate): the outcome and the
-//     decision note come back to the team to relay;
-//   - a prayer request that was ANSWERED: a thank-you or encouragement back.
+// What the church decided or heard that a care team member should pass on (the
+// app never contacts a partner itself). Within UPDATE_WINDOW_DAYS, on a partner
+// this login has a seat on:
+//   - a one-time need that was DECIDED (approvedDate): relay the outcome and note;
+//   - a prayer request that was ANSWERED: send thanks or encouragement.
 // An item is done once someone logs an OUTBOUND contact for that partner on or
-// after it -- topic "need" for a decision, "encouragement" or "prayer" for an
-// answer. (The automatic log a care team member's own answered-prayer entry
-// makes is inbound -- the partner told us -- so it doesn't clear its own
-// prompt.) Live, so it needs the contact log to be able to clear; counts
-// nothing while contactLog or careTeam is off.
+// after it (topic "need" for a decision, "encouragement" or "prayer" for an
+// answer). A care team member's own answered-prayer entry is inbound, so it
+// doesn't clear its own prompt. Counts nothing while contactLog or careTeam is off.
 async function updatesToPassOn({ userId }) {
   if (!userId || !(await isContactLogEnabled()) || !(await isCareTeamEnabled())) {
     return { count: 0, latest: null };
@@ -323,8 +290,6 @@ async function updatesToPassOn({ userId }) {
   };
 }
 
-// --- Admin-only categories ---------------------------------------------
-
 async function adminMfaDisabled() {
   const rows = await prisma.user.findMany({
     where: { role: "admin", active: true, mfaEnabled: false },
@@ -333,11 +298,9 @@ async function adminMfaDisabled() {
   return { count: rows.length, latest: latestOf(rows, (r) => r.createdAt) };
 }
 
-// Inverted semantics, deliberately: "due for a nudge" (time elapsed),
-// not "something changed." Reuses BackupReminder.jsx's own detection
-// (provider + backupReminderDisabled), migrated off that component's old
-// per-browser localStorage snooze onto this same per-user NotificationSeen
-// table, so it isn't lost across devices.
+// Inverted semantics: due when time has elapsed, not when something changed.
+// Reuses BackupReminder.jsx's detection (provider + backupReminderDisabled), with
+// the snooze stored per user in NotificationSeen so it follows them across devices.
 async function timeToCheckBackups({ userId }) {
   const settings = await prisma.churchSettings.findUnique({
     where: { id: "singleton" },
@@ -368,12 +331,9 @@ async function whatsappConnectionDrop() {
   return { count: dropped ? 1 : 0, latest: dropped ? settings.whatsappDisconnectedAt : null };
 }
 
-// `tripScoped: true` marks the only 4 categories that make sense for a
-// guest (role: "guest") -- a scoped login with no visibility into anything
-// outside the trips it was granted. Every other category either isn't
-// trip-shaped at all (dispatches, emails, prayer requests, admin/system
-// health) or spans every trip at once with no per-trip filter -- none of
-// that belongs in a guest's own notification list.
+// `tripScoped: true` marks the only categories meaningful for a guest (a scoped
+// login with no visibility outside its granted trips); the rest aren't
+// trip-shaped or span every trip.
 const CATEGORIES = [
   {
     key: "dispatchesNeedingApproval",
@@ -413,8 +373,7 @@ const CATEGORIES = [
     adminOnly: false,
     perUser: false,
     tripScoped: false,
-    // A care team member's own partners -- the one non-trip category a guest
-    // sees (a trip leader has no seats, so the count is always zero for them).
+    // A care team member's own partners: the one non-trip category a guest sees (zero for a trip leader).
     guestVisible: true,
     resolve: partnersNeedingContact,
   },
@@ -499,7 +458,7 @@ const CATEGORIES = [
     adminOnly: false,
     perUser: true,
     tripScoped: false,
-    // A care team guest sees the ones on their own partners (#292).
+    // A care team guest sees the ones on their own partners.
     guestVisible: true,
     resolve: newPrayerRequests,
   },
@@ -567,8 +526,7 @@ const CATEGORIES = [
   },
 ];
 
-// Resolves every category this role may see, with per-user seen-state
-// already applied -- the one function the route calls.
+// Resolves every category this role may see with per-user seen-state applied; the one function the route calls.
 async function resolveNotificationSummary({ userId, role, scopeTripIds = null, scopePartnerIds = null }) {
   const visible = CATEGORIES.filter((c) => {
     if (c.adminOnly) return role === "admin";
@@ -580,8 +538,7 @@ async function resolveNotificationSummary({ userId, role, scopeTripIds = null, s
       const { count, latest, linkTo } = await c.resolve({ userId }, scopeTripIds, scopePartnerIds);
       let isNew;
       if (c.perUser) {
-        // The count itself is already "new since this user looked" --
-        // see this file's header comment.
+        // The count is already "new since this user looked".
         isNew = count > 0;
       } else {
         const seenAt = await getSeenAt(userId, c.key);
@@ -602,22 +559,13 @@ async function markCategorySeen(userId, category) {
   });
 }
 
-// For keys outside the bell's own CATEGORIES registry -- the Prayer
-// Requests/One-Time Needs list pages' own "new since your last visit to
-// this list" row highlighting (":listView" keys, prayerRequests.js/
-// supportNeeds.js) reuses this same table under a distinct key so it
-// doesn't collide with the bell's own "newPrayerRequests"/
-// "newOneTimeNeeds" row. Both rows actually need advancing on a list
-// visit now -- the list route calls touchSeen() for its own ":listView"
-// key *and* markCategorySeen() for the bell's plain key, since arriving
-// here via the sidebar nav badge (not the bell dropdown) is a real path
-// and the badge needs to clear either way. They stay two separate rows
-// because they answer different questions (which rows are new to show
-// vs. is there anything new at all), not because only one of them
-// updates on a visit. Never fed a client-supplied category string
-// (markCategorySeen above is what the client-facing /seen route uses,
-// and its CATEGORIES check is what keeps that one safe) -- only ever
-// called with a key the route file itself hardcodes.
+// For keys outside the bell's CATEGORIES: the Prayer Requests/One-Time Needs
+// list pages' ":listView" keys (new-row highlighting) share this table under a
+// distinct key. A list visit advances both rows (touchSeen for ":listView",
+// markCategorySeen for the bell key) since the sidebar badge must clear too;
+// they stay separate because they answer different questions. Only ever called
+// with a key the route file hardcodes, never a client-supplied string
+// (markCategorySeen's CATEGORIES check keeps the client-facing /seen route safe).
 async function touchSeen(userId, category) {
   if (!userId) return;
   await prisma.notificationSeen.upsert({

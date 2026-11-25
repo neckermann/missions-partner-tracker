@@ -1,53 +1,35 @@
-// The one place that touches the WhatsApp (Baileys) socket. Everything
-// else -- whatsappChannel.js (scheduled posting), routes/settings.js
-// (pairing and the pickers) -- goes through the small API exported at the
-// bottom, so nothing outside this file ever calls sock.sendMessage
-// directly (which would bypass the anti-ban wrapper below).
+// The only module that touches the WhatsApp (Baileys) socket; everything else
+// uses the API exported at the bottom, so nothing bypasses the anti-ban wrapper.
 //
-// This is an UNOFFICIAL connection: Baileys speaks the WhatsApp Web
-// protocol as a linked device of a dedicated phone number. WhatsApp can
-// ban such numbers, which is why (a) the admin guide insists on a
-// dedicated number, never anyone's personal one, and (b) every send goes
-// through baileys-antiban's wrapSocket -- rate limits, jittered delays,
-// duplicate blocking, and a health monitor that refuses sends when the
-// ban risk climbs. Our volume (a handful of messages a day) is far below
-// even its most conservative caps, so in normal use the wrapper just adds
-// human-like spacing.
+// This is an UNOFFICIAL linked-device connection and WhatsApp can ban such
+// numbers: use a dedicated number (see the admin guide), and every send goes
+// through baileys-antiban's wrapSocket (rate limits, jitter, duplicate
+// blocking, health monitor).
 //
-// Runs inside the web service's own process (no extra Render service).
-// Exactly one process may hold the WhatsApp session -- two sockets on one
-// session fight each other and get it logged out -- and Render briefly
-// runs the old and new instance side by side during every deploy. So the
-// session is only opened by the process holding a Postgres advisory lock
-// on a dedicated, long-lived connection; the other keeps retrying until
-// the old instance exits (SIGTERM -> shutdown() below -> lock released).
+// Exactly one process may hold the session (two sockets on one session log it
+// out) and deploys briefly overlap old and new instances, so the session is
+// opened only by the process holding a Postgres advisory lock on a dedicated
+// connection; the other retries until the old instance releases it on SIGTERM.
 //
-// `baileys` is an ES module and this backend is CommonJS, hence the
-// dynamic import(). All state is module-level because there is exactly one
-// WhatsApp session per instance (ChurchSettings is a singleton).
+// `baileys` is ESM and this backend is CommonJS, hence dynamic import(). State
+// is module-level: one WhatsApp session per instance (ChurchSettings is a singleton).
 const QRCode = require("qrcode");
 const { Client } = require("pg");
 const prisma = require("../prismaClient");
 const { parseDatabaseUrl } = require("./databaseUrl");
 const { useDbAuthState, clearAuthState } = require("./whatsappAuthState");
 
-// Arbitrary but fixed: every instance of this app must use the same
-// number so they contend for the same lock.
+// Fixed: every instance must use the same number to contend for the same lock.
 const ADVISORY_LOCK_KEY = "7204117101";
 const LOCK_RETRY_MS = 15 * 1000;
 const PAIRING_TIMEOUT_MS = 3 * 60 * 1000; // abandoned pairing screens stop generating QRs
 const MAX_RECONNECT_DELAY_MS = 60 * 1000;
-// A connect() right after a deploy can briefly read "no registered
-// session" even though one genuinely exists -- Render runs the old and
-// new instance side by side, and the old one may not have released the
-// DB lock (and its socket) yet. Treating that as "really gone" on the
-// very first read would wipe a perfectly good session over a one-tick
-// race. Only the Nth consecutive unregistered read in a row -- with a
-// real reconnect wait between each -- is trusted as genuine.
+// Right after a deploy a read can briefly show "no registered session" while the
+// old instance still holds the lock; only the Nth consecutive unregistered read
+// (with a reconnect wait between) is trusted as genuinely gone.
 const UNREGISTERED_WIPE_THRESHOLD = 3;
 
-// Replaceable seam for tests -- production uses the real Baileys, the real
-// advisory lock, and real timers.
+// Seam for tests; production uses real Baileys, lock and timers.
 const deps = {
   loadBaileys: () => import("baileys"),
   loadAntiban: () => require("baileys-antiban"),
@@ -64,31 +46,24 @@ const runtime = {
   wantConnected: false,
   connecting: false,
   qrDataUrl: null,
-  // True only while an admin has actively started a pairing from the UI.
-  // A connect() with no registered session and this unset means the
-  // session is gone (e.g. settings restored from a backup onto a fresh
-  // database -- the session table is deliberately never backed up).
+  // True only while an admin has started a pairing from the UI. A connect() with
+  // no registered session and this unset means the session is gone (e.g. settings
+  // restored from a backup; the session table is never backed up).
   pairingRequested: false,
   lastError: null,
-  // Bumped at the start of every real connect() attempt (see below).
-  // handleLoggedOut() captures this before its own awaits and checks it
-  // again after -- if a new connect()/pairing has started in the
-  // meantime, this cleanup is for a session that's already superseded,
-  // and must not wipe what the new attempt just wrote.
+  // Bumped on every real connect() attempt. handleLoggedOut() checks it again
+  // after its awaits so a stale cleanup can't wipe what a newer attempt wrote.
   generation: 0,
   attempts: 0,
-  // Consecutive connect() attempts in a row that found no registered
-  // session -- see UNREGISTERED_WIPE_THRESHOLD above. Reset to 0 the
-  // moment a connection actually opens or a pairing is requested.
+  // Consecutive connect() attempts that found no registered session; see UNREGISTERED_WIPE_THRESHOLD.
   unregisteredStreak: 0,
   reconnectTimer: null,
   pairingTimer: null,
   lockClient: null,
 };
 
-// Baileys requires a pino-shaped logger. Silent on purpose: its debug
-// output includes message traffic, and message bodies must never reach the
-// logs (the admin guide promises this).
+// Baileys requires a pino-shaped logger. Silent on purpose: debug output
+// includes message traffic, and message bodies must never reach the logs.
 function makeSilentLogger() {
   const logger = {
     level: "silent",
@@ -102,12 +77,7 @@ function makeSilentLogger() {
   return logger;
 }
 
-// ---- advisory lock ------------------------------------------------------
-
-// A hung TCP handshake with no timeout would block indefinitely -- this
-// is the one specific hang point the emailDispatchScheduler.js's own timeout
-// wrapper can't distinguish from a hung Baileys handshake, so it's
-// worth bounding here too as defense in depth.
+// Bound the TCP handshake so a hung connection can't block indefinitely.
 const LOCK_CONNECT_TIMEOUT_MS = 10 * 1000;
 
 async function acquireAdvisoryLock() {
@@ -116,9 +86,8 @@ async function acquireAdvisoryLock() {
     ...parseDatabaseUrl(process.env.DATABASE_URL),
     connectionTimeoutMillis: LOCK_CONNECT_TIMEOUT_MS,
   });
-  // Must be handled: an unhandled 'error' on a pg client crashes the
-  // process. If the connection drops, the lock is gone with it, so stop
-  // using the session rather than risk two holders.
+  // An unhandled 'error' on a pg client crashes the process. A dropped connection
+  // loses the lock, so stop using the session rather than risk two holders.
   client.on("error", (err) => {
     console.error("WhatsApp lock connection error:", err.message);
     if (runtime.lockClient === client) {
@@ -144,8 +113,6 @@ async function releaseAdvisoryLock() {
   // Closing the connection releases a session-level advisory lock.
   if (client) await client.end().catch(() => {});
 }
-
-// ---- socket lifecycle ---------------------------------------------------
 
 function clearTimers() {
   clearTimeout(runtime.reconnectTimer);
@@ -176,7 +143,7 @@ function scheduleReconnect(delayMs) {
     runtime.reconnectTimer = null;
     connect().catch((err) => console.error("WhatsApp reconnect failed:", err.message));
   }, delayMs);
-  // Never keep the process alive just to retry a connection.
+  // Never keep the process alive just to retry.
   runtime.reconnectTimer.unref?.();
 }
 
@@ -191,10 +158,8 @@ function digitsFromJid(jid) {
 async function recordPaired(user) {
   const phone = digitsFromJid(user?.id) || null;
   const now = new Date();
-  // Runs on every successful "open" (first pairing AND every reconnect),
-  // so this is also where a prior "connection dropped" state clears --
-  // see the in-app notifications plan's "WhatsApp connection drop"
-  // category and the write site in handleConnectionUpdate below.
+  // Runs on every "open" (pairing and reconnects), so this also clears a prior
+  // "connection dropped" state.
   await prisma.churchSettings.upsert({
     where: { id: "singleton" },
     create: { id: "singleton", whatsappPairedAt: now, whatsappPhoneNumber: phone },
@@ -207,18 +172,12 @@ async function recordPaired(user) {
   });
 }
 
-// The session is gone for good (the admin removed the linked device in
-// WhatsApp, or WhatsApp revoked it): wipe local state so the next pairing
-// starts clean, and clear the "paired" markers the admin UI reads.
+// The session is gone for good (device unlinked or revoked): wipe local state
+// and the "paired" markers the admin UI reads.
 async function handleLoggedOut() {
-  // Both a "connection.update" close event (DisconnectReason.loggedOut)
-  // and unlink()'s own explicit call can reach this function for the
-  // same logout, close together in time. Captured once, up front: if a
-  // NEW connect()/startPairing() has already bumped this by the time
-  // this invocation actually gets to the destructive calls below, that
-  // means a new session attempt is already underway and this cleanup is
-  // stale -- proceeding would wipe the auth state or paired markers the
-  // new attempt just wrote, out from under it.
+  // Both a close event and unlink() can reach this for the same logout. If a new
+  // connect()/startPairing() bumped this generation meanwhile, this cleanup is
+  // stale and would wipe the new attempt's auth state.
   const generation = runtime.generation;
   runtime.wantConnected = false;
   runtime.pairingRequested = false;
@@ -245,10 +204,8 @@ async function handleConnectionUpdate(baileys, update) {
   const { connection, lastDisconnect, qr } = update;
 
   if (qr) {
-    // margin stays at the QR spec's recommended 4-module quiet zone --
-    // shrinking it (an earlier version of this code used margin: 1) can
-    // stop a phone camera from locking onto the finder patterns at all,
-    // especially scanning off a monitor rather than a printed code.
+    // Keep the QR spec's 4-module quiet zone; smaller can stop a phone locking
+    // onto the finder patterns, especially from a monitor.
     runtime.qrDataUrl = await QRCode.toDataURL(qr, { margin: 4, width: 400 });
   }
 
@@ -272,10 +229,8 @@ async function handleConnectionUpdate(baileys, update) {
     runtime.sock = null;
     runtime.rawSock = null;
     if (code === baileys.DisconnectReason.loggedOut) {
-      // A real, server-side logout of an open connection -- WhatsApp
-      // revoked the linked device (the admin removed it, or -- the known
-      // risk this file's header comment describes -- it saw a conflicting
-      // second connection during a deploy's old/new instance overlap).
+      // WhatsApp revoked the linked device (admin removed it, or a conflicting
+      // second connection during a deploy overlap).
       console.error(
         "WhatsApp logged this device out (DisconnectReason.loggedOut) -- clearing the saved session."
       );
@@ -288,21 +243,16 @@ async function handleConnectionUpdate(baileys, update) {
     }
     runtime.status = runtime.qrDataUrl ? "pairing" : "connecting";
     runtime.lastError = lastDisconnect?.error?.message || null;
-    // 515 ("restart required") is expected right after a successful
-    // pairing: reconnect immediately. Anything else backs off.
+    // 515 ("restart required") is expected right after pairing: reconnect immediately.
     const restart = code === baileys.DisconnectReason.restartRequired;
     runtime.attempts = restart ? 0 : runtime.attempts + 1;
     scheduleReconnect(restart ? 500 : Math.min(MAX_RECONNECT_DELAY_MS, 1000 * 2 ** runtime.attempts));
   }
 }
 
-// Checked after every await inside connect() below. A concurrent
-// disconnect()/unlink() that runs while connect() is mid-flight only
-// flips runtime.wantConnected -- it can't cancel this already-in-progress
-// attempt, so without this check connect() would finish and leave
-// WhatsApp connected right after an admin explicitly disconnected it.
-// Releases the lock itself if it had already been acquired, since the
-// caller never reaches its own cleanup once this aborts early.
+// Checked after every await in connect(): a concurrent disconnect()/unlink()
+// only flips wantConnected and can't cancel an in-flight attempt. Releases the
+// lock itself since the caller never reaches its own cleanup.
 async function abortIfConnectionNoLongerWanted() {
   if (runtime.wantConnected) return false;
   await deps.releaseLock();
@@ -328,24 +278,15 @@ async function connect() {
     const { state, saveCreds } = await useDbAuthState(baileys);
     if (await abortIfConnectionNoLongerWanted()) return;
 
-    // creds.registered is NOT a reliable "is there a session to resume"
-    // signal: in this Baileys version it's set true in exactly one place
-    // in the whole library (messages-recv.js), gated to the phone-number
-    // pairing-code completion path -- QR pairing (our only method) never
-    // sets it, ever, even on a fully successful, currently-connected
-    // session. Confirmed live: a freshly QR-paired, connected session's
-    // persisted row had `registered: false` the whole time. me.id, by
-    // contrast, is genuinely only set once a real identity is linked
-    // (initAuthCreds() leaves it undefined) and gets persisted correctly
-    // for both pairing methods -- see socket.js's own `Object.assign(creds,
-    // update)` on every creds.update, confirmed against the same live row.
+    // creds.registered is NOT a reliable "session exists" signal: in this Baileys
+    // version only the phone-number pairing-code path sets it, never QR pairing
+    // (our only method). me.id is only set once an identity is linked and is
+    // persisted for both methods.
     if (!state.creds.me?.id && !runtime.pairingRequested) {
       runtime.unregisteredStreak += 1;
       if (runtime.unregisteredStreak < UNREGISTERED_WIPE_THRESHOLD) {
-        // Settings say "paired" and this might just be a deploy-restart
-        // race (see UNREGISTERED_WIPE_THRESHOLD) -- wait and look again
-        // rather than wiping on the first read. Release the lock while
-        // waiting so a genuinely-stuck old instance isn't blocked by us.
+        // Might be a deploy-restart race (see UNREGISTERED_WIPE_THRESHOLD): wait
+        // and look again, releasing the lock so a stuck old instance isn't blocked.
         console.warn(
           `WhatsApp session not found (attempt ${runtime.unregisteredStreak}/${UNREGISTERED_WIPE_THRESHOLD}) -- retrying before treating it as gone.`
         );
@@ -354,10 +295,8 @@ async function connect() {
         scheduleReconnect(LOCK_RETRY_MS);
         return;
       }
-      // Settings say "paired" but there's still no session to open after
-      // repeated attempts: don't spin up a socket that would just emit QR
-      // codes nobody is scanning. Clear the paired markers so the admin
-      // UI offers pairing again.
+      // Still no session after repeated attempts: don't open a socket that only
+      // emits unscanned QR codes; clear paired markers so the admin UI offers pairing.
       console.error(
         `WhatsApp session still not found after ${runtime.unregisteredStreak} attempts -- treating it as gone.`
       );
@@ -404,12 +343,8 @@ async function connect() {
   } catch (err) {
     runtime.lastError = err.message;
     runtime.status = "disconnected";
-    // Persisted, not just kept in-memory -- see the in-app notifications
-    // plan's "WhatsApp connection drop" category. recordPaired (above)
-    // clears both fields again on the next successful (re)connect. A
-    // reconnect attempt that fails repeatedly just overwrites this with
-    // the same/latest error each time, which is harmless for a
-    // single-row settings table.
+    // Persisted so the in-app "WhatsApp connection drop" notification can read
+    // it; recordPaired clears it on the next successful connect.
     await prisma.churchSettings
       .update({
         where: { id: "singleton" },
@@ -424,11 +359,8 @@ async function connect() {
   }
 }
 
-// ---- public API -----------------------------------------------------------
-
-// Keeps the live socket in step with the saved settings; called at startup
-// and on every scheduler tick, so turning the feature off (or unlinking)
-// closes the socket within a minute and turning it on / pairing opens it.
+// Keeps the socket in step with saved settings; called at startup and every
+// scheduler tick.
 async function syncWithSettings(settings, featureEnabled) {
   const shouldRun = Boolean(featureEnabled && settings?.whatsappPairedAt);
   if (runtime.status === "pairing" && runtime.wantConnected && !settings?.whatsappPairedAt) {
@@ -443,8 +375,7 @@ async function syncWithSettings(settings, featureEnabled) {
   }
 }
 
-// Starts a pairing session: a QR code is produced, read back by polling
-// getStatus(), for the admin to scan under Linked Devices > Link a Device.
+// Starts pairing; the QR is read back by polling getStatus().
 async function startPairing() {
   await disconnect(); // drop any half-finished earlier attempt
   runtime.pairingRequested = true;
@@ -462,8 +393,7 @@ async function startPairing() {
   runtime.pairingTimer.unref?.();
 }
 
-// Closes the socket and releases the lock WITHOUT touching the saved
-// session -- used when the feature is turned off and at shutdown.
+// Closes the socket and releases the lock WITHOUT touching the saved session.
 async function disconnect() {
   runtime.wantConnected = false;
   clearTimers();
@@ -474,8 +404,7 @@ async function disconnect() {
   await deps.releaseLock();
 }
 
-// Unlinks for good: tells WhatsApp to drop this linked device, then wipes
-// the stored session and the paired markers.
+// Unlinks for good: tells WhatsApp to drop this device, then wipes the stored session and paired markers.
 async function unlink() {
   const sock = runtime.rawSock;
   if (sock) {
@@ -511,32 +440,18 @@ function requireConnected() {
   }
 }
 
-// The only send path. Goes through the anti-ban wrapper, which may delay
-// the send (human-like spacing) or reject it outright while the health
-// monitor has the number paused -- callers treat a throw as "leave the row
-// queued and retry next pass".
+// The only send path. The anti-ban wrapper may delay it or reject it while the
+// number is paused; callers treat a throw as "leave the row queued, retry".
 //
-// The third ({}) argument is required even though baileys-antiban's own
-// type signature marks it optional and its README shows calling without
-// it: its wrapped sendMessage does `if (options.circuitBreaker)` with no
-// guard for `options` itself being undefined, so a real 2-argument call
-// (the library's own documented shape) throws "Cannot read properties of
-// undefined (reading 'circuitBreaker')" before ever reaching Baileys --
-// every send fails, caught and logged one layer up in whatsappChannel.js,
-// with nothing posted and no error surfaced anywhere but the server log.
+// The third ({}) argument is required: baileys-antiban's wrapped sendMessage
+// reads `options.circuitBreaker` unguarded, so a 2-argument call throws.
 async function sendText(jid, text) {
   requireConnected();
   await runtime.sock.sendMessage(jid, { text }, {});
 }
 
-// Baileys' own communityFetchAllParticipating() sends the identical wire
-// query as groupFetchAllParticipating() but then parses the response for
-// a <communities>/<community> wrapper the server never actually sends for
-// this query -- it always comes back as <groups>/<group>, same as the
-// plain group fetch. That makes communityFetchAllParticipating() silently
-// return {} every time, no error. groupFetchAllParticipating() is the one
-// that actually gets real data back; filter it down to isCommunity (set
-// from the <parent> tag in that same response) to get just communities.
+// Baileys' communityFetchAllParticipating() silently returns {} (it parses a
+// wrapper the server never sends). Use groupFetchAllParticipating() filtered to isCommunity.
 async function listCommunities() {
   requireConnected();
   const all = await runtime.rawSock.groupFetchAllParticipating();
@@ -553,13 +468,8 @@ async function listCommunityGroups(communityJid) {
     .map((g) => ({ id: g.id, name: g.subject || "(unnamed group)" }));
 }
 
-// Every WhatsApp community has one built-in Announcements group --
-// Baileys flags it via isCommunityAnnounce (the <default_sub_group> tag
-// in that group's own metadata), linkedParent pointing back at the
-// community. Auto-resolved, never hand-picked: it's a structural
-// property of the community, same data source as listCommunities (see
-// that function's own comment on why groupFetchAllParticipating is the
-// one that actually returns real data, unlike communityFetchAllParticipating).
+// Each community's built-in Announcements group (isCommunityAnnounce, linkedParent
+// = community) is resolved automatically, never hand-picked.
 async function findAnnouncementGroup(communityJid) {
   requireConnected();
   const all = await runtime.rawSock.groupFetchAllParticipating();
@@ -569,15 +479,12 @@ async function findAnnouncementGroup(communityJid) {
   return match ? { id: match.id, name: match.subject || "(unnamed group)" } : null;
 }
 
-// Called from SIGTERM: stop the socket and release the lock promptly so
-// the incoming instance can take over instead of waiting out its retry.
+// Called from SIGTERM: release the lock promptly so the incoming instance can take over.
 async function shutdown() {
   await disconnect();
 }
 
-// Real network lookup for the current WhatsApp Web version, wired only in
-// production -- a stale bundled version is a common cause of failed
-// connections.
+// Real lookup of the current WhatsApp Web version (a stale one breaks connections); production only.
 deps.fetchVersion = (baileys) => baileys.fetchLatestBaileysVersion();
 
 module.exports = {

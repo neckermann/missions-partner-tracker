@@ -1,13 +1,12 @@
-// The daily key-date email (#291) -- its own independent cron registration in
-// the worker, same shape as tripReminderScheduler.js. One tick a day (church-
-// local, the worker applies ChurchSettings.timezone to TZ), and the email goes
-// out ONLY on a day something is due and not yet mailed to that person.
+// The daily key-date email: its own cron in the worker, like
+// tripReminderScheduler.js. One church-local tick a day (the worker applies
+// ChurchSettings.timezone to TZ); mail goes out ONLY on a day something is due and
+// not yet mailed to that person.
 //
-// Idempotent through KeyDateReminder: one row per (person, partner, kind,
-// subject, occurrence date), written after the send, so a re-run (a restart, a
-// second tick) never mails the same occurrence twice, next year's is a new
-// row, and a failed send leaves no row so tomorrow's tick retries while the
-// date is still inside the window. Needs keyDates + careTeam + outboundEmail.
+// Idempotent through KeyDateReminder: one row per (person, partner, kind, subject,
+// occurrence date), written after the send, so a re-run never double-mails, next
+// year's is a new row, and a failed send leaves no row so tomorrow retries while
+// the date is in the window. Needs keyDates + careTeam + outboundEmail.
 
 const cron = require("node-cron");
 const prisma = require("../prismaClient");
@@ -22,10 +21,9 @@ const rowKey = (userId, i) => `${userId}|${i.partnerId}|${i.kind}|${i.subjectId}
 
 // `send` and `today` are injectable so the run is testable without Postmark.
 async function checkAndSendKeyDateReminders({ today = new Date(), send = sendEmail } = {}) {
-  // A public demo never sends these: its team members are fake seeded
-  // addresses, so the mail would only bounce and spend the email plan. The
-  // reset keeps the keyDates flag off there too (utils/demoMode.js); this is
-  // the backstop for a visitor with the published admin login switching it on.
+  // A public demo never sends these: its team members are fake addresses, so mail
+  // would bounce and spend the email plan. The demo reset keeps keyDates off too
+  // (utils/demoMode.js); this is the backstop for a visitor enabling it.
   if (isDemoDeployment()) return { sent: 0, recipients: 0 };
   const settings = await prisma.churchSettings.findUnique({ where: { id: "singleton" } });
   const features = settings?.enabledFeatures;
@@ -44,8 +42,8 @@ async function checkAndSendKeyDateReminders({ today = new Date(), send = sendEma
   for (const item of open) {
     for (const userId of item.recipientIds) byUser.set(userId, [...(byUser.get(userId) || []), item]);
   }
-  // Someone who has opted out of the daily email (My account) keeps the bell alert but gets no
-  // email, and nothing is recorded for them, so turning it back on lets what is still due go out.
+  // An opted-out person (My account) keeps the bell but gets no email and no row,
+  // so turning it back on lets what is still due go out.
   const users = await prisma.user.findMany({
     where: { id: { in: [...byUser.keys()] }, active: true, keyDateEmailOptOut: false },
     select: { id: true, email: true, firstName: true },
@@ -87,8 +85,7 @@ async function checkAndSendKeyDateReminders({ today = new Date(), send = sendEma
       });
       sent += 1;
     } catch (err) {
-      // One person's bad address or a Postmark blip must not stop the rest;
-      // no row was written, so tomorrow's tick tries again.
+      // One bad address or Postmark blip must not stop the rest; no row is written, so tomorrow retries.
       console.error(`Couldn't send the key-date email to a user (${user.id}):`, err.message);
     }
   }
