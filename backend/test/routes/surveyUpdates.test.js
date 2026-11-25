@@ -359,6 +359,7 @@ describe("survey packs and updates", () => {
       body: { questions: [{ kind: "address", label: "Where do you get mail?", field: "mailingAddress" }] },
     });
     assert.equal(saved.status, 200);
+    assert.equal(saved.body.questions[0].field, "mailingAddress", "a link set in the builder is kept");
     assert.equal(
       (await editor(`/api/surveys/${addrSurvey.id}`, { method: "PUT", body: { status: "open" } })).status,
       200

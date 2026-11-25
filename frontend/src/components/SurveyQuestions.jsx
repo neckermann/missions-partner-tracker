@@ -1,4 +1,5 @@
 import React from "react";
+import { ADDRESS_PARTS, addressToValue, parseAddressValue, formatAddressValue } from "../utils/address.js";
 
 // A checkbox or radio next to its label. Inline: the global label and input rules would otherwise
 // stack and centre it.
@@ -59,6 +60,28 @@ export default function SurveyQuestions({
                 </p>
               )}
             </div>
+          );
+        }
+        if (q.kind === "address") {
+          const parts = parseAddressValue(a.value);
+          return (
+            <fieldset key={q.id} style={{ border: "none", padding: 0, margin: "0 0 1rem" }}>
+              <legend style={{ fontWeight: 600, marginBottom: "0.25rem" }}>{label}</legend>
+              {ADDRESS_PARTS.map((part) => (
+                <label key={part.key} style={{ display: "block", fontWeight: "normal" }}>
+                  {part.label}
+                  <input
+                    type="text"
+                    autoComplete={part.autoComplete}
+                    disabled={disabled}
+                    value={parts[part.key] || ""}
+                    onChange={(e) =>
+                      onChange(q.id, { value: addressToValue({ ...parts, [part.key]: e.target.value }) })
+                    }
+                  />
+                </label>
+              ))}
+            </fieldset>
           );
         }
         if (q.kind === "text") {
@@ -143,6 +166,7 @@ export function answersFromSaved(saved = []) {
 
 // One saved answer as a line of text.
 export function describeSavedAnswer(a) {
+  if (a.kind === "address") return formatAddressValue(a.value);
   const parts = [
     a.value && (a.kind === "yesno" ? (a.value === "yes" ? "Yes" : "No") : a.value),
     ...(a.values || []),

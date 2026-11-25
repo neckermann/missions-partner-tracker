@@ -293,7 +293,7 @@ router.put("/:id/questions", manage, async (req, res, next) => {
       await tx.surveyQuestion.deleteMany({
         where: { surveyId: survey.id, id: { notIn: [...keep] } },
       });
-      for (const { position, q, choices, allowOther } of shaped) {
+      for (const { position, q, choices, allowOther, field } of shaped) {
         const data = {
           position,
           kind: q.kind,
@@ -301,6 +301,7 @@ router.put("/:id/questions", manage, async (req, res, next) => {
           choices,
           allowOther,
           required: q.required === true,
+          field,
         };
         if (q.id && known.has(q.id)) await tx.surveyQuestion.update({ where: { id: q.id }, data });
         else await tx.surveyQuestion.create({ data: { surveyId: survey.id, ...data } });

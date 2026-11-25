@@ -7,6 +7,11 @@ import Table from "../components/shared/Table.jsx";
 import QuickActionModal from "../components/shared/QuickActionModal.jsx";
 import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
 import { formatDate } from "../utils/format.js";
+import { ADDRESS_PARTS, addressToValue, parseAddressValue, formatAddressValue } from "../utils/address.js";
+
+const MAILING = "mailingAddress";
+// A stored address is one JSON line; everything else is plain text.
+const showValue = (u, v) => (u.field === MAILING ? formatAddressValue(v) : v);
 
 // What partners' survey answers suggest changing on their record. Nothing here has been applied:
 // a person approves it (optionally editing the value first), or rejects it and the record stays
@@ -153,11 +158,12 @@ export default function AdminSurveyUpdates() {
                     ) : (
                       <>
                         <span>
-                          <span className="survey-change-label">Now</span> {u.currentValue || "—"}
+                          <span className="survey-change-label">Now</span>{" "}
+                          {showValue(u, u.currentValue) || "—"}
                         </span>
                         <span>
                           <span className="survey-change-label">Suggested</span>{" "}
-                          <strong>{u.proposedValue}</strong>
+                          <strong>{showValue(u, u.proposedValue)}</strong>
                         </span>
                       </>
                     )}
@@ -230,12 +236,30 @@ export default function AdminSurveyUpdates() {
           submitDisabled={!value.trim()}
         >
           <p style={{ color: "var(--muted)", marginTop: 0 }}>
-            On file now: {editing.currentValue || "nothing"}. They answered: {editing.proposedValue}.
+            On file now: {showValue(editing, editing.currentValue) || "nothing"}. They answered:{" "}
+            {showValue(editing, editing.proposedValue)}.
           </p>
-          <label>
-            Value to put on their record
-            <input value={value} onChange={(e) => setValue(e.target.value)} />
-          </label>
+          {editing.field === MAILING ? (
+            <fieldset style={{ border: "none", padding: 0, margin: 0 }}>
+              <legend>Mailing address to put on their record</legend>
+              {ADDRESS_PARTS.map((part) => (
+                <label key={part.key} style={{ display: "block", fontWeight: "normal" }}>
+                  {part.label}
+                  <input
+                    value={parseAddressValue(value)[part.key] || ""}
+                    onChange={(e) =>
+                      setValue(addressToValue({ ...parseAddressValue(value), [part.key]: e.target.value }))
+                    }
+                  />
+                </label>
+              ))}
+            </fieldset>
+          ) : (
+            <label>
+              Value to put on their record
+              <input value={value} onChange={(e) => setValue(e.target.value)} />
+            </label>
+          )}
         </QuickActionModal>
       )}
       {confirmElement}

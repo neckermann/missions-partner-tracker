@@ -27,6 +27,7 @@ const KINDS = [
   { value: "single", label: "Pick one" },
   { value: "multiple", label: "Pick any" },
   { value: "photo", label: "Photo" },
+  { value: "address", label: "Mailing address" },
 ];
 
 const blankQuestion = () => ({
