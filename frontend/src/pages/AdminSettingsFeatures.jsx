@@ -25,9 +25,9 @@ function FeatureToggleRow({ feature, checked, onToggle, disabled = false, nested
       <input type="checkbox" checked={checked} disabled={disabled} onChange={onToggle} />
       <div>
         <strong>{feature.label}</strong>
-        <div style={{ fontSize: "0.85rem", color: "#666" }}>{feature.description}</div>
+        <div style={{ fontSize: "0.85rem", color: "var(--muted)" }}>{feature.description}</div>
         {disabled && disabledNote && (
-          <div style={{ fontSize: "0.8rem", color: "#92400e", marginTop: "0.2rem" }}>{disabledNote}</div>
+          <div style={{ fontSize: "0.8rem", color: "var(--warn)", marginTop: "0.2rem" }}>{disabledNote}</div>
         )}
       </div>
     </div>
@@ -142,7 +142,7 @@ export default function AdminSettingsFeatures() {
   return (
     <div className="admin-shell">
       <SettingsPageHeader title="Enabled Features" />
-      <p style={{ color: "#555" }}>
+      <p style={{ color: "var(--muted)" }}>
         Turn off anything this church isn't using — hides it from the admin nav (and, for public-facing
         features, from visitors) without losing any data already on file.
       </p>

@@ -48,7 +48,8 @@
   font-family: Arial, sans-serif;
 }
 
-* {
+.booklet-doc,
+.booklet-doc * {
   box-sizing: border-box;
   /* Chromium strips background colors and images by default when
      printing, to save ink -- every decorative shape, tinted callout and
@@ -63,12 +64,8 @@
   print-color-adjust: exact;
 }
 
-body {
-  color: #222;
-  margin: 0;
-}
-
 .booklet-doc {
+  color: #222;
   font-family: var(--tpl-font, Georgia, "Times New Roman", serif);
 }
 

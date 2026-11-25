@@ -266,7 +266,7 @@ function EmailDispatchSection({ user, onChange }) {
                     marginTop: "0.5rem",
                     maxHeight: 200,
                     overflowY: "auto",
-                    border: "1px solid #ddd",
+                    border: "1px solid var(--border)",
                     borderRadius: 4,
                     padding: "0.5rem",
                   }}

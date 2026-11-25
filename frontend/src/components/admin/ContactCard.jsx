@@ -56,16 +56,16 @@ export default function ContactCard({ partner, adults = [], entries = [] }) {
         <div style={{ marginTop: "0.6rem" }}>
           <div>
             <strong>{person.name || "Contact"}</strong>
-            {person.isPrimary && <span style={{ color: "#666" }}> · primary contact</span>}
+            {person.isPrimary && <span style={{ color: "var(--muted)" }}> · primary contact</span>}
           </div>
           {!unsafe && (person.phone || person.email) && (
-            <div style={{ fontSize: "0.9rem", color: "#555" }}>
+            <div style={{ fontSize: "0.9rem", color: "var(--muted)" }}>
               {[person.phone, person.email].filter(Boolean).join(" · ")}
             </div>
           )}
         </div>
       ) : (
-        <p style={{ color: "#888", marginTop: "0.6rem" }}>No contact person on file yet.</p>
+        <p style={{ color: "var(--muted)", marginTop: "0.6rem" }}>No contact person on file yet.</p>
       )}
 
       {partner.preferredContactMethod && (
@@ -89,7 +89,7 @@ export default function ContactCard({ partner, adults = [], entries = [] }) {
         </div>
       )}
 
-      <div style={{ marginTop: "0.6rem", fontSize: "0.9rem", color: "#555" }}>
+      <div style={{ marginTop: "0.6rem", fontSize: "0.9rem", color: "var(--muted)" }}>
         {last
           ? `Last contact: ${days === 0 ? "today" : days === 1 ? "yesterday" : `${days} days ago`} (${formatDateLong(last)})`
           : "No contact logged yet."}

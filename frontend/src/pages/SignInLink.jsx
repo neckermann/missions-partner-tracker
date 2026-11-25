@@ -34,7 +34,7 @@ export default function SignInLink() {
       <h2>Signing you in</h2>
       {error ? (
         <>
-          <p role="alert" style={{ color: "#b91c1c" }}>
+          <p role="alert" style={{ color: "var(--danger)" }}>
             {error}
           </p>
           <Link to="/login">Back to sign in</Link>

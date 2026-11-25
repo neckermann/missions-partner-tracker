@@ -82,7 +82,7 @@ export default function SupportNeedFormFields({
                   Mark as urgent -- send right away
                 </label>
               </div>
-              <p style={{ margin: "0.35rem 0 0", color: "#666", fontSize: "0.85rem" }}>
+              <p style={{ margin: "0.35rem 0 0", color: "var(--muted)", fontSize: "0.85rem" }}>
                 {urgentSendDescription(enabledFeatures)}
               </p>
             </div>
@@ -99,7 +99,7 @@ export default function SupportNeedFormFields({
                   Review and approve now
                 </label>
               </div>
-              <p style={{ margin: "0.35rem 0 0", color: "#666", fontSize: "0.85rem" }}>
+              <p style={{ margin: "0.35rem 0 0", color: "var(--muted)", fontSize: "0.85rem" }}>
                 This partner is restricted, so nothing above sends anywhere until an admin or editor reviews
                 it -- normally from the Pending Dispatches page afterward. Checking this confirms, right now,
                 that the text you just typed is safe to send verbatim, skipping that extra trip. You'll be

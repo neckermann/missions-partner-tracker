@@ -92,7 +92,9 @@ function SentStatus({ blurb }) {
   }
   if (parts.length === 0) return null;
   return (
-    <span style={{ color: "#888", fontSize: "0.8rem", marginLeft: "0.5rem" }}>({parts.join(", ")})</span>
+    <span style={{ color: "var(--muted)", fontSize: "0.8rem", marginLeft: "0.5rem" }}>
+      ({parts.join(", ")})
+    </span>
   );
 }
 
@@ -233,7 +235,7 @@ export default function AdminPendingDispatches() {
   return (
     <div className="admin-shell">
       <h2>Pending Dispatches</h2>
-      <p style={{ color: "#555" }}>
+      <p style={{ color: "var(--muted)" }}>
         New prayer requests, one-time needs, and newsletters queue here instead of posting immediately -- each
         one clears once every channel it's relevant to (GroupMe, WhatsApp, the admin email, the public email)
         has handled it, on its own schedule. For schedules, the chat channels' content-type mutes, and email
@@ -241,17 +243,17 @@ export default function AdminPendingDispatches() {
       </p>
 
       {heldCount > 0 && (
-        <p style={{ color: "#b45309", fontSize: "0.9rem" }}>
+        <p style={{ color: "var(--warn)", fontSize: "0.9rem" }}>
           {heldCount} awaiting review -- excluded from every channel's send, including an urgent one, until
           reviewed.
         </p>
       )}
       {error && (
-        <p style={{ color: "#b91c1c" }} role="alert">
+        <p style={{ color: "var(--danger)" }} role="alert">
           {error}
         </p>
       )}
-      {success && <p style={{ color: "#2a5d3c" }}>{success}</p>}
+      {success && <p style={{ color: "var(--accent)" }}>{success}</p>}
 
       <Table
         style={{ marginTop: "1rem" }}
@@ -282,12 +284,14 @@ export default function AdminPendingDispatches() {
                     <AwaitingReviewBadge byCareTeam={row.blurb.reviewRequired && !row.blurb.isRestricted} />
                   )}
                   {row.blurb.isRestricted && row.blurb.dispatchReviewedAt && !row.blurb.needsReview && (
-                    <span style={{ color: "#2a5d3c", fontSize: "0.8rem", marginLeft: "0.5rem" }}>
+                    <span style={{ color: "var(--accent)", fontSize: "0.8rem", marginLeft: "0.5rem" }}>
                       Reviewed ✓
                     </span>
                   )}
                 </div>
-                <div style={{ color: "#555", marginTop: "0.25rem" }}>{truncate(row.blurb.bodyText, 100)}</div>
+                <div style={{ color: "var(--muted)", marginTop: "0.25rem" }}>
+                  {truncate(row.blurb.bodyText, 100)}
+                </div>
                 {row.blurb.amount && (
                   <div style={{ marginTop: "0.25rem", fontWeight: 600 }}>
                     {row.blurb.amountLabel || "Approved"}: {row.blurb.amount}

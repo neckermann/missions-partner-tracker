@@ -325,7 +325,10 @@ export default function AdminUsers() {
           {u.role === "guest" ? "Guest" : u.role}
           {u.role === "guest" &&
             u.tripAccess?.map((g) => (
-              <div key={g.id} style={{ fontSize: "0.75rem", color: g.active ? "#888" : "var(--danger)" }}>
+              <div
+                key={g.id}
+                style={{ fontSize: "0.75rem", color: g.active ? "var(--muted)" : "var(--danger)" }}
+              >
                 {[g.trip.partner?.displayName, g.trip.name || g.trip.type].filter(Boolean).join(" — ") ||
                   "Trip"}
                 {g.effectiveExpiresAt &&
@@ -333,7 +336,7 @@ export default function AdminUsers() {
               </div>
             ))}
           {u.careTeamSeats?.map((seat) => (
-            <div key={seat.id} style={{ fontSize: "0.75rem", color: "#888" }}>
+            <div key={seat.id} style={{ fontSize: "0.75rem", color: "var(--muted)" }}>
               Care team: {seat.partner.displayName}
               {seat.isLead ? " (Lead)" : ""}
             </div>
@@ -521,7 +524,7 @@ export default function AdminUsers() {
           submitDisabled={!editingUser.loaded}
         >
           {!editingUser.loaded ? (
-            <p style={{ color: "#888" }}>Loading…</p>
+            <p style={{ color: "var(--muted)" }}>Loading…</p>
           ) : (
             <>
               <div className="form-grid">
@@ -576,7 +579,7 @@ export default function AdminUsers() {
                       />
                     </div>
                   )}
-                  <p style={{ fontSize: "0.85rem", color: "#555", marginTop: "0.5rem" }}>
+                  <p style={{ fontSize: "0.85rem", color: "var(--muted)", marginTop: "0.5rem" }}>
                     A guest can work on these trips and see their partners, nothing else in the app. Changes
                     to an existing guest's trips save immediately.
                   </p>
@@ -602,7 +605,7 @@ export default function AdminUsers() {
                 </label>
               </div>
               {editingUser.form.mfaEnabled && (
-                <p style={{ fontSize: "0.85rem", color: "#555", marginTop: "0.5rem" }}>
+                <p style={{ fontSize: "0.85rem", color: "var(--muted)", marginTop: "0.5rem" }}>
                   This user already has two-factor authentication enabled. Use "Reset MFA" on their row if
                   they need to re-enroll.
                 </p>

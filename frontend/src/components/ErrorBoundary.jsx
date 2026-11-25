@@ -43,7 +43,7 @@ export default class ErrorBoundary extends React.Component {
       <div className="admin-shell" role="alert">
         <div className="admin-section" style={{ maxWidth: "36rem" }}>
           <h2 style={{ marginTop: 0 }}>Something went wrong on this page</h2>
-          <p style={{ color: "#666" }}>
+          <p style={{ color: "var(--muted)" }}>
             This is a bug, not something you did. Reloading usually fixes it — and always does if the app was
             updated while this tab was open.
           </p>
@@ -60,12 +60,12 @@ export default class ErrorBoundary extends React.Component {
           {/* Collapsed rather than hidden: a volunteer never opens it, and
               whoever they forward the screenshot to gets the message. */}
           <details style={{ marginTop: "1.5rem" }}>
-            <summary style={{ cursor: "pointer", color: "#666" }}>Technical details</summary>
+            <summary style={{ cursor: "pointer", color: "var(--muted)" }}>Technical details</summary>
             <pre
               style={{
                 marginTop: "0.75rem",
                 padding: "0.75rem",
-                background: "#f6f6f6",
+                background: "var(--surface-2)",
                 borderRadius: "4px",
                 fontSize: "0.8rem",
                 overflowX: "auto",

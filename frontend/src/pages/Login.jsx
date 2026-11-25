@@ -175,19 +175,19 @@ export default function Login() {
     return (
       <div className="admin-shell" style={{ maxWidth: 480 }}>
         <h2>Two-Factor Setup Required</h2>
-        <p style={{ color: "#555" }}>
+        <p style={{ color: "var(--muted)" }}>
           An administrator requires two-factor authentication on this account. Follow the steps below to
           finish signing in.
         </p>
         {browserSupportsWebAuthn() && (
           <div style={{ marginBottom: "1rem" }}>
-            <p style={{ color: "#555" }}>
+            <p style={{ color: "var(--muted)" }}>
               The simplest way is a passkey: your fingerprint, face or screen lock on this device.
             </p>
             <button type="button" className="btn" onClick={handlePasskeyEnrol}>
               Use a passkey
             </button>
-            <p style={{ color: "#555", marginTop: "1rem" }}>Or use an authenticator app:</p>
+            <p style={{ color: "var(--muted)", marginTop: "1rem" }}>Or use an authenticator app:</p>
           </div>
         )}
         <MfaAppGuide />
@@ -197,7 +197,7 @@ export default function Login() {
             style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}
           >
             <img src={setupData.qrCode} alt="MFA QR code" style={{ width: 200, height: 200 }} />
-            <p style={{ fontSize: "0.85rem", color: "#555" }}>
+            <p style={{ fontSize: "0.85rem", color: "var(--muted)" }}>
               Can't scan it? Enter this code manually: <code>{setupData.secret}</code>
             </p>
             <label>
@@ -213,7 +213,7 @@ export default function Login() {
                 required
               />
             </label>
-            {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
+            {error && <p style={{ color: "var(--danger)" }}>{error}</p>}
             <button type="submit" className="btn">
               Confirm & Sign In
             </button>
@@ -243,15 +243,15 @@ export default function Login() {
         <h2>Two-Factor Verification</h2>
         {canUsePasskey && (
           <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginBottom: "1rem" }}>
-            <p style={{ color: "#555" }}>Use the passkey on this device or a security key.</p>
+            <p style={{ color: "var(--muted)" }}>Use the passkey on this device or a security key.</p>
             <button type="button" className="btn" onClick={handlePasskeySignIn}>
               Use a passkey
             </button>
-            {methods.authenticatorApp && <p style={{ color: "#555" }}>Or enter a code instead:</p>}
+            {methods.authenticatorApp && <p style={{ color: "var(--muted)" }}>Or enter a code instead:</p>}
           </div>
         )}
         {methods.passkey && !canUsePasskey && !methods.authenticatorApp && (
-          <p style={{ color: "#555" }}>
+          <p style={{ color: "var(--muted)" }}>
             This browser can't use passkeys. Try another browser or device, or ask an admin to reset your
             two-factor.
           </p>
@@ -259,7 +259,7 @@ export default function Login() {
         {methods.authenticatorApp && (
           <>
             {!canUsePasskey && (
-              <p style={{ color: "#555" }}>Enter the 6-digit code from your authenticator app.</p>
+              <p style={{ color: "var(--muted)" }}>Enter the 6-digit code from your authenticator app.</p>
             )}
             <form
               onSubmit={handleMfaSubmit}
@@ -278,7 +278,7 @@ export default function Login() {
                   required
                 />
               </label>
-              {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
+              {error && <p style={{ color: "var(--danger)" }}>{error}</p>}
               <button type="submit" className="btn">
                 Verify
               </button>
@@ -288,7 +288,7 @@ export default function Login() {
         )}
         {!methods.authenticatorApp && (
           <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-            {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
+            {error && <p style={{ color: "var(--danger)" }}>{error}</p>}
             {backToLogin}
           </div>
         )}
@@ -301,13 +301,13 @@ export default function Login() {
       <div className="admin-shell" style={{ maxWidth: 400 }}>
         <h2>Team Login</h2>
         {typeof location.state?.notice === "string" && (
-          <p role="status" style={{ color: "#555" }}>
+          <p role="status" style={{ color: "var(--muted)" }}>
             {location.state.notice}
           </p>
         )}
         {browserSupportsWebAuthn() && (
           <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginBottom: "1.5rem" }}>
-            <p style={{ color: "#555" }}>
+            <p style={{ color: "var(--muted)" }}>
               Use the passkey on this device (fingerprint, face or screen lock).
             </p>
             <button type="button" className="btn" onClick={handlePasskeyOnly}>
@@ -325,7 +325,7 @@ export default function Login() {
             onSubmit={handleEmailLink}
             style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}
           >
-            <p style={{ color: "#555" }}>No passkey yet? We'll email you a link to sign in.</p>
+            <p style={{ color: "var(--muted)" }}>No passkey yet? We'll email you a link to sign in.</p>
             <label>
               Email
               <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
@@ -335,7 +335,7 @@ export default function Login() {
             </button>
           </form>
         )}
-        {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
+        {error && <p style={{ color: "var(--danger)" }}>{error}</p>}
       </div>
     );
   }
@@ -344,7 +344,7 @@ export default function Login() {
     <div className="admin-shell" style={{ maxWidth: 400 }}>
       <h2>Team Login</h2>
       {typeof location.state?.notice === "string" && (
-        <p role="status" style={{ color: "#555" }}>
+        <p role="status" style={{ color: "var(--muted)" }}>
           {location.state.notice}
         </p>
       )}
@@ -358,7 +358,7 @@ export default function Login() {
           Password
           <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
         </label>
-        {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
+        {error && <p style={{ color: "var(--danger)" }}>{error}</p>}
         <button type="submit" className="btn">
           Sign in
         </button>

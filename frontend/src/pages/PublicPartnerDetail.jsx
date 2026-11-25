@@ -98,7 +98,7 @@ export default function PublicPartnerDetail() {
               {name}
               {partner.isRestricted && <span className="badge-restricted">Restricted</span>}
             </h2>
-            {meta && <p style={{ color: "#666", margin: 0 }}>{meta}</p>}
+            {meta && <p style={{ color: "var(--muted)", margin: 0 }}>{meta}</p>}
           </div>
         </div>
 
@@ -154,7 +154,9 @@ export default function PublicPartnerDetail() {
           // text, invisible whenever that feature was disabled.
           <div className="admin-section" style={{ marginTop: "1.5rem" }}>
             <h3 style={{ marginTop: 0 }}>{name}&rsquo;s Newsletter</h3>
-            <p style={{ color: "#555" }}>Hear directly from {name} with their own newsletter updates.</p>
+            <p style={{ color: "var(--muted)" }}>
+              Hear directly from {name} with their own newsletter updates.
+            </p>
             <a href={newsletterSignup} target="_blank" rel="noopener noreferrer" className="btn secondary">
               Sign up for their newsletter
             </a>
@@ -169,7 +171,7 @@ export default function PublicPartnerDetail() {
               title={`Follow ${name}'s prayer requests`}
               description={`Get an email when there's a new or answered prayer request we've received about ${name} -- gathered from their newsletters and other updates to us.`}
             />
-            <p style={{ marginTop: "0.5rem", fontSize: "0.9rem", color: "#555" }}>
+            <p style={{ marginTop: "0.5rem", fontSize: "0.9rem", color: "var(--muted)" }}>
               Want to pray for more than just {name}?{" "}
               <Link to="/subscribe">Pray for all of our {partnerTermPlural}, or pick several</Link>.
             </p>

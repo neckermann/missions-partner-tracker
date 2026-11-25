@@ -84,7 +84,7 @@ export default function AdminSettingsEmail() {
   return (
     <div className="admin-shell">
       <SettingsPageHeader title="Email" />
-      <p style={{ color: "#555" }}>
+      <p style={{ color: "var(--muted)" }}>
         Sends and receives email through{" "}
         <a href="https://postmarkapp.com" target="_blank" rel="noreferrer">
           Postmark
@@ -127,8 +127,8 @@ export default function AdminSettingsEmail() {
               <strong>{v.sendEnabled ? "Enabled" : "Disabled"}</strong>
               {settings.outboundConfigured ? " · Configured" : " · Not configured"}
             </p>
-            <p style={{ color: "#555" }}>From: {v.fromAddress || "Not set"}</p>
-            {testResult && <p style={{ color: "#555" }}>{testResult}</p>}
+            <p style={{ color: "var(--muted)" }}>From: {v.fromAddress || "Not set"}</p>
+            {testResult && <p style={{ color: "var(--muted)" }}>{testResult}</p>}
           </>
         )}
         edit={(d, set) => (
@@ -143,7 +143,7 @@ export default function AdminSettingsEmail() {
                 Enabled
               </label>
             </div>
-            <p style={{ color: "#555", fontSize: "0.9rem" }}>
+            <p style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
               Create a free account at{" "}
               <a href="https://postmarkapp.com" target="_blank" rel="noreferrer">
                 postmarkapp.com
@@ -194,10 +194,15 @@ export default function AdminSettingsEmail() {
                 <strong>{v.receiveEnabled ? "Enabled" : "Disabled"}</strong>
                 {settings.inboundConfigured ? " · Configured" : " · Not configured"}
               </p>
-              <p style={{ color: "#555" }}>Webhook username: {v.webhookUsername || "Not set"}</p>
-              <p style={{ color: "#555" }}>Inbound address: {v.inboundEmailAddress || "Not set"}</p>
+              <p style={{ color: "var(--muted)" }}>Webhook username: {v.webhookUsername || "Not set"}</p>
+              <p style={{ color: "var(--muted)" }}>Inbound address: {v.inboundEmailAddress || "Not set"}</p>
               <code
-                style={{ display: "block", padding: "0.5rem", background: "#f4f4f4", wordBreak: "break-all" }}
+                style={{
+                  display: "block",
+                  padding: "0.5rem",
+                  background: "var(--surface-2)",
+                  wordBreak: "break-all",
+                }}
               >
                 https://{"<username>"}:{"<password>"}@{webhookUrl.replace(/^https?:\/\//, "")}
               </code>
@@ -215,7 +220,7 @@ export default function AdminSettingsEmail() {
                   Enabled
                 </label>
               </div>
-              <p style={{ color: "#555", fontSize: "0.9rem" }}>
+              <p style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
                 Lets partners email updates straight into this app — a match against a partner's own email (or
                 any of their household adults') files it as a Newsletter automatically; anything else lands in
                 the <strong>Unmatched Emails</strong> queue. On your Postmark server's Inbound stream Settings
@@ -225,7 +230,12 @@ export default function AdminSettingsEmail() {
                 subdomain for partners to send to (never the church's own real inbox).
               </p>
               <code
-                style={{ display: "block", padding: "0.5rem", background: "#f4f4f4", wordBreak: "break-all" }}
+                style={{
+                  display: "block",
+                  padding: "0.5rem",
+                  background: "var(--surface-2)",
+                  wordBreak: "break-all",
+                }}
               >
                 https://{"<username>"}:{"<password>"}@{webhookUrl.replace(/^https?:\/\//, "")}
               </code>
@@ -258,7 +268,7 @@ export default function AdminSettingsEmail() {
                   placeholder="updates@mail.yourchurch.org"
                 />
               </label>
-              <p style={{ color: "#555", fontSize: "0.85rem" }}>
+              <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
                 The address partners were told (outside this app) to send their newsletters/updates to, on
                 whatever inbound domain you configured in Postmark above -- purely informational, doesn't
                 change the webhook itself.

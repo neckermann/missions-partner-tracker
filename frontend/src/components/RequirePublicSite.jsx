@@ -20,7 +20,7 @@ export default function RequirePublicSite({ feature, children }) {
     return (
       <div style={{ maxWidth: "32rem", margin: "4rem auto", textAlign: "center", padding: "0 1rem" }}>
         <h1>This isn't public</h1>
-        <p style={{ color: "#555" }}>The church running this site has turned this off.</p>
+        <p style={{ color: "var(--muted)" }}>The church running this site has turned this off.</p>
         <p>
           <Link to="/login">Go to admin login</Link>
         </p>

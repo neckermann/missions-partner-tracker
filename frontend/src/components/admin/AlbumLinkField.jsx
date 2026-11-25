@@ -60,7 +60,7 @@ export default function AlbumLinkField({ provider, url, onChange }) {
           <p
             style={{
               fontSize: "0.8rem",
-              color: "#b45309",
+              color: "var(--warn)",
               marginTop: "0.25rem",
               minHeight: "1.2em",
               visibility: showHint ? "visible" : "hidden",

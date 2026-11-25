@@ -12,7 +12,7 @@ export default function SourceLink({ sourceFile }) {
   if (!sourceFile) return null;
 
   return (
-    <div style={{ fontSize: "0.85rem", color: "#666", marginTop: "0.25rem" }}>
+    <div style={{ fontSize: "0.85rem", color: "var(--muted)", marginTop: "0.25rem" }}>
       From:{" "}
       <a href={`/api/partner-files/${sourceFile.id}/download`} target="_blank" rel="noreferrer">
         {sourceFile.title || sourceFile.fileName}, {formatDate(sourceFile.receivedDate)}

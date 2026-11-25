@@ -16,6 +16,14 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Dark mode is readable on every page ([#418](https://github.com/neckermann/missions-partner-tracker/issues/418)).** Many pages used hardcoded greys and whites that ignored the theme, so headings, help text, table cells and tabs were nearly invisible in dark mode. They now use the theme colours, and a new check (`frontend/e2e/contrast.spec.js`) fails the build if text on a public or admin page drops below a readable contrast in either theme.
+- **Text no longer turns unreadable after you visit Print Booklet.** The booklet's stylesheet set a dark text colour on the whole page and stayed loaded when you moved on, so the next page was dark-on-dark until a refresh. It is now scoped to the booklet itself.
+- **Action buttons in tables no longer wrap onto two lines** and come out different sizes; Delete, Retire and the like stay the same height as their neighbours.
+- **One tab bar for Trips, a trip's own pages and Partners**, with the same look in both themes. The active Trips tab was nearly invisible in dark mode.
+- **Cards placed one after another on a page (Reports, Care Team Settings, GroupMe, WhatsApp, the top of a partner page) now have space between them.**
+
 ### Security
 
 - **Smaller hardening items from the security review ([#412](https://github.com/neckermann/missions-partner-tracker/issues/412)).** Ids in a trip's child records must belong to that trip (a guest on one trip could attach, overwrite or read another trip's people and requirements through document uploads, flight segments and contributions). The emailed sign-in link is sent at most once a minute per account, so nobody can mail-bomb a person or keep replacing their live link, and only real accounts are audited. A prayer request or need's source file must be the same partner's file. Only staff can log a contact as someone else; a care team guest's entry is always their own. A passkey challenge is accepted once through the database (`SpentPasskeyChallenge`), so that holds across restarts and more than one instance. In production, passkeys need `APP_BASE_URL` (or Render's own URL) and refuse to run without it, rather than trusting the request's Host header.

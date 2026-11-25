@@ -72,9 +72,9 @@ export default function DispatchReviewModal({ blurb, onSaved, onClose }) {
 
   return (
     <Modal title="Edit dispatch" onClose={onClose}>
-      {status === "loading" && <p style={{ color: "#555" }}>Loading...</p>}
+      {status === "loading" && <p style={{ color: "var(--muted)" }}>Loading...</p>}
       {status === "error" && (
-        <p style={{ color: "#b91c1c" }} role="alert">
+        <p style={{ color: "var(--danger)" }} role="alert">
           {error}
         </p>
       )}
@@ -88,7 +88,7 @@ export default function DispatchReviewModal({ blurb, onSaved, onClose }) {
           )}
 
           {error && (
-            <p style={{ color: "#b91c1c" }} role="alert">
+            <p style={{ color: "var(--danger)" }} role="alert">
               {error}
             </p>
           )}
@@ -112,19 +112,19 @@ export default function DispatchReviewModal({ blurb, onSaved, onClose }) {
       {status === "ready" && !confirmingApproval && (
         <>
           {blurb.isRestricted ? (
-            <p style={{ color: "#555", fontSize: "0.9rem" }}>
+            <p style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
               This partner is restricted -- their name, photo, and any link back to the source file stay
               masked no matter what. Review the text below for anything else that could identify them or their
               location before saving.
               {blurb.needsReview && " Saving is what clears this to send -- it won't go out until you do."}
             </p>
           ) : blurb.reviewRequired && blurb.needsReview ? (
-            <p style={{ color: "#555", fontSize: "0.9rem" }}>
+            <p style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
               A care team member entered this, so it hasn't gone out. Edit the text if it needs it, then save
               -- saving is what clears it to send.
             </p>
           ) : (
-            <p style={{ color: "#555", fontSize: "0.9rem" }}>Edit the text that will go out.</p>
+            <p style={{ color: "var(--muted)", fontSize: "0.9rem" }}>Edit the text that will go out.</p>
           )}
 
           <textarea
@@ -136,7 +136,7 @@ export default function DispatchReviewModal({ blurb, onSaved, onClose }) {
           />
 
           {error && (
-            <p style={{ color: "#b91c1c" }} role="alert">
+            <p style={{ color: "var(--danger)" }} role="alert">
               {error}
             </p>
           )}

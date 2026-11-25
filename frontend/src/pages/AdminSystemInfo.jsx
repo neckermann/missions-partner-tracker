@@ -20,7 +20,7 @@ function formatBytes(bytes) {
 function InfoRow({ label, value }) {
   return (
     <div style={{ display: "flex", justifyContent: "space-between", padding: "0.4rem 0", gap: "1rem" }}>
-      <span style={{ color: "#555" }}>{label}</span>
+      <span style={{ color: "var(--muted)" }}>{label}</span>
       <span style={{ fontFamily: "monospace", textAlign: "right" }}>{value}</span>
     </div>
   );
@@ -53,10 +53,12 @@ export default function AdminSystemInfo() {
   return (
     <div className="admin-shell">
       <SettingsPageHeader title="About App" />
-      <p style={{ color: "#555" }}>What's actually running on this instance, and how to back up its data.</p>
+      <p style={{ color: "var(--muted)" }}>
+        What's actually running on this instance, and how to back up its data.
+      </p>
 
       {infoError ? (
-        <p style={{ color: "#b91c1c" }} role="alert">
+        <p style={{ color: "var(--danger)" }} role="alert">
           {infoError}
         </p>
       ) : !info ? (
@@ -123,7 +125,7 @@ export default function AdminSystemInfo() {
 
       <div className="admin-section" style={{ marginTop: "1.5rem" }}>
         <h3>Back up now</h3>
-        <p style={{ color: "#555" }}>
+        <p style={{ color: "var(--muted)" }}>
           A full export of everything in the database — every partner, user, and uploaded file — as a single
           file you download and keep somewhere safe. See{" "}
           <a
@@ -147,7 +149,7 @@ export default function AdminSystemInfo() {
       </div>
 
       {settingsError ? (
-        <p style={{ color: "#b91c1c" }} role="alert">
+        <p style={{ color: "var(--danger)" }} role="alert">
           Couldn't load backup settings.
         </p>
       ) : (
@@ -161,7 +163,7 @@ export default function AdminSystemInfo() {
               view={(v) => <p>{v.backupReminderDisabled ? "Reminder off" : "Reminder on"}</p>}
               edit={(d, set) => (
                 <>
-                  <p style={{ color: "#555" }}>
+                  <p style={{ color: "var(--muted)" }}>
                     If your database provider's own backups (or another process) are tested and working, you
                     can turn off the periodic reminder banner for good.
                   </p>

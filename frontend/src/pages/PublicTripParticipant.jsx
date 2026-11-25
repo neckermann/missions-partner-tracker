@@ -49,7 +49,7 @@ function AddToCalendar({ meeting, accessToken }) {
   const external = { target: "_blank", rel: "noreferrer" };
   return (
     <div style={{ fontSize: "0.85rem", display: "flex", gap: "0.8rem", flexWrap: "wrap" }}>
-      <span style={{ color: "#555" }}>Add to calendar:</span>
+      <span style={{ color: "var(--muted)" }}>Add to calendar:</span>
       {links && (
         <>
           <a href={links.google} {...external}>
@@ -254,12 +254,18 @@ export default function PublicTripParticipant() {
                 <span style={{ color: "var(--brand-color, #2a5d3c)" }}> ({goalPercent}%)</span>
               )}
             </span>
-            <span style={{ color: "#6b6f76", fontWeight: 400 }}>
+            <span style={{ color: "var(--muted)", fontWeight: 400 }}>
               {data.supportRaisingGoal ? `of $${data.supportRaisingGoal} goal` : ""}
             </span>
           </div>
           <div
-            style={{ height: 10, borderRadius: 999, background: "#ece9e4", overflow: "hidden", marginTop: 6 }}
+            style={{
+              height: 10,
+              borderRadius: 999,
+              background: "var(--surface-2)",
+              overflow: "hidden",
+              marginTop: 6,
+            }}
           >
             <div
               style={{
@@ -267,7 +273,7 @@ export default function PublicTripParticipant() {
                 width: data.supportRaisingGoal
                   ? `${Math.min(100, (data.raised / data.supportRaisingGoal) * 100)}%`
                   : "0%",
-                background: "#2a5d3c",
+                background: "var(--accent)",
               }}
             />
           </div>
@@ -280,7 +286,7 @@ export default function PublicTripParticipant() {
         {selfService && data.shareToken && (
           <div className="admin-section">
             <h3>Your support-raising page</h3>
-            <p style={{ color: "#888", fontSize: "0.85rem" }}>
+            <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
               Share this link with family and friends:{" "}
               <code>{`${window.location.origin}/trip-support-raising/${data.shareToken}`}</code>
             </p>
@@ -300,7 +306,7 @@ export default function PublicTripParticipant() {
                       }}
                     />
                   )}
-                  <p style={{ margin: 0, color: "#555" }}>{data.story || "No story set yet."}</p>
+                  <p style={{ margin: 0, color: "var(--muted)" }}>{data.story || "No story set yet."}</p>
                 </div>
                 <button
                   type="button"
@@ -345,7 +351,12 @@ export default function PublicTripParticipant() {
                   </div>
                   {!pageDraftPhotoDataUrl && !data.hasPhoto && (
                     <span
-                      style={{ display: "block", fontSize: "0.8rem", color: "#888", marginTop: "0.2rem" }}
+                      style={{
+                        display: "block",
+                        fontSize: "0.8rem",
+                        color: "var(--muted)",
+                        marginTop: "0.2rem",
+                      }}
                     >
                       No photo on file yet.
                     </span>
@@ -387,7 +398,7 @@ export default function PublicTripParticipant() {
                 <li
                   key={seg.id}
                   style={{
-                    border: "1px solid #e1dfdb",
+                    border: "1px solid var(--border)",
                     borderRadius: 6,
                     padding: "0.6rem 0.8rem",
                     marginBottom: "0.5rem",
@@ -396,7 +407,7 @@ export default function PublicTripParticipant() {
                   <div style={{ fontWeight: 600 }}>
                     {seg.airline} {seg.flightNumber}
                   </div>
-                  <div style={{ fontSize: "0.85rem", color: "#555" }}>
+                  <div style={{ fontSize: "0.85rem", color: "var(--muted)" }}>
                     {seg.departureAirport}
                     {seg.departureAt &&
                       ` — ${new Date(seg.departureAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}`}
@@ -419,7 +430,7 @@ export default function PublicTripParticipant() {
                 <li
                   key={m.id}
                   style={{
-                    border: "1px solid #e1dfdb",
+                    border: "1px solid var(--border)",
                     borderRadius: 6,
                     padding: "0.6rem 0.8rem",
                     marginBottom: "0.5rem",
@@ -438,7 +449,7 @@ export default function PublicTripParticipant() {
                   </div>
                   <AddToCalendar meeting={m} accessToken={accessToken} />
                   {m.agenda && (
-                    <div style={{ fontSize: "0.85rem", color: "#555", whiteSpace: "pre-wrap" }}>
+                    <div style={{ fontSize: "0.85rem", color: "var(--muted)", whiteSpace: "pre-wrap" }}>
                       {m.agenda}
                     </div>
                   )}
@@ -467,12 +478,12 @@ export default function PublicTripParticipant() {
           <div className="admin-section">
             <h3>Still needed from you</h3>
             {signingError && (
-              <p style={{ color: "#b91c1c" }} role="alert">
+              <p style={{ color: "var(--danger)" }} role="alert">
                 {signingError}
               </p>
             )}
             {uploadError && (
-              <p style={{ color: "#b91c1c" }} role="alert">
+              <p style={{ color: "var(--danger)" }} role="alert">
                 {uploadError}
               </p>
             )}
@@ -490,7 +501,7 @@ export default function PublicTripParticipant() {
                     >
                       {r.label}
                       {r.dueAt && ` — due ${formatDate(r.dueAt)}`}
-                      {overdue && <strong style={{ color: "#b91c1c" }}> (overdue)</strong>}
+                      {overdue && <strong style={{ color: "var(--danger)" }}> (overdue)</strong>}
                       {r.kind === "document" && (
                         <div style={{ marginTop: "0.3rem" }}>
                           <input
@@ -500,7 +511,7 @@ export default function PublicTripParticipant() {
                             onChange={(e) => handleUploadRequirementDocument(r.id, e.target.files[0] || null)}
                           />
                           {uploadingRequirementId === r.id && (
-                            <span style={{ fontSize: "0.8rem", color: "#888" }}> Uploading…</span>
+                            <span style={{ fontSize: "0.8rem", color: "var(--muted)" }}> Uploading…</span>
                           )}
                         </div>
                       )}
@@ -548,7 +559,7 @@ export default function PublicTripParticipant() {
                 <li key={doc.id} style={{ marginBottom: "0.3rem" }}>
                   {doc.title || doc.fileName}
                   {doc.fileSize != null && (
-                    <span style={{ color: "#888", fontSize: "0.8rem" }}>
+                    <span style={{ color: "var(--muted)", fontSize: "0.8rem" }}>
                       {" "}
                       ({formatFileSize(doc.fileSize)})
                     </span>

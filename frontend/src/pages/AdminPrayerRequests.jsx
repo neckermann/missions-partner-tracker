@@ -321,7 +321,7 @@ export default function AdminPrayerRequests() {
           </button>
         )}
       </div>
-      <p style={{ color: "#666", marginTop: "0.25rem" }}>
+      <p style={{ color: "var(--muted)", marginTop: "0.25rem" }}>
         {requests.length} on file · {answeredCount} answered so far
       </p>
 

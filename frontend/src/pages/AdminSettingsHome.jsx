@@ -94,7 +94,7 @@ export default function AdminSettingsHome() {
   return (
     <div className="admin-shell">
       <h2>Settings</h2>
-      <p style={{ color: "#555" }}>Configuration for this church's instance of the app.</p>
+      <p style={{ color: "var(--muted)" }}>Configuration for this church's instance of the app.</p>
       <CardGrid sections={sections} />
     </div>
   );

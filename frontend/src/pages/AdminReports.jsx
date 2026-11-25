@@ -26,7 +26,7 @@ export default function AdminReports() {
   return (
     <div className="admin-shell">
       <h2>Reports</h2>
-      <p style={{ color: "#666", marginTop: 0 }}>
+      <p style={{ color: "var(--muted)", marginTop: 0 }}>
         Pick the question you are trying to answer. Every report can be downloaded as a spreadsheet (CSV) or
         printed or saved as a PDF from your browser.
       </p>
@@ -42,7 +42,7 @@ export default function AdminReports() {
         catalog.groups.map((group) => (
           <div className="admin-section" key={group.key}>
             <h3 style={{ marginTop: 0 }}>{group.label}</h3>
-            <p style={{ color: "#666", marginTop: 0 }}>{group.description}</p>
+            <p style={{ color: "var(--muted)", marginTop: 0 }}>{group.description}</p>
             <CardGrid
               sections={catalog.reports
                 .filter((r) => r.group === group.key)

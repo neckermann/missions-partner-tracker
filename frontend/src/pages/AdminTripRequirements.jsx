@@ -182,7 +182,7 @@ export default function AdminTripRequirements() {
 
       <div className="admin-section">
         <h3>Trip Requirements</h3>
-        <p style={{ color: "#888", fontSize: "0.85rem" }}>
+        <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
           What this trip needs from each participant -- a document to upload, or a plain task an admin checks
           off (e.g. "Attended orientation call"). Give one a due date to see it flagged once overdue; add a
           reminder lead time to have anyone who hasn't fulfilled it emailed automatically before it's due.
@@ -247,7 +247,7 @@ export default function AdminTripRequirements() {
 
       <div className="admin-section">
         <h3>Trip-wide documents</h3>
-        <p style={{ color: "#888", fontSize: "0.85rem" }}>
+        <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
           Shared with the whole team -- an itinerary, packing list, or anything else that isn't specific to
           one person.
         </p>
@@ -256,7 +256,10 @@ export default function AdminTripRequirements() {
             <li key={d.id} style={{ marginBottom: "0.3rem" }}>
               {d.title || d.fileName}
               {d.fileSize != null && (
-                <span style={{ color: "#888", fontSize: "0.8rem" }}> ({formatFileSize(d.fileSize)})</span>
+                <span style={{ color: "var(--muted)", fontSize: "0.8rem" }}>
+                  {" "}
+                  ({formatFileSize(d.fileSize)})
+                </span>
               )}{" "}
               <button type="button" className="btn secondary small" onClick={() => handleViewDocument(d)}>
                 View
@@ -268,7 +271,7 @@ export default function AdminTripRequirements() {
               )}
             </li>
           ))}
-          {tripWideDocs.length === 0 && <p style={{ color: "#888" }}>No trip-wide documents yet.</p>}
+          {tripWideDocs.length === 0 && <p style={{ color: "var(--muted)" }}>No trip-wide documents yet.</p>}
         </ul>
         {canWrite && (
           <>

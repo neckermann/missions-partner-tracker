@@ -27,19 +27,19 @@ export default function MfaAppGuide() {
   return (
     <div
       style={{
-        border: "1px solid #ddd",
+        border: "1px solid var(--border)",
         borderRadius: 8,
         padding: "0.9rem 1rem",
-        background: "#fafafa",
+        background: "var(--surface-2)",
         marginBottom: "1rem",
       }}
     >
       <h3 style={{ margin: "0 0 0.5rem", fontSize: "1rem" }}>New to two-factor authentication?</h3>
-      <p style={{ margin: "0 0 0.75rem", color: "#444", fontSize: "0.9rem" }}>
+      <p style={{ margin: "0 0 0.75rem", color: "var(--text)", fontSize: "0.9rem" }}>
         It adds a second step when you sign in: a 6-digit code from an app on your phone. Even if someone
         learned your password, they couldn't get in without your phone. It takes about two minutes.
       </p>
-      <ol style={{ margin: 0, paddingLeft: "1.25rem", fontSize: "0.9rem", color: "#333" }}>
+      <ol style={{ margin: 0, paddingLeft: "1.25rem", fontSize: "0.9rem", color: "var(--text)" }}>
         <li style={stepStyle}>
           <strong>Install an authenticator app</strong> on your phone. We suggest {RECOMMENDED.name} (free):{" "}
           <a href={RECOMMENDED.ios} target="_blank" rel="noopener noreferrer">
@@ -60,7 +60,7 @@ export default function MfaAppGuide() {
           seconds, so just enter the current one.
         </li>
       </ol>
-      <details style={{ marginTop: "0.5rem", fontSize: "0.85rem", color: "#444" }}>
+      <details style={{ marginTop: "0.5rem", fontSize: "0.85rem", color: "var(--text)" }}>
         <summary style={{ cursor: "pointer" }}>Prefer a different app?</summary>
         <p style={{ margin: "0.5rem 0 0.25rem" }}>
           Any authenticator app that supports time-based codes works, for example:
@@ -87,7 +87,7 @@ export default function MfaAppGuide() {
           ))}
         </ul>
       </details>
-      <p style={{ margin: "0.6rem 0 0", fontSize: "0.8rem", color: "#666" }}>
+      <p style={{ margin: "0.6rem 0 0", fontSize: "0.8rem", color: "var(--muted)" }}>
         Don't have your phone handy? Ask your administrator for help.
       </p>
     </div>

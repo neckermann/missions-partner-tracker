@@ -121,13 +121,15 @@ export default function PublicSubscribeForm({ allPartners, partnerIds, title, de
                     marginTop: "0.5rem",
                     maxHeight: 200,
                     overflowY: "auto",
-                    border: "1px solid #ccc",
+                    border: "1px solid var(--border)",
                     borderRadius: 4,
                     padding: "0.5rem",
                   }}
                 >
                   {partners.length === 0 ? (
-                    <p style={{ color: "#555", fontSize: "0.9rem", margin: 0 }}>No partners available.</p>
+                    <p style={{ color: "var(--muted)", fontSize: "0.9rem", margin: 0 }}>
+                      No partners available.
+                    </p>
                   ) : (
                     partners.map((p) => (
                       <div className="admin-checkbox-row" key={p.id}>

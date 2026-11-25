@@ -157,7 +157,7 @@ export default function AdminTripFlights() {
           {error}
         </p>
       )}
-      <p style={{ color: "#888", fontSize: "0.85rem" }}>
+      <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
         Entered once after group travel is booked. Shown only on each participant's own self-service page,
         never publicly. Add one row per leg — a connection is two rows; select who a segment applies to (e.g.
         just two people on their own routing) — selecting nobody means the whole team.

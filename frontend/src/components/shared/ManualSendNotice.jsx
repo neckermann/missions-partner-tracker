@@ -31,9 +31,9 @@ export default function ManualSendNotice({ recipients, title = "Email sending is
   }
 
   return (
-    <div className="admin-section" style={{ background: "#fff8e6", borderColor: "#e9c46a" }}>
+    <div className="admin-section" style={{ background: "var(--warn-soft)", borderColor: "var(--warn)" }}>
       <p style={{ marginTop: 0, fontWeight: 600 }}>{title}</p>
-      <p style={{ color: "#555" }}>
+      <p style={{ color: "var(--muted)" }}>
         Copy {list.length > 1 ? "each link" : "this link"} below and send it yourself -- a personal email, a
         text, or in person all work.
       </p>

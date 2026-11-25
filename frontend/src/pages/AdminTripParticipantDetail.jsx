@@ -275,12 +275,12 @@ export default function AdminTripParticipantDetail() {
       </h2>
       <LastEdited name={participant.lastEditedByName} at={participant.lastEditedAt} />
       {error && (
-        <p style={{ color: "#b91c1c" }} role="alert">
+        <p style={{ color: "var(--danger)" }} role="alert">
           {error}
         </p>
       )}
       {missingFields.length > 0 && (
-        <p style={{ color: "#a6540f", fontSize: "0.85rem" }}>Missing: {missingFields.join(", ")}</p>
+        <p style={{ color: "var(--warn)", fontSize: "0.85rem" }}>Missing: {missingFields.join(", ")}</p>
       )}
 
       {/* Right above "Contact & access", not up by the page title -- that's
@@ -553,17 +553,21 @@ export default function AdminTripParticipantDetail() {
       {participant.application && (
         <div className="admin-section">
           <h3>Application answers</h3>
-          <p style={{ fontSize: "0.8rem", color: "#888", marginTop: 0 }}>
+          <p style={{ fontSize: "0.8rem", color: "var(--muted)", marginTop: 0 }}>
             Submitted {formatDate(participant.application.createdAt)}
           </p>
           {applicationAnswers.length === 0 ? (
-            <p style={{ color: "#888", fontSize: "0.85rem" }}>This trip has no application questions set.</p>
+            <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
+              This trip has no application questions set.
+            </p>
           ) : (
             <dl style={{ margin: 0 }}>
               {applicationAnswers.map((q) => (
                 <div key={q.id} style={{ marginBottom: "0.4rem" }}>
                   <dt style={{ fontSize: "0.85rem", fontWeight: 600 }}>{q.label}</dt>
-                  <dd style={{ margin: "0.1rem 0 0", fontSize: "0.85rem", color: "#333" }}>{q.answer}</dd>
+                  <dd style={{ margin: "0.1rem 0 0", fontSize: "0.85rem", color: "var(--text)" }}>
+                    {q.answer}
+                  </dd>
                 </div>
               ))}
             </dl>
@@ -709,7 +713,7 @@ export default function AdminTripParticipantDetail() {
       <div className="admin-section">
         <h3>Requirements</h3>
         {requirementRows.length === 0 ? (
-          <p style={{ color: "#888" }}>This trip has no requirements defined.</p>
+          <p style={{ color: "var(--muted)" }}>This trip has no requirements defined.</p>
         ) : (
           <ul style={{ listStyle: "none", padding: 0 }}>
             {requirementRows.map((r) => (
@@ -735,7 +739,7 @@ export default function AdminTripParticipantDetail() {
                   </span>
                 )}
                 {r.dueAt && new Date(r.dueAt) < new Date() && !r.fulfilled && (
-                  <span style={{ color: "#b91c1c", fontWeight: 600, fontSize: "0.8rem" }}>overdue</span>
+                  <span style={{ color: "var(--danger)", fontWeight: 600, fontSize: "0.8rem" }}>overdue</span>
                 )}
               </li>
             ))}
@@ -759,7 +763,7 @@ export default function AdminTripParticipantDetail() {
               )}
             </li>
           ))}
-          {documents.length === 0 && <p style={{ color: "#888" }}>No documents on file yet.</p>}
+          {documents.length === 0 && <p style={{ color: "var(--muted)" }}>No documents on file yet.</p>}
         </ul>
 
         {canWrite && (
@@ -813,7 +817,7 @@ export default function AdminTripParticipantDetail() {
 function ViewField({ label, value }) {
   return (
     <div>
-      <div style={{ fontSize: "0.75rem", color: "#888", fontWeight: 600 }}>{label}</div>
+      <div style={{ fontSize: "0.75rem", color: "var(--muted)", fontWeight: 600 }}>{label}</div>
       <div>{value || "—"}</div>
     </div>
   );

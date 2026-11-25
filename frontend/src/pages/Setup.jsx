@@ -59,7 +59,7 @@ export default function Setup() {
   return (
     <div className="admin-shell" style={{ maxWidth: 420 }}>
       <h2>Welcome</h2>
-      <p style={{ color: "#555" }}>
+      <p style={{ color: "var(--muted)" }}>
         This is a fresh instance with no admin account yet. Create the first one below. You'll then sign in
         and set up two-factor authentication (an authenticator app on your phone), which is required for
         everyone on a new install; after that you can invite others and configure your church's branding from
@@ -90,7 +90,7 @@ export default function Setup() {
             required
           />
         </label>
-        {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
+        {error && <p style={{ color: "var(--danger)" }}>{error}</p>}
         <button type="submit" className="btn" disabled={saving}>
           {saving ? "Creating account…" : "Create admin account"}
         </button>

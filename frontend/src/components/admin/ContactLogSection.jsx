@@ -178,7 +178,7 @@ export default function ContactLogSection({
           <span>{label(options?.directions, e.direction)}</span>
           {" · "}
           <span>{formatDateLong(e.contactDate)}</span>
-          <div style={{ fontSize: "0.85rem", color: "#666" }}>
+          <div style={{ fontSize: "0.85rem", color: "var(--muted)" }}>
             by {nameOf(e.contactedBy)}
             {e.topics?.length > 0 && <> · {e.topics.map((t) => label(options?.topics, t)).join(", ")}</>}
           </div>
@@ -258,7 +258,7 @@ export default function ContactLogSection({
       )}
 
       {timeline.length === 0 ? (
-        <p style={{ color: "#888", marginTop: "0.5rem" }}>No contact logged yet.</p>
+        <p style={{ color: "var(--muted)", marginTop: "0.5rem" }}>No contact logged yet.</p>
       ) : (
         timeline.map((item) =>
           item.event ? (
@@ -267,7 +267,7 @@ export default function ContactLogSection({
               {" · "}
               <span>{formatDateLong(item.event.date)}</span>
               {item.event.detail && (
-                <div style={{ fontSize: "0.85rem", color: "#666" }}>{item.event.detail}</div>
+                <div style={{ fontSize: "0.85rem", color: "var(--muted)" }}>{item.event.detail}</div>
               )}
             </div>
           ) : (

@@ -348,7 +348,7 @@ export default function PublicTripApplication() {
               </div>
             )}
             {!trip.collectApplicantAddress && !trip.collectEmergencyContact && !isMinor && (
-              <p style={{ color: "#888" }}>
+              <p style={{ color: "var(--muted)" }}>
                 Nothing else needed here for this trip -- continue to the next step.
               </p>
             )}
@@ -371,14 +371,16 @@ export default function PublicTripApplication() {
       },
       render: ({ values, setValue }) =>
         (trip.applicationQuestions || []).length === 0 ? (
-          <p style={{ color: "#888" }}>No additional questions for this trip -- review and submit below.</p>
+          <p style={{ color: "var(--muted)" }}>
+            No additional questions for this trip -- review and submit below.
+          </p>
         ) : (
           (trip.applicationQuestions || []).map((q) => {
             const type = q.type || "text";
             const responses = values.responses || {};
             return (
               <label key={q.id} style={{ display: "block", marginTop: "0.75rem" }}>
-                {q.label} {q.required && <span style={{ color: "#a6540f" }}>*</span>}
+                {q.label} {q.required && <span style={{ color: "var(--warn)" }}>*</span>}
                 {type === "textarea" && (
                   <textarea
                     rows={3}
@@ -463,26 +465,26 @@ export default function PublicTripApplication() {
                 fontWeight: 700,
                 padding: "2px 8px",
                 borderRadius: 999,
-                color: "#1f6b4f",
-                background: "#e7f3ee",
+                color: "var(--accent)",
+                background: "var(--accent-soft)",
               }}
             >
               {trip.type}
             </span>
           )}
-          <p style={{ margin: "0.5rem 0 0", color: "#6b6f76", fontSize: "0.9rem" }}>
+          <p style={{ margin: "0.5rem 0 0", color: "var(--muted)", fontSize: "0.9rem" }}>
             {trip.fieldDisplayName || "Field location to be announced"}
             {formatTripDateRange(trip) ? ` · ${formatTripDateRange(trip)}` : ""}
           </p>
           {trip.description && <p style={{ margin: "0.75rem 0 0" }}>{trip.description}</p>}
         </div>
         {submitted ? (
-          <p style={{ color: "#1f6b4f" }}>Thanks! Your application has been submitted.</p>
+          <p style={{ color: "var(--accent)" }}>Thanks! Your application has been submitted.</p>
         ) : (
           <div className="admin-section">
             <Wizard steps={steps} initialValues={initialValues} onFinish={handleFinish} finishing={busy} />
             {error && (
-              <p style={{ color: "#b91c1c", marginTop: "0.5rem" }} role="alert">
+              <p style={{ color: "var(--danger)", marginTop: "0.5rem" }} role="alert">
                 {error}
               </p>
             )}
