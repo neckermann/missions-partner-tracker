@@ -18,7 +18,7 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ### Changed
 
-- **App users can have a phone number and a short profile.** Add them in the Add User wizard or the Users edit popup, or people add their own under **My account → Your details**. A partner's care team list shows each member's phone, email and note to staff roles, so you know how to reach them for an update; a Guest never sees them. A trip's Team page also lists each confirmed member's phone and email, and shows a trip guest's phone. Migration: new `User.phone` and `User.profile` columns (baseline squashed).
+- **App users can have a phone number and a short profile.** Add them in the Add User wizard or the Users edit popup, or people add their own under **My account → Your details**. A partner's care team list shows each member's phone, email and note to staff roles, so you know how to reach them for an update; a Guest never sees them. A trip's Team page also lists each confirmed member's phone and email, and shows a trip guest's phone. The demo's logins have a phone and a note. Migration: new `User.phone` and `User.profile` columns (baseline squashed).
 - **A survey's page follows what you are doing.** A draft shows Details, Questions, then Send. Once it is open it leads with Send and the Answers, with the long question list and details below; a closed survey leads with its Answers.
 - **A public demo lets visitors try passkeys and an authenticator app ([#386](https://github.com/neckermann/missions-partner-tracker/issues/386)).** Adding or removing one works, but the demo never asks for a second factor at sign-in and doesn't end other visitors' sessions, so the shared logins keep working.
 
