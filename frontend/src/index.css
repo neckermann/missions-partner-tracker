@@ -2603,6 +2603,7 @@ button.report-summary-item[aria-pressed="true"] {
   gap: 0.25rem 1.25rem;
   min-width: 0;
   overflow-wrap: anywhere;
+  white-space: pre-line; /* a support-preferences change is one line per option */
 }
 .survey-change-label {
   color: var(--muted);

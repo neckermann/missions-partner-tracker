@@ -5,6 +5,7 @@ const heicConvert = require("heic-convert");
 const { matchesFileSignature } = require("./fileSignature");
 const { normalizeAnswer, missingRequired } = require("./surveys");
 const { proposeFromResponse } = require("./surveyProposals");
+const { loadMenuForPartner, KIND: SUPPORT_KIND } = require("./surveySupport");
 
 // answers: [{ questionId, value, values, other }]. Answers for questions not mentioned are left
 // alone; an empty answer removes that question's stored answer. `submit` also checks required
@@ -15,6 +16,7 @@ async function saveSurveyAnswers({ survey, partnerId, answers, submit = false, e
     where: { surveyId: survey.id },
     orderBy: { position: "asc" },
   });
+  const supportMenu = questions.some((q) => q.kind === SUPPORT_KIND) ? await loadMenuForPartner() : null;
   const byId = new Map(questions.map((q) => [q.id, q]));
 
   const toSave = [];
@@ -23,7 +25,7 @@ async function saveSurveyAnswers({ survey, partnerId, answers, submit = false, e
     const question = byId.get(item.questionId);
     if (!question) return { error: "That question isn't part of this survey" };
     if (question.kind === "photo") continue; // answered by uploading, see saveSurveyPhoto
-    const result = normalizeAnswer(question, item);
+    const result = normalizeAnswer(supportMenu ? { ...question, supportMenu } : question, item);
     if (result.error) return { error: result.error };
     if (result.empty) toClear.push(question.id);
     else toSave.push({ question, ...result });

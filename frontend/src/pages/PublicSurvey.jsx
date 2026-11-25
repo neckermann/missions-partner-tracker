@@ -105,6 +105,7 @@ export default function PublicSurvey() {
               disabled={busy}
               onPhoto={sendPhoto}
               photos={photos}
+              supportMenu={survey.supportMenu}
             />
             {error && (
               <p className="form-error" role="alert">

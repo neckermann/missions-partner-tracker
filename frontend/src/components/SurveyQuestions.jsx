@@ -1,4 +1,10 @@
 import React from "react";
+import {
+  describeSupportAnswer,
+  groupMenu,
+  parseSupportAnswer,
+  setSupportAnswer,
+} from "../utils/supportAnswer.js";
 import { ADDRESS_PARTS, addressToValue, parseAddressValue, formatAddressValue } from "../utils/address.js";
 
 // A checkbox or radio next to its label. Inline: the global label and input rules would otherwise
@@ -23,6 +29,7 @@ export default function SurveyQuestions({
   disabled = false,
   onPhoto = null,
   photos = [],
+  supportMenu = [],
 }) {
   return (
     <div>
@@ -60,6 +67,95 @@ export default function SurveyQuestions({
                 </p>
               )}
             </div>
+          );
+        }
+        if (q.kind === "support") {
+          const map = parseSupportAnswer(a.value);
+          const set = (optionId, patch) => onChange(q.id, { value: setSupportAnswer(map, optionId, patch) });
+          return (
+            <fieldset key={q.id} style={{ border: "none", padding: 0, margin: "0 0 1rem" }}>
+              <legend style={{ fontWeight: 600, marginBottom: "0.25rem" }}>{label}</legend>
+              {supportMenu.length === 0 && (
+                <p style={{ color: "var(--muted)", margin: 0 }}>There is nothing to choose from yet.</p>
+              )}
+              {groupMenu(supportMenu).map(([group, options]) => (
+                <div key={group} style={{ marginBottom: "0.75rem" }}>
+                  <div style={{ fontWeight: 600, color: "var(--muted)" }}>{group}</div>
+                  {options.map((o) => {
+                    const mine = map[o.id] || {};
+                    if (o.kind === "offer") {
+                      return (
+                        <label key={o.id} style={choiceRowStyle}>
+                          <input
+                            style={choiceInputStyle}
+                            type="checkbox"
+                            disabled={disabled}
+                            checked={Boolean(mine.selected)}
+                            onChange={(e) => set(o.id, { selected: e.target.checked })}
+                          />
+                          <span>{o.label}</span>
+                        </label>
+                      );
+                    }
+                    if (o.kind === "text") {
+                      return (
+                        <label key={o.id} style={{ display: "block", fontWeight: "normal" }}>
+                          {o.label}
+                          <textarea
+                            rows={2}
+                            disabled={disabled}
+                            value={mine.text || ""}
+                            onChange={(e) => set(o.id, { text: e.target.value })}
+                          />
+                        </label>
+                      );
+                    }
+                    const multiple = o.kind === "multiple";
+                    return (
+                      <fieldset key={o.id} style={{ border: "none", padding: 0, margin: "0.25rem 0" }}>
+                        <legend style={{ fontWeight: "normal" }}>{o.label}</legend>
+                        {o.choices.map((c) => (
+                          <label key={c} style={choiceRowStyle}>
+                            <input
+                              style={choiceInputStyle}
+                              type={multiple ? "checkbox" : "radio"}
+                              name={`s-${q.id}-${o.id}`}
+                              disabled={disabled}
+                              checked={multiple ? (mine.choices || []).includes(c) : mine.choice === c}
+                              onChange={(e) =>
+                                multiple
+                                  ? set(o.id, {
+                                      choices: e.target.checked
+                                        ? [...(mine.choices || []), c]
+                                        : (mine.choices || []).filter((x) => x !== c),
+                                    })
+                                  : set(o.id, { choice: c, other: "" })
+                              }
+                            />
+                            <span>{c}</span>
+                          </label>
+                        ))}
+                        {o.allowOther && (
+                          <input
+                            type="text"
+                            aria-label={`Something else for ${o.label}`}
+                            placeholder="Something else"
+                            disabled={disabled}
+                            value={mine.other || ""}
+                            onChange={(e) =>
+                              set(
+                                o.id,
+                                multiple ? { other: e.target.value } : { other: e.target.value, choice: "" }
+                              )
+                            }
+                          />
+                        )}
+                      </fieldset>
+                    );
+                  })}
+                </div>
+              ))}
+            </fieldset>
           );
         }
         if (q.kind === "address") {
@@ -165,7 +261,8 @@ export function answersFromSaved(saved = []) {
 }
 
 // One saved answer as a line of text.
-export function describeSavedAnswer(a) {
+export function describeSavedAnswer(a, supportMenu = []) {
+  if (a.kind === "support") return describeSupportAnswer(a.value, supportMenu);
   if (a.kind === "address") return formatAddressValue(a.value);
   const parts = [
     a.value && (a.kind === "yesno" ? (a.value === "yes" ? "Yes" : "No") : a.value),

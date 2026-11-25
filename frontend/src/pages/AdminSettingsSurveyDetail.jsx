@@ -28,6 +28,7 @@ const KINDS = [
   { value: "multiple", label: "Pick any" },
   { value: "photo", label: "Photo" },
   { value: "address", label: "Mailing address" },
+  { value: "support", label: "Support preferences (the church's menu)" },
 ];
 
 const blankQuestion = () => ({
@@ -132,7 +133,8 @@ export default function AdminSettingsSurveyDetail() {
               .filter(Boolean),
             allowOther: q.allowOther,
             required: q.required,
-            field: q.kind === "photo" ? "photo" : q.field || null,
+            field:
+              q.kind === "photo" ? "photo" : q.kind === "support" ? "supportPreferences" : q.field || null,
           }))
         ),
       "Questions saved."
@@ -283,7 +285,9 @@ export default function AdminSettingsSurveyDetail() {
                 value={q.kind}
                 onChange={(e) => patchQ(q.key, { kind: e.target.value, field: "" })}
               >
-                {KINDS.map((k) => (
+                {KINDS.filter(
+                  (k) => k.value !== "support" || q.kind === "support" || enabledFeatures?.supportPreferences
+                ).map((k) => (
                   <option key={k.value} value={k.value}>
                     {k.label}
                   </option>
@@ -317,12 +321,14 @@ export default function AdminSettingsSurveyDetail() {
                 </label>
               </>
             )}
-            {(q.kind === "text" || q.kind === "single" || q.kind === "photo") && (
+            {(q.kind === "text" || q.kind === "single" || q.kind === "photo" || q.kind === "support") && (
               <label>
                 {q.kind === "photo"
                   ? "A photo sent this way waits for you to approve it before it is added to their photos."
-                  : "Suggest a change to their record (staff approve it first)"}
-                {q.kind !== "photo" && (
+                  : q.kind === "support"
+                    ? "The partner sees the church's support menu (Settings, Support Preferences). Their picks wait for you to approve them before they change their record. Staff-only options are never shown."
+                    : "Suggest a change to their record (staff approve it first)"}
+                {q.kind !== "photo" && q.kind !== "support" && (
                   <select
                     aria-label={`Part of the record for question ${i + 1}`}
                     value={q.field}
@@ -569,7 +575,7 @@ export default function AdminSettingsSurveyDetail() {
             {r.answers.map((a) => (
               <div key={a.id} style={{ marginBottom: "0.4rem" }}>
                 <dt style={{ color: "var(--muted)", fontSize: "0.9rem" }}>{a.label}</dt>
-                <dd style={{ margin: 0 }}>{describeSavedAnswer(a) || "—"}</dd>
+                <dd style={{ margin: 0 }}>{describeSavedAnswer(a, results.supportMenu) || "—"}</dd>
               </div>
             ))}
           </dl>

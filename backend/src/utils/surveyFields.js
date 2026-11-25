@@ -7,6 +7,8 @@
 // audit log credit the person who approved it.
 const { CONTACT_METHODS } = require("./contactMethods");
 
+const { applySupportAnswer } = require("./surveySupport");
+
 const PHOTO = "photo";
 const isEmail = (v) => /^\S+@\S+\.\S+$/.test(v) && v.length <= 200;
 const phoneOk = (v) => (v.match(/\d/g) || []).length >= 7 && v.length <= 40;
@@ -101,6 +103,7 @@ const FIELDS = {
     },
   },
   [PHOTO]: { label: "Photo", kinds: ["photo"], photo: true },
+  supportPreferences: { label: "Support preferences", kinds: ["support"], support: true },
 };
 
 // A mailing address as one canonical line of JSON: the parts the partner gave, trimmed and in a
@@ -181,7 +184,7 @@ const sameValue = (a, b) => clean(a).toLowerCase() === clean(b).toLowerCase();
 // The text on file for a field ("" when none).
 function currentText(ctx, field) {
   const f = FIELDS[field];
-  if (!f || f.photo) return "";
+  if (!f || f.photo || f.support) return "";
   return clean(f.read(ctx));
 }
 
@@ -191,6 +194,10 @@ async function applyField(tx, ctx, field, raw) {
   if (!f || f.photo) return { error: "That field can't be updated from a survey" };
   const value = clean(raw);
   if (!value) return { error: "There is nothing to apply" };
+  if (f.support) {
+    const result = await applySupportAnswer(tx, ctx.partner.id, value);
+    return result?.error ? { error: result.error } : { applied: value };
+  }
   const problem = f.check(value);
   if (problem) return { error: problem };
   const result = await f.write(tx, ctx, value);

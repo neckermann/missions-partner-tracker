@@ -5,6 +5,7 @@ const { requireAuth, requireRole } = require("../middleware/requireAuth");
 const { requireFeature } = require("../middleware/requireFeature");
 const { recordAuditSafe } = require("../utils/auditLog");
 const { PHOTO, loadContext, applyField } = require("../utils/surveyFields");
+const { describeSupportValue, FIELD: SUPPORT_FIELD } = require("../utils/surveySupport");
 
 // #419: the changes survey answers suggest to a partner's record. A person approves (optionally
 // editing the value first) or rejects each one; approving writes through the same columns the
@@ -47,7 +48,14 @@ router.get("/", async (req, res, next) => {
       take: decided ? 200 : 500,
       include,
     });
-    res.json({ updates: rows.map(shape) });
+    const updates = rows.map(shape);
+    // A support-preferences change is stored as JSON; show it as one readable line per option.
+    for (const u of updates) {
+      if (u.field !== SUPPORT_FIELD) continue;
+      u.currentDisplay = await describeSupportValue(prisma, u.currentValue);
+      u.proposedDisplay = await describeSupportValue(prisma, u.proposedValue);
+    }
+    res.json({ updates });
   } catch (err) {
     next(err);
   }
