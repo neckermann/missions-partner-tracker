@@ -73,7 +73,7 @@ export default function AdminSettingsCareTeam() {
                 value={lead === undefined ? "Loading…" : lead ? lead.name : "None"}
                 showEmpty
               />
-              <p style={{ color: "#555", marginTop: "0.5rem" }}>
+              <p style={{ color: "var(--muted)", marginTop: "0.5rem" }}>
                 When a partner has no care team, their reminders and their &ldquo;Partners to reach out
                 to&rdquo; go to the default lead instead of nobody. Once a partner has a care team, the
                 default lead is no longer told about them. (A Guest default lead only gets the key-date
@@ -125,7 +125,7 @@ export default function AdminSettingsCareTeam() {
                 value={timings ? `${timings.contactStaleDays} days without contact` : "Loading…"}
                 showEmpty
               />
-              <p style={{ color: "#555", marginTop: "0.5rem" }}>
+              <p style={{ color: "var(--muted)", marginTop: "0.5rem" }}>
                 The same numbers are used on the bell, in the daily email, on My partners and as the default
                 in the Last heard from report. The email is still sent at 7am church time.
               </p>

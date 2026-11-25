@@ -102,7 +102,7 @@ export default function PhotoHistorySection({
             </label>
             {previewUrl && (
               <div>
-                <div style={{ fontSize: "0.8rem", color: "#666", marginBottom: "0.35rem" }}>
+                <div style={{ fontSize: "0.8rem", color: "var(--muted)", marginBottom: "0.35rem" }}>
                   Preview — how this will actually crop on the site
                 </div>
                 <div style={{ display: "flex", gap: "0.75rem", alignItems: "flex-end" }}>
@@ -121,7 +121,7 @@ export default function PhotoHistorySection({
               />
             </label>
           </div>
-          {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
+          {error && <p style={{ color: "var(--danger)" }}>{error}</p>}
           <div style={{ marginTop: "1rem" }}>
             <button type="submit" className="btn" disabled={saving}>
               {saving ? "Uploading..." : "Upload"}
@@ -152,7 +152,13 @@ export default function PhotoHistorySection({
                   />
                   <div>
                     {i === 0 && <span className="status-pill good">Current</span>}
-                    <div style={{ fontSize: "0.85rem", color: "#666", marginTop: i === 0 ? "0.25rem" : 0 }}>
+                    <div
+                      style={{
+                        fontSize: "0.85rem",
+                        color: "var(--muted)",
+                        marginTop: i === 0 ? "0.25rem" : 0,
+                      }}
+                    >
                       Received {formatDate(p.receivedDate)}
                     </div>
                   </div>
@@ -171,7 +177,7 @@ export default function PhotoHistorySection({
             </div>
           ))
         ) : (
-          <p style={{ color: "#888" }}>No photos on file.</p>
+          <p style={{ color: "var(--muted)" }}>No photos on file.</p>
         )}
       </div>
       {confirmElement}

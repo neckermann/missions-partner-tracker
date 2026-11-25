@@ -68,9 +68,9 @@ function TopicSection({ type, settings, groupId, topics, saving, onSave }) {
         {type.number}. {type.title}
       </h3>
       {currentTopicName ? (
-        <p style={{ color: "#555" }}>Currently: {currentTopicName}</p>
+        <p style={{ color: "var(--muted)" }}>Currently: {currentTopicName}</p>
       ) : (
-        <p style={{ color: "#555" }}>No topic selected yet — until one is, {type.fallbackNote}.</p>
+        <p style={{ color: "var(--muted)" }}>No topic selected yet — until one is, {type.fallbackNote}.</p>
       )}
       {topics && (
         <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
@@ -94,7 +94,9 @@ function TopicSection({ type, settings, groupId, topics, saving, onSave }) {
           </button>
         </div>
       )}
-      {!topics && !groupId && <p style={{ color: "#888", fontSize: "0.9rem" }}>Pick a group first.</p>}
+      {!topics && !groupId && (
+        <p style={{ color: "var(--muted)", fontSize: "0.9rem" }}>Pick a group first.</p>
+      )}
     </div>
   );
 }
@@ -219,7 +221,7 @@ export default function AdminSettingsGroupMe() {
   return (
     <div className="admin-shell">
       <SettingsPageHeader title="GroupMe" />
-      <p style={{ color: "#555" }}>
+      <p style={{ color: "var(--muted)" }}>
         Posts new prayer requests, one-time needs, and newsletters to GroupMe Topics as they're added. Turn
         this on in <a href="/admin/settings/features">Enabled Features</a> once it's configured below.
       </p>
@@ -229,12 +231,12 @@ export default function AdminSettingsGroupMe() {
           {error}
         </p>
       )}
-      {success && <p style={{ color: "#2a5d3c" }}>{success}</p>}
+      {success && <p style={{ color: "var(--accent)" }}>{success}</p>}
 
       <form onSubmit={handleSaveToken} className="admin-form">
         <div className="admin-section">
           <h3>1. Access Token</h3>
-          <p style={{ color: "#555", fontSize: "0.9rem" }}>
+          <p style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
             Get a personal access token at{" "}
             <a href="https://dev.groupme.com" target="_blank" rel="noreferrer">
               dev.groupme.com
@@ -262,9 +264,9 @@ export default function AdminSettingsGroupMe() {
       <div className="admin-section">
         <h3>2. Group</h3>
         {settings.groupName ? (
-          <p style={{ color: "#555" }}>Currently: {settings.groupName}</p>
+          <p style={{ color: "var(--muted)" }}>Currently: {settings.groupName}</p>
         ) : (
-          <p style={{ color: "#555" }}>No group selected yet.</p>
+          <p style={{ color: "var(--muted)" }}>No group selected yet.</p>
         )}
         <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
           <button
@@ -299,7 +301,7 @@ export default function AdminSettingsGroupMe() {
 
       <div className="admin-section">
         <h3>Topics</h3>
-        <p style={{ color: "#555", fontSize: "0.9rem" }}>
+        <p style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
           One list of topics for the group above, shared by the three pickers below — load it once, then pick
           a topic for each notification type you want.
         </p>

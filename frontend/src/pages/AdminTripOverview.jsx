@@ -90,12 +90,12 @@ export default function AdminTripOverview() {
             {trip.partner?.isRestricted && (
               <div
                 style={{
-                  background: "#fbeee0",
-                  border: "1px solid #e3b183",
+                  background: "var(--warn-soft)",
+                  border: "1px solid var(--warn)",
                   borderRadius: 8,
                   padding: "0.6rem 0.9rem",
                   fontSize: "0.8rem",
-                  color: "#7a3e0c",
+                  color: "var(--warn)",
                   marginTop: "0.5rem",
                 }}
               >
@@ -156,7 +156,14 @@ export default function AdminTripOverview() {
                   onChange={(e) => set("supportRaisingGoal", e.target.value)}
                 />
                 {enableTripBudgeting && budgetTotal > 0 && (draft.teamSizeMax || draft.teamSizeMin) && (
-                  <span style={{ display: "block", color: "#888", fontSize: "0.75rem", marginTop: "0.3rem" }}>
+                  <span
+                    style={{
+                      display: "block",
+                      color: "var(--muted)",
+                      fontSize: "0.75rem",
+                      marginTop: "0.3rem",
+                    }}
+                  >
                     Suggested: ~${Math.ceil(budgetTotal / Number(draft.teamSizeMax || draft.teamSizeMin))}
                     /person, based on ${budgetTotal} budgeted ÷ a {draft.teamSizeMax || draft.teamSizeMin}
                     -person team.
@@ -234,7 +241,7 @@ const STATUS_LABELS = {
 function Field({ label, value }) {
   return (
     <div>
-      <div style={{ fontSize: "0.75rem", color: "#888", fontWeight: 600 }}>{label}</div>
+      <div style={{ fontSize: "0.75rem", color: "var(--muted)", fontWeight: 600 }}>{label}</div>
       <div>{value}</div>
     </div>
   );

@@ -126,7 +126,7 @@ export default function AdminReport() {
     <div className="admin-shell">
       <Breadcrumb items={[{ label: "Reports", to: "/admin/reports" }, { label: meta?.label || "Report" }]} />
       <h2>{meta?.label || "Report"}</h2>
-      {meta?.question && <p style={{ color: "#666", marginTop: 0 }}>{meta.question}</p>}
+      {meta?.question && <p style={{ color: "var(--muted)", marginTop: 0 }}>{meta.question}</p>}
 
       {error && (
         <p className="form-error" role="alert">

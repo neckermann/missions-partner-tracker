@@ -20,6 +20,7 @@ import useSendingChurchField from "../hooks/useSendingChurchField.js";
 import { partnersTabState } from "../utils/partnersTabs.js";
 import LastUpdatedCell, { lastUpdatedSortKey } from "../components/shared/LastUpdatedCell.jsx";
 import AssignedPartnersTable from "../components/admin/AssignedPartnersTable.jsx";
+import TabBar from "../components/shared/TabBar.jsx";
 
 // Same field as backend/src/utils/maskData.js's public `country` -- the
 // physical address's country, nothing else. fipsCountryCode is for Joshua
@@ -366,30 +367,14 @@ export default function AdminPartners() {
       </div>
 
       {showTabs && (
-        <div
-          role="tablist"
-          aria-label="Partner views"
-          style={{ display: "flex", gap: "0.4rem", marginTop: "0.75rem" }}
-        >
-          <button
-            type="button"
-            role="tab"
-            aria-selected={!showAssigned}
-            className={showAssigned ? "btn secondary small" : "btn small"}
-            onClick={() => setTab(false)}
-          >
-            All
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={showAssigned}
-            className={showAssigned ? "btn small" : "btn secondary small"}
-            onClick={() => setTab(true)}
-          >
-            My partners
-          </button>
-        </div>
+        <TabBar
+          ariaLabel="Partner views"
+          activeKey={showAssigned ? "mine" : "all"}
+          tabs={[
+            { key: "all", label: "All", onClick: () => setTab(false) },
+            { key: "mine", label: "My partners", onClick: () => setTab(true) },
+          ]}
+        />
       )}
 
       {showAssigned ? (

@@ -22,7 +22,7 @@ export default function PublicSubscribe() {
       <DemoBanner />
 
       <div className="admin-shell">
-        <p style={{ color: "#555" }}>
+        <p style={{ color: "var(--muted)" }}>
           Get an email when there's a new or answered prayer request — for all of our {plural}, or just the
           ones you choose. These are prayer requests we receive from our partners, gathered from their
           newsletters and other updates to us — not a substitute for a partner's own newsletter. Visit any

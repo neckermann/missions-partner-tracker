@@ -18,10 +18,10 @@ export default function ApproveCareTeamTextConfirmBody({ text }) {
         style={{
           margin: "0.75rem 0 0",
           padding: "0.6rem 0.9rem",
-          borderLeft: "3px solid #999",
-          background: "#f7f7f5",
+          borderLeft: "3px solid var(--muted)",
+          background: "var(--surface-2)",
           fontStyle: "italic",
-          color: "#333",
+          color: "var(--text)",
         }}
       >
         "{text}"

@@ -66,7 +66,7 @@ export default function CareTeamPanel({ partnerId, canEdit, canInviteGuest = fal
       </div>
       {failed && <p style={{ color: "var(--danger)" }}>Couldn't load the care team.</p>}
       {team && !team.lead && team.members.length === 0 && (
-        <p style={{ margin: "0.5rem 0 0", color: "#555" }}>
+        <p style={{ margin: "0.5rem 0 0", color: "var(--muted)" }}>
           Nobody is assigned to keep in touch with this partner yet.
           {canEdit && enabledFeatures?.keyDates && (
             <>
@@ -93,7 +93,7 @@ export default function CareTeamPanel({ partnerId, canEdit, canInviteGuest = fal
             </li>
           ))}
           {team && !team.lead && (
-            <li style={{ color: "#a6540f", fontSize: "0.85rem", paddingTop: "0.25rem" }}>No lead yet.</li>
+            <li style={{ color: "var(--warn)", fontSize: "0.85rem", paddingTop: "0.25rem" }}>No lead yet.</li>
           )}
         </ul>
       )}

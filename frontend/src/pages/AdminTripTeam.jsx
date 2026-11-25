@@ -194,7 +194,7 @@ export default function AdminTripTeam() {
                       key: "declinedReason",
                       label: "Reason",
                       render: (a) =>
-                        a.declinedReason || <span style={{ color: "#888" }}>(no reason given)</span>,
+                        a.declinedReason || <span style={{ color: "var(--muted)" }}>(no reason given)</span>,
                     },
                   ]}
                   rows={declined}
@@ -217,7 +217,7 @@ export default function AdminTripTeam() {
       {isAdmin && (
         <div className="admin-section">
           <h3>Guest access</h3>
-          <p style={{ color: "#555" }}>
+          <p style={{ color: "var(--muted)" }}>
             Guests can work on this trip and see its partner, nothing else in the app. Access ends 30 days
             after the trip ends unless you set a different date.
           </p>
@@ -227,7 +227,7 @@ export default function AdminTripTeam() {
 
       <div className="admin-section">
         <h3>Private application link</h3>
-        <p style={{ color: "#555" }}>
+        <p style={{ color: "var(--muted)" }}>
           Share this directly with specific people — never listed, never publicly discoverable. Works even for
           a restricted partner (masked).
         </p>
@@ -236,7 +236,7 @@ export default function AdminTripTeam() {
             <code>{`${window.location.origin}/apply/by-token/${trip.applicationShareToken}`}</code>
           </p>
         ) : (
-          <p style={{ color: "#888" }}>No link generated yet.</p>
+          <p style={{ color: "var(--muted)" }}>No link generated yet.</p>
         )}
         {/* Backend blocks this action for a Trip Leader (requireRole on the
         generate-application-link route excludes guest) -- hiding it
@@ -251,7 +251,7 @@ export default function AdminTripTeam() {
 
       <div className="admin-section">
         <h3>Application questions</h3>
-        <p style={{ color: "#555" }}>
+        <p style={{ color: "var(--muted)" }}>
           Added after the church-wide questions (Settings → Trips Settings) on both the public and private
           application forms for this trip specifically.
         </p>
@@ -283,7 +283,7 @@ export default function AdminTripTeam() {
             }
           />
         ) : (trip.applicationQuestions || []).length === 0 ? (
-          <p style={{ color: "#888" }}>No extra questions on this trip.</p>
+          <p style={{ color: "var(--muted)" }}>No extra questions on this trip.</p>
         ) : (
           <ul>
             {(trip.applicationQuestions || []).map((q) => (

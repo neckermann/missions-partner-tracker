@@ -70,7 +70,7 @@ export default function RecordList({
         </div>
       )}
       {items.length === 0 ? (
-        <p style={{ color: "#888", marginTop: "0.5rem" }}>{emptyMessage}</p>
+        <p style={{ color: "var(--muted)", marginTop: "0.5rem" }}>{emptyMessage}</p>
       ) : (
         items.map((item) => (
           <div

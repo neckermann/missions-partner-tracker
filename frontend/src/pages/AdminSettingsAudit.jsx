@@ -101,7 +101,7 @@ export default function AdminSettingsAudit() {
           </a>
         }
       />
-      <p style={{ color: "#555" }}>
+      <p style={{ color: "var(--muted)" }}>
         Who did what, and when, for sign-ins, role and access changes, settings changes, deletes, backups and
         views of restricted partners. Routine edits are not listed; each record shows who last edited it.
       </p>
@@ -121,7 +121,7 @@ export default function AdminSettingsAudit() {
                 value={meta ? `${meta.retentionDays} days` : "Loading…"}
                 showEmpty
               />
-              <p style={{ color: "#555", marginTop: "0.5rem" }}>
+              <p style={{ color: "var(--muted)", marginTop: "0.5rem" }}>
                 Older entries are deleted each night.
                 {meta?.total != null && ` ${meta.total} ${meta.total === 1 ? "entry" : "entries"} held now.`}
               </p>

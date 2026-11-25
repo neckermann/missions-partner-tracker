@@ -413,12 +413,14 @@ function ApplicantAnswers({ application: a, answers }) {
       )}
       <h4 style={{ margin: "0.75rem 0 0.4rem" }}>Application questions</h4>
       {answers.length === 0 ? (
-        <p style={{ color: "#888", fontSize: "0.85rem" }}>This trip has no application questions set.</p>
+        <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
+          This trip has no application questions set.
+        </p>
       ) : (
         <dl style={{ margin: 0 }}>
           {answers.map((q) => (
             <div key={q.id} style={{ marginBottom: "0.6rem" }}>
-              <dt style={{ fontSize: "0.75rem", color: "#888", fontWeight: 600 }}>{q.label}</dt>
+              <dt style={{ fontSize: "0.75rem", color: "var(--muted)", fontWeight: 600 }}>{q.label}</dt>
               <dd style={{ margin: "0.15rem 0 0", fontSize: "0.9rem" }}>{q.answer}</dd>
             </div>
           ))}
@@ -431,7 +433,7 @@ function ApplicantAnswers({ application: a, answers }) {
 function ViewField({ label, value }) {
   return (
     <div>
-      <div style={{ fontSize: "0.75rem", color: "#888", fontWeight: 600 }}>{label}</div>
+      <div style={{ fontSize: "0.75rem", color: "var(--muted)", fontWeight: 600 }}>{label}</div>
       <div>{value || "—"}</div>
     </div>
   );

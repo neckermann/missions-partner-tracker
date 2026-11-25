@@ -261,7 +261,7 @@ export default function AdminPartnerFiles() {
           </button>
         )}
       </div>
-      <p style={{ color: "#555" }}>
+      <p style={{ color: "var(--muted)" }}>
         Newsletters, survey responses, signed policies, other office documents, and long-term email records
         from missionary and organization partners. Admin-only — never shown on the public site.
       </p>

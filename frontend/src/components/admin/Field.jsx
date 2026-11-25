@@ -16,11 +16,16 @@ export default function Field({ label, value, showEmpty = false }) {
   return (
     <div style={{ minWidth: 0 }}>
       <div
-        style={{ fontSize: "0.75rem", color: "#888", textTransform: "uppercase", letterSpacing: "0.03em" }}
+        style={{
+          fontSize: "0.75rem",
+          color: "var(--muted)",
+          textTransform: "uppercase",
+          letterSpacing: "0.03em",
+        }}
       >
         {label}
       </div>
-      <div style={{ overflowWrap: "anywhere", ...(isEmpty ? { color: "#aaa" } : null) }}>
+      <div style={{ overflowWrap: "anywhere", ...(isEmpty ? { color: "var(--muted)" } : null) }}>
         {isEmpty ? "—" : value}
       </div>
     </div>
