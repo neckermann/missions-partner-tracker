@@ -386,7 +386,7 @@ export default function AdminUsers() {
       {notice && <p role="status">{notice}</p>}
       {manualSetupLink && <ManualSendNotice recipients={manualSetupLink} />}
 
-      <div className="admin-section" style={{ marginBottom: "1rem" }}>
+      <div className="admin-section" style={{ margin: "1rem 0" }}>
         <h3 style={{ marginTop: 0 }}>Two-factor sign-in</h3>
         <p style={{ margin: "0.25rem 0 0.75rem" }}>
           {twoFactorRequired ? (
@@ -452,7 +452,7 @@ export default function AdminUsers() {
               checked={inactiveOnly}
               onChange={(e) => setInactiveOnly(e.target.checked)}
             />
-            Inactive accounts only ({inactiveCount}) -- guests whose access has ended or been removed
+            Inactive accounts only ({inactiveCount}) — guests whose access has ended or been removed
           </label>
         </div>
       )}

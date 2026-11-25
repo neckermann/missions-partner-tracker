@@ -22,6 +22,7 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ### Added
 
+- **Admin list pages open the same way.** Partners, Prayer Requests, One-Time Needs, Monthly Support, Newsletters & Docs, Pending Dispatches, Unmatched Emails and Trips now share one heading block (title, count line, main buttons on the right, short description); Monthly Support's total uses the same stat tile as Trips; the Users page spacing was fixed; and " -- " in page copy became a dash.
 - **Support preferences take less room.** The card on a partner's page is one line (how many are recorded, and which groups) with **View all →** opening everything in a popup; it now looks and works like the Monthly Support and One-Time Needs cards.
 - **No more silent key-date reminders.** Care Team Settings warns when no default lead is set, and a partner's care team line tells every staff member where reminders go until a team is set.
 - **The top of a partner's page is shorter.** The care team is now one line on the Contact card ("Care team: Pat (lead), Casey", with Edit team or + Assign team), and Support preferences now sits at the bottom of the **Contact & Care** section (formerly Location & Contact), which has its own jump-bar button.

@@ -210,7 +210,10 @@ per page) — those are gone, not alternatives.
   `SettingsPageHeader` (`frontend/src/components/admin/SettingsPageHeader.jsx`)
   for its own back-link + title, matching the "← Back to X" convention
   `TripDetailLayout.jsx` established for a split detail page's
-  sub-pages. A page gated by a feature flag uses `RequireAdminFeature`
+  sub-pages. An admin list page opens with `PageHeader`
+  (`frontend/src/components/shared/PageHeader.jsx`): title, an optional
+  count line, the main buttons on the right, an optional short
+  description. A page gated by a feature flag uses `RequireAdminFeature`
   client-side as a UX convenience only — the real enforcement is
   backend `requireFeature` (404, not a UI state). See
   [SPEC.md § 3.3](SPEC.md) and § 4 for the feature flag registry.

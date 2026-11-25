@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import PageHeader from "../components/shared/PageHeader.jsx";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import {
   fetchTrips,
@@ -865,7 +866,7 @@ export default function AdminTrips() {
 
   return (
     <div className="admin-shell">
-      <h2>Trips</h2>
+      <PageHeader title="Trips" />
       <TabBar
         ariaLabel="Trips views"
         activeKey={tab}

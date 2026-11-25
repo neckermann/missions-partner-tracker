@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import PageHeader from "../components/shared/PageHeader.jsx";
 import { Link } from "react-router-dom";
 import {
   fetchPrayerRequests,
@@ -278,24 +279,24 @@ export default function AdminPrayerRequests() {
           ]}
         />
       )}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <h2>Prayer Requests</h2>
-        {canAdd && (
-          <button
-            className="btn"
-            onClick={() => {
-              setNewRequest(emptyNewRequest);
-              loadSourceFiles(null);
-              setActiveModal("add");
-            }}
-          >
-            + Add Prayer Request
-          </button>
-        )}
-      </div>
-      <p style={{ color: "var(--muted)", marginTop: "0.25rem" }}>
-        {requests.length} on file · {answeredCount} answered so far
-      </p>
+      <PageHeader
+        title="Prayer Requests"
+        subtitle={`${requests.length} on file · ${answeredCount} answered so far`}
+        actions={
+          canAdd && (
+            <button
+              className="btn"
+              onClick={() => {
+                setNewRequest(emptyNewRequest);
+                loadSourceFiles(null);
+                setActiveModal("add");
+              }}
+            >
+              + Add Prayer Request
+            </button>
+          )
+        }
+      />
 
       <FilterBar
         fields={fields}

@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import StatTiles from "../components/shared/StatTiles.jsx";
+import PageHeader from "../components/shared/PageHeader.jsx";
 import { useNavigate } from "react-router-dom";
 import { fetchPartners, fetchSupportEntries, createSupportEntry, deleteSupportEntry } from "../api/client.js";
 import PartnerSelect from "../components/admin/PartnerSelect.jsx";
@@ -153,22 +155,16 @@ export default function AdminMonthlySupport() {
           ]}
         />
       )}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          flexWrap: "wrap",
-          gap: "0.5rem",
-        }}
-      >
-        <h2>Monthly Support</h2>
-        {canWrite && (
-          <button className="btn" onClick={() => setShowAddForm(true)}>
-            + Add Support Entry
-          </button>
-        )}
-      </div>
+      <PageHeader
+        title="Monthly Support"
+        actions={
+          canWrite && (
+            <button className="btn" onClick={() => setShowAddForm(true)}>
+              + Add Support Entry
+            </button>
+          )
+        }
+      />
 
       {canWrite && showAddForm && (
         <QuickActionModal
@@ -214,14 +210,16 @@ export default function AdminMonthlySupport() {
         }
       />
 
-      <div className="admin-section" style={{ marginTop: "1rem" }}>
-        <div style={{ display: "flex", gap: "0.5rem", alignItems: "baseline" }}>
-          <span style={{ fontSize: "0.85rem", color: "var(--muted)" }}>
-            Total monthly support ({rows.length}):
-          </span>
-          <span style={{ fontSize: "1.3rem", fontWeight: 700 }}>{formatCurrency(total)}</span>
-        </div>
-      </div>
+      <StatTiles
+        ariaLabel="Monthly support total"
+        items={[
+          {
+            label: "Total monthly support",
+            value: formatCurrency(total),
+            hint: `across ${rows.length} partners`,
+          },
+        ]}
+      />
 
       <Table
         style={{ marginTop: "1rem" }}

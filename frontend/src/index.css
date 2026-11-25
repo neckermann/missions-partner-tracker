@@ -2474,3 +2474,37 @@ button.report-summary-item[aria-pressed="true"] {
   padding-bottom: 0.6rem;
   border-bottom: 1px solid var(--border);
 }
+
+/* PageHeader: title, optional count line, main buttons on the right, optional description. */
+.page-header {
+  margin-bottom: 1rem;
+}
+.page-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+}
+.page-header h2 {
+  margin: 0;
+}
+.page-header-subtitle {
+  margin: 0.2rem 0 0;
+  color: var(--muted);
+}
+.page-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.page-header-description {
+  margin: 0.75rem 0 0;
+  max-width: 60rem;
+  color: var(--muted);
+}
+@media print {
+  .page-header {
+    display: none !important;
+  }
+}
