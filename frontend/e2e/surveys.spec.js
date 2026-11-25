@@ -100,11 +100,12 @@ test.describe("Partner surveys", () => {
     ).toBeVisible();
 
     await admin.goto("/admin/survey-updates");
-    const row = admin.getByRole("row", { name: new RegExp(`E2E survey partner ${stamp}`) });
+    const block = admin.locator(".admin-section").filter({ hasText: `E2E survey partner ${stamp}` });
+    const row = block.getByRole("row", { name: /Primary contact's phone/ });
     await expect(row.getByText("(337) 555-0100")).toBeVisible();
     await expect(row.getByText("(111) 111-1111")).toBeVisible();
     await row.getByRole("button", { name: "Approve" }).click();
-    await expect(row).toHaveCount(0);
+    await expect(block).toHaveCount(0);
 
     const adults = await (await admin.request.get(`/api/adults?partnerId=${person.id}`)).json();
     expect(adults[0].phone1).toBe("(337) 555-0100");

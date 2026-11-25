@@ -5,6 +5,7 @@ const prisma = require("../prismaClient");
 const { nextAnnual, daysBetween, toUtcDay, DAY_MS } = require("../reporting/definitions");
 const { isFeatureEnabled } = require("./features");
 const { autoLogForPrayerRequest } = require("./contactLog");
+const { emailBlockReason, surveyEmailFor } = require("./contactReach");
 const { careTimings } = require("./careSettings");
 
 // Latest contact date per partner, from the log alone. Any entry counts: "has anyone been in touch".
@@ -38,7 +39,12 @@ async function loadAssignedPartners(userId, today = new Date()) {
     isRestricted: true,
     createdAt: true,
     anniversary: true,
-    adults: { select: { firstName: true, birthday: true } },
+    adoptedAt: true,
+    commissionedAt: true,
+    contactLevel: true,
+    contactChannels: true,
+    contactEmail: true,
+    adults: { select: { firstName: true, birthday: true, email: true, isPrimaryContact: true } },
     children: { select: { firstName: true, birthday: true } },
     contactLogs: { select: { id: true, contactDate: true, followUpDate: true, createdAt: true } },
     prayerRequests: { where: { status: "ongoing" }, select: { id: true } },
@@ -94,6 +100,8 @@ async function loadAssignedPartners(userId, today = new Date()) {
     p.adults.forEach((a) => consider(a.birthday, "Birthday", a.firstName || ""));
     p.children.forEach((c) => consider(c.birthday, "Birthday", c.firstName || ""));
     consider(p.anniversary, "Anniversary", "");
+    consider(p.adoptedAt, "Adopted by our church", "");
+    consider(p.commissionedAt, "Commissioned", "");
 
     // When this partner became overdue: when the quiet clock ran out (from the last
     // contact, or joining the team if never contacted) or the follow-up date,
@@ -118,6 +126,9 @@ async function loadAssignedPartners(userId, today = new Date()) {
       followUpDue,
       overdueSince: overdueSince ? overdueSince.toISOString().slice(0, 10) : null,
       nextKeyDate,
+      // Where a greeting for that date could be emailed: null when we must not (restricted, don't
+      // contact directly, ways exclude email) or have no address.
+      greetingEmail: emailBlockReason(p) ? null : surveyEmailFor(p, p.adults),
       openPrayers: p.prayerRequests.length,
       openNeeds: p.needRequests.length,
     };

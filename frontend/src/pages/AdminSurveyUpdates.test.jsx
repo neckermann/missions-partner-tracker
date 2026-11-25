@@ -92,4 +92,20 @@ describe("AdminSurveyUpdates", () => {
     fireEvent.click(screen.getAllByRole("button", { name: "Approve" })[0]);
     await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("phone number"));
   });
+
+  it("groups a partner's changes and decides them together", async () => {
+    fetchSurveyUpdates.mockResolvedValue([
+      phone,
+      photo,
+      { ...phone, id: "u3", partnerId: "p2", partnerName: "Bob Oakleigh" },
+    ]);
+    renderPage();
+    await screen.findByText("Bob Oakleigh");
+    expect(screen.getAllByRole("heading", { level: 3 })).toHaveLength(2);
+    fireEvent.click(screen.getByRole("button", { name: "Approve all 2" }));
+    await waitFor(() => expect(approveSurveyUpdate).toHaveBeenCalledTimes(2));
+    expect(approveSurveyUpdate).toHaveBeenCalledWith("u1");
+    expect(approveSurveyUpdate).toHaveBeenCalledWith("u2");
+    expect(approveSurveyUpdate).not.toHaveBeenCalledWith("u3");
+  });
 });

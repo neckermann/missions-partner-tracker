@@ -983,8 +983,14 @@ a {
   color: var(--brand-color-safe, #2a5d3c);
 }
 .admin-table tbody tr.row-clickable:hover td:first-child,
-.admin-table tbody tr.row-clickable:focus-visible td:first-child {
+.admin-table tbody tr.row-clickable:focus-visible td:first-child,
+.admin-table tbody tr.row-clickable td:first-child a.row-link:hover {
   text-decoration: underline;
+}
+/* The first-cell link looks like the rest of the cell: same colour, no extra underline until hover. */
+.admin-table a.row-link {
+  color: inherit;
+  text-decoration: none;
 }
 .admin-table tbody tr.row-clickable:focus-visible {
   outline: 2px solid var(--brand-color-safe, #2a5d3c);

@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { fetchAssignedPartners } from "../../api/client.js";
+import { fetchAssignedPartners, createContactLogEntry } from "../../api/client.js";
 import { useSettings } from "../../context/SettingsContext.jsx";
 import Table from "../shared/Table.jsx";
 import StatusPill from "./StatusPill.jsx";
 import { formatDateLong } from "../../utils/format.js";
+import { buildGreeting, greetingHref } from "../../utils/greeting.js";
+import useConfirmDialog from "../../hooks/useConfirmDialog.jsx";
 
 // "My partners": the partners this login holds a care team seat on, longest-quiet first. The server
 // computes everything (GET /api/contact-log/assigned), the same read model the "Partners to reach
@@ -18,8 +20,10 @@ const sinceLabel = (days) =>
 
 export default function AssignedPartnersTable() {
   const navigate = useNavigate();
-  const { enabledFeatures } = useSettings();
+  const { enabledFeatures, churchName } = useSettings();
+  const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
   const [rows, setRows] = useState(null);
+  const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -71,6 +75,7 @@ export default function AssignedPartnersTable() {
     {
       key: "nextKeyDate",
       label: "Next key date",
+      stopRowClick: true,
       render: (r) =>
         r.nextKeyDate ? (
           <span>
@@ -78,6 +83,16 @@ export default function AssignedPartnersTable() {
             {/* Inside the reminder window -- the same 7 days the bell and email use */}
             {enabledFeatures.keyDates && r.nextKeyDate.daysUntil <= KEY_DATE_SOON_DAYS && (
               <StatusPill label={r.nextKeyDate.daysUntil === 0 ? "Today" : "Soon"} color="#a6540f" />
+            )}
+            {r.greetingEmail && r.nextKeyDate.daysUntil <= KEY_DATE_SOON_DAYS && (
+              <button
+                type="button"
+                className="btn secondary small"
+                style={{ marginLeft: "0.5rem" }}
+                onClick={() => greet(r)}
+              >
+                Send greeting
+              </button>
             )}
           </span>
         ) : (
@@ -92,16 +107,58 @@ export default function AssignedPartnersTable() {
       : []),
   ];
 
+  // Opens an email draft for a person to send themselves, then offers to log it. The app never
+  // sends it, and logging it with the "Key date" topic is what clears the reminder.
+  async function greet(r) {
+    const greeting = buildGreeting({ occasion: r.nextKeyDate.occasion, who: r.nextKeyDate.who, churchName });
+    window.location.href = greetingHref(r.greetingEmail, greeting);
+    if (!enabledFeatures.contactLog) return;
+    const sent = await confirmDialog({
+      title: "Did you send it?",
+      body: (
+        <p>
+          Log it as an email to {r.displayName} for their {r.nextKeyDate.occasion.toLowerCase()}, so it counts
+          as a contact and clears the reminder.
+        </p>
+      ),
+      confirmLabel: "Yes, log it",
+      cancelLabel: "Not yet",
+    });
+    if (!sent) return;
+    try {
+      await createContactLogEntry({
+        partnerId: r.partnerId,
+        contactType: "email",
+        direction: "outbound",
+        topics: ["keydate"],
+        notes: `Greeting for ${r.nextKeyDate.occasion}${r.nextKeyDate.who ? ` (${r.nextKeyDate.who})` : ""}`,
+      });
+      setMessage(`Logged a greeting to ${r.displayName}.`);
+      setRows(await fetchAssignedPartners());
+    } catch {
+      setError("Couldn't log that. You can add it from the partner's page.");
+    }
+  }
+
   if (error) return <p role="alert">{error}</p>;
   return (
-    <Table
-      className="admin-table"
-      style={{ marginTop: "0.75rem" }}
-      rows={rows || []}
-      rowKey={(r) => r.partnerId}
-      onRowClick={(r) => navigate(`/admin/partners/${r.partnerId}`)}
-      emptyMessage={rows === null ? "Loading…" : "You aren't on any partner's care team yet."}
-      columns={columns}
-    />
+    <>
+      {message && (
+        <p role="status" style={{ color: "var(--accent)" }}>
+          {message}
+        </p>
+      )}
+      <Table
+        className="admin-table"
+        style={{ marginTop: "0.75rem" }}
+        rows={rows || []}
+        rowKey={(r) => r.partnerId}
+        onRowClick={(r) => navigate(`/admin/partners/${r.partnerId}`)}
+        rowHref={(r) => `/admin/partners/${r.partnerId}`}
+        emptyMessage={rows === null ? "Loading…" : "You aren't on any partner's care team yet."}
+        columns={columns}
+      />
+      {confirmElement}
+    </>
   );
 }

@@ -161,6 +161,8 @@ per page) — those are gone, not alternatives.
   cross-record admin list (not scoped to one parent record) uses `Table`
   + `Modal`, below, instead — `RecordList` is specifically for a small
   parent-scoped list embedded on that parent's own detail page.
+  A list whose rows open a page passes `rowHref` to `Table`, which makes the first cell a real link
+  (new tab, copy link) while the whole row still opens it; rows that open a dialog have no page to link to.
   **Accessibility gotcha, easy to reintroduce**: a clickable card/row's
   header often has its own action buttons (e.g. a "Sync" button inside
   an `EditableSection` title row) that must not also trigger the

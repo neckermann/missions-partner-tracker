@@ -44,6 +44,7 @@ const optionFields = {
   allowOther: z.boolean().optional(),
   sortOrder: z.number().int().min(0).max(100000).optional(),
   active: z.boolean().optional(),
+  staffOnly: z.boolean().optional(),
 };
 const optionSchema = z.object(optionFields);
 
@@ -127,6 +128,7 @@ router.post("/options", requireRole("admin"), async (req, res, next) => {
         allowOther: shaped.allowOther,
         sortOrder: data.sortOrder ?? 0,
         active: data.active ?? true,
+        staffOnly: data.staffOnly ?? false,
       },
     });
     await audit(req, "optionAdded", created.label);
@@ -204,10 +206,19 @@ router.get("/partner/:partnerId", async (req, res, next) => {
     });
     const answered = preferences.map((p) => p.optionId);
     const options = await prisma.supportOption.findMany({
-      where: { OR: [{ active: true }, { id: { in: answered } }] },
+      where: {
+        OR: [{ active: true }, { id: { in: answered } }],
+        // A care team guest never sees a staff-only option or its answers.
+        ...(req.user.role === "guest" ? { staffOnly: false } : {}),
+      },
       orderBy: [{ group: "asc" }, { sortOrder: "asc" }, { createdAt: "asc" }],
     });
-    res.json({ options, preferences, canEdit: canWrite(req.user) });
+    const visible = new Set(options.map((o) => o.id));
+    res.json({
+      options,
+      preferences: preferences.filter((p) => visible.has(p.optionId)),
+      canEdit: canWrite(req.user),
+    });
   } catch (err) {
     next(err);
   }
@@ -239,6 +250,9 @@ router.put("/partner/:partnerId", async (req, res, next) => {
     const optionIds = [...new Set(preferences.map((p) => p.optionId))];
     const options = await prisma.supportOption.findMany({ where: { id: { in: optionIds } } });
     const byId = new Map(options.map((o) => [o.id, o]));
+    if (req.user.role === "guest" && options.some((o) => o.staffOnly)) {
+      return res.status(403).json({ error: "Only staff can record that" });
+    }
     const existing = await prisma.partnerSupportPreference.findMany({
       where: { partnerId, optionId: { in: optionIds } },
       select: { optionId: true },

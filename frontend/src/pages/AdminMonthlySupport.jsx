@@ -227,6 +227,7 @@ export default function AdminMonthlySupport() {
         rowKey={(row) => row.id}
         rowAttrs={(row) => ({ "data-partner-id": row.id })}
         onRowClick={(row) => navigate(row.link)}
+        rowHref={(row) => row.link}
         emptyMessage="No support entries on file yet."
         expandedRowId={historyFor}
         renderExpanded={() => (

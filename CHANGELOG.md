@@ -22,6 +22,12 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ### Added
 
+- **Staff-only support options.** An option can be marked **Staff only**: its answers are hidden from care team guests and can't be recorded by them (the example "what can and cannot be shared" starts this way).
+- **Contacts can name a support option.** A logged contact can say which option it was about; the label is kept if the option is later retired or deleted.
+- **Adoption and commissioning dates are key dates.** Record them on the partner's page (Our History With Them); their anniversaries appear on the bell, in the daily key-date email and on My partners.
+- **Send a greeting.** A key date on My partners has a **Send greeting** button that opens a prefilled email draft (only where we may email); you send it yourself, and the app offers to log it as a Key date contact.
+- **Survey Updates are grouped by partner** with Approve all / Reject all; a new **New survey answers** bell item tells staff and care teams when a partner answers, and **Survey updates to review** is shown only to admins and editors.
+- **First columns are real links.** Lists whose rows open a page (Partners, Monthly Support, Trips, the trip team and applications, My partners, Surveys) now make the first cell a real link; the Trips list links to the trip, not the partner.
 - **Survey templates and updating a partner's record from their answers.** **+ New survey** can start from a template (Care check-in, Annual update, Furlough and visit planning). A question can be linked to a part of the partner's record (phone, email, preferred contact method, emergency contact, a one-line overview) or be a **Photo** question; when an answer differs from what is on file it waits on the new **Survey Updates** page (sidebar count and bell) for an admin or editor to **Approve**, **Edit** then approve, or **Reject**. Nothing is applied automatically, an approval is credited to the approver in "last edited by" and the audit log, and a partner's photo is held until approved.
 - **Printable support menu.** Settings → Support Preferences has a **Print menu** button that opens a clean, branded copy of the current menu (retired options left out) to print or save as a PDF.
 - **Last heard from counts prayer requests.** A prayer request received from a partner now counts as hearing from them, like a newsletter, a visit or a logged contact.

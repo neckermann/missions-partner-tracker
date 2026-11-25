@@ -210,6 +210,32 @@ describe("contact log: logging and reading", () => {
     await prisma.user.update({ where: { id: gone.user.id }, data: { active: false } });
     assert.equal((await log(admin, entry(partnerA.id, { contactedById: gone.user.id }))).status, 400);
   });
+
+  test("an entry can name the support option it was about, kept as a label even if the option is later deleted", async () => {
+    const option = await prisma.supportOption.create({
+      data: { group: `${FIXTURE_TAG} tag`, label: "Airport pick-up", kind: "offer" },
+    });
+    const secret = await prisma.supportOption.create({
+      data: { group: `${FIXTURE_TAG} tag`, label: "Staff only", kind: "offer", staffOnly: true },
+    });
+    try {
+      const made = await log(admin, entry(partnerA.id, { supportOptionId: option.id }));
+      assert.equal(made.status, 201);
+      assert.equal(made.body.supportOptionId, option.id);
+      assert.equal(made.body.supportOptionLabel, "Airport pick-up");
+      assert.equal((await log(admin, entry(partnerA.id, { supportOptionId: "nope" }))).status, 400);
+
+      const guest = await member.login();
+      assert.equal((await log(guest, entry(partnerA.id, { supportOptionId: secret.id }))).status, 400);
+      assert.equal((await log(guest, entry(partnerA.id, { supportOptionId: option.id }))).status, 201);
+
+      await prisma.supportOption.delete({ where: { id: option.id } });
+      const row = await prisma.contactLog.findUnique({ where: { id: made.body.id } });
+      assert.equal(row.supportOptionLabel, "Airport pick-up", "history survives the option");
+    } finally {
+      await prisma.supportOption.deleteMany({ where: { group: `${FIXTURE_TAG} tag` } });
+    }
+  });
 });
 
 describe("contact log: fixing and deleting", () => {

@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { formatCurrency, formatDate } from "../../utils/format.js";
 
 // Generic resource table, the sibling of FilterBar.jsx.
@@ -8,6 +9,8 @@ import { formatCurrency, formatDate } from "../../utils/format.js";
 // `stopRowClick` keeps a cell's own link/control from also triggering `onRowClick`.
 // `renderActions(row)` appends a header-less actions column.
 // `expandedRowId` + `renderExpanded(row)` render an inline edit row (colSpan'd) under a row.
+// `rowHref(row)` makes the first cell a real link to that row's own page (a string, or nothing for a
+// row without one): it opens in a new tab and copies like any link, and the whole row still opens it.
 // `rowAttrs(row)` spreads attributes onto each <tr> (e.g. data-partner-id for e2e locators).
 // `sortable` makes a header clickable: asc, desc, back to asc, never "unsorted", because the
 // caller's own row order is a deliberate default. Sort state lives here.
@@ -72,6 +75,7 @@ export default function Table({
   rows,
   rowKey = (row) => row.id,
   onRowClick,
+  rowHref,
   isRowClickable,
   renderActions,
   expandedRowId,
@@ -152,7 +156,15 @@ export default function Table({
               <React.Fragment key={key}>
                 <tr
                   className={clickable ? "row-clickable" : undefined}
-                  onClick={clickable ? () => onRowClick(row) : undefined}
+                  onClick={
+                    clickable
+                      ? (e) => {
+                          // The first-cell link navigates on its own.
+                          if (e.target.closest?.("a")) return;
+                          onRowClick(row);
+                        }
+                      : undefined
+                  }
                   // Reachable and openable from the keyboard, like a link. Only when the row
                   // itself has focus, so a button or link inside it keeps its own Enter and Space.
                   tabIndex={clickable ? 0 : undefined}
@@ -169,15 +181,26 @@ export default function Table({
                   }
                   {...(rowAttrs ? rowAttrs(row) : null)}
                 >
-                  {columns.map((c) => (
-                    <td
-                      key={c.key}
-                      className={alignClass(c)}
-                      onClick={c.stopRowClick ? (e) => e.stopPropagation() : undefined}
-                    >
-                      {c.render ? c.render(row) : defaultCell(c, row)}
-                    </td>
-                  ))}
+                  {columns.map((c, i) => {
+                    const content = c.render ? c.render(row) : defaultCell(c, row);
+                    const href = i === 0 && rowHref ? rowHref(row) : null;
+                    return (
+                      <td
+                        key={c.key}
+                        className={alignClass(c)}
+                        onClick={c.stopRowClick ? (e) => e.stopPropagation() : undefined}
+                      >
+                        {href ? (
+                          // Not a tab stop: the row itself is focusable and opens the page.
+                          <Link to={href} className="row-link" tabIndex={-1}>
+                            {content}
+                          </Link>
+                        ) : (
+                          content
+                        )}
+                      </td>
+                    );
+                  })}
                   {renderActions && (
                     <td className="table-actions" onClick={(e) => e.stopPropagation()}>
                       {renderActions(row)}

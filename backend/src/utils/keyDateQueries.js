@@ -42,6 +42,8 @@ async function loadOpenKeyDates(today = new Date()) {
       contactLevel: true,
       anniversary: true,
       supportingSince: true,
+      adoptedAt: true,
+      commissionedAt: true,
       adults: { select: { id: true, firstName: true, lastName: true, birthday: true } },
       children: { select: { id: true, firstName: true, lastName: true, birthday: true } },
     },

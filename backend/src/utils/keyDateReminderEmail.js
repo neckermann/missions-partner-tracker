@@ -29,6 +29,10 @@ function describe(item, settings) {
   let what;
   if (item.kind === "anniversary") {
     what = `wedding anniversary${item.turning ? ` (${item.turning} years)` : ""}`;
+  } else if (item.kind === "adopted") {
+    what = `${item.turning} ${item.turning === 1 ? "year" : "years"} since we adopted them`;
+  } else if (item.kind === "commissioned") {
+    what = `${item.turning} ${item.turning === 1 ? "year" : "years"} since they were commissioned`;
   } else if (item.kind === "supportingSince") {
     what = `${item.turning} ${item.turning === 1 ? "year" : "years"} of our support`;
   } else {

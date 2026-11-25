@@ -48,6 +48,7 @@ const entrySchema = z.object({
   followUpDate: day.optional().nullable(),
   prayerRequestId: z.string().min(1).optional().nullable(),
   supportNeedId: z.string().min(1).optional().nullable(),
+  supportOptionId: z.string().min(1).optional().nullable(),
 });
 
 // Fallback "today" (UTC calendar day) when the client sends no local date.
@@ -58,7 +59,7 @@ function today() {
 
 // Checks the optional pieces an entry can point at, so one partner's entry
 // can't be attached to another partner's need or login that doesn't exist.
-async function checkReferences(data, partnerId) {
+async function checkReferences(data, partnerId, user) {
   if (data.contactedById) {
     const u = await prisma.user.findFirst({
       where: { id: data.contactedById, active: true },
@@ -79,6 +80,16 @@ async function checkReferences(data, partnerId) {
       select: { id: true },
     });
     if (!r) return "That prayer request isn't on this partner";
+  }
+  if (data.supportOptionId) {
+    const o = await prisma.supportOption.findUnique({
+      where: { id: data.supportOptionId },
+      select: { id: true, label: true, staffOnly: true },
+    });
+    if (!o || (o.staffOnly && user?.role === "guest")) return "That support option doesn't exist";
+    data.supportOptionLabel = o.label;
+  } else if (data.supportOptionId === null) {
+    data.supportOptionLabel = null;
   }
   return null;
 }
@@ -201,7 +212,7 @@ router.post("/", async (req, res, next) => {
     if (!["admin", "editor"].includes(req.user.role)) data.contactedById = req.user.id;
     const partner = await prisma.partner.findUnique({ where: { id: data.partnerId }, select: { id: true } });
     if (!partner) return res.status(404).json({ error: "Not found" });
-    const problem = await checkReferences(data, data.partnerId);
+    const problem = await checkReferences(data, data.partnerId, req.user);
     if (problem) return res.status(400).json({ error: problem });
 
     const created = await prisma.contactLog.create({
@@ -230,7 +241,7 @@ router.put("/:id", requireRole("admin", "editor"), async (req, res, next) => {
     const existing = await prisma.contactLog.findUnique({ where: { id: req.params.id } });
     if (!existing) return res.status(404).json({ error: "Not found" });
     const data = updateSchema.parse(req.body);
-    const problem = await checkReferences(data, existing.partnerId);
+    const problem = await checkReferences(data, existing.partnerId, req.user);
     if (problem) return res.status(400).json({ error: problem });
     const updated = await prisma.contactLog.update({
       where: { id: existing.id },

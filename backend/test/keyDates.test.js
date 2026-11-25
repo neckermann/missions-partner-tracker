@@ -110,3 +110,15 @@ test("a key-date contact log entry within the lead days clears it; other topics 
   );
   assert.equal(isHandled(item, []), false);
 });
+
+test("adoption and commissioning anniversaries are key dates, with the years", () => {
+  const p = partner({ adoptedAt: day("2021-11-26"), commissionedAt: day("2016-11-25") });
+  const out = upcomingKeyDates([p], TODAY);
+  assert.deepEqual(
+    out.map((i) => [i.kind, i.occasion, i.turning]),
+    [
+      ["commissioned", "Commissioned", 10],
+      ["adopted", "Adopted by our church", 5],
+    ]
+  );
+});

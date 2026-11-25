@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Link, useOutletContext } from "react-router-dom";
+import { useOutletContext } from "react-router-dom";
 import { updateTrip, generateApplicationLink, addTripParticipant } from "../api/client.js";
 import { isMinorForTrip } from "../utils/format.js";
 import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
@@ -87,11 +87,7 @@ export default function AdminTripTeam() {
     {
       key: "name",
       label: "Name",
-      render: (p) => (
-        <Link to={`/admin/trips/${id}/participants/${p.id}`} onClick={(e) => e.stopPropagation()}>
-          {p.firstName} {p.lastName}
-        </Link>
-      ),
+      render: (p) => `${p.firstName} ${p.lastName}`,
       sortable: true,
       sortBy: (p) => `${p.lastName || ""} ${p.firstName || ""}`.toLowerCase(),
     },
@@ -141,6 +137,7 @@ export default function AdminTripTeam() {
           columns={teamColumns}
           rows={trip.participants || []}
           onRowClick={(p) => navigate(`/admin/trips/${id}/participants/${p.id}`)}
+          rowHref={(p) => `/admin/trips/${id}/participants/${p.id}`}
           emptyMessage="No one confirmed yet."
         />
         {canWrite && (
@@ -164,6 +161,7 @@ export default function AdminTripTeam() {
           ]}
           rows={pending}
           onRowClick={(a) => navigate(`/admin/trips/${id}/applications/${a.id}`)}
+          rowHref={(a) => `/admin/trips/${id}/applications/${a.id}`}
           emptyMessage="Nothing awaiting review."
         />
 
@@ -187,6 +185,7 @@ export default function AdminTripTeam() {
                   ]}
                   rows={declined}
                   onRowClick={(a) => navigate(`/admin/trips/${id}/applications/${a.id}`)}
+                  rowHref={(a) => `/admin/trips/${id}/applications/${a.id}`}
                 />
               </div>
             )}

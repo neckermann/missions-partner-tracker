@@ -117,6 +117,33 @@ async function surveyUpdatesPending() {
   return { count: rows.length, latest: latestOf(rows, (r) => r.createdAt) };
 }
 
+// Surveys a partner has answered since this login last looked. Per user, and for a care team
+// guest only on their own partners. Counts nothing while Surveys or Care teams is off.
+async function newSurveyResponses({ userId }, _scopeTripIds, scopePartnerIds) {
+  const settings = await prisma.churchSettings.findUnique({
+    where: { id: "singleton" },
+    select: { enabledFeatures: true },
+  });
+  const on =
+    isFeatureEnabled(settings?.enabledFeatures, "surveys") &&
+    isFeatureEnabled(settings?.enabledFeatures, "careTeam");
+  if (!on) return { count: 0, latest: null };
+  const seenAt = await getSeenAt(userId, "newSurveyResponses");
+  const rows = await prisma.surveyResponse.findMany({
+    where: {
+      submittedAt: seenAt ? { gt: seenAt } : { not: null },
+      ...(scopePartnerIds ? { partnerId: { in: scopePartnerIds } } : {}),
+    },
+    select: { submittedAt: true, partnerId: true },
+  });
+  const partners = [...new Set(rows.map((r) => r.partnerId))];
+  return {
+    count: rows.length,
+    latest: latestOf(rows, (r) => r.submittedAt),
+    linkTo: partners.length === 1 ? `/admin/partners/${partners[0]}` : "/admin/partners",
+  };
+}
+
 async function inboundEmailFailures() {
   const rows = await prisma.inboundEmailFailure.findMany({ select: { receivedAt: true } });
   return { count: rows.length, latest: latestOf(rows, (r) => r.receivedAt) };
@@ -377,10 +404,24 @@ const CATEGORIES = [
     label: "Survey updates to review",
     icon: "📝",
     linkTo: "/admin/survey-updates",
+    // Only people who can approve a change see it.
+    roles: ["admin", "editor"],
     adminOnly: false,
     perUser: false,
     tripScoped: false,
     resolve: surveyUpdatesPending,
+  },
+  {
+    key: "newSurveyResponses",
+    label: "New survey answers",
+    icon: "📋",
+    linkTo: "/admin/partners",
+    adminOnly: false,
+    perUser: true,
+    tripScoped: false,
+    // A care team guest sees the ones on their own partners.
+    guestVisible: true,
+    resolve: newSurveyResponses,
   },
   {
     key: "inboundEmailFailures",
@@ -556,6 +597,7 @@ const CATEGORIES = [
 // Resolves every category this role may see with per-user seen-state applied; the one function the route calls.
 async function resolveNotificationSummary({ userId, role, scopeTripIds = null, scopePartnerIds = null }) {
   const visible = CATEGORIES.filter((c) => {
+    if (c.roles && !c.roles.includes(role)) return false;
     if (c.adminOnly) return role === "admin";
     if (role === "guest") return c.tripScoped || c.guestVisible;
     return true;

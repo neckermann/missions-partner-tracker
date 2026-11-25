@@ -16,7 +16,7 @@ const ymd = (d) => d.toISOString().slice(0, 10);
 const fullName = (p) => [p.firstName, p.lastName].filter(Boolean).join(" ");
 
 // partners: [{ id, displayName, adults:[{id,firstName,lastName,birthday}],
-//   children:[...], anniversary, supportingSince }]. Everything within
+//   children:[...], anniversary, supportingSince, adoptedAt, commissionedAt }]. Everything within
 // `leadDays` of `today` (inclusive of today), soonest first.
 function upcomingKeyDates(partners, today, leadDays = KEY_DATE_LEAD_DAYS) {
   const out = [];
@@ -48,6 +48,8 @@ function upcomingKeyDates(partners, today, leadDays = KEY_DATE_LEAD_DAYS) {
       add(p, c.birthday, { kind: "childBirthday", subjectId: c.id, who: fullName(c), occasion: "Birthday" })
     );
     add(p, p.anniversary, { kind: "anniversary", occasion: "Wedding anniversary" });
+    add(p, p.adoptedAt, { kind: "adopted", occasion: "Adopted by our church" });
+    add(p, p.commissionedAt, { kind: "commissioned", occasion: "Commissioned" });
     add(p, p.supportingSince, {
       kind: "supportingSince",
       occasion: "Supported since",

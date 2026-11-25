@@ -3,6 +3,7 @@ import {
   fetchContactLogOptions,
   fetchContactTimeline,
   fetchContactUpdates,
+  fetchPartnerSupportPreferences,
   createContactLogEntry,
   updateContactLogEntry,
   deleteContactLogEntry,
@@ -10,6 +11,7 @@ import {
 import QuickActionModal from "../shared/QuickActionModal.jsx";
 import useConfirmDialog from "../../hooks/useConfirmDialog.jsx";
 import ConfirmMessageBody from "../ConfirmMessageBody.jsx";
+import { useSettings } from "../../context/SettingsContext.jsx";
 import { formatDateLong, toDateInputValue, todayInputValue } from "../../utils/format.js";
 
 // The partner's contact log, newest first. Anyone who can see the partner can log an entry; only
@@ -41,6 +43,7 @@ const blankForm = () => ({
   contactDate: todayInputValue(),
   notes: "",
   followUpDate: "",
+  supportOptionId: "",
 });
 
 export default function ContactLogSection({
@@ -51,7 +54,11 @@ export default function ContactLogSection({
   currentUserId,
   teammates = [],
 }) {
+  const { enabledFeatures } = useSettings();
   const [options, setOptions] = useState(null);
+  // The support menu, so an entry can say which option it was about (staff-only options are
+  // already left out for a care team guest by the server).
+  const [supportOptions, setSupportOptions] = useState([]);
   const [form, setForm] = useState(null); // null = closed
   const [editingId, setEditingId] = useState(null);
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
@@ -62,6 +69,12 @@ export default function ContactLogSection({
   useEffect(() => {
     fetchContactLogOptions().then(setOptions).catch(console.error);
   }, []);
+  useEffect(() => {
+    if (!enabledFeatures?.supportPreferences) return;
+    fetchPartnerSupportPreferences(partnerId)
+      .then((d) => setSupportOptions(d.options.filter((o) => o.active)))
+      .catch(() => setSupportOptions([]));
+  }, [partnerId, enabledFeatures?.supportPreferences]);
   useEffect(() => {
     fetchContactTimeline(partnerId)
       .then(setEvents)
@@ -101,6 +114,7 @@ export default function ContactLogSection({
       contactDate: toDateInputValue(entry.contactDate),
       notes: entry.notes || "",
       followUpDate: toDateInputValue(entry.followUpDate),
+      supportOptionId: entry.supportOptionId || "",
     });
   }
 
@@ -118,6 +132,7 @@ export default function ContactLogSection({
       contactDate: form.contactDate || undefined,
       notes: form.notes.trim() || null,
       followUpDate: form.followUpDate || null,
+      supportOptionId: form.supportOptionId || null,
       // "Me" is the server's default; only send someone else when picked.
       ...(form.contactedById && form.contactedById !== currentUserId
         ? { contactedById: form.contactedById }
@@ -174,6 +189,7 @@ export default function ContactLogSection({
           <div style={{ fontSize: "0.85rem", color: "var(--muted)" }}>
             by {nameOf(e.contactedBy)}
             {e.topics?.length > 0 && <> · {e.topics.map((t) => label(options?.topics, t)).join(", ")}</>}
+            {e.supportOptionLabel && <> · re: {e.supportOptionLabel}</>}
           </div>
         </div>
         {canFix && (
@@ -313,6 +329,23 @@ export default function ContactLogSection({
               </Chip>
             ))}
           </fieldset>
+
+          {supportOptions.length > 0 && (
+            <label style={{ display: "block", marginBottom: "0.75rem" }}>
+              Which support option was this about? (optional)
+              <select
+                value={form.supportOptionId}
+                onChange={(e) => setForm((f) => ({ ...f, supportOptionId: e.target.value }))}
+              >
+                <option value="">None</option>
+                {supportOptions.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.group}: {o.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
 
           <div className="form-grid">
             <label>

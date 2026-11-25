@@ -71,6 +71,7 @@ export default function AdminSettingsSurveys() {
         <Table
           rows={surveys}
           onRowClick={(s) => navigate(`/admin/settings/surveys/${s.id}`)}
+          rowHref={(s) => `/admin/settings/surveys/${s.id}`}
           emptyMessage="No surveys yet. Start one with + New survey."
           columns={[
             { key: "title", label: "Survey" },
