@@ -363,7 +363,7 @@ export default function AdminUsers() {
   const passwordlessBlocker = passwordlessOn
     ? null
     : isDemo
-      ? "Passwordless sign-in is switched off on this demo: the logins are shared, and it needs real email to send sign-in links. A real install can turn it on here."
+      ? "Passwordless sign-in is switched off on this demo: it would end password sign-in for the shared logins and lock every visitor out until the next reset. A real install can turn it on here."
       : !currentUser?.emailReady
         ? "Turn on outbound email and finish setting it up first (Settings → Email): people without a passkey sign in through an emailed link."
         : !currentUser?.passkeyCount
