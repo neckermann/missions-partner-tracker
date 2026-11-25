@@ -2588,6 +2588,8 @@ button.report-summary-item[aria-pressed="true"] {
 }
 .contact-notice-stop {
   border-color: var(--danger);
+}
+
 /* The quieter "of 74 total" beside a tile's number. */
 .stat-tile-hint {
   font-size: 0.85rem;
