@@ -887,22 +887,19 @@ export default function AdminPartnerDetail() {
           onSave={(d) =>
             save({
               commissionedAt: dateOrNull(d.commissionedAt),
-              adoptedAt: dateOrNull(d.adoptedAt),
-              // Supporting since is financial history: a guest never sees (or sends) it.
+              // Partnering since is financial history: a guest never sees (or sends) it.
               ...(isGuest ? {} : { supportingSince: dateOrNull(d.supportingSince) }),
             })
           }
           value={{
             commissionedAt: toDateInputValue(p.commissionedAt),
-            adoptedAt: toDateInputValue(p.adoptedAt),
             supportingSince: toDateInputValue(p.supportingSince),
           }}
           view={(v) => (
             <div style={{ display: "flex", flexWrap: "wrap", gap: "1.5rem" }}>
               <Field label="Commissioned" value={formatDateLong(v.commissionedAt)} showEmpty />
-              <Field label="Adopted by our church" value={formatDateLong(v.adoptedAt)} showEmpty />
               {!isGuest && (
-                <Field label="Supporting since" value={formatDateLong(v.supportingSince)} showEmpty />
+                <Field label="Partnering since" value={formatDateLong(v.supportingSince)} showEmpty />
               )}
             </div>
           )}
@@ -910,7 +907,7 @@ export default function AdminPartnerDetail() {
             <>
               <p style={{ color: "var(--muted)", marginTop: 0 }}>
                 They may have been commissioned long before our church began to walk with them, so these are
-                three separate dates. Each anniversary is a key date for their care team.
+                two separate dates. Each anniversary is a key date for their care team.
               </p>
               <div className="form-grid">
                 <label title="When they were commissioned: possibly before we knew them.">
@@ -921,13 +918,9 @@ export default function AdminPartnerDetail() {
                     onChange={(e) => set("commissionedAt", e.target.value)}
                   />
                 </label>
-                <label title="When our church adopted them as a partner.">
-                  Adopted by our church
-                  <input type="date" value={d.adoptedAt} onChange={(e) => set("adoptedAt", e.target.value)} />
-                </label>
                 {!isGuest && (
-                  <label title="When our church began supporting them financially. Only the year is shown publicly.">
-                    Supporting since
+                  <label title="When our church began partnering with them. Only the year is shown publicly, as Supporting since.">
+                    Partnering since
                     <input
                       type="date"
                       value={d.supportingSince}

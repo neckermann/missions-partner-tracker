@@ -129,7 +129,7 @@ export default function AdminPartnerForm() {
               />
             </label>
             <label title="When this partner's support began. Leave it blank if you're not sure yet -- it's easy to set later.">
-              Supporting Since
+              Partnering Since
               <input
                 type="date"
                 value={values.supportingSince}

@@ -33,9 +33,8 @@ model Partner {
   overviewShort   String?
   focusArea       String?   @db.Text
   supportingSince DateTime? @db.Date // year-only values are stored as Jan 1 of that year
-  // When our church adopted them and when they were commissioned: annual key dates (#422). Year-only
+  // When they were commissioned (possibly before we knew them): an annual key date (#422). Year-only
   // values are stored as Jan 1, like supportingSince.
-  adoptedAt       DateTime? @db.Date
   commissionedAt  DateTime? @db.Date
 
   // When the whole congregation last prayed for this partner together (a manual record).

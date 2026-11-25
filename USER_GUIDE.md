@@ -198,7 +198,7 @@ partner, with how many, matched without regard to capitalisation. Guests don't s
 filled in later from the record itself, plus a couple of fields that are
 usually already known the moment you're adding someone and don't need
 their own detail-page trip: Display Name (required), Country,
-Field/Region Display Name, a Short Overview, **Supporting Since**, a
+Field/Region Display Name, a Short Overview, **Partnering Since**, a
 **Contacting them** choice (Normal, Use caution, or Don't contact directly;
 the details go on their Contact card), and three checkboxes — **Show on
 public site** (`isPublic`), **Restricted-access
@@ -211,7 +211,7 @@ location, family, trip history, and the rest — gets filled in section by
 section. See [Editing a partner](#editing-a-partner) below. Hover any
 field's label for a tip on what it means and how it's used.
 
-![The New Partner form, with Supporting Since and Contacting them alongside the basics](docs/assets/screenshots/new-partner-form.png)
+![The New Partner form, with Partnering Since and Contacting them alongside the basics](docs/assets/screenshots/new-partner-form.png)
 
 #### Creating an organization
 
@@ -311,7 +311,7 @@ not just what topic they fall under:
   its feature is on). The jump bar reads Overview, Family & Personal,
   Location & Contact, Care, Financial, Mission Trips, Communication.
 - **Financial**:
-  - **Supporting Since** — a single date.
+  - **Partnering Since** — a single date.
   - **Financial Support** — repeatable Monthly Amount / Effective Date /
     Notes rows. The most recent effective date is what counts as the
     current amount everywhere else in the app. Never shown publicly.
@@ -962,7 +962,7 @@ The **Last heard from** report counts a logged contact, a newsletter, a prayer r
 
 ### Key-date reminders
 
-With **Key-date reminders** turned on (it needs [Care teams](#care-teams)), the people on a partner's care team are reminded about a coming **birthday** (including the children's), **wedding anniversary**, or **supported-since milestone** (the first year, then every fifth), or the anniversary of when the church **adopted** them or they were **commissioned** (record them on the partner's page under **Our History With Them**, alongside **Supporting since**; they can differ, since someone may have been commissioned long before we knew them), a week ahead.
+With **Key-date reminders** turned on (it needs [Care teams](#care-teams)), the people on a partner's care team are reminded about a coming **birthday** (including the children's), **wedding anniversary**, or **partnering-since milestone** (the first year, then every fifth), or the anniversary of when they were **commissioned** (record both on the partner's page under **Our History With Them**; they can differ, since someone may have been commissioned long before we knew them; the public pages show the year as "Supporting since"), a week ahead.
 
 - **On the bell and the Home page** as "Key dates coming up". Open it to find the partner. The **My partners** tab also flags a key date inside the window. A key date is raised **7 days ahead** by default; an admin can change that (1 to 60 days) under Settings → Care Teams → Timing.
 
