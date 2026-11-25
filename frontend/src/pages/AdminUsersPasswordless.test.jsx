@@ -117,6 +117,15 @@ describe("Manage Users: passwordless sign-in", () => {
     expect(screen.getByText(/Add a passkey to your own account first/)).toBeInTheDocument();
   });
 
+  it("on the public demo is disabled and says it would lock visitors out until the next reset", async () => {
+    fetchCurrentUser.mockResolvedValue(me({ passwordlessBlockedByDemo: true }));
+    renderPage();
+    expect(await button("Turn on passwordless sign-in")).toBeDisabled();
+    expect(
+      screen.getByText(/lock every visitor out until the next reset/)
+    ).toBeInTheDocument();
+  });
+
   it("when on, says so and turns off without a confirmation", async () => {
     fetchCurrentUser.mockResolvedValue(me({ passwordlessRequired: true, twoFactorRequired: true }));
     renderPage();
