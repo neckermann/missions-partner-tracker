@@ -6,7 +6,6 @@ const { requireFeature } = require("../middleware/requireFeature");
 const { readableNeedPartnerIds } = require("../utils/guestAccess");
 const { recordAuditSafe } = require("../utils/auditLog");
 const { isFeatureEnabled } = require("../utils/features");
-const { isDemoDeployment } = require("../utils/demoMode");
 const { sendEmail } = require("../utils/email");
 const { buildSurveyEmail } = require("../utils/surveyEmails");
 const { saveSurveyAnswers } = require("../utils/surveyResponses");
@@ -390,9 +389,6 @@ router.post("/:id/send", manage, async (req, res, next) => {
     if (!buildSurveyUrl("probe")) {
       return res.status(400).json({ error: "APP_BASE_URL isn't set, so a link can't be built" });
     }
-    if (isDemoDeployment()) {
-      return res.status(400).json({ error: "The demo never emails anyone, so links can't be sent here" });
-    }
 
     const partners = await prisma.partner.findMany({
       where: { id: { in: partnerIds }, archived: false },
@@ -474,7 +470,7 @@ router.post("/:id/send", manage, async (req, res, next) => {
 const linkSchema = z.object({ partnerId: z.string().min(1) });
 
 // POST /api/surveys/:id/link -- a personal link for one partner, handed back to the person asking
-// instead of emailed: to text or read out, to try the survey yourself, or on a demo that never emails.
+// instead of emailed: to text or read out, to try the survey yourself, or when Email (Sending) is off.
 // Like a send, it replaces the partner's earlier link, and a partner the app may not contact directly
 // gets none. Nothing is sent, so it needs neither Email (Sending) nor a real address.
 router.post("/:id/link", manage, async (req, res, next) => {

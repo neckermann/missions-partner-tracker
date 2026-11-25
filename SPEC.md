@@ -804,8 +804,8 @@ rewrites the feature list after the reset script does) both apply it, and
 published admin login switching the flag on. A demo is known two ways: the
 `DEMO_RESET_TOKEN` variable (web service only) or `ChurchSettings.demoMode`, which the
 demo reset writes so the separate worker process (which does not get the variable)
-agrees. `sendEmail` and `sendEmailBatch` skip every send on a demo, so no scheduled
-or triggered email can reach a seeded account.
+agrees. Only the scheduled senders (key dates, trip reminders, scheduled reports, email digests)
+skip on a demo; an email a person adds or clicks to send goes out as anywhere else.
 
 ### 5.5 What flows to the care team (#292 Phase 1)
 
