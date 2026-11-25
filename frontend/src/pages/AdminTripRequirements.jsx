@@ -333,7 +333,7 @@ export default function AdminTripRequirements() {
                   onChange={(e) => setReqModalForm((f) => ({ ...f, dueAt: e.target.value }))}
                 />
               </label>
-              <label style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}>
+              <label className="checkbox-option">
                 <input
                   type="checkbox"
                   checked={reqModal.form.minorsOnly}
@@ -375,7 +375,7 @@ export default function AdminTripRequirements() {
                   />
                 </label>
               )}
-              <label style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}>
+              <label className="checkbox-option">
                 <input
                   type="checkbox"
                   checked={reqModal.form.minorsOnly}

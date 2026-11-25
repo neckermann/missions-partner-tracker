@@ -379,10 +379,7 @@ export default function PublicTripApplication() {
                       const selected = responses[q.id] || [];
                       const checked = selected.includes(opt);
                       return (
-                        <label
-                          key={opt}
-                          style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontWeight: 400 }}
-                        >
+                        <label key={opt} className="checkbox-option">
                           <input
                             type="checkbox"
                             checked={checked}

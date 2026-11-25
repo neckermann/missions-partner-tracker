@@ -18,6 +18,7 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ### Changed
 
+- **Check-all-that-apply questions line up.** On a trip application (and two trip requirement checkboxes) each switch now sits beside its text, left-aligned, instead of stacked and centered in the middle of the form.
 - **A survey's page follows what you are doing.** A draft shows Details, Questions, then Send. Once it is open it leads with Send and the Answers, with the long question list and details below; a closed survey leads with its Answers.
 - **A public demo lets visitors try passkeys and an authenticator app ([#386](https://github.com/neckermann/missions-partner-tracker/issues/386)).** Adding or removing one works, but the demo never asks for a second factor at sign-in and doesn't end other visitors' sessions, so the shared logins keep working.
 

@@ -1386,6 +1386,20 @@ a {
   outline-offset: 2px;
 }
 
+/* A checkbox (a switch inside .admin-shell) with its text beside it, left-aligned. Without this a bare
+   flex label stacks the switch above its text and centers both. */
+.checkbox-option,
+.admin-shell .checkbox-option {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.6rem;
+  padding: 0.25rem 0;
+  font-weight: 400;
+  text-align: left;
+}
+
 .admin-checkbox-row {
   display: flex;
   flex-wrap: wrap;
