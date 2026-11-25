@@ -369,3 +369,22 @@ footer.site-footer a {
     margin: 0 0.6rem;
   }
 }
+
+/* The hero's one-line trust note, the care section's short list, and the hosted-version note. */
+.hero-trust {
+  margin: 1.25rem 0 0;
+  font-size: 0.9rem;
+  opacity: 0.85;
+}
+.care-list {
+  margin: 1rem 0 0;
+  padding-left: 1.2rem;
+  color: var(--muted);
+}
+.care-list li {
+  margin-bottom: 0.45rem;
+}
+.hosted-note {
+  margin-top: 1.5rem;
+  font-size: 0.95rem;
+}
