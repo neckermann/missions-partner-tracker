@@ -1,0 +1,43 @@
+{
+  "format": "missions-partner-tracker-pack",
+  "version": 1,
+  "kind": "survey",
+  "title": "Furlough and visit planning",
+  "description": "Plan a time home: when, where they will stay, and how they would like to connect with the church.",
+  "data": {
+    "survey": {
+      "title": "Furlough and visit planning",
+      "intro": "We would love to plan well for your time with us. Tell us what you can, and we will follow up.",
+      "questions": [
+        {
+          "kind": "yesno",
+          "label": "Are you planning to be home in the next twelve months?",
+          "required": true
+        },
+        {
+          "kind": "text",
+          "label": "Roughly when, and for how long?"
+        },
+        {
+          "kind": "text",
+          "label": "Where will you be staying?"
+        },
+        {
+          "kind": "multiple",
+          "label": "Would you like to…",
+          "choices": [
+            "Speak at a church gathering",
+            "Host a prayer or information evening",
+            "Meet with the care team",
+            "Have quiet time to rest"
+          ],
+          "allowOther": true
+        },
+        {
+          "kind": "text",
+          "label": "Is there anything we should prepare or arrange ahead of time?"
+        }
+      ]
+    }
+  }
+}

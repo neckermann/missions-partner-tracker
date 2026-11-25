@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { fetchDispatchSettings, updateDispatchSettings, fetchScopedDigestSummary } from "../api/client.js";
 import { useSettings } from "../context/SettingsContext.jsx";
 import { joinWithAnd } from "../utils/urgentSend.js";
+import TemplatePackButtons from "../components/admin/TemplatePackButtons.jsx";
 import SettingsPageHeader from "../components/admin/SettingsPageHeader.jsx";
 import EditableSection from "../components/admin/EditableSection.jsx";
 import StatTiles from "../components/shared/StatTiles.jsx";
@@ -77,7 +78,16 @@ export default function AdminDispatchSettings() {
 
   return (
     <div className="admin-shell">
-      <SettingsPageHeader title="Dispatch Settings" />
+      <SettingsPageHeader
+        title="Dispatch Settings"
+        actions={
+          <TemplatePackButtons
+            importLabel="Import wording…"
+            exportKind="dispatchWording"
+            onImported={reload}
+          />
+        }
+      />
       <p style={{ color: "var(--muted)" }}>
         Schedules for the admin/public email dispatch and for {chatLabel || "GroupMe/WhatsApp"}, the chat
         channels' own content-type mutes, the restricted-partner safety gate, and email dispatch appearance.

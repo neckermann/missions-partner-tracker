@@ -1,0 +1,50 @@
+{
+  "format": "missions-partner-tracker-pack",
+  "version": 1,
+  "kind": "survey",
+  "title": "Care check-in",
+  "description": "A gentle, regular check-in: how they are, what to pray for, and how we can help.",
+  "data": {
+    "survey": {
+      "title": "Care check-in",
+      "intro": "We think of you often and would love to hear how you are doing. These few questions help us pray for you and support you well.",
+      "questions": [
+        {
+          "kind": "single",
+          "label": "How are you doing overall?",
+          "choices": [
+            "Doing well",
+            "Managing",
+            "Struggling",
+            "Need help soon"
+          ],
+          "required": true
+        },
+        {
+          "kind": "text",
+          "label": "What is going on in your life and ministry right now?"
+        },
+        {
+          "kind": "text",
+          "label": "What can we pray for this month?"
+        },
+        {
+          "kind": "multiple",
+          "label": "How can we help right now?",
+          "choices": [
+            "Prayer",
+            "A call or video chat",
+            "A visit from a team",
+            "A care package",
+            "Help with a project or a need"
+          ],
+          "allowOther": true
+        },
+        {
+          "kind": "yesno",
+          "label": "Is there anything urgent we should know about?"
+        }
+      ]
+    }
+  }
+}

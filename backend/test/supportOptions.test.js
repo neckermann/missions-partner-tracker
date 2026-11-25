@@ -1,13 +1,7 @@
-// The rules around support preferences' answers, and the example menu.
+// The rules around support preferences' answers.
 const { test, describe } = require("node:test");
 const assert = require("node:assert/strict");
-const {
-  normalizeResponse,
-  describeAnswer,
-  addExampleOptions,
-  EXAMPLE_OPTIONS,
-  KIND_VALUES,
-} = require("../src/utils/supportOptions");
+const { normalizeResponse, describeAnswer, KIND_VALUES } = require("../src/utils/supportOptions");
 
 const single = { kind: "single", label: "Gifts", choices: ["A", "B"], allowOther: true };
 const multiple = { kind: "multiple", label: "Contact", choices: ["Letters", "Video"], allowOther: false };
@@ -67,30 +61,5 @@ describe("describeAnswer", () => {
     assert.equal(describeAnswer(multiple, { choices: ["Letters", "Video"], other: null }), "Letters, Video");
     assert.equal(describeAnswer({ kind: "text" }, { text: "hello" }), "hello");
     assert.equal(describeAnswer(single, null), "");
-  });
-});
-
-describe("the example menu", () => {
-  test("uses only known kinds, with choices on every choice question", () => {
-    for (const o of EXAMPLE_OPTIONS) {
-      const kind = o.kind || "offer";
-      assert.ok(KIND_VALUES.includes(kind), `${o.label} has an unknown kind`);
-      if (kind === "single" || kind === "multiple") assert.ok((o.choices || []).length > 0 || o.allowOther);
-    }
-  });
-
-  test("is added only to an empty menu, in order within each group", async () => {
-    const calls = [];
-    const empty = {
-      supportOption: { count: async () => 0, createMany: async (arg) => calls.push(arg.data) },
-    };
-    const added = await addExampleOptions(empty);
-    assert.equal(added, EXAMPLE_OPTIONS.length);
-    const logistics = calls[0].filter((r) => r.group === "Logistics").map((r) => r.sortOrder);
-    assert.deepEqual(logistics, [1, 2, 3, 4]);
-    assert.ok(calls[0].every((r) => Array.isArray(r.choices)));
-
-    const notEmpty = { supportOption: { count: async () => 3, createMany: async () => assert.fail("no") } };
-    assert.equal(await addExampleOptions(notEmpty), 0);
   });
 });

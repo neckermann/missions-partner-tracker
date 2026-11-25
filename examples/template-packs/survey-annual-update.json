@@ -1,0 +1,66 @@
+{
+  "format": "missions-partner-tracker-pack",
+  "version": 1,
+  "kind": "survey",
+  "title": "Annual update",
+  "description": "Ask partners to confirm their contact details and share an update. Answers can be reviewed and applied to their record.",
+  "data": {
+    "survey": {
+      "title": "Annual update",
+      "intro": "Once a year we like to make sure we have your details right and hear what has changed. Please leave anything blank that is still correct.",
+      "questions": [
+        {
+          "kind": "text",
+          "label": "Best phone number to reach you",
+          "field": "primaryPhone"
+        },
+        {
+          "kind": "text",
+          "label": "Best email address to reach you",
+          "field": "primaryEmail"
+        },
+        {
+          "kind": "single",
+          "label": "How do you prefer to be contacted?",
+          "choices": [
+            "call",
+            "text",
+            "email",
+            "whatsapp",
+            "signal",
+            "messenger"
+          ],
+          "field": "contactMethod"
+        },
+        {
+          "kind": "text",
+          "label": "Emergency contact: name",
+          "field": "emergencyContactName"
+        },
+        {
+          "kind": "text",
+          "label": "Emergency contact: phone",
+          "field": "emergencyContactPhone"
+        },
+        {
+          "kind": "text",
+          "label": "Emergency contact: email",
+          "field": "emergencyContactEmail"
+        },
+        {
+          "kind": "photo",
+          "label": "A recent photo of you and your family (optional)",
+          "field": "photo"
+        },
+        {
+          "kind": "text",
+          "label": "A short update on your work for the people who pray for you"
+        },
+        {
+          "kind": "text",
+          "label": "Anything else that has changed (family, location, plans)?"
+        }
+      ]
+    }
+  }
+}

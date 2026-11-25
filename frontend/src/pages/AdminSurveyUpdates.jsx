@@ -139,59 +139,56 @@ export default function AdminSurveyUpdates() {
                 </div>
               )}
             </div>
-            <table className="admin-table" style={{ marginTop: "0.5rem" }}>
-              <thead>
-                <tr>
-                  <th>Change</th>
-                  <th>Now</th>
-                  <th>Suggested</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                {g.items.map((u) => (
-                  <tr key={u.id}>
-                    <td>{u.fieldLabel}</td>
-                    <td>{u.photoUploadId || u.field === "photo" ? "" : u.currentValue || "—"}</td>
-                    <td>
-                      {u.photoUploadId ? (
-                        <img
-                          src={`/api/survey-updates/photo/${u.photoUploadId}`}
-                          alt={`Sent by ${u.partnerName}`}
-                          style={{ maxWidth: 120, maxHeight: 120, borderRadius: 6 }}
-                        />
-                      ) : (
-                        u.proposedValue
-                      )}
-                    </td>
-                    <td style={{ whiteSpace: "nowrap" }}>
+            <ul className="survey-change-list">
+              {g.items.map((u) => (
+                <li key={u.id} className="survey-change">
+                  <div className="survey-change-field">{u.fieldLabel}</div>
+                  <div className="survey-change-values">
+                    {u.photoUploadId ? (
+                      <img
+                        src={`/api/survey-updates/photo/${u.photoUploadId}`}
+                        alt={`Sent by ${u.partnerName}`}
+                        style={{ maxWidth: 120, maxHeight: 120, borderRadius: 6 }}
+                      />
+                    ) : (
+                      <>
+                        <span>
+                          <span className="survey-change-label">Now</span> {u.currentValue || "—"}
+                        </span>
+                        <span>
+                          <span className="survey-change-label">Suggested</span>{" "}
+                          <strong>{u.proposedValue}</strong>
+                        </span>
+                      </>
+                    )}
+                  </div>
+                  <div className="survey-change-actions">
+                    <button
+                      type="button"
+                      className="btn small"
+                      onClick={() => act(() => approveSurveyUpdate(u.id))}
+                    >
+                      Approve
+                    </button>
+                    {!u.photoUploadId && u.field !== "photo" && (
                       <button
                         type="button"
-                        className="btn small"
-                        onClick={() => act(() => approveSurveyUpdate(u.id))}
+                        className="btn secondary small"
+                        onClick={() => {
+                          setValue(u.proposedValue || "");
+                          setEditing(u);
+                        }}
                       >
-                        Approve
-                      </button>{" "}
-                      {!u.photoUploadId && u.field !== "photo" && (
-                        <button
-                          type="button"
-                          className="btn secondary small"
-                          onClick={() => {
-                            setValue(u.proposedValue || "");
-                            setEditing(u);
-                          }}
-                        >
-                          Edit
-                        </button>
-                      )}{" "}
-                      <button type="button" className="btn danger small" onClick={() => reject(u)}>
-                        Reject
+                        Edit
                       </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    )}
+                    <button type="button" className="btn danger small" onClick={() => reject(u)}>
+                      Reject
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
           </div>
         ))}
       {rows && !pendingTab && (

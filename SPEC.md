@@ -911,8 +911,8 @@ Behind the `supportPreferences` feature (off by default; needs `careTeam`). The 
 menu is **data, not code**: `SupportOption` rows (`group` is plain text so it can be renamed,
 `kind` is `offer` | `single` | `multiple` | `text`, `choices` a `String[]`, `allowOther`,
 `sortOrder`, `active`), edited by an admin, so a fork never changes application code to change the
-list; `utils/supportOptions.js` holds only the kinds, the answer rules and an example set
-(`addExampleOptions`, which refuses a non-empty menu). A partner's response is one
+list; `utils/supportOptions.js` holds only the kinds and the answer rules (a starting list is a
+template pack, §5.10). A partner's response is one
 `PartnerSupportPreference` row per option, in **real columns** (`selected`, `choice`, `choices`
 `String[]`, `other`, `text`, `note`), not a JSON blob, so a report can filter on them;
 `normalizeResponse` validates an answer against its option and returns the columns (or "empty",
@@ -952,9 +952,7 @@ a trip leader none; a viewer reads). Nothing here is public, in the booklet or a
 are in `backup.js`'s `MODELS`. The _Survey responses_ report lists who is waiting, who answered and who has
 not been sent a survey.
 
-**Templates.** `utils/surveyTemplates.js` holds a few built-in starting points (Care check-in, Annual update,
-Furlough planning); `POST /api/surveys/from-template` copies one into ordinary `Survey`/`SurveyQuestion` rows, so
-nothing stays linked to the file and no church's list lives in code.
+**Templates.** There are none in code: starting surveys are template packs (§5.10).
 
 **Updating the record from answers.** A `SurveyQuestion.field` links a question to a key in
 `utils/surveyFields.js` (a deliberately short list: primary contact's phone, email and preferred method,
@@ -972,6 +970,25 @@ a rejected one is deleted. The review route serves a held photo with `nosniff` a
 
 Deferred: bell alerts for new answers, scheduled reminders, per-adult responses, offering the support-preferences menu
 as a survey, and linking a question to a mailing address or other multi-column fields.
+
+### 5.10 Template packs
+
+The app ships no church content in code (the fork-upgradability rule). Starting points are **template
+packs**: JSON envelopes `{ format: "missions-partner-tracker-pack", version: 1, kind, title, description,
+data }` (`utils/templatePacks.js`). Each `kind` (`survey`, `supportMenu`, `applicationQuestions`,
+`tripRequirements`, `dispatchWording`) has a strict zod schema for `data`, a preview summary, an `apply`
+and an `exportData`. `routes/templatePacks.js` (admin only; 1 MB body limit) offers `POST /preview`,
+`POST /import` and `GET /export/:kind`; each kind needs the feature it belongs to (surveys + careTeam,
+supportPreferences + careTeam, trips; wording needs none). Import is **additive**: existing options,
+questions and requirements are never deleted, a duplicate (same group+label, or label) is skipped so a
+re-import adds nothing, and a survey arrives as a draft. The exception is `dispatchWording`, which replaces the
+fields it contains (the preview says so). A survey question's `field` is validated against
+`utils/surveyFields.js` like the builder does. Import is audited (`settings.updated`).
+
+Examples live in `examples/template-packs/` (see its README) and are the only copy of that content; the demo
+seed imports them through `utils/packFiles.js`, and a test asserts every file validates and carries no church's
+name. A new install starts with every one of these areas empty and a prompt to import; existing installs keep
+their data.
 
 ### 5.8 Wrapping up a trip (#358)
 

@@ -12,6 +12,7 @@ import {
   reopenSurveyResponse,
 } from "../api/client.js";
 import Breadcrumb from "../components/shared/Breadcrumb.jsx";
+import { templatePackExportUrl } from "../api/client.js";
 import PageHeader from "../components/shared/PageHeader.jsx";
 import StatTiles from "../components/shared/StatTiles.jsx";
 import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
@@ -239,6 +240,9 @@ export default function AdminSettingsSurveyDetail() {
                 Close survey
               </button>
             )}
+            <a className="btn secondary" href={templatePackExportUrl("survey", { surveyId: id })} download>
+              Export
+            </a>
             <button type="button" className="btn danger" onClick={remove}>
               Delete
             </button>

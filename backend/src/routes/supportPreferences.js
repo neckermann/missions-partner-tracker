@@ -11,7 +11,6 @@ const {
   CHOICE_KINDS,
   MAX_CHOICES,
   normalizeResponse,
-  addExampleOptions,
 } = require("../utils/supportOptions");
 
 // #374: support preferences. Gated by the `supportPreferences` feature, which needs Care
@@ -80,19 +79,6 @@ router.get("/options", requireRole("admin"), async (req, res, next) => {
       include: { _count: { select: { preferences: true } } },
     });
     res.json(options.map(({ _count, ...o }) => ({ ...o, answerCount: _count.preferences })));
-  } catch (err) {
-    next(err);
-  }
-});
-
-// POST /api/support-preferences/options/example-set -- adds the example menu when the
-// catalog is empty. Registered before "/options/:id" so "example-set" isn't read as an id.
-router.post("/options/example-set", requireRole("admin"), async (req, res, next) => {
-  try {
-    const added = await addExampleOptions();
-    if (added === 0) return res.status(409).json({ error: "The menu already has options" });
-    await audit(req, "exampleSetAdded", added);
-    res.status(201).json({ added });
   } catch (err) {
     next(err);
   }

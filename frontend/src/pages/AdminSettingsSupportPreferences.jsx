@@ -6,9 +6,9 @@ import {
   updateSupportOption,
   deleteSupportOption,
   renameSupportGroup,
-  addSupportExampleSet,
 } from "../api/client.js";
 import { Link } from "react-router-dom";
+import TemplatePackButtons from "../components/admin/TemplatePackButtons.jsx";
 import SettingsPageHeader from "../components/admin/SettingsPageHeader.jsx";
 import QuickActionModal from "../components/shared/QuickActionModal.jsx";
 import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
@@ -76,11 +76,18 @@ export default function AdminSettingsSupportPreferences() {
       <SettingsPageHeader
         title="Support Preferences"
         actions={
-          options?.some((o) => o.active) ? (
-            <Link to="/admin/settings/support-preferences/print" className="btn secondary">
-              Print menu
-            </Link>
-          ) : null
+          <>
+            <TemplatePackButtons
+              importLabel="Import a menu…"
+              exportKind={options?.length ? "supportMenu" : undefined}
+              onImported={reload}
+            />
+            {options?.some((o) => o.active) && (
+              <Link to="/admin/settings/support-preferences/print" className="btn secondary">
+                Print menu
+              </Link>
+            )}
+          </>
         }
       />
       <p style={{ color: "var(--muted)" }}>
@@ -96,13 +103,10 @@ export default function AdminSettingsSupportPreferences() {
       {options && options.length === 0 && (
         <div className="admin-section">
           <p style={{ marginTop: 0 }}>
-            There are no options yet. Start from an example set (housing, transportation, prayer, care
-            packages and so on) and edit it, or build your own.
+            There are no options yet. Import an example menu (housing, transportation, prayer, care packages
+            and so on) with <strong>Import a menu…</strong> above and edit it, or build your own.
           </p>
           <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-            <button type="button" className="btn" onClick={() => act(addSupportExampleSet)}>
-              Add an example set
-            </button>
             <button type="button" className="btn secondary" onClick={() => setEditing({})}>
               + Add an option
             </button>

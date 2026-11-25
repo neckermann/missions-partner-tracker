@@ -33,6 +33,7 @@ const supportPreferencesRoutes = require("./routes/supportPreferences");
 const surveyRoutes = require("./routes/surveys");
 const publicSurveyRoutes = require("./routes/publicSurveys");
 const surveyUpdateRoutes = require("./routes/surveyUpdates");
+const templatePackRoutes = require("./routes/templatePacks");
 const contactLogRoutes = require("./routes/contactLog");
 const tripMeetingRoutes = require("./routes/tripMeetings");
 const tripRequirementRoutes = require("./routes/tripRequirements");
@@ -108,6 +109,7 @@ app.use(morgan(process.env.NODE_ENV === "production" ? "combined" : "dev"));
 // Larger parsers are scoped to the few routes that need them and must be
 // mounted first: express.json() skips a body an earlier instance consumed.
 app.use("/api/inbound-email/postmark", express.json({ limit: "15mb" })); // entire email, base64, attachments included
+app.use("/api/template-packs", express.json({ limit: "1mb" })); // a pasted or uploaded pack (admin only)
 app.use("/api/public/survey-uploads", express.json({ limit: "7mb" })); // base64 photo from a survey link
 app.use("/api/public/trips/participants/sign", express.json({ limit: "7mb" })); // base64 signature image
 app.use("/api/public/trips/participants/self-service", express.json({ limit: "7mb" })); // base64 participant photo
@@ -205,6 +207,7 @@ app.use("/api/audit", auditRoutes); // protected (admin); flag-gated (auditTrail
 app.use("/api/contact-log", contactLogRoutes); // protected; flag-gated (contactLog) -- see that file's own comment
 app.use("/api/surveys", surveyRoutes); // protected; flag-gated (surveys + careTeam) -- see that file's own comment
 app.use("/api/public/survey-uploads", publicSurveyRoutes.uploadRouter); // no login: the link token is the credential
+app.use("/api/template-packs", templatePackRoutes); // protected; admin only; each kind needs its own feature
 app.use("/api/survey-updates", surveyUpdateRoutes); // protected; flag-gated (surveys + careTeam), admin/editor
 app.use("/api/public/surveys", publicSurveyRoutes); // no login: the personal link token is the credential
 app.use("/api/support-preferences", supportPreferencesRoutes); // protected; flag-gated (supportPreferences + careTeam) -- see that file's own comment

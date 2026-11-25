@@ -10,18 +10,18 @@ const { isDemoDeployment } = require("../utils/demoMode");
 const { sendEmail } = require("../utils/email");
 const { buildSurveyEmail } = require("../utils/surveyEmails");
 const { saveSurveyAnswers } = require("../utils/surveyResponses");
-const surveyTemplates = require("../utils/surveyTemplates");
-const { listFields, fieldFitsKind, PHOTO } = require("../utils/surveyFields");
+
 const {
   KINDS,
   KIND_VALUES,
-  CHOICE_KINDS,
   MAX_CHOICES,
   newInviteToken,
   buildSurveyUrl,
   emailBlockReason,
   surveyEmailFor,
+  shapeQuestion,
 } = require("../utils/surveys");
+const { listFields } = require("../utils/surveyFields");
 
 // #419: partner surveys. Gated by the `surveys` feature, which needs Care teams (404 when either
 // is off, data kept). A church builds surveys; a person sends each chosen partner a personal link
@@ -70,60 +70,10 @@ const questionSchema = z.object({
   field: z.string().optional().nullable(),
 });
 
-function shapeQuestion(q) {
-  const isChoice = CHOICE_KINDS.includes(q.kind);
-  const choices = isChoice ? [...new Set(q.choices || [])] : [];
-  const allowOther = isChoice ? q.allowOther === true : false;
-  if (isChoice && choices.length === 0 && !allowOther) {
-    return { error: `"${q.label}" needs at least one choice, or an “other” box` };
-  }
-  const field = q.kind === "photo" ? PHOTO : q.field || null;
-  if (field && !fieldFitsKind(field, q.kind)) {
-    return { error: `"${q.label}" can't be linked to that part of the record` };
-  }
-  return { choices, allowOther, field };
-}
-
 router.get("/kinds", (req, res) => res.json({ kinds: KINDS }));
 
 // GET /api/surveys/fields -- the parts of a partner's record a question can propose a change to.
 router.get("/fields", manage, (req, res) => res.json({ fields: listFields() }));
-
-// GET /api/surveys/templates -- starting points for a new survey (registered before /:id).
-router.get("/templates", manage, (req, res) => res.json({ templates: surveyTemplates.listTemplates() }));
-
-// POST /api/surveys/from-template -- a new draft survey with the template's intro and questions,
-// which the church then edits like any other. Nothing stays linked to the template.
-router.post("/from-template", manage, async (req, res, next) => {
-  try {
-    const { templateId, title } = z
-      .object({ templateId: z.string().min(1), title: z.string().trim().min(1).max(200).optional() })
-      .parse(req.body);
-    const template = surveyTemplates.byId(templateId);
-    if (!template) return res.status(404).json({ error: "Not found" });
-    const survey = await prisma.survey.create({
-      data: {
-        title: title || template.title,
-        intro: template.intro,
-        questions: {
-          create: template.questions.map((q, position) => ({
-            position,
-            kind: q.kind,
-            label: q.label,
-            choices: q.choices || [],
-            allowOther: q.allowOther === true,
-            required: q.required === true,
-            field: q.field || null,
-          })),
-        },
-      },
-    });
-    await audit(req, "created survey from template", `${survey.title} (${template.id})`);
-    res.status(201).json(survey);
-  } catch (err) {
-    next(err);
-  }
-});
 
 // GET /api/surveys -- every survey with how many questions, invitations and answers.
 router.get("/", manage, async (req, res, next) => {

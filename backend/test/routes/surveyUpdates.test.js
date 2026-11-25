@@ -1,4 +1,4 @@
-// Survey templates and the approve-and-update flow (#419): a survey built from a template, answers
+// An imported survey pack and the approve-and-update flow (#419): a survey built from a pack, answers
 // that differ from the record becoming proposed changes (never edits), a person approving
 // (optionally editing), rejecting or finding it already decided, and a partner's photo waiting for
 // approval before it reaches the record.
@@ -7,6 +7,7 @@ const assert = require("node:assert/strict");
 require("dotenv").config({ quiet: true });
 const prisma = require("../../src/prismaClient");
 const { newInviteToken } = require("../../src/utils/surveys");
+const { readPackFile } = require("../../src/utils/packFiles");
 const { client, stopServer, ensureTestUsers, removeFixturePartners, FIXTURE_TAG } = require("./helpers");
 
 let admin;
@@ -90,26 +91,21 @@ after(async () => {
   await stopServer();
 });
 
-describe("survey templates and updates", () => {
-  test("templates are listed and make an ordinary editable survey", async () => {
-    const list = await editor("/api/surveys/templates");
-    assert.equal(list.status, 200);
-    assert.ok(list.body.templates.some((t) => t.id === "annual-update"));
-    assert.equal((await viewer("/api/surveys/templates")).status, 403);
+describe("survey packs and updates", () => {
+  test("an example survey pack imports as an ordinary editable draft survey", async () => {
+    const pack = readPackFile("survey-annual-update");
     assert.equal(
-      (await editor("/api/surveys/from-template", { method: "POST", body: { templateId: "nope" } })).status,
-      404
+      (await viewer("/api/template-packs/import", { method: "POST", body: { pack } })).status,
+      403
     );
-
-    const made = await editor("/api/surveys/from-template", {
+    const made = await admin("/api/template-packs/import", {
       method: "POST",
-      body: { templateId: "annual-update", title: `${FIXTURE_TAG} Annual` },
+      body: { pack: { ...pack, data: { survey: { ...pack.data.survey, title: `${FIXTURE_TAG} Annual` } } } },
     });
-    assert.equal(made.status, 201);
-    survey = made.body;
-    const full = (await editor(`/api/surveys/${survey.id}`)).body;
-    questions = full.questions;
-    assert.equal(full.status, "draft");
+    assert.equal(made.status, 200);
+    survey = (await editor(`/api/surveys/${made.body.surveyId}`)).body;
+    questions = survey.questions;
+    assert.equal(survey.status, "draft");
     assert.ok(questions.some((q) => q.field === "primaryPhone"));
     assert.ok(questions.some((q) => q.kind === "photo" && q.field === "photo"));
     const fields = (await editor("/api/surveys/fields")).body.fields.map((f) => f.key);
@@ -351,7 +347,7 @@ describe("survey templates and updates", () => {
   test("the whole thing is 404 while the feature is off", async () => {
     await setFeatures({ surveys: false });
     assert.equal((await editor("/api/survey-updates")).status, 404);
-    assert.equal((await editor("/api/surveys/templates")).status, 404);
+    assert.equal((await admin("/api/template-packs/export/survey")).status, 404);
     await setFeatures({ surveys: true });
   });
 });

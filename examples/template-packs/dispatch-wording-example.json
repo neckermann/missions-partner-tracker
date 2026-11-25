@@ -1,0 +1,12 @@
+{
+  "format": "missions-partner-tracker-pack",
+  "version": 1,
+  "kind": "dispatchWording",
+  "title": "Example email update wording",
+  "description": "A subject line and sign-off for the email updates. Placeholders: {date}, {church}, {term}.",
+  "data": {
+    "emailDispatchSubjectTemplate": "{date} {church} - {term} Updates",
+    "emailDispatchSignature": "Grateful for you,\nYour missions team",
+    "emailDispatchLayout": "classic"
+  }
+}

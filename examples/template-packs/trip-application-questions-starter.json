@@ -1,0 +1,79 @@
+{
+  "format": "missions-partner-tracker-pack",
+  "version": 1,
+  "kind": "applicationQuestions",
+  "title": "Starter trip application questions",
+  "description": "Questions every trip application asks, plus a library to pick from per trip.",
+  "data": {
+    "tripApplicationTemplate": [
+      {
+        "label": "Are you willing to raise the funds needed for this trip and meet payment deadlines?",
+        "type": "select",
+        "required": true,
+        "options": [
+          "Yes",
+          "No"
+        ]
+      },
+      {
+        "label": "Do you agree to follow the team's code of conduct during the trip? If accepted, you will be required to sign a full copy of the code of conduct.",
+        "type": "select",
+        "required": true,
+        "options": [
+          "Yes",
+          "No"
+        ]
+      },
+      {
+        "label": "Tell us about your faith journey and how you came to follow Jesus.",
+        "type": "textarea",
+        "required": false
+      },
+      {
+        "label": "What are your expectations for this trip?",
+        "type": "textarea",
+        "required": false
+      },
+      {
+        "label": "Health insurance company and policy/group number",
+        "type": "text",
+        "required": false
+      }
+    ],
+    "tripQuestionLibrary": [
+      {
+        "label": "Do you have a valid passport, or could you get one before the trip departs?",
+        "type": "select",
+        "required": true,
+        "options": [
+          "Yes, I have a passport that will be valid for at least 6 months from the time the trip starts",
+          "No, I do not have a passport, but there is enough time to get one before the deadline",
+          "No, and there is not enough time to get one before the deadline"
+        ]
+      },
+      {
+        "label": "Are you comfortable with texting as a way for the team to reach you?",
+        "type": "select",
+        "required": false,
+        "options": [
+          "Yes",
+          "No"
+        ]
+      },
+      {
+        "label": "Occupation",
+        "type": "text",
+        "required": false
+      },
+      {
+        "label": "Marital status",
+        "type": "select",
+        "required": false,
+        "options": [
+          "Single",
+          "Married"
+        ]
+      }
+    ]
+  }
+}

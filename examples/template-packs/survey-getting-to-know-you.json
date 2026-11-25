@@ -1,0 +1,120 @@
+{
+  "format": "missions-partner-tracker-pack",
+  "version": 1,
+  "kind": "survey",
+  "title": "Getting to know you",
+  "description": "A fuller partnership survey for restarting a relationship: their story, work, how they stay in touch with us, challenges, highlights, hopes and how we can help.",
+  "data": {
+    "survey": {
+      "title": "Getting to know you",
+      "intro": "Thank you for partnering with us. We want to know you and your work better, and to make sure we are supporting and praying for you well. Share as much or as little as you like, and save and finish later if you need to.",
+      "questions": [
+        {
+          "kind": "text",
+          "label": "Best phone number to reach you",
+          "field": "primaryPhone"
+        },
+        {
+          "kind": "text",
+          "label": "Best email address to reach you",
+          "field": "primaryEmail"
+        },
+        {
+          "kind": "single",
+          "label": "How can we best communicate with you, and receive updates from you?",
+          "choices": [
+            "call",
+            "text",
+            "email",
+            "whatsapp",
+            "signal",
+            "messenger"
+          ],
+          "field": "contactMethod"
+        },
+        {
+          "kind": "text",
+          "label": "Please share the names and birthdays of your family members"
+        },
+        {
+          "kind": "text",
+          "label": "A short description of your family, where you serve, and how long you have been in this work",
+          "required": true
+        },
+        {
+          "kind": "text",
+          "label": "Who is your sending church or gathering? May we contact them with questions about your work?"
+        },
+        {
+          "kind": "text",
+          "label": "Who is your sending agency or organization, if any?"
+        },
+        {
+          "kind": "text",
+          "label": "How and when did you first connect with us?"
+        },
+        {
+          "kind": "text",
+          "label": "How do you keep us updated on your work? Who here do you hear from or know personally?"
+        },
+        {
+          "kind": "text",
+          "label": "Has your work changed since we first partnered together? If so, how?"
+        },
+        {
+          "kind": "text",
+          "label": "How are you doing: spiritually, physically, mentally and relationally?"
+        },
+        {
+          "kind": "text",
+          "label": "Please summarize your current work, including what a typical week or month looks like"
+        },
+        {
+          "kind": "text",
+          "label": "What are two or three challenges you regularly face?"
+        },
+        {
+          "kind": "text",
+          "label": "What are two or three highlights from the last two years?"
+        },
+        {
+          "kind": "text",
+          "label": "Who are the people groups you serve, and in what language?"
+        },
+        {
+          "kind": "text",
+          "label": "What do local gatherings look like where you serve, and how are you involved?"
+        },
+        {
+          "kind": "text",
+          "label": "What are your one-year and five-year hopes, and what is being done toward them?"
+        },
+        {
+          "kind": "multiple",
+          "label": "Are there ways you would like us to support you?",
+          "choices": [
+            "Prayer",
+            "A short-term team visit",
+            "A project we could partner on",
+            "Help with a specific need",
+            "Encouragement and regular contact"
+          ],
+          "allowOther": true
+        },
+        {
+          "kind": "text",
+          "label": "When is your next time home, and could you visit us?"
+        },
+        {
+          "kind": "photo",
+          "label": "A recent photo of you and your family (optional)",
+          "field": "photo"
+        },
+        {
+          "kind": "text",
+          "label": "Is there anything else you would like to share with us, or a prayer request?"
+        }
+      ]
+    }
+  }
+}

@@ -7,7 +7,6 @@ const {
   sameValue,
   applyField,
 } = require("../src/utils/surveyFields");
-const { TEMPLATES, byId, listTemplates } = require("../src/utils/surveyTemplates");
 
 test("only a short, safe list of fields can be linked, and each fits certain question kinds", () => {
   const keys = listFields().map((f) => f.key);
@@ -64,17 +63,4 @@ test("applying checks the value and writes it, or says why not", async () => {
   assert.ok((await applyField(tx, ctx, "photo", "x")).error);
   assert.deepEqual(await applyField(tx, ctx, "emergencyContactName", "Sam"), { applied: "Sam" });
   assert.deepEqual(writes.at(-1), ["partner", { emergencyContactName: "Sam" }]);
-});
-
-test("every template question that links a field links one that fits its kind", () => {
-  assert.ok(listTemplates().length >= 3);
-  for (const t of TEMPLATES) {
-    assert.ok(byId(t.id));
-    assert.ok(t.questions.length > 0 && t.intro);
-    for (const q of t.questions) {
-      if (q.field) assert.ok(fieldFitsKind(q.field, q.kind), `${t.id}: ${q.label}`);
-      if (q.kind === "single" || q.kind === "multiple") assert.ok(q.choices?.length, `${t.id}: ${q.label}`);
-    }
-  }
-  assert.ok(!JSON.stringify(TEMPLATES).match(/church name|Hillside/i));
 });
