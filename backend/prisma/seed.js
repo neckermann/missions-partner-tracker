@@ -3194,6 +3194,8 @@ async function seedContactLogDemo() {
     select: { id: true },
   });
   if (careful) {
+    // Their family prefers email too, so the card and the guidelines agree.
+    await prisma.adult.updateMany({ where: { partnerId: careful.id }, data: { contactMethod: "email" } });
     await prisma.partner.update({
       where: { id: careful.id },
       data: {

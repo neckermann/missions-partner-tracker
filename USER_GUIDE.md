@@ -932,12 +932,15 @@ With **Contact log** turned on in [Enabled Features](ADMIN_GUIDE.md#feature-togg
 
 - **The contact card** is where who to reach, how they like to be reached and how careful to be are shown and **edited** (**Edit** on the card): who to reach first (the adult marked **Primary contact**, picked from a list, or an organization's named contact), **how each person likes to be reached** (a phone call, text, email, WhatsApp, Signal, Messenger or another way), highlighted as "Prefers Email", one-tap **Call**, **Text**, **Email** and **WhatsApp** buttons, and when anyone last was in touch. Anyone else in the family who has their own preference is listed under it. The card is there even when the contact log is off; only the "last contact" line needs the log.
 
-![A partner's Contact card, and the special communication instructions that replace the buttons when a partner isn't safe to contact](docs/assets/screenshots/contact-card-instructions.png)
+![A partner's Contact card for a partner we are not to contact directly: who to go through, with their own Call and Email buttons, in place of the family's details](docs/assets/screenshots/contact-card-instructions.png)
 
 - **How careful to be** is one of three settings, chosen by staff on the card:
   - **Normal:** reach them as usual.
   - **Use caution:** their details and buttons stay, under a warning that carries your **guidelines** (for example "email only, and don't use the word mission in a subject line"). You can limit the ways it is ok to reach them, and then only those buttons show, so nobody texts someone who is email-only.
-  - **Don't contact directly:** their phone, email, buttons and preferred way are hidden, replaced by **who to go through** (a name, role, phone and email, with their own **Call** and **Email** buttons) and the guidelines. The printed booklet also leaves out their phone, email, address and preferred way.
+
+![A Contact card under Use caution: the guidelines in a warning, and only the Email button](docs/assets/screenshots/contact-card-caution.png)
+
+- **Don't contact directly:** their phone, email, buttons and preferred way are hidden, replaced by **who to go through** (a name, role, phone and email, with their own **Call** and **Email** buttons) and the guidelines. The printed booklet also leaves out their phone, email, address and preferred way.
 - **Log a contact** with **+ Log contact**: pick what happened (call, text, email, visit, card, video, prayed for them), who reached out, optional topics, the date, who made the contact (you, by default), an optional note and an optional **follow up by** date. Anyone who can see the partner can log one. Only an admin or editor can edit or delete an entry.
 
 ![The Log a contact dialog](docs/assets/screenshots/log-a-contact.png)

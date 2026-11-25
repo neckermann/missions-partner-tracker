@@ -74,7 +74,7 @@ export default function ContactCard({
   const days = last ? daysBetweenInputs(todayInputValue(), last) : null;
 
   // Who else is in the family, and how they like to be reached.
-  const others = isOrg ? [] : adults.filter((a) => a.id !== person?.adultId && a.contactMethod);
+  const others = isOrg || hidden ? [] : adults.filter((a) => a.id !== person?.adultId && a.contactMethod);
   const preferred = person?.method ? methodLabel(person.method, person.methodNote) : "";
 
   return (
