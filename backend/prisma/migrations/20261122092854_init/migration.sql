@@ -784,6 +784,7 @@ CREATE TABLE "ChurchSettings" (
     "backupReminderDisabled" BOOLEAN NOT NULL DEFAULT false,
     "auditRetentionDays" INTEGER NOT NULL DEFAULT 90,
     "requireTwoFactor" BOOLEAN NOT NULL DEFAULT false,
+    "demoMode" BOOLEAN NOT NULL DEFAULT false,
     "requirePasswordless" BOOLEAN NOT NULL DEFAULT false,
     "emailDispatchDayOfWeek" INTEGER,
     "emailDispatchDayOfMonth" INTEGER,

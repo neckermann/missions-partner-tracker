@@ -127,9 +127,11 @@ services:
   # inside the web service above. `type: worker` (not `web`, not `cron`):
   # this needs to stay running continuously, not serve HTTP traffic and
   # not start/run-once/exit. See backend/src/worker.js's own header
-  # comment for the full reasoning. No demo-only env vars here -- the
-  # reset endpoint, demo login, and seed photos are all web-service
-  # concerns, not scheduler/WhatsApp ones.
+  # comment for the full reasoning. No demo-only env vars needed here: the
+  # reset endpoint, demo login, and seed photos are web-service
+  # concerns, and the worker learns it is a demo from the database
+  # (ChurchSettings.demoMode, written by the reset), so its schedules
+  # never email the seeded accounts.
   - name: missions-partner-tracker-worker
     type: worker
     runtime: node

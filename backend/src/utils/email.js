@@ -6,6 +6,11 @@
 const { ServerClient } = require("postmark");
 const prisma = require("../prismaClient");
 const { decryptField } = require("./crypto");
+const { isDemoInstance } = require("./demoMode");
+
+// What a send returns on a public demo, shaped like Postmark's success reply so callers carry on.
+// A demo's accounts are fake, so mail would only bounce and spend the email plan.
+const DEMO_SKIPPED = { ErrorCode: 0, Message: "Not sent: public demo", MessageID: null, demo: true };
 
 // Admin-managed in ChurchSettings. No env-var fallback (as extraction.js's
 // client()), so a stale env var can't come back into play.
@@ -35,6 +40,7 @@ async function client() {
 //
 // No replyTo param: every send replies to the From address.
 async function sendEmail({ to, subject, text, html, attachments }) {
+  if (await isDemoInstance()) return { ...DEMO_SKIPPED };
   const { postmark, fromAddress } = await client();
   return postmark.sendEmail({
     From: fromAddress,
@@ -55,6 +61,7 @@ async function sendEmail({ to, subject, text, html, attachments }) {
 // order, each with its own ErrorCode; callers check per entry since one bad
 // address must not affect the batch.
 async function sendEmailBatch(messages) {
+  if (await isDemoInstance()) return messages.map(() => ({ ...DEMO_SKIPPED }));
   const { postmark, fromAddress } = await client();
   return postmark.sendEmailBatch(messages.map((m) => ({ ...m, From: fromAddress })));
 }

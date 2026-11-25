@@ -1323,6 +1323,11 @@ model ChurchSettings {
   // it on is refused unless the person doing so has enrolled.
   requireTwoFactor Boolean @default(false)
 
+  // True on a public demo, written by the demo reset. The environment variable that marks a demo
+  // (DEMO_RESET_TOKEN) is only on the web service, so the separate worker process that runs the
+  // schedules reads this instead, and never emails a demo's seeded accounts (utils/demoMode.js).
+  demoMode Boolean @default(false)
+
   // Passwordless sign-in, church-wide: a person with a passkey signs in with it alone (it is
   // both factors); one without gets a one-time emailed link and is taken through adding a
   // passkey. Implies requireTwoFactor, needs working outbound email, and can only be turned on

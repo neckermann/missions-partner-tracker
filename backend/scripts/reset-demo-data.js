@@ -231,8 +231,15 @@ async function resetDemoData() {
 
   await prisma.churchSettings.upsert({
     where: { id: "singleton" },
-    create: { id: "singleton", ...churchDetails, enabledFeatures, ...integrationKeys, ...whatsappSnapshot },
-    update: { ...churchDetails, enabledFeatures, ...integrationKeys, ...whatsappSnapshot },
+    create: {
+      id: "singleton",
+      ...churchDetails,
+      enabledFeatures,
+      ...integrationKeys,
+      ...whatsappSnapshot,
+      demoMode: true,
+    },
+    update: { ...churchDetails, enabledFeatures, ...integrationKeys, ...whatsappSnapshot, demoMode: true },
   });
 
   // Restore the WhatsApp session snapshotted before the reset. The table is empty again, so
