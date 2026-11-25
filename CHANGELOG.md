@@ -56,6 +56,7 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ### Fixed
 
+- **Clicking the care team on the Contact card opens only the care team editor.** It also opened Edit contact over it.
 - **Linking a survey question to a part of the record from the builder now saves.** Saving a survey's questions kept the link only for questions that already had one (an imported pack), so a link chosen in the builder was dropped.
 - **A demo no longer emails its seeded accounts on a schedule.** The daily key-date email (and the other scheduled emails) was still going out from the demo, because the worker that runs the schedules never had the variable that marks a demo, so it bounced and spent the email plan. The demo reset now records that it is a demo in the database, and every process reads it. Only the schedules are skipped (key-date reminders, trip reminders, scheduled reports and digests): an email a person adds or clicks to send, such as a survey link, a welcome email or a trip invite, goes out on a demo like anywhere else.
 - **A partner page no longer fails when a feature is switched off.** With Prayer Requests, Newsletters & Docs, Monthly support or One-time needs off, every partner page showed "This partner wasn't found", because it still asked for those lists. It now asks only for what is on. The Contact Log's "Updates to pass on" and newsletter lines also respect those switches, and a survey's Send section says so up front (and points to **Get link**) when Email (Sending) is off. A new test runs the app with every optional feature off.

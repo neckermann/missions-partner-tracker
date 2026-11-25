@@ -113,7 +113,13 @@ export default function ContactCard({
         </h3>
       </div>
 
-      {careTeam && <div className="contact-care-team">{careTeam}</div>}
+      {careTeam && (
+        // The care team line opens its own editor; a click there must not also open Edit contact.
+        // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
+        <div className="contact-care-team" onClick={(e) => e.stopPropagation()}>
+          {careTeam}
+        </div>
+      )}
 
       {level === "caution" && (
         <div role="note" className="contact-notice contact-notice-caution">

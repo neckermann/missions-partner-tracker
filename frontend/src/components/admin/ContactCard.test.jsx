@@ -114,6 +114,27 @@ describe("ContactCard (#288)", () => {
     expect(screen.getByText(/No contact logged yet/)).toBeTruthy();
   });
 
+  it("clicking the care team line does not also open Edit contact", () => {
+    const onTeam = vi.fn();
+    render(
+      <ContactCard
+        partner={base}
+        adults={adults}
+        entries={[]}
+        canEdit
+        careTeam={
+          // Plain text with its own click, like the real line: not a button, so the card used to treat
+          // a click on it as empty space and open Edit contact as well.
+          // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
+          <div onClick={onTeam}>Pat Lead (lead)</div>
+        }
+      />
+    );
+    fireEvent.click(screen.getByText("Pat Lead (lead)"));
+    expect(onTeam).toHaveBeenCalled();
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
   it("has no Edit button unless the person can edit", () => {
     render(<ContactCard partner={base} adults={adults} entries={[]} />);
     expect(screen.queryByRole("button", { name: "Edit contact" })).toBeNull();
