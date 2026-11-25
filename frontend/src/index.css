@@ -2631,3 +2631,8 @@ button.report-summary-item[aria-pressed="true"] {
   border-radius: var(--radius-md);
   font-size: 0.9rem;
 }
+
+/* Read-only label/value pairs stacked in a card (Field.jsx) get a little room between them. */
+.field-view:not(:last-child) {
+  margin-bottom: 0.65rem;
+}
