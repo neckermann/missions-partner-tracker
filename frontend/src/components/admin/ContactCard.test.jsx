@@ -135,6 +135,23 @@ describe("ContactCard (#288)", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
+  it("keeps the contact and care team zones separate: the contact zone still opens Edit contact", () => {
+    render(
+      <ContactCard
+        partner={base}
+        adults={adults}
+        entries={[]}
+        canEdit
+        careTeam={<div>Pat Lead (lead)</div>}
+      />
+    );
+    const team = screen.getByText("Pat Lead (lead)");
+    expect(team.closest(".contact-care-team")).not.toBeNull();
+    expect(team.closest(".contact-zone")).toBeNull();
+    fireEvent.click(screen.getByText(/No contact logged yet|No contact person on file yet/));
+    expect(screen.getByRole("dialog")).toBeTruthy();
+  });
+
   it("has no Edit button unless the person can edit", () => {
     render(<ContactCard partner={base} adults={adults} entries={[]} />);
     expect(screen.queryByRole("button", { name: "Edit contact" })).toBeNull();
