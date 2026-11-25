@@ -1050,10 +1050,6 @@ export default function AdminPartnerDetail() {
         <div className="admin-section-group" id="section-location">
           <h2 className="admin-group-heading">Contact &amp; Care</h2>
 
-          {enabledFeatures.supportPreferences && enabledFeatures.careTeam && (
-            <SupportPreferencesCard partnerId={p.id} isAdmin={isAdmin} />
-          )}
-
           <EditableSection
             title="Serving Location"
             canEdit={canEdit}
@@ -1372,6 +1368,10 @@ export default function AdminPartnerDetail() {
               linkCrud.handleDelete(l, (item) => `Delete the ${linkTypeLabel(item.type)} link?`)
             }
           />
+
+          {enabledFeatures.supportPreferences && enabledFeatures.careTeam && (
+            <SupportPreferencesCard partnerId={p.id} isAdmin={isAdmin} />
+          )}
         </div>
 
         {((!isGuest && enabledFeatures.monthlySupport) ||
