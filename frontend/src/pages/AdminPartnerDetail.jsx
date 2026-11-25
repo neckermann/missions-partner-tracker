@@ -54,6 +54,7 @@ import CareTeamPanel from "../components/admin/CareTeamPanel.jsx";
 import { contactLevelOf } from "../utils/contactMethods.js";
 import ContactCard from "../components/admin/ContactCard.jsx";
 import SupportPreferencesCard from "../components/admin/SupportPreferencesCard.jsx";
+import SuggestInput from "../components/SuggestInput.jsx";
 import SurveysCard from "../components/admin/SurveysCard.jsx";
 import ContactLogSection from "../components/admin/ContactLogSection.jsx";
 import PartnerSummaryCard from "../components/admin/PartnerSummaryCard.jsx";
@@ -766,7 +767,8 @@ export default function AdminPartnerDetail() {
         {[
           { label: "Overview", href: "#section-overview" },
           !isOrg && { label: "Family & Personal", href: "#section-family" },
-          { label: "Contact & Care", href: "#section-location" },
+          { label: "Location & Contact", href: "#section-location" },
+          { label: "Care", href: "#section-care" },
           ((!isGuest && enabledFeatures.monthlySupport) ||
             (enabledFeatures.oneTimeNeeds && (!isGuest || isOnCareTeamFor(id)))) && {
             label: isGuest ? "One-Time Needs" : "Financial",
@@ -1084,7 +1086,7 @@ export default function AdminPartnerDetail() {
         </div>
 
         <div className="admin-section-group" id="section-location">
-          <h2 className="admin-group-heading">Contact &amp; Care</h2>
+          <h2 className="admin-group-heading">Location &amp; Contact</h2>
 
           <EditableSection
             title="Serving Location"
@@ -1141,7 +1143,6 @@ export default function AdminPartnerDetail() {
                   )}
                 </div>
                 <AddressFields
-                  idPrefix="physical"
                   value={d.address}
                   onChange={(addr) => {
                     set("address", addr);
@@ -1242,12 +1243,7 @@ export default function AdminPartnerDetail() {
                   )}
                 </div>
                 <div style={{ marginTop: "1rem" }}>
-                  <AddressFields
-                    idPrefix="mailing"
-                    value={d.address}
-                    onChange={(addr) => set("address", addr)}
-                    showMailFlags
-                  />
+                  <AddressFields value={d.address} onChange={(addr) => set("address", addr)} showMailFlags />
                 </div>
               </>
             )}
@@ -1368,7 +1364,6 @@ export default function AdminPartnerDetail() {
                     </div>
                     <h4 style={{ marginTop: "1rem" }}>Mailing Address</h4>
                     <AddressFields
-                      idPrefix={key}
                       value={d.mailingAddress}
                       onChange={(addr) => set("mailingAddress", addr)}
                     />
@@ -1404,12 +1399,95 @@ export default function AdminPartnerDetail() {
               linkCrud.handleDelete(l, (item) => `Delete the ${linkTypeLabel(item.type)} link?`)
             }
           />
+        </div>
+
+        <div className="admin-section-group" id="section-care">
+          <h2 className="admin-group-heading">Care &amp; Follow-up</h2>
 
           {enabledFeatures.supportPreferences && enabledFeatures.careTeam && (
             <SupportPreferencesCard partnerId={p.id} isAdmin={isAdmin} />
           )}
 
           {enabledFeatures.surveys && enabledFeatures.careTeam && <SurveysCard partnerId={p.id} />}
+
+          {contactLogShown && (
+            <ContactLogSection
+              partnerId={p.id}
+              entries={contactEntries}
+              onChanged={reloadContactLog}
+              canFix={canWrite}
+              currentUserId={user?.id}
+              teammates={teammates}
+            />
+          )}
+
+          <RecordList
+            title="Church Visits"
+            canEdit={canEdit}
+            canDelete={canDelete}
+            items={churchVisitsLoadMore.visible}
+            renderItem={(v) => (
+              <>
+                <Field label="Visit Date" value={formatDateLong(v.visitDate)} showEmpty />
+                <Field label="Notes" value={v.notes} />
+              </>
+            )}
+            onAdd={() => churchVisitCrud.openAdd({ visitDate: "", notes: "" })}
+            onEdit={(v) =>
+              churchVisitCrud.openEdit(v.id, {
+                visitDate: toDateInputValue(v.visitDate),
+                notes: v.notes || "",
+              })
+            }
+            onDelete={(v) =>
+              churchVisitCrud.handleDelete(
+                v,
+                (item) => `Delete the visit on ${formatDateLong(item.visitDate)}?`
+              )
+            }
+            emptyMessage="No visits on file."
+            hasMore={churchVisitsLoadMore.hasMore}
+            remaining={churchVisitsLoadMore.remaining}
+            onShowMore={churchVisitsLoadMore.showMore}
+          />
+
+          {!isOrg && (
+            <RecordList
+              title="Furlough"
+              canEdit={canEdit}
+              canDelete={canDelete}
+              items={furloughsLoadMore.visible}
+              renderItem={(f) => (
+                <>
+                  <Field label="Start Date" value={formatDateLong(f.startDate)} showEmpty />
+                  <Field
+                    label="End Date"
+                    value={f.endDate ? formatDateLong(f.endDate) : "Ongoing"}
+                    showEmpty
+                  />
+                  <Field label="Notes" value={f.notes} />
+                </>
+              )}
+              onAdd={() => furloughCrud.openAdd({ startDate: "", endDate: "", notes: "" })}
+              onEdit={(f) =>
+                furloughCrud.openEdit(f.id, {
+                  startDate: toDateInputValue(f.startDate),
+                  endDate: toDateInputValue(f.endDate),
+                  notes: f.notes || "",
+                })
+              }
+              onDelete={(f) =>
+                furloughCrud.handleDelete(
+                  f,
+                  (item) => `Delete the furlough starting ${formatDateLong(item.startDate)}?`
+                )
+              }
+              emptyMessage="No furlough history on file."
+              hasMore={furloughsLoadMore.hasMore}
+              remaining={furloughsLoadMore.remaining}
+              onShowMore={furloughsLoadMore.showMore}
+            />
+          )}
         </div>
 
         {((!isGuest && enabledFeatures.monthlySupport) ||
@@ -1707,85 +1785,6 @@ export default function AdminPartnerDetail() {
                   </button>
                 ) : null
               }
-            />
-          )}
-
-          {contactLogShown && (
-            <ContactLogSection
-              partnerId={p.id}
-              entries={contactEntries}
-              onChanged={reloadContactLog}
-              canFix={canWrite}
-              currentUserId={user?.id}
-              teammates={teammates}
-            />
-          )}
-
-          <RecordList
-            title="Church Visits"
-            canEdit={canEdit}
-            canDelete={canDelete}
-            items={churchVisitsLoadMore.visible}
-            renderItem={(v) => (
-              <>
-                <Field label="Visit Date" value={formatDateLong(v.visitDate)} showEmpty />
-                <Field label="Notes" value={v.notes} />
-              </>
-            )}
-            onAdd={() => churchVisitCrud.openAdd({ visitDate: "", notes: "" })}
-            onEdit={(v) =>
-              churchVisitCrud.openEdit(v.id, {
-                visitDate: toDateInputValue(v.visitDate),
-                notes: v.notes || "",
-              })
-            }
-            onDelete={(v) =>
-              churchVisitCrud.handleDelete(
-                v,
-                (item) => `Delete the visit on ${formatDateLong(item.visitDate)}?`
-              )
-            }
-            emptyMessage="No visits on file."
-            hasMore={churchVisitsLoadMore.hasMore}
-            remaining={churchVisitsLoadMore.remaining}
-            onShowMore={churchVisitsLoadMore.showMore}
-          />
-
-          {!isOrg && (
-            <RecordList
-              title="Furlough"
-              canEdit={canEdit}
-              canDelete={canDelete}
-              items={furloughsLoadMore.visible}
-              renderItem={(f) => (
-                <>
-                  <Field label="Start Date" value={formatDateLong(f.startDate)} showEmpty />
-                  <Field
-                    label="End Date"
-                    value={f.endDate ? formatDateLong(f.endDate) : "Ongoing"}
-                    showEmpty
-                  />
-                  <Field label="Notes" value={f.notes} />
-                </>
-              )}
-              onAdd={() => furloughCrud.openAdd({ startDate: "", endDate: "", notes: "" })}
-              onEdit={(f) =>
-                furloughCrud.openEdit(f.id, {
-                  startDate: toDateInputValue(f.startDate),
-                  endDate: toDateInputValue(f.endDate),
-                  notes: f.notes || "",
-                })
-              }
-              onDelete={(f) =>
-                furloughCrud.handleDelete(
-                  f,
-                  (item) => `Delete the furlough starting ${formatDateLong(item.startDate)}?`
-                )
-              }
-              emptyMessage="No furlough history on file."
-              hasMore={furloughsLoadMore.hasMore}
-              remaining={furloughsLoadMore.remaining}
-              onShowMore={furloughsLoadMore.showMore}
             />
           )}
         </div>
@@ -2160,19 +2159,13 @@ export default function AdminPartnerDetail() {
           <div className="form-grid">
             <label>
               Language
-              <input
+              <SuggestInput
                 value={languageCrud.form.language}
-                onChange={(e) => languageCrud.setForm((f) => ({ ...f, language: e.target.value }))}
-                list="partner-language-names"
+                onChange={(v) => languageCrud.setForm((f) => ({ ...f, language: v }))}
+                options={LANGUAGE_NAMES}
                 placeholder="Start typing a language..."
                 required
               />
-              {/* A datalist, not a hard <select>, as with AddressFields.jsx's Country field. */}
-              <datalist id="partner-language-names">
-                {LANGUAGE_NAMES.map((name) => (
-                  <option key={name} value={name} />
-                ))}
-              </datalist>
             </label>
             <label>
               Proficiency (ILR scale)

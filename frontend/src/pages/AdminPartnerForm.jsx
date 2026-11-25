@@ -1,3 +1,4 @@
+import SuggestInput from "../components/SuggestInput.jsx";
 import { CONTACT_LEVELS } from "../utils/contactMethods.js";
 import React, { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -102,17 +103,12 @@ export default function AdminPartnerForm() {
             </label>
             <label>
               Country
-              <input
+              <SuggestInput
                 value={values.country}
-                onChange={(e) => setValue("country", e.target.value)}
-                list="new-partner-country-list"
+                onChange={(v) => setValue("country", v)}
+                options={COUNTRY_NAMES}
                 placeholder="Start typing a country..."
               />
-              <datalist id="new-partner-country-list">
-                {COUNTRY_NAMES.map((name) => (
-                  <option key={name} value={name} />
-                ))}
-              </datalist>
             </label>
           </div>
         );

@@ -56,11 +56,7 @@ export default function SendingPartySection({ title, value, onChange, checkbox }
         </label>
       </div>
       <h4>Mailing Address</h4>
-      <AddressFields
-        value={value.mailingAddress || {}}
-        onChange={(addr) => update("mailingAddress", addr)}
-        idPrefix={`sending-party-${title.toLowerCase().replace(/\s+/g, "-")}`}
-      />
+      <AddressFields value={value.mailingAddress || {}} onChange={(addr) => update("mailingAddress", addr)} />
     </div>
   );
 }
