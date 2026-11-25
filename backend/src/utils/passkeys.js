@@ -16,6 +16,13 @@ function relyingParty(req) {
   } catch {
     url = null;
   }
+  // In production the site's own address must be configured: the relying-party id is the identity a
+  // passkey is bound to, so it can't be taken from a request header (#412).
+  if (!url && process.env.NODE_ENV === "production") {
+    const err = new Error("APP_BASE_URL isn't set, so passkeys can't be used on this site");
+    err.status = 500;
+    throw err;
+  }
   // No configured URL (local dev, tests): trust the request's own host.
   const host = req.get("host") || "localhost";
   const origin = url ? url.origin : `${req.protocol}://${host}`;
@@ -25,13 +32,10 @@ function relyingParty(req) {
   return { rpID, origins, rpName: process.env.MFA_ISSUER || "Missions Partner Tracker" };
 }
 
-// The challenge travels to the browser and back inside a signed token, so nothing is stored.
-// `purpose` keeps a registration challenge from being spent as a sign-in one. A token is accepted
-// once: its id is remembered until it would have expired anyway.
-const spent = new Map();
-function sweep(now) {
-  for (const [jti, exp] of spent) if (exp <= now) spent.delete(jti);
-}
+// The challenge travels to the browser and back inside a signed token, so nothing about it is
+// stored up front. `purpose` keeps a registration challenge from being spent as a sign-in one. A
+// token is accepted once: its id is recorded (SpentPasskeyChallenge) until it would have expired
+// anyway, in the database so "once" survives a restart and holds across instances (#412).
 
 function signChallenge({ challenge, purpose, userId }) {
   return jwt.sign(
@@ -43,7 +47,8 @@ function signChallenge({ challenge, purpose, userId }) {
 
 // Returns the challenge, or null when the token is missing, wrong, expired, for another purpose
 // or person, or already used.
-function consumeChallenge(token, { purpose, userId }) {
+async function consumeChallenge(token, { purpose, userId }) {
+  const prisma = require("../prismaClient"); // lazy: the pure helpers above stay testable without a DB
   let decoded;
   try {
     decoded = jwt.verify(String(token || ""), process.env.SESSION_SECRET);
@@ -51,10 +56,16 @@ function consumeChallenge(token, { purpose, userId }) {
     return null;
   }
   if (!decoded.passkeyChallenge || decoded.purpose !== purpose || decoded.userId !== userId) return null;
-  const now = Date.now();
-  sweep(now);
-  if (spent.has(decoded.jti)) return null;
-  spent.set(decoded.jti, decoded.exp * 1000);
+  // Expired ones can never matter again; clearing them here keeps the table tiny.
+  await prisma.spentPasskeyChallenge.deleteMany({ where: { expiresAt: { lt: new Date() } } });
+  try {
+    await prisma.spentPasskeyChallenge.create({
+      data: { id: decoded.jti, expiresAt: new Date(decoded.exp * 1000) },
+    });
+  } catch (err) {
+    if (err.code === "P2002") return null; // already used
+    throw err;
+  }
   return decoded.challenge;
 }
 

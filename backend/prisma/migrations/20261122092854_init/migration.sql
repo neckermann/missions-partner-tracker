@@ -995,6 +995,14 @@ CREATE TABLE "SignInLinkToken" (
 );
 
 -- CreateTable
+CREATE TABLE "SpentPasskeyChallenge" (
+    "id" TEXT NOT NULL,
+    "expiresAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "SpentPasskeyChallenge_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "UserPasskey" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
@@ -1270,6 +1278,9 @@ CREATE INDEX "SignInLinkToken_userId_idx" ON "SignInLinkToken"("userId");
 
 -- CreateIndex
 CREATE INDEX "SignInLinkToken_expiresAt_idx" ON "SignInLinkToken"("expiresAt");
+
+-- CreateIndex
+CREATE INDEX "SpentPasskeyChallenge_expiresAt_idx" ON "SpentPasskeyChallenge"("expiresAt");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "UserPasskey_credentialId_key" ON "UserPasskey"("credentialId");

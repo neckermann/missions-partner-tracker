@@ -203,6 +203,8 @@ router.post("/", async (req, res, next) => {
   try {
     const data = entrySchema.parse(req.body);
     if (!canUse(req.user, data.partnerId)) return res.status(403).json({ error: "Insufficient permissions" });
+    // Staff may log a contact on someone else's behalf; anyone else's entry is always their own (#412).
+    if (!["admin", "editor"].includes(req.user.role)) data.contactedById = req.user.id;
     const partner = await prisma.partner.findUnique({ where: { id: data.partnerId }, select: { id: true } });
     if (!partner) return res.status(404).json({ error: "Not found" });
     const problem = await checkReferences(data, data.partnerId);

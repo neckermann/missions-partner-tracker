@@ -24,6 +24,7 @@ const {
   isEmailReady,
   redeemSignInLink,
   sendSignInLinkEmail,
+  LINK_COOLDOWN_MS,
 } = require("../utils/passwordless");
 
 const router = express.Router();
@@ -238,13 +239,16 @@ router.post("/passwordless/email-link", async (req, res) => {
       where: { email },
       include: { _count: { select: { passkeys: true } } },
     });
-    await recordAuditSafe(null, {
-      action: "auth.sign_in_link_requested",
-      target: user || { email },
-      req,
-    });
-    if (user && user.active && user.authProvider === "local" && user._count.passkeys === 0) {
-      await sendSignInLinkEmail(user);
+    // Only a real account is audited: an unknown address would let anyone flood the audit log (#412).
+    if (!user) return;
+    await recordAuditSafe(null, { action: "auth.sign_in_link_requested", target: user, req });
+    if (user.active && user.authProvider === "local" && user._count.passkeys === 0) {
+      // One link a minute per account: otherwise anyone could mail-bomb a person, or keep replacing
+      // their live link (each new one deletes the last) so theirs never works (#412).
+      const recent = await prisma.signInLinkToken.count({
+        where: { userId: user.id, createdAt: { gt: new Date(Date.now() - LINK_COOLDOWN_MS) } },
+      });
+      if (recent === 0) await sendSignInLinkEmail(user);
     }
   } catch {
     // Deliberately swallowed: this endpoint must never signal a difference.
@@ -639,6 +643,11 @@ const digestSubscriptionSchema = z.object({
 });
 router.put("/dispatch-by-email", requireAuth, async (req, res, next) => {
   try {
+    // The admin digest carries every partner's prayer requests, needs and amounts, which a scoped
+    // guest must never receive (#407). The UI hides this for a guest; the server refuses it too.
+    if (req.user.role === "guest") {
+      return res.status(403).json({ error: "Insufficient permissions" });
+    }
     const parsed = digestSubscriptionSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ error: parsed.error.issues[0]?.message || "Invalid request" });
