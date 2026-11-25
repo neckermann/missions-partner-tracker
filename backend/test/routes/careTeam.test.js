@@ -241,6 +241,11 @@ describe("care team: guests", () => {
     const read = await guest(`/api/care-team/${partnerA.id}`);
     assert.equal(read.status, 200);
     assert.ok(read.body.members.every((m) => m.email === undefined));
+    assert.ok(
+      [read.body.lead, ...read.body.members].every(
+        (m) => !m || (m.phone === undefined && m.profile === undefined)
+      )
+    );
     assert.equal((await guest(`/api/care-team/${partnerB.id}`)).status, 403);
     assert.equal((await setTeam(partnerA.id, { leadUserId: null, memberUserIds: [] }, guest)).status, 403);
   });

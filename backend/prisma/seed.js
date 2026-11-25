@@ -2413,6 +2413,18 @@ async function seedTripsDemo() {
   });
 }
 
+// Phone and a short profile for the demo logins, so care team lists and the trip Team page show them.
+// Fictional 555-01xx numbers.
+const DEMO_USER_DETAILS = {
+  "Pat Reynolds": { phone: "555-0101", profile: "Missions pastor. Easiest to reach by text, weekdays." },
+  "Casey Nguyen": { phone: "555-0102", profile: "Handles partner newsletters. Email is best." },
+  "Jordan Lee": { phone: "555-0103", profile: "Retired nurse; visits partners when they are in town." },
+  "Dana Whitfield": { phone: "555-0104", profile: "Prays for our Asia partners. Free after 6pm." },
+  "Chris Alvarez": { phone: "555-0105", profile: "Leads our summer trips. Best reached by phone." },
+  "Sam Okafor": { phone: "555-0106", profile: null },
+};
+const userDetails = (firstName, lastName) => DEMO_USER_DETAILS[`${firstName} ${lastName}`] || {};
+
 async function seedAdditionalUsers() {
   console.log(`Seeding ${ADDITIONAL_USERS.length} additional admin users...`);
   const bcrypt = require("bcryptjs");
@@ -2426,6 +2438,7 @@ async function seedAdditionalUsers() {
         email,
         firstName: u.firstName,
         lastName: u.lastName,
+        ...userDetails(u.firstName, u.lastName),
         passwordHash,
         role: u.role,
         active: u.active,
@@ -2530,6 +2543,7 @@ async function seedCareTeamsDemo() {
         email,
         firstName,
         lastName,
+        ...userDetails(firstName, lastName),
         passwordHash: published ? publishedHash : fakeHash,
         role: "guest",
         authProvider: "local",

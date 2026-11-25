@@ -15,6 +15,19 @@ import StatusPill from "./StatusPill.jsx";
 // trip page, and is the "assign a care team" wizard from both. Terms are fixed, not settings.
 // Everyone who can see the partner sees the team; only admin/editor (`canEdit`) can change it. A
 // guest sees names only (the API omits emails). `showHeading` lets the trip page drop the card chrome.
+// Phone, email and a line about them: sent only to signed-in staff roles, never a guest.
+function MemberDetails({ m }) {
+  const reach = [m.phone, m.email].filter(Boolean).join(" · ");
+  if (!reach && !m.profile) return null;
+  return (
+    <div style={{ fontSize: "0.85rem", color: "var(--muted)" }}>
+      {reach}
+      {reach && m.profile ? " — " : ""}
+      {m.profile}
+    </div>
+  );
+}
+
 export function memberName(m) {
   return [m.firstName, m.lastName].filter(Boolean).join(" ") || m.email || "Someone";
 }
@@ -164,12 +177,14 @@ export default function CareTeamPanel({ partnerId, canEdit, canInviteGuest = fal
             <li style={{ padding: "0.25rem 0" }}>
               <strong>{memberName(team.lead)}</strong> <StatusPill label="Lead" color="#2a5d3c" />
               {team.lead.role === "guest" && <span style={{ color: "var(--muted)" }}> · Guest</span>}
+              <MemberDetails m={team.lead} />
             </li>
           )}
           {team.members.map((m) => (
             <li key={m.userId} style={{ padding: "0.25rem 0" }}>
               {memberName(m)}{" "}
               <span style={{ color: "var(--muted)" }}>Member{m.role === "guest" ? " · Guest" : ""}</span>
+              <MemberDetails m={m} />
             </li>
           ))}
           {team && !team.lead && (

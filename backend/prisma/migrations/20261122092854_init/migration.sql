@@ -843,6 +843,8 @@ CREATE TABLE "User" (
     "email" TEXT NOT NULL,
     "firstName" TEXT,
     "lastName" TEXT,
+    "phone" TEXT,
+    "profile" TEXT,
     "passwordHash" TEXT,
     "authProvider" TEXT NOT NULL DEFAULT 'local',
     "role" TEXT NOT NULL DEFAULT 'editor',

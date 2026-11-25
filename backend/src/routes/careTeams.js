@@ -17,7 +17,7 @@ const router = express.Router();
 router.use(requireAuth);
 router.use(requireFeature("careTeam"));
 
-// A guest only sees teammates' names, never their email addresses: they
+// A guest only sees teammates' names, never their email, phone or profile: they
 // can't see the Users list, and a teammate's address isn't theirs to take.
 function shapeMember(m, viewerRole) {
   const { user } = m;
@@ -27,13 +27,23 @@ function shapeMember(m, viewerRole) {
     firstName: user.firstName,
     lastName: user.lastName,
     role: user.role,
-    ...(viewerRole === "guest" ? {} : { email: user.email }),
+    ...(viewerRole === "guest" ? {} : { email: user.email, phone: user.phone, profile: user.profile }),
   };
 }
 
 const memberSelect = {
   isLead: true,
-  user: { select: { id: true, email: true, firstName: true, lastName: true, role: true } },
+  user: {
+    select: {
+      id: true,
+      email: true,
+      phone: true,
+      profile: true,
+      firstName: true,
+      lastName: true,
+      role: true,
+    },
+  },
 };
 
 async function loadTeam(partnerId, viewerRole) {
