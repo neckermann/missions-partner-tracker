@@ -63,6 +63,10 @@ export default function Modal({ title, onClose, children, maxWidth = "40rem" }) 
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
+      // A modal is often rendered inside a clickable row or card (so it can read that record's state).
+      // React bubbles events through the component tree, not the page, so without this a click on Close
+      // reached the row's own onClick and reopened the modal it had just closed.
+      onClick={(e) => e.stopPropagation()}
     >
       <div
         ref={panelRef}
