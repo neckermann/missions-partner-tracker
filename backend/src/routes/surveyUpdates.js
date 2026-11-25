@@ -60,6 +60,7 @@ router.get("/photo/:uploadId", async (req, res, next) => {
     if (!upload) return res.status(404).end();
     res.set("Content-Type", upload.contentType);
     res.set("X-Content-Type-Options", "nosniff");
+    res.set("Content-Security-Policy", "default-src 'none'; sandbox");
     res.set("Cache-Control", "private, no-store");
     res.send(upload.bytes);
   } catch (err) {

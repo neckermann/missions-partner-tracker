@@ -1188,6 +1188,40 @@ export async function submitPublicSurvey(token, answers) {
   return data;
 }
 
+export async function fetchSurveyTemplates() {
+  const { data } = await api.get("/surveys/templates");
+  return data.templates;
+}
+export async function createSurveyFromTemplate(templateId, title) {
+  const { data } = await api.post("/surveys/from-template", { templateId, title });
+  return data;
+}
+// The parts of a partner's record a question can propose a change to: [{ key, label, kinds }].
+export async function fetchSurveyFields() {
+  const { data } = await api.get("/surveys/fields");
+  return data.fields;
+}
+// Changes survey answers suggest, for a person to decide. status: "pending" or "decided".
+export async function fetchSurveyUpdates(status = "pending") {
+  const { data } = await api.get("/survey-updates", { params: { status } });
+  return data.updates;
+}
+export async function approveSurveyUpdate(id, value) {
+  const { data } = await api.post(`/survey-updates/${id}/approve`, value === undefined ? {} : { value });
+  return data;
+}
+export async function rejectSurveyUpdate(id) {
+  const { data } = await api.post(`/survey-updates/${id}/reject`);
+  return data;
+}
+export async function uploadPublicSurveyPhoto(token, questionId, contentType, base64) {
+  const { data } = await api.post(
+    `/public/survey-uploads/${encodeURIComponent(token)}/${encodeURIComponent(questionId)}`,
+    { contentType, data: base64 }
+  );
+  return data;
+}
+
 // The partners this login may read, as { id, kind, displayName, archived }: all of them for a
 // full role, only grant-reachable ones for a guest. For pickers when a guest can't list the directory.
 export async function fetchReachablePartners() {

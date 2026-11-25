@@ -13,6 +13,7 @@ const CATEGORY_GROUP = {
   dispatchesNeedingApproval: "Communications",
   unmatchedEmails: "Communications",
   inboundEmailFailures: "Communications",
+  surveyUpdatesPending: "Partner Care",
   dispatchSendFailures: "Communications",
   tripsDepartingSoon: "Trips",
   tripsDepartingSoonIncomplete: "Trips",

@@ -62,6 +62,61 @@ test.describe("Partner surveys", () => {
     await expect(admin.getByText("Our visa renewal")).toBeVisible();
   });
 
+  test("a survey from the Annual update template proposes changes that staff approve", async () => {
+    const stamp = Date.now();
+    const created = await admin.request.post("/api/partners", {
+      data: {
+        kind: "missionary",
+        displayName: `E2E survey partner ${stamp}`,
+        adults: [{ firstName: "Pat", lastName: "Doe", phone1: "(111) 111-1111", isPrimaryContact: true }],
+      },
+    });
+    expect(created.ok(), await created.text()).toBeTruthy();
+    const person = await created.json();
+    const annual = `E2E annual ${stamp}`;
+
+    await admin.goto("/admin/settings/surveys");
+    await admin.getByRole("button", { name: "+ New survey" }).click();
+    await admin.getByLabel("Start from").selectOption("annual-update");
+    await admin.getByLabel(/^Title/).fill(annual);
+    await admin.getByRole("button", { name: "Create" }).click();
+    await expect(admin.getByRole("heading", { name: annual })).toBeVisible();
+    await expect(admin.getByLabel("Question 1", { exact: true })).toHaveValue(
+      "Best phone number to reach you"
+    );
+    await expect(admin.getByLabel("Part of the record for question 1")).toHaveValue("primaryPhone");
+    await admin.getByRole("button", { name: "Open survey" }).click();
+    await expect(admin.getByText("The survey is open.")).toBeVisible();
+
+    await admin.goto(`/admin/partners/${person.id}`);
+    await admin
+      .locator("#section-surveys")
+      .getByRole("button", { name: new RegExp(`${annual} · not sent`) })
+      .click();
+    await admin.getByRole("textbox", { name: "Best phone number to reach you" }).fill("(337) 555-0100");
+    await admin.getByRole("button", { name: "Save as answered" }).click();
+    await expect(
+      admin.locator("#section-surveys").getByRole("button", { name: new RegExp(`${annual} · answered`) })
+    ).toBeVisible();
+
+    await admin.goto("/admin/survey-updates");
+    const row = admin.getByRole("row", { name: new RegExp(`E2E survey partner ${stamp}`) });
+    await expect(row.getByText("(337) 555-0100")).toBeVisible();
+    await expect(row.getByText("(111) 111-1111")).toBeVisible();
+    await row.getByRole("button", { name: "Approve" }).click();
+    await expect(row).toHaveCount(0);
+
+    const adults = await (await admin.request.get(`/api/adults?partnerId=${person.id}`)).json();
+    expect(adults[0].phone1).toBe("(337) 555-0100");
+    await admin.getByRole("tab", { name: "Decided" }).click();
+    await expect(admin.getByRole("row", { name: new RegExp(`E2E survey partner ${stamp}`) })).toBeVisible();
+
+    const surveys = await (await admin.request.get("/api/surveys")).json();
+    for (const sv of surveys.surveys)
+      if (sv.title === annual) await admin.request.delete(`/api/surveys/${sv.id}`);
+    await admin.request.delete(`/api/partners/${person.id}`);
+  });
+
   test("turning the feature off hides the card and the Settings page", async () => {
     await setFeatures(admin.request, { surveys: false });
     await admin.goto(`/admin/partners/${partner.id}`);

@@ -7,6 +7,7 @@ import {
   saveSurveyQuestions,
   fetchSurveyRecipients,
   sendSurvey,
+  fetchSurveyFields,
   fetchSurveyResponses,
   reopenSurveyResponse,
 } from "../api/client.js";
@@ -22,6 +23,7 @@ const KINDS = [
   { value: "yesno", label: "Yes / No" },
   { value: "single", label: "Pick one" },
   { value: "multiple", label: "Pick any" },
+  { value: "photo", label: "Photo" },
 ];
 
 const blankQuestion = () => ({
@@ -31,6 +33,7 @@ const blankQuestion = () => ({
   choicesText: "",
   allowOther: false,
   required: false,
+  field: "",
 });
 const toDraft = (q) => ({
   key: q.id,
@@ -40,6 +43,7 @@ const toDraft = (q) => ({
   choicesText: (q.choices || []).join("\n"),
   allowOther: q.allowOther,
   required: q.required,
+  field: q.field || "",
 });
 
 // One survey: its details and status, the questions, who it has gone to (and sending), and the answers.
@@ -51,6 +55,7 @@ export default function AdminSettingsSurveyDetail() {
   const [draft, setDraft] = useState([]);
   const [details, setDetails] = useState({ title: "", intro: "", closesAt: "" });
   const [recipients, setRecipients] = useState([]);
+  const [fields, setFields] = useState([]);
   const [chosen, setChosen] = useState(new Set());
   const [results, setResults] = useState({ responses: [] });
   const [message, setMessage] = useState("");
@@ -78,6 +83,9 @@ export default function AdminSettingsSurveyDetail() {
   }, [id]);
   useEffect(() => {
     reload();
+    fetchSurveyFields()
+      .then(setFields)
+      .catch(() => setFields([]));
   }, [reload]);
 
   async function act(fn, done) {
@@ -116,6 +124,7 @@ export default function AdminSettingsSurveyDetail() {
               .filter(Boolean),
             allowOther: q.allowOther,
             required: q.required,
+            field: q.kind === "photo" ? "photo" : q.field || null,
           }))
         ),
       "Questions saved."
@@ -297,7 +306,7 @@ export default function AdminSettingsSurveyDetail() {
                 <select
                   aria-label={`Kind of question ${i + 1}`}
                   value={q.kind}
-                  onChange={(e) => patchQ(q.key, { kind: e.target.value })}
+                  onChange={(e) => patchQ(q.key, { kind: e.target.value, field: "" })}
                 >
                   {KINDS.map((k) => (
                     <option key={k.value} value={k.value}>
@@ -332,6 +341,29 @@ export default function AdminSettingsSurveyDetail() {
                     <span>Offer a “something else” box</span>
                   </label>
                 </>
+              )}
+              {(q.kind === "text" || q.kind === "single" || q.kind === "photo") && (
+                <label>
+                  {q.kind === "photo"
+                    ? "A photo sent this way waits for you to approve it before it is added to their photos."
+                    : "Suggest a change to their record (staff approve it first)"}
+                  {q.kind !== "photo" && (
+                    <select
+                      aria-label={`Part of the record for question ${i + 1}`}
+                      value={q.field}
+                      onChange={(e) => patchQ(q.key, { field: e.target.value })}
+                    >
+                      <option value="">Just keep the answer</option>
+                      {fields
+                        .filter((f) => f.kinds.includes(q.kind))
+                        .map((f) => (
+                          <option key={f.key} value={f.key}>
+                            Update: {f.label}
+                          </option>
+                        ))}
+                    </select>
+                  )}
+                </label>
               )}
               <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", alignItems: "center" }}>
                 <label style={choiceRowStyle}>

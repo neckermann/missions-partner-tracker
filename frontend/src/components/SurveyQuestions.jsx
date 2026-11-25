@@ -15,7 +15,14 @@ export const choiceInputStyle = { width: "auto", flexShrink: 0 };
 
 // The questions of a survey as a form, used on the partner's own page and when staff fill one in
 // for them. `answers` is { [questionId]: { value, values, other } }; `onChange(questionId, patch)`.
-export default function SurveyQuestions({ questions, answers, onChange, disabled = false }) {
+export default function SurveyQuestions({
+  questions,
+  answers,
+  onChange,
+  disabled = false,
+  onPhoto = null,
+  photos = [],
+}) {
   return (
     <div>
       {questions.map((q) => {
@@ -26,6 +33,34 @@ export default function SurveyQuestions({ questions, answers, onChange, disabled
             {q.required && <span aria-label="required"> *</span>}
           </>
         );
+        if (q.kind === "photo") {
+          return (
+            <div key={q.id} style={{ marginBottom: "1rem" }}>
+              <div style={{ fontWeight: 600, marginBottom: "0.25rem" }}>{label}</div>
+              {onPhoto ? (
+                <>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+                    aria-label={q.label}
+                    disabled={disabled}
+                    onChange={(e) => e.target.files?.[0] && onPhoto(q.id, e.target.files[0])}
+                  />
+                  {photos.includes(q.id) && (
+                    <p role="status" style={{ color: "var(--accent)", margin: "0.25rem 0 0" }}>
+                      Photo received. Choose another to replace it.
+                    </p>
+                  )}
+                </>
+              ) : (
+                <p style={{ color: "var(--muted)", margin: 0 }}>
+                  A partner sends their photo through their own link. To add one yourself, use Photo History
+                  on their page.
+                </p>
+              )}
+            </div>
+          );
+        }
         if (q.kind === "text") {
           return (
             <label key={q.id} style={{ display: "block", marginBottom: "1rem" }}>

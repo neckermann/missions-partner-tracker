@@ -3135,6 +3135,94 @@ async function seedSurveysDemo() {
     });
   }
   console.log(`  seeded a survey for ${partners.length} partners`);
+
+  // An annual update (built from the template) with answers that differ from the record, so the
+  // Survey updates page has changes waiting, one of them a photo.
+  const template = require("../src/utils/surveyTemplates").byId("annual-update");
+  const annual = await prisma.survey.create({
+    data: {
+      title: template.title,
+      intro: template.intro,
+      status: "open",
+      questions: {
+        create: template.questions.map((q, position) => ({
+          position,
+          kind: q.kind,
+          label: q.label,
+          choices: q.choices || [],
+          allowOther: q.allowOther === true,
+          required: q.required === true,
+          field: q.field || null,
+        })),
+      },
+    },
+    include: { questions: { orderBy: { position: "asc" } } },
+  });
+  const qBy = (label) => annual.questions.find((q) => q.label === label);
+  const { proposeFromResponse } = require("../src/utils/surveyProposals");
+  const withAdults = await prisma.partner.findMany({
+    where: { archived: false, kind: "missionary", adults: { some: {} } },
+    orderBy: [{ displayName: "asc" }, { id: "asc" }],
+    select: { id: true },
+    take: 4,
+  });
+  const phones = ["(337) 555-0142", "(214) 555-0187", "+254 712 555 019", "(555) 010-0123"];
+  for (const [i, partner] of withAdults.entries()) {
+    const answers = [
+      { q: qBy("Best phone number to reach you"), value: phones[i % phones.length] },
+      {
+        q: qBy("Emergency contact: name"),
+        value: ["Dana Whitfield", "Jordan Lee", "Pat Reynolds", "Casey Nguyen"][i % 4],
+      },
+    ];
+    if (i % 2 === 0)
+      answers.push({
+        q: qBy("How do you prefer to be contacted?"),
+        value: ["whatsapp", "email"][(i / 2) % 2],
+      });
+    const response = await prisma.surveyResponse.create({
+      data: {
+        surveyId: annual.id,
+        partnerId: partner.id,
+        submittedAt: new Date(Date.now() - (i + 1) * 86400000),
+        answers: {
+          create: answers.map(({ q, value }) => ({
+            questionId: q.id,
+            position: q.position,
+            label: q.label,
+            kind: q.kind,
+            value,
+          })),
+        },
+      },
+    });
+    if (i === 1) {
+      const photoQ = qBy("A recent photo of you and your family (optional)");
+      const svg = familySilhouette("#7a5c2e");
+      await prisma.surveyUpload.create({
+        data: {
+          responseId: response.id,
+          partnerId: partner.id,
+          questionId: photoQ.id,
+          contentType: "image/svg+xml",
+          fileSize: Buffer.byteLength(svg),
+          bytes: Buffer.from(svg, "utf-8"),
+        },
+      });
+      await prisma.surveyAnswer.create({
+        data: {
+          responseId: response.id,
+          questionId: photoQ.id,
+          position: photoQ.position,
+          label: photoQ.label,
+          kind: "photo",
+          value: "Photo sent",
+        },
+      });
+    }
+    await proposeFromResponse(response.id);
+  }
+  console.log(`  seeded annual update answers for ${withAdults.length} partners`);
 }
 
 // Trip debriefs demo: a few completed trips with a wrap-up debrief, the most recent
