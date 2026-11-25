@@ -66,7 +66,7 @@ export default function AdminUsers() {
   const [currentUser, setCurrentUser] = useState(null);
   const [trips, setTrips] = useState([]);
   const [partners, setPartners] = useState([]);
-  const { enabledFeatures } = useSettings();
+  const { enabledFeatures, isDemo } = useSettings();
   const careEnabled = !!enabledFeatures?.careTeam;
   const [error, setError] = useState("");
   const [editingUser, setEditingUser] = useState(null); // { id, form } for edit
@@ -362,11 +362,13 @@ export default function AdminUsers() {
   // Why the passwordless switch can't be used yet, if it can't (the server checks the same).
   const passwordlessBlocker = passwordlessOn
     ? null
-    : !currentUser?.emailReady
-      ? "Turn on outbound email and finish setting it up first (Settings → Email): people without a passkey sign in through an emailed link."
-      : !currentUser?.passkeyCount
-        ? "Add a passkey to your own account first (My Account), so turning this on doesn't lock you out."
-        : null;
+    : isDemo
+      ? "Passwordless sign-in is switched off on this demo: it would end password sign-in for the shared logins and lock every visitor out until the next reset. A real install can turn it on here."
+      : !currentUser?.emailReady
+        ? "Turn on outbound email and finish setting it up first (Settings → Email): people without a passkey sign in through an emailed link."
+        : !currentUser?.passkeyCount
+          ? "Add a passkey to your own account first (My Account), so turning this on doesn't lock you out."
+          : null;
 
   return (
     <div className="admin-shell">
