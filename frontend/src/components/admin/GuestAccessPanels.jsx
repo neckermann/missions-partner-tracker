@@ -189,7 +189,7 @@ export function TripGuestsPanel({ tripId }) {
       <TripAccessList
         grants={rows}
         busy={actions.busy}
-        labelFor={(g) => guestName(g.user)}
+        labelFor={(g) => [guestName(g.user), g.user.phone].filter(Boolean).join(" · ")}
         onExtend={actions.onExtend}
         onResetDate={actions.onResetDate}
         onEndNow={actions.onEndNow}

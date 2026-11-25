@@ -95,6 +95,8 @@ const createUserSchema = z.object({
   email: z.string().email(),
   firstName: z.string().optional().nullable(),
   lastName: z.string().optional().nullable(),
+  phone: z.string().trim().max(40).optional().nullable(),
+  profile: z.string().trim().max(1000).optional().nullable(),
   role: ROLE_ENUM.default("editor"),
   // A guest needs at least one trip OR one care team seat; both are ignored
   // for the full roles (any login can join a care team later, from the
@@ -123,6 +125,8 @@ const createUserSchema = z.object({
 const updateUserSchema = z.object({
   firstName: z.string().optional().nullable(),
   lastName: z.string().optional().nullable(),
+  phone: z.string().trim().max(40).optional().nullable(),
+  profile: z.string().trim().max(1000).optional().nullable(),
   role: ROLE_ENUM.optional(),
   // Only read when changing a non-guest into a guest (they need a first
   // grant); manage grants afterward via /:id/trip-access, and care team
@@ -265,7 +269,9 @@ router.get("/by-trip/:tripId", async (req, res, next) => {
       where: { tripId: req.params.tripId },
       select: {
         ...GRANT_SELECT,
-        user: { select: { id: true, email: true, firstName: true, lastName: true, active: true } },
+        user: {
+          select: { id: true, email: true, phone: true, firstName: true, lastName: true, active: true },
+        },
       },
       orderBy: { createdAt: "asc" },
     });
@@ -329,6 +335,8 @@ router.post("/", async (req, res, next) => {
           email: data.email.toLowerCase().trim(),
           firstName: data.firstName,
           lastName: data.lastName,
+          phone: data.phone || null,
+          profile: data.profile || null,
           role: data.role,
           authProvider: data.authProvider,
           passwordHash,
@@ -575,7 +583,16 @@ router.put("/:id", async (req, res, next) => {
     const updated = await prisma.$transaction(async (tx) => {
       const user = await tx.user.update({ where: { id: req.params.id }, data: updateData });
       const changes = {};
-      for (const key of ["email", "firstName", "lastName", "role", "active", "authProvider"]) {
+      for (const key of [
+        "email",
+        "firstName",
+        "lastName",
+        "phone",
+        "profile",
+        "role",
+        "active",
+        "authProvider",
+      ]) {
         if (data[key] !== undefined && data[key] !== existing[key]) {
           changes[key] = { from: existing[key], to: data[key] };
         }

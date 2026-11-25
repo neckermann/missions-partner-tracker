@@ -992,6 +992,11 @@ export async function setKeyDateEmailOptOut(optOut) {
   const { data } = await api.put("/auth/key-date-email", { optOut });
   return data.user;
 }
+// Your own phone and a line about yourself (how you help, when you are easiest to reach).
+export async function updateMyProfile({ phone, profile }) {
+  const { data } = await api.put("/auth/profile", { phone, profile });
+  return data.user;
+}
 export async function updateNotifyByEmail({ cadence, allPartners, partnerIds }) {
   const { data } = await api.put("/auth/dispatch-by-email", { cadence, allPartners, partnerIds });
   return data.user;

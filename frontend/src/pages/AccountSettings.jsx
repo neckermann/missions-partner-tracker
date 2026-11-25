@@ -7,6 +7,7 @@ import {
   disableMfa,
   updateNotifyByEmail,
   setKeyDateEmailOptOut,
+  updateMyProfile,
   fetchPartners,
   fetchPasskeys,
   registerPasskey,
@@ -59,6 +60,8 @@ export default function AccountSettings() {
           Signed in as <strong>{user.email}</strong> ({isGuest ? "Guest" : user.role})
         </p>
       )}
+
+      {user && <ProfileSection user={user} onChange={reloadUser} />}
 
       {!user ? null : (
         <EditableSection
@@ -125,6 +128,49 @@ export default function AccountSettings() {
         <ThemeToggle />
       </div>
     </div>
+  );
+}
+
+// Your phone and a line about yourself, so the church can reach you for an update.
+function ProfileSection({ user, onChange }) {
+  return (
+    <EditableSection
+      title="Your details"
+      value={{ phone: user.phone || "", profile: user.profile || "" }}
+      onSave={async (draft) => {
+        await updateMyProfile({ phone: draft.phone, profile: draft.profile });
+        await onChange();
+      }}
+      view={(v) => (
+        <div style={{ color: "var(--muted)" }}>
+          <div>Phone: {v.phone || "not added"}</div>
+          <div style={{ whiteSpace: "pre-wrap" }}>{v.profile || "No note about you yet."}</div>
+        </div>
+      )}
+      edit={(draft, set) => (
+        <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+          <label>
+            Phone
+            <input
+              type="tel"
+              value={draft.phone}
+              maxLength={40}
+              onChange={(e) => set("phone", e.target.value)}
+            />
+          </label>
+          <label>
+            About you
+            <textarea
+              rows={3}
+              value={draft.profile}
+              maxLength={1000}
+              placeholder="How you help, or when you are easiest to reach"
+              onChange={(e) => set("profile", e.target.value)}
+            />
+          </label>
+        </div>
+      )}
+    />
   );
 }
 

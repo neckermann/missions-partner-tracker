@@ -1464,6 +1464,11 @@ model User {
   email        String    @unique
   firstName    String?
   lastName     String?
+  // Optional, so the church can reach a login (care team member, trip leader, guest) for an update.
+  // Seen only by signed-in staff roles, never by a guest or on a public page.
+  phone        String?
+  // A line or two about the person: how they help, when they are easiest to reach.
+  profile      String?
   passwordHash String? // null for a pending account until its setup link is redeemed
   authProvider String    @default("local")
   role         String    @default("editor") // "admin" | "editor" | "viewer" | "guest"

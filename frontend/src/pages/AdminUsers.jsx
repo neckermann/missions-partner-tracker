@@ -29,6 +29,8 @@ const emptyForm = {
   email: "",
   firstName: "",
   lastName: "",
+  phone: "",
+  profile: "",
   role: "editor",
   authProvider: "local",
   active: true,
@@ -517,6 +519,15 @@ export default function AdminUsers() {
                   />
                 </label>
                 <label>
+                  Phone
+                  <input
+                    type="tel"
+                    value={editingUser.form.phone || ""}
+                    onChange={(e) => updateForm("phone", e.target.value)}
+                    maxLength={40}
+                  />
+                </label>
+                <label>
                   Role
                   <select value={editingUser.form.role} onChange={(e) => updateForm("role", e.target.value)}>
                     <option value="admin">Admin</option>
@@ -526,6 +537,16 @@ export default function AdminUsers() {
                   </select>
                 </label>
               </div>
+
+              <label style={{ display: "block", marginTop: "1rem" }}>
+                About them
+                <textarea
+                  rows={2}
+                  value={editingUser.form.profile || ""}
+                  maxLength={1000}
+                  onChange={(e) => updateForm("profile", e.target.value)}
+                />
+              </label>
 
               {editingUser.form.role === "guest" && (
                 <div style={{ marginTop: "1rem" }}>

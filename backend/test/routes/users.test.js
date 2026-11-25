@@ -44,6 +44,37 @@ describe("POST /api/users", () => {
     }
   });
 
+  test("phone and profile are saved on create, edited by the person themselves, and cleared when blank", async () => {
+    const email = `profile-${Date.now()}@example.test`;
+    const password = "ProfileUserPassword123!";
+    const res = await admin("/api/users", {
+      method: "POST",
+      body: {
+        email,
+        role: "viewer",
+        password,
+        phone: " 555-0100 ",
+        profile: "Retired nurse, best after 6pm.",
+      },
+    });
+    try {
+      assert.equal(res.status, 201);
+      assert.equal(res.body.phone, "555-0100");
+      const me = await client({ email, password });
+      assert.equal((await me("/api/auth/me")).body.user.profile, "Retired nurse, best after 6pm.");
+      const upd = await me("/api/auth/profile", { method: "PUT", body: { phone: "555-0199", profile: "" } });
+      assert.equal(upd.status, 200);
+      assert.equal(upd.body.user.phone, "555-0199");
+      assert.equal(upd.body.user.profile, null);
+      assert.equal(
+        (await me("/api/auth/profile", { method: "PUT", body: { phone: "x".repeat(41) } })).status,
+        400
+      );
+    } finally {
+      await prisma.user.deleteMany({ where: { email } });
+    }
+  });
+
   // The generic P2002 handler's "That email is already in use" reads as a
   // form-validation complaint -- this route's own catch replaces it with
   // something that tells the admin what to do instead (edit the existing
