@@ -130,6 +130,45 @@ describe("AdminBooklet contact details and contactSafe (#288)", () => {
     expect(html).not.toContain("Phone Call");
     expect(html).not.toContain("Secret staff reason");
   });
+
+  // #411: addresses and the sending party's contact details are a way to reach them too.
+  const withAddresses = (over) =>
+    withAdult({
+      addresses: [
+        { type: "physical", addressLine1: "12 Hidden Lane", city: "Quietville" },
+        { type: "mailing", addressLine1: "PO Box 99", city: "Postville" },
+      ],
+      sendingChurch: {
+        name: "Home Church",
+        contactFirstName: "Ruth",
+        contactLastName: "Aide",
+        phone: "555-999-0000",
+      },
+      ...over,
+    });
+
+  it("withholds the addresses and the sending party's contact person and phone when not safe to contact", async () => {
+    fetchPartners.mockResolvedValue([withAddresses({ contactSafe: false })]);
+    render(<AdminBooklet />);
+    await waitFor(() => expect(getPreviewHtml()).toContain("Open Missionary"));
+    const html = getPreviewHtml();
+    expect(html).not.toContain("12 Hidden Lane");
+    expect(html).not.toContain("PO Box 99");
+    expect(html).toContain("Home Church");
+    expect(html).not.toContain("Ruth Aide");
+    expect(html).not.toContain("555-999-0000");
+  });
+
+  it("still prints them for a partner who is safe to contact", async () => {
+    fetchPartners.mockResolvedValue([withAddresses({ contactSafe: true })]);
+    render(<AdminBooklet />);
+    await waitFor(() => expect(getPreviewHtml()).toContain("Open Missionary"));
+    const html = getPreviewHtml();
+    expect(html).toContain("12 Hidden Lane");
+    expect(html).toContain("PO Box 99");
+    expect(html).toContain("Ruth Aide");
+    expect(html).toContain("555-999-0000");
+  });
 });
 
 // #346: the config page was restructured into a two-pane layout

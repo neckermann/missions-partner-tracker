@@ -656,13 +656,14 @@ one-time need, and they never see monthly funding):
 | Mark urgent / "approve now" | Yes | **No** (their dispatch is held) | No |
 | One-time needs: add, edit | Yes | Yes | **No access** |
 | Record a decision on a need | Yes | **No** (committee/board) | No |
-| Monthly support (amounts, "supporting since", entries) | Yes | **Never shown or writable** | Never |
+| Monthly support (amounts, entries) | Yes | **Never shown or writable** | Never |
+| "Supporting since" date (and the $0 entry archiving a partner writes) | Yes | **Yes: shown and editable on their own partner** (decided in #410; the key-date "N years of our support" reaches them) | Never |
 | Newsletters & Docs: view, upload, edit, AI scan | Yes | Yes (scan only if the feature is on) | View / download |
 | Dispatches from the above | Sent on schedule | **Saved at once, held for staff approval** | n/a |
 | Approve in Pending Dispatches | Yes | No | No |
 | Assign the care team | Yes | No (can view) | No |
 | Trips of the partner | Manage all | **View only** | Manage their granted trips |
-| Trip participants' personal details (contact info, notes) on those trips | Yes | **Yes, read only** — the trip is theirs to see, same as the roster an editor sees | Yes, on their granted trips |
+| Trip participants' personal details (contact info, notes) on those trips | Yes | **No** (#409): a seat sees the trip's name, type, status, dates and who is on the team, and nothing else: no contact details, dates of birth, applications, documents, contributions, budget, flights, requirements, meetings or private-link tokens (`utils/seatTripView.js`) | Yes, on their granted trips |
 
 Everything a non-staff login does is a request to the same routes an editor
 uses; `requirePartnerWriter` (staff, or on **that partner's** care team) gates

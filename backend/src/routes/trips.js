@@ -17,6 +17,7 @@ const {
   requireTripScope,
   allowGuestPartnerList,
 } = require("../middleware/requireAuth");
+const { isSeatOnly, redactTripForSeat } = require("../utils/seatTripView");
 const { requireFeature } = require("../middleware/requireFeature");
 const { generateShareToken } = require("../utils/tripAccessToken");
 const {
@@ -257,7 +258,10 @@ router.get("/", allowGuestPartnerList, async (req, res, next) => {
     // last changed -- staff only; a guest's list carries no editor names.
     const updated = req.user.role === "guest" ? null : await tripLastUpdated(records.map((r) => r.id));
     res.json(
-      records.map((r) => ({ ...annotateTripFlags(r), ...(updated ? listFields(updated.get(r.id)) : {}) }))
+      records.map((r) => {
+        const row = { ...annotateTripFlags(r), ...(updated ? listFields(updated.get(r.id)) : {}) };
+        return isSeatOnly(req.user, r.id) ? redactTripForSeat(row) : row;
+      })
     );
   } catch (err) {
     next(err);
@@ -391,7 +395,8 @@ router.get("/:id", requireTripScope("id"), async (req, res, next) => {
       select: { enableTripBudgeting: true },
     });
     trip.enableTripBudgeting = tripSettings?.enableTripBudgeting === true;
-    res.json(trip);
+    // A care team seat sees names and dates only (#409).
+    res.json(isSeatOnly(req.user, trip.id) ? redactTripForSeat(trip) : trip);
   } catch (err) {
     next(err);
   }
@@ -953,6 +958,9 @@ router.get("/documents/:id/download", requireTripScope(tripIdOfDocument), async 
       include: { bytesRow: { select: { bytes: true } } },
     });
     if (!record?.bytesRow) return res.status(404).json({ error: "Not found" });
+    // Passports, waivers and the like are for the trip's own team and staff, not a care team seat (#409).
+    if (isSeatOnly(req.user, record.tripId))
+      return res.status(403).json({ error: "Insufficient permissions" });
     sendStoredFile(res, { ...record, bytes: record.bytesRow.bytes });
   } catch (err) {
     next(err);
