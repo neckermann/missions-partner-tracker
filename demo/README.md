@@ -68,6 +68,21 @@ use `DEMO_ADMIN_PASSWORD`. Set the
 optional `DEMO_GUEST_PASSWORD` only if you want them to differ (the banner then
 shows each one's password); never reuse any of these anywhere real.
 
+## Passkeys and passwordless sign-in are off on a demo
+
+For the same reason, a demo can't use **passkeys** (#386): a passkey added to a shared login would
+make every visitor's sign-in ask for it. The server refuses to register one while
+`DEMO_RESET_TOKEN` is set, My account says passkeys are off on the demo, and the church-wide
+**Passwordless sign-in** switch is refused and ignored there too (it also needs working email,
+which a demo never has). Both are shown in the documentation screenshots, captured from a
+fixture install, rather than on the demo itself.
+
+What a visitor can try instead: the seed leaves a finished trip that hasn't been wrapped up
+("Harvest Week team"), so **Trips ready to wrap up** is on the bell and the **Wrap up trip**
+wizard can be walked end to end; the older completed trips carry debriefs; partners carry support
+preferences; the care team's contact timeline, updates to pass on and key-date alerts are
+populated; and the trip applications carry answers to the church-wide and trip questions.
+
 ## What a demo never does
 
 A demo must not send email to its seeded accounts (they are fake addresses, so
