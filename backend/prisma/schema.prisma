@@ -2356,6 +2356,8 @@ model User {
   // unaffected. Self-service from My account.
   keyDateEmailOptOut Boolean @default(false)
 
+  passkeys UserPasskey[]
+
   // Opt-in per user, self-service from Account Settings -- same pattern
   // as MFA above. null = not subscribed to the admin digest email (see
   // emailDispatchDelivery.js); a value is which of the three cadence
@@ -2566,6 +2568,27 @@ model PartnerSupportPreference {
 
   @@unique([partnerId, optionId])
   @@index([optionId])
+}
+
+// #386: a passkey (WebAuthn credential) a person has added as a second sign-in factor, next to or
+// instead of an authenticator app. Only public material is stored: the credential id and the public
+// key (both base64url text), the signature counter, and the transports the browser reported. A
+// person with one or more has User.mfaEnabled true, so everything that asks "is a second factor
+// enrolled" (sign-in, the church-wide requirement) needs no change. Several per person is the
+// backup: a lost phone is one of them, not the only way in.
+model UserPasskey {
+  id           String    @id @default(uuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  credentialId String    @unique
+  publicKey    String
+  counter      Int       @default(0)
+  transports   String[]
+  label        String
+  createdAt    DateTime  @default(now())
+  lastUsedAt   DateTime?
+
+  @@index([userId])
 }
 
 // A public, no-login email subscription to prayer-request updates.

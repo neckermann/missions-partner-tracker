@@ -8,6 +8,10 @@ import { fetchCurrentUser } from "../api/client.js";
 // content. Two-factor is not specific to the role (#385): it can be switched off by the person
 // unless the church requires it of everyone, which hides the switch-off for every role.
 vi.mock("../api/client.js", () => ({
+  fetchPasskeys: vi.fn().mockResolvedValue({ passkeys: [], max: 5 }),
+  registerPasskey: vi.fn(),
+  removePasskey: vi.fn(),
+  browserSupportsWebAuthn: () => true,
   fetchCurrentUser: vi.fn(),
   changePassword: vi.fn(),
   setupMfa: vi.fn(),
@@ -27,6 +31,7 @@ const user = (role, mfaEnabled, twoFactorRequired = false) => ({
   role,
   authProvider: "local",
   mfaEnabled,
+  authenticatorApp: mfaEnabled,
   twoFactorRequired,
   cadence: null,
   followedPartnerIds: [],

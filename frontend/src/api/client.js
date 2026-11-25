@@ -1,4 +1,5 @@
 import axios from "axios";
+import { startRegistration, startAuthentication, browserSupportsWebAuthn } from "@simplewebauthn/browser";
 
 // The backend serves this frontend directly (see backend/src/server.js),
 // so "/api" always resolves same-origin — in local dev, Vite's proxy
@@ -1040,6 +1041,45 @@ export async function confirmForcedMfaSetup(setupToken, token) {
   );
   return data;
 }
+
+// #386: passkeys. The server hands out WebAuthn options plus a signed challenge token; the browser
+// answers them (`@simplewebauthn/browser`) and the answer goes back with that token.
+export async function fetchPasskeys() {
+  const { data } = await api.get("/auth/passkeys");
+  return data; // { passkeys: [{ id, label, createdAt, lastUsedAt }], max }
+}
+
+// `setupToken` is given while a person is being taken through forced enrolment (no session yet);
+// otherwise the session cookie does it.
+export async function registerPasskey(label, setupToken) {
+  const config = setupToken ? { headers: { Authorization: `Bearer ${setupToken}` } } : undefined;
+  const { data: begin } = await api.post("/auth/passkeys/register/options", {}, config);
+  const response = await startRegistration({ optionsJSON: begin.options });
+  const { data } = await api.post(
+    "/auth/passkeys/register/verify",
+    { challengeToken: begin.challengeToken, response, label },
+    config
+  );
+  return data;
+}
+
+export async function removePasskey(id, password) {
+  const { data } = await api.delete(`/auth/passkeys/${id}`, { data: { password } });
+  return data;
+}
+
+export async function loginWithPasskey(pendingToken) {
+  const { data: begin } = await api.post("/auth/passkeys/login/options", { pendingToken });
+  const response = await startAuthentication({ optionsJSON: begin.options });
+  const { data } = await api.post("/auth/passkeys/login/verify", {
+    pendingToken,
+    challengeToken: begin.challengeToken,
+    response,
+  });
+  return data;
+}
+
+export { browserSupportsWebAuthn };
 
 export async function logout() {
   // The session is an httpOnly cookie — client-side JS can't clear it

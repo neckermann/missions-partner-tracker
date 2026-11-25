@@ -251,7 +251,13 @@ settings category later is a new entry in `buildSiteAdminLinks()`
 
 ## Authentication setup
 
-Accounts are email and password, optionally with TOTP two-factor. There is
+Accounts are email and password, optionally with two-factor: an authenticator
+app (TOTP) or **passkeys** (#386; each person can add up to five). A passkey is
+tied to the site's address, so set `APP_BASE_URL` to the address people use (its
+host name is the passkey's identity) and keep it stable; if the church moves to
+a new domain, existing passkeys stop working and people add them again (an
+authenticator app is unaffected). **Reset MFA** on a user clears their app and
+passkeys. There is
 nothing to configure beyond your first admin account, created at `/setup`
 on a fresh deploy or with `createAdmin.js` — see
 [Getting your church running](#getting-your-church-running-render) above.

@@ -177,7 +177,12 @@ router.post("/login", async (req, res, next) => {
     }
 
     if (user.mfaEnabled) {
-      return res.json({ mfaRequired: true, pendingToken: signMfaPendingToken(user) });
+      const passkeyCount = await prisma.userPasskey.count({ where: { userId: user.id } });
+      return res.json({
+        mfaRequired: true,
+        pendingToken: signMfaPendingToken(user),
+        methods: { authenticatorApp: Boolean(user.mfaSecret), passkey: passkeyCount > 0 },
+      });
     }
     // Not enrolled: sent to enrolment, with no session until they finish, when the church
     // requires two-factor of everyone (#385) or an admin required it of this one account.
@@ -515,9 +520,15 @@ router.post("/mfa/disable", requireAuth, async (req, res, next) => {
     // #327 Finding 7: same reasoning as change-password above -- re-issue
     // this tab's own cookie from the updated row so only other sessions
     // are the ones that stop working.
+    // #386: passkeys are a second factor too; the switch only goes off when none are left.
+    const hasPasskeys = (await prisma.userPasskey.count({ where: { userId: user.id } })) > 0;
     const updated = await prisma.user.update({
       where: { id: user.id },
-      data: { mfaEnabled: false, mfaSecret: null, sessionVersion: { increment: 1 } },
+      data: {
+        mfaSecret: null,
+        mfaEnabled: hasPasskeys,
+        sessionVersion: { increment: 1 },
+      },
     });
     setSessionCookie(res, updated);
     await recordAuditSafe(null, { action: "auth.mfa_disabled", actor: updated, req });
@@ -835,6 +846,8 @@ async function sanitizeUser(user) {
     role: user.role,
     authProvider: user.authProvider,
     mfaEnabled: user.mfaEnabled,
+    authenticatorApp: Boolean(user.mfaEnabled && user.mfaSecret),
+    passkeyCount: await prisma.userPasskey.count({ where: { userId: user.id } }),
     cadence: user.cadence,
     allPartners: user.allPartners,
     followedPartnerIds: partnerIds,
@@ -844,5 +857,8 @@ async function sanitizeUser(user) {
     careTeamSeats,
   };
 }
+
+// #386: passkeys, mounted here so they can finish a sign-in the same way a code does.
+router.use("/passkeys", require("./passkeys")({ completeLogin }));
 
 module.exports = router;

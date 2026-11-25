@@ -31,11 +31,12 @@ for why.
 ![The login page](docs/assets/screenshots/login-page.png)
 
 If your account has two-factor authentication enabled, you'll be prompted
-for a 6-digit code from your authenticator app after your password. If
+for a 6-digit code from your authenticator app, or to **Use a passkey**
+(your fingerprint, face or screen lock), after your password. If
 your church requires two-factor for everyone (or an admin required it of
 your account) and you haven't set it up yet, you'll be walked through
-enrollment (scan a QR code, confirm a code) before you can do anything
-else. If your church turns the requirement on while you're signed in, your
+enrollment (add a passkey, or scan a QR code and confirm a code) before
+you can do anything else. If your church turns the requirement on while you're signed in, your
 next click takes you back to sign-in, and you set it up then.
 
 ### Understanding your role
@@ -1625,6 +1626,16 @@ requires two-factor for everyone, nobody, whatever their role, can turn it
 off here, and the page says so. If you lose your authenticator app, an
 admin resets it from Manage Users and you set it up again at next
 sign-in.)
+
+**Passkeys** sit below it. A passkey is your device's fingerprint, face or
+screen lock (or a security key) used as the second step at sign-in, so there
+is no code to type. Add one on each device you use (**Add a passkey**, up to
+five, each with a name you choose): a lost phone is then one of several, not
+the only way in. It shows when each was added and last used, and **Remove**
+asks for your password. If your church requires two-factor, you can't remove
+your last way of signing in; add another first. A passkey only works on the
+address your church's site is served from. An admin's **Reset MFA** clears
+your passkeys along with your authenticator app.
 
 If [Email (Sending)](#email-admin-only) is turned on for the church,
 there's also an **Email Dispatch** section here: a cadence (no

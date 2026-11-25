@@ -947,6 +947,21 @@ CREATE TABLE "PartnerSupportPreference" (
 );
 
 -- CreateTable
+CREATE TABLE "UserPasskey" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "credentialId" TEXT NOT NULL,
+    "publicKey" TEXT NOT NULL,
+    "counter" INTEGER NOT NULL DEFAULT 0,
+    "transports" TEXT[],
+    "label" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "lastUsedAt" TIMESTAMP(3),
+
+    CONSTRAINT "UserPasskey_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "PublicSubscriber" (
     "id" TEXT NOT NULL,
     "email" TEXT NOT NULL,
@@ -1185,6 +1200,12 @@ CREATE INDEX "PartnerSupportPreference_optionId_idx" ON "PartnerSupportPreferenc
 CREATE UNIQUE INDEX "PartnerSupportPreference_partnerId_optionId_key" ON "PartnerSupportPreference"("partnerId", "optionId");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "UserPasskey_credentialId_key" ON "UserPasskey"("credentialId");
+
+-- CreateIndex
+CREATE INDEX "UserPasskey_userId_idx" ON "UserPasskey"("userId");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "PublicSubscriber_email_key" ON "PublicSubscriber"("email");
 
 -- CreateIndex
@@ -1369,6 +1390,9 @@ ALTER TABLE "PartnerSupportPreference" ADD CONSTRAINT "PartnerSupportPreference_
 
 -- AddForeignKey
 ALTER TABLE "PartnerSupportPreference" ADD CONSTRAINT "PartnerSupportPreference_optionId_fkey" FOREIGN KEY ("optionId") REFERENCES "SupportOption"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "UserPasskey" ADD CONSTRAINT "UserPasskey_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "PublicSubscriberPartner" ADD CONSTRAINT "PublicSubscriberPartner_subscriberId_fkey" FOREIGN KEY ("subscriberId") REFERENCES "PublicSubscriber"("id") ON DELETE CASCADE ON UPDATE CASCADE;

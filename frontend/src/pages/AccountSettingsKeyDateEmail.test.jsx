@@ -7,6 +7,10 @@ import { fetchCurrentUser, setKeyDateEmailOptOut } from "../api/client.js";
 // #365: anyone on a care team (a guest included) can turn off their own daily key-date email;
 // the bell alert is unaffected.
 vi.mock("../api/client.js", () => ({
+  fetchPasskeys: vi.fn().mockResolvedValue({ passkeys: [], max: 5 }),
+  registerPasskey: vi.fn(),
+  removePasskey: vi.fn(),
+  browserSupportsWebAuthn: () => true,
   fetchCurrentUser: vi.fn(),
   changePassword: vi.fn(),
   setupMfa: vi.fn(),
