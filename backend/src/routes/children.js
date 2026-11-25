@@ -10,10 +10,9 @@ const {
 const { partnerRefSelect } = require("../utils/prismaIncludes");
 
 const router = express.Router();
-router.use(requireAuth); // everything below requires a logged-in user
+router.use(requireAuth);
 
-// The only writer for Child -- see routes/adults.js for the full reasoning,
-// same shape, no consolidated cross-partner list.
+// The only writer for Child; same shape as routes/adults.js.
 const childSchema = z.object({
   partnerId: z.string(),
   firstName: z.string().min(1),
@@ -23,7 +22,6 @@ const childSchema = z.object({
 
 const childInclude = { partner: partnerRefSelect };
 
-// GET /api/children?partnerId=
 router.get("/", requirePartnerQueryScope, async (req, res, next) => {
   try {
     const where = {};
@@ -40,7 +38,6 @@ router.get("/", requirePartnerQueryScope, async (req, res, next) => {
   }
 });
 
-// POST /api/children  (create — editor or admin)
 router.post("/", requirePartnerWriter({ body: true }), async (req, res, next) => {
   try {
     const data = childSchema.parse(req.body);
@@ -51,7 +48,6 @@ router.post("/", requirePartnerWriter({ body: true }), async (req, res, next) =>
   }
 });
 
-// PUT /api/children/:id  (update — editor or admin)
 router.put("/:id", requirePartnerWriter({ model: "child" }), async (req, res, next) => {
   try {
     const data = childSchema.partial().parse(req.body);
@@ -62,7 +58,6 @@ router.put("/:id", requirePartnerWriter({ model: "child" }), async (req, res, ne
   }
 });
 
-// DELETE /api/children/:id  (admin only)
 router.delete("/:id", requireRole("admin"), async (req, res, next) => {
   try {
     await prisma.child.delete({ where: { id: req.params.id } });
