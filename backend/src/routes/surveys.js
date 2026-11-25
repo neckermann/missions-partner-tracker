@@ -23,15 +23,13 @@ const {
 } = require("../utils/surveys");
 const { listFields } = require("../utils/surveyFields");
 
-// #419: partner surveys. Gated by the `surveys` feature, which needs Care teams (404 when either
-// is off, data kept). A church builds surveys; a person sends each chosen partner a personal link
+// #419: partner surveys. Gated by the `surveys` feature (404 when off, data kept). A church builds surveys; a person sends each chosen partner a personal link
 // (see publicSurveys.js for the partner's side); staff or a care team member can also fill one in
 // on a partner's behalf. Answers are read by anyone who can see the partner except a trip leader.
 // Nothing here is public, in the booklet or in a dispatch.
 const router = express.Router();
 router.use(requireAuth);
 router.use(requireFeature("surveys"));
-router.use(requireFeature("careTeam"));
 router.use(requireRole("admin", "editor", "viewer", "guest"));
 
 const canWrite = (user) => user.role !== "viewer" && user.role !== "guest";

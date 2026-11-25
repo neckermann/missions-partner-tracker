@@ -1416,7 +1416,7 @@ export default function AdminPartnerDetail() {
             <SupportPreferencesCard partnerId={p.id} isAdmin={isAdmin} />
           )}
 
-          {enabledFeatures.surveys && enabledFeatures.careTeam && <SurveysCard partnerId={p.id} />}
+          {enabledFeatures.surveys && <SurveysCard partnerId={p.id} />}
 
           {contactLogShown && (
             <ContactLogSection

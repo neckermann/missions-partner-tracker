@@ -107,7 +107,7 @@ const labelKey = (s) => String(s).trim().toLowerCase();
 const KINDS = {
   survey: {
     label: "Survey",
-    requires: ["surveys", "careTeam"],
+    requires: ["surveys"],
     schema: surveyData,
     summarize: (d) => [`A draft survey “${d.survey.title}” with ${d.survey.questions.length} questions`],
     async apply(data) {

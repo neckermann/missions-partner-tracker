@@ -1132,7 +1132,7 @@ export async function savePartnerSupportPreferences(partnerId, preferences) {
   return data;
 }
 
-// Partner surveys (gated by surveys + careTeam; 404 when off).
+// Partner surveys (gated by surveys; 404 when off).
 export async function fetchSurveys() {
   const { data } = await api.get("/surveys");
   return data.surveys;

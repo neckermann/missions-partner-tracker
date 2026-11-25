@@ -106,9 +106,7 @@ async function surveyUpdatesPending() {
     where: { id: "singleton" },
     select: { enabledFeatures: true },
   });
-  const on =
-    isFeatureEnabled(settings?.enabledFeatures, "surveys") &&
-    isFeatureEnabled(settings?.enabledFeatures, "careTeam");
+  const on = isFeatureEnabled(settings?.enabledFeatures, "surveys");
   if (!on) return { count: 0, latest: null };
   const rows = await prisma.surveyProposal.findMany({
     where: { status: "pending" },
@@ -118,15 +116,13 @@ async function surveyUpdatesPending() {
 }
 
 // Surveys a partner has answered since this login last looked. Per user, and for a care team
-// guest only on their own partners. Counts nothing while Surveys or Care teams is off.
+// guest only on their own partners. Counts nothing while Surveys is off.
 async function newSurveyResponses({ userId }, _scopeTripIds, scopePartnerIds) {
   const settings = await prisma.churchSettings.findUnique({
     where: { id: "singleton" },
     select: { enabledFeatures: true },
   });
-  const on =
-    isFeatureEnabled(settings?.enabledFeatures, "surveys") &&
-    isFeatureEnabled(settings?.enabledFeatures, "careTeam");
+  const on = isFeatureEnabled(settings?.enabledFeatures, "surveys");
   if (!on) return { count: 0, latest: null };
   const seenAt = await getSeenAt(userId, "newSurveyResponses");
   const rows = await prisma.surveyResponse.findMany({

@@ -170,13 +170,12 @@ function buildNavItems(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures
       icon: "📥",
       label: "Unmatched Email",
     },
-    enabledFeatures.surveys &&
-      enabledFeatures.careTeam && {
-        key: "surveyUpdates",
-        to: "/admin/survey-updates",
-        icon: "📝",
-        label: "Survey Updates",
-      },
+    enabledFeatures.surveys && {
+      key: "surveyUpdates",
+      to: "/admin/survey-updates",
+      icon: "📝",
+      label: "Survey Updates",
+    },
     enabledFeatures.booklet && { key: "booklet", to: "/admin/booklet", icon: "📘", label: "Print Booklet" },
     enabledFeatures.reports && { key: "reports", to: "/admin/reports", icon: "📊", label: "Reports" },
   ].filter(Boolean);
@@ -196,8 +195,7 @@ function buildSiteAdminLinks(enabledFeatures) {
         label: "Support Preferences",
         icon: "💛",
       },
-    enabledFeatures.surveys &&
-      enabledFeatures.careTeam && { to: "/admin/settings/surveys", label: "Surveys", icon: "📝" },
+    enabledFeatures.surveys && { to: "/admin/settings/surveys", label: "Surveys", icon: "📝" },
     (enabledFeatures.outboundEmail || enabledFeatures.inboundEmail) && {
       to: "/admin/settings/email",
       label: "Email",

@@ -48,13 +48,12 @@ function buildSections(enabledFeatures) {
         icon: "💛",
         description: "The menu of ways your church and a partner's care team can support them.",
       },
-    enabledFeatures.surveys &&
-      enabledFeatures.careTeam && {
-        to: "/admin/settings/surveys",
-        title: "Surveys",
-        icon: "📝",
-        description: "Build surveys, send partners a personal link to answer, and see the results.",
-      },
+    enabledFeatures.surveys && {
+      to: "/admin/settings/surveys",
+      title: "Surveys",
+      icon: "📝",
+      description: "Build surveys, send partners a personal link to answer, and see the results.",
+    },
     (enabledFeatures.outboundEmail || enabledFeatures.inboundEmail) && {
       to: "/admin/settings/email",
       title: "Email",
