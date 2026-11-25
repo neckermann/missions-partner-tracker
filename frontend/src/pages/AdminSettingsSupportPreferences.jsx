@@ -8,6 +8,7 @@ import {
   renameSupportGroup,
   addSupportExampleSet,
 } from "../api/client.js";
+import { Link } from "react-router-dom";
 import SettingsPageHeader from "../components/admin/SettingsPageHeader.jsx";
 import QuickActionModal from "../components/shared/QuickActionModal.jsx";
 import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
@@ -72,7 +73,16 @@ export default function AdminSettingsSupportPreferences() {
 
   return (
     <div className="admin-shell">
-      <SettingsPageHeader title="Support Preferences" />
+      <SettingsPageHeader
+        title="Support Preferences"
+        actions={
+          options?.some((o) => o.active) ? (
+            <Link to="/admin/settings/support-preferences/print" className="btn secondary">
+              Print menu
+            </Link>
+          ) : null
+        }
+      />
       <p style={{ color: "var(--muted)" }}>
         The menu of ways your church and a partner&apos;s care team can support them. Each partner&apos;s
         choices from it are recorded on their page, and are only ever seen by staff and their care team.

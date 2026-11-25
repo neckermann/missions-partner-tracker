@@ -65,6 +65,9 @@ const AdminSettingsTrips = lazy(() => import("./pages/AdminSettingsTrips.jsx"));
 const AdminSettingsCareTeam = lazy(() => import("./pages/AdminSettingsCareTeam.jsx"));
 const AdminTripWrapUp = lazy(() => import("./pages/AdminTripWrapUp.jsx"));
 const AdminSettingsSupportPreferences = lazy(() => import("./pages/AdminSettingsSupportPreferences.jsx"));
+const AdminSettingsSupportPreferencesPrint = lazy(
+  () => import("./pages/AdminSettingsSupportPreferencesPrint.jsx")
+);
 const AdminSettingsSurveys = lazy(() => import("./pages/AdminSettingsSurveys.jsx"));
 const AdminSettingsSurveyDetail = lazy(() => import("./pages/AdminSettingsSurveyDetail.jsx"));
 const AdminSettingsAudit = lazy(() => import("./pages/AdminSettingsAudit.jsx"));
@@ -328,6 +331,14 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                     element={
                       <RequireAdminFeature feature="supportPreferences">
                         <AdminSettingsSupportPreferences />
+                      </RequireAdminFeature>
+                    }
+                  />
+                  <Route
+                    path="support-preferences/print"
+                    element={
+                      <RequireAdminFeature feature="supportPreferences">
+                        <AdminSettingsSupportPreferencesPrint />
                       </RequireAdminFeature>
                     }
                   />

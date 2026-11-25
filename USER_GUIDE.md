@@ -954,7 +954,7 @@ With **Contact log** turned on in [Enabled Features](ADMIN_GUIDE.md#feature-togg
 - **Updates to pass on.** When a one-time need has been decided or a prayer answered and nobody has passed it on yet, the Contact Log shows an **Updates to pass on** box with a **Log a thank-you** (or **Log passing it on**) button. It opens **+ Log contact** already set to "We reached out" with the right topic ticked, so saving it clears the bell's "Updates to pass on to partners". You still choose how you got in touch.
 - **My partners** and **Partners to reach out to** (for anyone on a care team) are described under [My partners](#my-partners).
 
-The **Last heard from** report counts a logged contact, a newsletter and a church visit as hearing from a partner: a partner is only "quiet" when all of them are old. How long is "quiet" is a church setting (default 90 days; Settings → Care Teams → Timing), and the report uses it unless you type another number for a run. Trip leaders don't get the contact log.
+The **Last heard from** report counts a logged contact, a newsletter, a prayer request they sent and a church visit as hearing from a partner: a partner is only "quiet" when all of them are old. How long is "quiet" is a church setting (default 90 days; Settings → Care Teams → Timing), and the report uses it unless you type another number for a run. Trip leaders don't get the contact log.
 
 ### Key-date reminders
 
@@ -988,7 +988,7 @@ The app never contacts a partner on its own — a person always does. If you're 
 
 With **Support preferences** turned on in [Enabled Features](ADMIN_GUIDE.md#feature-toggles) (it needs [Care teams](#care-teams)), each partner's page gets a **Support preferences** card, at the bottom of the **Contact & Care** section (jump bar): the ways your church and their care team can support them, and which of them this partner has asked for. The card stays compact (how many are recorded, and which groups); **View all →** opens everything, with their notes.
 
-- **The menu is your church's.** An admin edits it under **Settings → Support Preferences**: options are put in groups (rename a group any time), and each is something you **offer** (tick it if wanted), a **pick one** or **pick any** question (with an optional "something else" box), or a **free-text** question. From an empty menu, **Add an example set** gives a starting list (housing, transportation, speaking about the partner, prayer, care packages, how to send gifts and so on) to edit or delete. **Retire** an option to stop offering it while keeping the answers already given, or **Delete** it to remove it and those answers.
+- **The menu is your church's.** An admin edits it under **Settings → Support Preferences**: options are put in groups (rename a group any time), and each is something you **offer** (tick it if wanted), a **pick one** or **pick any** question (with an optional "something else" box), or a **free-text** question. From an empty menu, **Add an example set** gives a starting list (housing, transportation, speaking about the partner, prayer, care packages, how to send gifts and so on) to edit or delete. **Retire** an option to stop offering it while keeping the answers already given, or **Delete** it to remove it and those answers. **Print menu** (top right of that page) opens a clean copy with the church's name and logo, boxes to tick and lines to write on, for a conversation with a partner; retired options are left out, and it stores nothing.
 - **Record a partner's choices** with **+ Record** (or **Edit**) on their page, after a conversation: tick what they want, pick their answers, add a note. One set per partner, so a couple or family shares it. Admins, editors and a guest on that partner's care team can record it; a viewer can read it. A trip leader never sees it.
 - **Who can see it:** staff and the partner's care team only, on the partner's page. It never appears on the public site, in the booklet, or in dispatches. How a partner prefers to be contacted is the **Preferred contact** on their Contact card, not here.
 - **Reports → Support preferences** lists what each partner has chosen (sort by an option to see who wants it) or, with **Show: Partners with nothing recorded**, who still needs that conversation.
@@ -998,6 +998,8 @@ With **Support preferences** turned on in [Enabled Features](ADMIN_GUIDE.md#feat
 ![The full details popup, grouped by kind of support](docs/assets/screenshots/support-preferences-details.png)
 
 ![Settings → Support Preferences, the church's own menu](docs/assets/screenshots/support-preferences-settings.png)
+
+![The printable menu, as it prints](docs/assets/screenshots/support-preferences-print.png)
 
 ### Partner surveys
 
