@@ -18,7 +18,7 @@ export function memberName(m) {
   return [m.firstName, m.lastName].filter(Boolean).join(" ") || m.email || "Someone";
 }
 
-export default function CareTeamPanel({ partnerId, canEdit, canInviteGuest = false }) {
+export default function CareTeamPanel({ partnerId, canEdit, canInviteGuest = false, compact = false }) {
   const [team, setTeam] = useState(null);
   const [failed, setFailed] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -47,6 +47,64 @@ export default function CareTeamPanel({ partnerId, canEdit, canInviteGuest = fal
   useEffect(() => {
     reload();
   }, [reload]);
+
+  if (compact) {
+    // One line on the contact card: who is on the team, with Edit or Assign beside it.
+    const people = team
+      ? [
+          team.lead && { id: team.lead.userId, name: memberName(team.lead), lead: true },
+          ...team.members.map((m) => ({ id: m.userId, name: memberName(m), lead: false })),
+        ].filter(Boolean)
+      : [];
+    return (
+      <div id="section-care-team" style={{ scrollMarginTop: "1rem" }}>
+        <div
+          style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.5rem" }}
+        >
+          <div>
+            <span style={{ color: "var(--muted)" }}>Care team: </span>
+            {failed && <span style={{ color: "var(--danger)" }}>couldn't load</span>}
+            {team && people.length === 0 && (
+              <span style={{ color: "var(--muted)" }}>nobody assigned yet</span>
+            )}
+            {people.map((m, i) => (
+              <span key={m.id}>
+                {i > 0 && ", "}
+                <strong>{m.name}</strong>
+                {m.lead && <span style={{ color: "var(--muted)" }}> (lead)</span>}
+              </span>
+            ))}
+            {team && people.length > 0 && !team.lead && (
+              <span style={{ color: "var(--warn)" }}> · no lead yet</span>
+            )}
+          </div>
+          {canEdit && team && (
+            <button type="button" className="btn secondary small" onClick={() => setEditing(true)}>
+              {people.length ? "Edit team" : "+ Assign team"}
+            </button>
+          )}
+        </div>
+        {team && people.length === 0 && enabledFeatures?.keyDates && (
+          <div style={{ fontSize: "0.85rem", color: "var(--muted)", marginTop: "0.2rem" }}>
+            {!canEdit
+              ? "Key-date reminders go to the church's default lead until a team is set."
+              : defaultLead
+                ? `Key-date reminders go to the default lead, ${defaultLead.name}, until a team is set.`
+                : "Key-date reminders have nobody to go to until a team (or a default lead) is set."}
+          </div>
+        )}
+        {editing && (
+          <EditCareTeamModal
+            partnerId={partnerId}
+            team={team}
+            canInviteGuest={canInviteGuest}
+            onClose={() => setEditing(false)}
+            onSaved={(next) => setTeam(next)}
+          />
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="admin-section" id="section-care-team" style={{ scrollMarginTop: "1rem" }}>

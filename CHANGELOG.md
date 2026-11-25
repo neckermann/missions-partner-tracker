@@ -22,6 +22,9 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ### Added
 
+- **Support preferences take less room.** The card on a partner's page is one line (how many are recorded, and which groups) with **View all →** opening everything in a popup; it now looks and works like the Monthly Support and One-Time Needs cards.
+- **No more silent key-date reminders.** Care Team Settings warns when no default lead is set, and a partner's care team line tells every staff member where reminders go until a team is set.
+- **The top of a partner's page is shorter.** The care team is now one line on the Contact card ("Care team: Pat (lead), Casey", with Edit team or + Assign team), and Support preferences now sits at the bottom of the **Contact & Care** section (formerly Location & Contact), which has its own jump-bar button.
 - **Visitors can choose Light or Dark on the public site** with a small switch in the header; it follows their device unless they pick one.
 - **More records carry a created date ([#383](https://github.com/neckermann/missions-partner-tracker/issues/383)).** A partner's addresses and sending party, a trip's budget lines and flight segments, and application questions now record when they were added (trips and applications already did).
 - **"Forgot your password?" on the sign-in page.** When the site can send email, anyone can ask for a link to choose a new password. The link works once and lasts an hour, a reset signs the account out everywhere else, and the reply is the same whether or not the address has an account (at most one email a minute per account). It reuses the setup-link machinery, so no database change. Not offered while email is off, on a demo, or with passwordless sign-in on.
@@ -30,6 +33,7 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ### Fixed
 
+- **A row that opens a record is clickable on its own, and looks it.** The duplicate Open (Partners), View (Trips) and View details (trip team) buttons are gone; clickable rows show a pointer, a link-coloured first cell, and a focus ring, and open with Enter or Space.
 - **Dark mode is readable on every page ([#418](https://github.com/neckermann/missions-partner-tracker/issues/418)).** Many pages used hardcoded greys and whites that ignored the theme, so headings, help text, table cells and tabs were nearly invisible in dark mode. They now use the theme colours, and a new check (`frontend/e2e/contrast.spec.js`) fails the build if text on a public or admin page drops below a readable contrast in either theme.
 - **Text no longer turns unreadable after you visit Print Booklet.** The booklet's stylesheet set a dark text colour on the whole page and stayed loaded when you moved on, so the next page was dark-on-dark until a refresh. It is now scoped to the booklet itself.
 - **Action buttons in tables no longer wrap onto two lines** and come out different sizes; Delete, Retire and the like stay the same height as their neighbours.

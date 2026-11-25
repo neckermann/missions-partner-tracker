@@ -12,7 +12,7 @@ test.describe("Contact card", () => {
     await expect(card).toBeVisible();
 
     // Use caution, email only.
-    await card.getByRole("button", { name: "Edit" }).click();
+    await card.getByRole("button", { name: "Edit", exact: true }).click();
     let dialog = page.getByRole("dialog");
     await dialog.getByLabel("How they like to be reached").selectOption("email");
     await dialog.getByRole("radio", { name: /Use caution/ }).check();
@@ -27,7 +27,7 @@ test.describe("Contact card", () => {
     await expect(card.getByRole("link", { name: "Call" })).toHaveCount(0);
 
     // Don't contact directly: their details give way to who to go through.
-    await card.getByRole("button", { name: "Edit" }).click();
+    await card.getByRole("button", { name: "Edit", exact: true }).click();
     dialog = page.getByRole("dialog");
     await dialog.getByRole("radio", { name: /Don't contact directly/ }).check();
     await dialog.getByLabel("Go through (name)").fill("Mission office");
@@ -43,7 +43,7 @@ test.describe("Contact card", () => {
     await expect(card.getByText(/Prefers/)).toHaveCount(0);
 
     // Back to normal, so the seeded partner is left as it was.
-    await card.getByRole("button", { name: "Edit" }).click();
+    await card.getByRole("button", { name: "Edit", exact: true }).click();
     dialog = page.getByRole("dialog");
     await dialog.getByRole("radio", { name: /^Normal/ }).check();
     await dialog.getByRole("button", { name: "Save" }).click();

@@ -64,14 +64,16 @@ test.describe("Support preferences", () => {
   test("staff record a partner's choices on their page, and they show on the card", async () => {
     await admin.goto(`/admin/partners/${partner.id}`);
     const card = admin.locator("#section-support-preferences");
-    await expect(card.getByRole("heading", { name: "Support preferences" })).toBeVisible();
-    await card.getByRole("button", { name: /Record preferences|Edit preferences/ }).click();
+    await expect(card.getByRole("heading", { name: "Support Preferences" })).toBeVisible();
+    await card.getByRole("button", { name: /^(\+ Record|Edit)$/ }).click();
     await admin.getByLabel(label, { exact: true }).check();
     await admin.getByLabel(`Note for ${label}`).fill(note);
     await admin.getByRole("button", { name: "Save" }).click();
-    await expect(card.getByText(note)).toBeVisible();
-    // (The edit dialog sits inside the card while it closes, so look in the card's own list.)
-    await expect(card.locator("ul li", { hasText: label })).toBeVisible();
+    await expect(card.getByText(/preferences? recorded/)).toBeVisible();
+    await card.getByRole("button", { name: "View all →" }).click();
+    const details = admin.getByRole("dialog", { name: "Support Preferences" });
+    await expect(details.getByText(note)).toBeVisible();
+    await expect(details.locator("ul li", { hasText: label })).toBeVisible();
   });
 
   test("the report lists the partner and what they chose", async () => {
@@ -89,6 +91,8 @@ test.describe("Support preferences", () => {
     await expect(admin.locator("#section-support-preferences")).toHaveCount(0);
     await setFeatures(admin.request, { supportPreferences: true });
     await admin.goto(`/admin/partners/${partner.id}`);
-    await expect(admin.locator("#section-support-preferences").getByText(note)).toBeVisible();
+    await expect(
+      admin.locator("#section-support-preferences").getByText(/preferences? recorded/)
+    ).toBeVisible();
   });
 });

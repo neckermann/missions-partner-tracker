@@ -46,6 +46,31 @@ beforeEach(() => {
   keyDatesOn = false;
 });
 
+describe("CareTeamPanel, compact (the line on the contact card)", () => {
+  it("names the team on one line, with the lead marked, and offers Edit team", async () => {
+    fetchCareTeam.mockResolvedValue({ lead: { ...ann, isLead: true }, members: [{ ...bob, isLead: false }] });
+    renderPanel({ compact: true });
+    expect(await screen.findByText("Ann Lead")).toBeInTheDocument();
+    expect(screen.getByText("(lead)")).toBeInTheDocument();
+    expect(screen.getByText("Bob Member")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Edit team" })).toBeInTheDocument();
+  });
+
+  it("says nobody is assigned and offers to assign a team", async () => {
+    fetchCareTeam.mockResolvedValue({ lead: null, members: [] });
+    renderPanel({ compact: true });
+    expect(await screen.findByText(/nobody assigned yet/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "+ Assign team" })).toBeInTheDocument();
+  });
+
+  it("has no button for someone who can't edit", async () => {
+    fetchCareTeam.mockResolvedValue({ lead: { ...ann, isLead: true }, members: [] });
+    renderPanel({ compact: true, canEdit: false });
+    expect(await screen.findByText("Ann Lead")).toBeInTheDocument();
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
+});
+
 describe("CareTeamPanel", () => {
   it("shows the lead and the members, marking a guest", async () => {
     fetchCareTeam.mockResolvedValue({ lead: { ...ann, isLead: true }, members: [{ ...bob, isLead: false }] });

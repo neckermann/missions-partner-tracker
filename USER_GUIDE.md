@@ -258,7 +258,7 @@ not just what topic they fall under:
     child (Name, Birthday).
   - **Languages Spoken** — a free-text tag list.
   - **Emergency Contact** — Name, Phone, Email.
-- **Location & Contact**:
+- **Contact & Care**:
   - **Serving Location** — Field/Region Display Name (shown publicly
     even for a restricted partner, so keep it broad — "East Africa," not
     a city, or it undoes the restriction above), a full address (country
@@ -894,7 +894,9 @@ Everything for keeping in touch with partners, in one place: who looks after eac
 
 With **Care teams** turned on in [Enabled Features](ADMIN_GUIDE.md#feature-toggles), every partner can have a **care team**: one **Lead** and any number of **Members**, the people at the church who keep in touch with that partner. An admin or editor sets it from the partner's page (**Care team**, near the top) or from the **Team** tab of one of that partner's trips, and can also add a **Guest** to a partner's team while creating their account (choose the Guest role in **Add User**, then the **Care team** step; other roles don't get that step). Everyone on a team needs a login; someone who isn't on your staff can be a **Guest**. **Reports → Care team coverage** lists the partners with no team or no lead.
 
-![A partner's page with the Care team panel (a Lead and Members) beside the Contact card](docs/assets/screenshots/care-team-and-contact.png)
+The team shows as one line on the partner's **Contact** card ("Care team: Pat (lead), Casey") with **Edit team** beside it, or **+ Assign team** when nobody is set.
+
+![A partner's Contact card with the care team on one line](docs/assets/screenshots/care-team-and-contact.png)
 
 ![The Care team dialog, choosing a Lead and ticking Members](docs/assets/screenshots/assign-care-team.png)
 
@@ -984,14 +986,16 @@ The app never contacts a partner on its own — a person always does. If you're 
 
 ### Support preferences
 
-With **Support preferences** turned on in [Enabled Features](ADMIN_GUIDE.md#feature-toggles) (it needs [Care teams](#care-teams)), each partner's page gets a **Support preferences** card: the ways your church and their care team can support them, and which of them this partner has asked for.
+With **Support preferences** turned on in [Enabled Features](ADMIN_GUIDE.md#feature-toggles) (it needs [Care teams](#care-teams)), each partner's page gets a **Support preferences** card, at the bottom of the **Contact & Care** section (jump bar): the ways your church and their care team can support them, and which of them this partner has asked for. The card stays compact (how many are recorded, and which groups); **View all →** opens everything, with their notes.
 
 - **The menu is your church's.** An admin edits it under **Settings → Support Preferences**: options are put in groups (rename a group any time), and each is something you **offer** (tick it if wanted), a **pick one** or **pick any** question (with an optional "something else" box), or a **free-text** question. From an empty menu, **Add an example set** gives a starting list (housing, transportation, speaking about the partner, prayer, care packages, how to send gifts and so on) to edit or delete. **Retire** an option to stop offering it while keeping the answers already given, or **Delete** it to remove it and those answers.
-- **Record a partner's choices** with **+ Record preferences** (or **Edit preferences**) on their page, after a conversation: tick what they want, pick their answers, add a note. One set per partner, so a couple or family shares it. Admins, editors and a guest on that partner's care team can record it; a viewer can read it. A trip leader never sees it.
+- **Record a partner's choices** with **+ Record** (or **Edit**) on their page, after a conversation: tick what they want, pick their answers, add a note. One set per partner, so a couple or family shares it. Admins, editors and a guest on that partner's care team can record it; a viewer can read it. A trip leader never sees it.
 - **Who can see it:** staff and the partner's care team only, on the partner's page. It never appears on the public site, in the booklet, or in dispatches. How a partner prefers to be contacted is the **Preferred contact** on their Contact card, not here.
 - **Reports → Support preferences** lists what each partner has chosen (sort by an option to see who wants it) or, with **Show: Partners with nothing recorded**, who still needs that conversation.
 
-![A partner's Support preferences card, grouped by kind of support](docs/assets/screenshots/support-preferences-card.png)
+![A partner's Support preferences card, compact, with Edit and View all buttons](docs/assets/screenshots/support-preferences-card.png)
+
+![The full details popup, grouped by kind of support](docs/assets/screenshots/support-preferences-details.png)
 
 ![Settings → Support Preferences, the church's own menu](docs/assets/screenshots/support-preferences-settings.png)
 

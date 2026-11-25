@@ -746,11 +746,12 @@ export default function AdminPartnerDetail() {
         );
       })()}
 
-      {enabledFeatures.careTeam && (
-        <CareTeamPanel partnerId={p.id} canEdit={canWrite} canInviteGuest={isAdmin} />
-      )}
-
       <ContactCard
+        careTeam={
+          enabledFeatures.careTeam && (
+            <CareTeamPanel compact partnerId={p.id} canEdit={canWrite} canInviteGuest={isAdmin} />
+          )
+        }
         partner={p}
         adults={collections.adults}
         entries={contactEntries}
@@ -760,15 +761,11 @@ export default function AdminPartnerDetail() {
         onChanged={reload}
       />
 
-      {enabledFeatures.supportPreferences && enabledFeatures.careTeam && (
-        <SupportPreferencesCard partnerId={p.id} isAdmin={isAdmin} />
-      )}
-
       <div className="partner-jump-rail">
         {[
           { label: "Overview", href: "#section-overview" },
           !isOrg && { label: "Family & Personal", href: "#section-family" },
-          { label: "Location & Contact", href: "#section-location" },
+          { label: "Contact & Care", href: "#section-location" },
           ((!isGuest && enabledFeatures.monthlySupport) ||
             (enabledFeatures.oneTimeNeeds && (!isGuest || isOnCareTeamFor(id)))) && {
             label: isGuest ? "One-Time Needs" : "Financial",
@@ -1051,7 +1048,7 @@ export default function AdminPartnerDetail() {
         </div>
 
         <div className="admin-section-group" id="section-location">
-          <h2 className="admin-group-heading">Location &amp; Contact</h2>
+          <h2 className="admin-group-heading">Contact &amp; Care</h2>
 
           <EditableSection
             title="Serving Location"
@@ -1371,6 +1368,10 @@ export default function AdminPartnerDetail() {
               linkCrud.handleDelete(l, (item) => `Delete the ${linkTypeLabel(item.type)} link?`)
             }
           />
+
+          {enabledFeatures.supportPreferences && enabledFeatures.careTeam && (
+            <SupportPreferencesCard partnerId={p.id} isAdmin={isAdmin} />
+          )}
         </div>
 
         {((!isGuest && enabledFeatures.monthlySupport) ||

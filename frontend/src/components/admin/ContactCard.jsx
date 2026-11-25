@@ -46,6 +46,7 @@ export default function ContactCard({
   showLog = true,
   canEdit = false,
   canEditCare = false,
+  careTeam = null,
   onChanged,
 }) {
   const [editing, setEditing] = useState(false);
@@ -87,6 +88,8 @@ export default function ContactCard({
           </button>
         )}
       </div>
+
+      {careTeam && <div className="contact-care-team">{careTeam}</div>}
 
       {level === "caution" && (
         <div role="note" className="contact-notice contact-notice-caution">
