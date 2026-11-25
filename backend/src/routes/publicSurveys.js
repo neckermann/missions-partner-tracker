@@ -4,7 +4,7 @@ const rateLimit = require("express-rate-limit");
 const prisma = require("../prismaClient");
 const { requireFeature } = require("../middleware/requireFeature");
 const { hashToken, isAcceptingAnswers, MAX_CHOICES } = require("../utils/surveys");
-const { saveSurveyAnswers } = require("../utils/surveyResponses");
+const { saveSurveyAnswers, saveSurveyPhoto } = require("../utils/surveyResponses");
 
 // #419: a partner answers a survey through their personal link, with no account. The link's token
 // is the only credential: it is stored as a hash, expires, is bound to one survey and one partner,
@@ -41,6 +41,10 @@ router.get("/:token", async (req, res, next) => {
     if (!invite.openedAt) {
       await prisma.surveyInvite.update({ where: { id: invite.id }, data: { openedAt: new Date() } });
     }
+    const photos = await prisma.surveyUpload.findMany({
+      where: { responseId: response?.id || "none" },
+      select: { questionId: true },
+    });
     const church = await prisma.churchSettings.findUnique({
       where: { id: "singleton" },
       select: { churchName: true },
@@ -58,6 +62,7 @@ router.get("/:token", async (req, res, next) => {
         allowOther: q.allowOther,
         required: q.required,
       })),
+      photos: photos.map((p) => p.questionId).filter(Boolean),
       answers: (response?.answers || [])
         .filter((a) => a.questionId)
         .map((a) => ({ questionId: a.questionId, value: a.value, values: a.values, other: a.other })),
@@ -102,4 +107,33 @@ async function save(req, res, next, submit) {
 router.put("/:token", (req, res, next) => save(req, res, next, false));
 router.post("/:token/submit", (req, res, next) => save(req, res, next, true));
 
+// A photo for a photo question, as { contentType, data } with base64 data. It has its own
+// path (server.js gives it a larger body limit and a tighter rate limit) and waits for staff to
+// approve it before it touches the partner's record.
+const uploadRouter = express.Router();
+uploadRouter.use(requireFeature("surveys"));
+uploadRouter.use(requireFeature("careTeam"));
+uploadRouter.use(rateLimit({ windowMs: 15 * 60 * 1000, max: process.env.NODE_ENV === "test" ? 1000 : 20 }));
+uploadRouter.post("/:token/:questionId", async (req, res, next) => {
+  try {
+    const invite = await loadInvite(req.params.token);
+    if (!invite) return res.status(404).json(NOT_AVAILABLE);
+    const { contentType, data } = z
+      .object({ contentType: z.string().max(40), data: z.string().max(7 * 1024 * 1024) })
+      .parse(req.body);
+    const result = await saveSurveyPhoto({
+      survey: invite.survey,
+      partnerId: invite.partnerId,
+      questionId: req.params.questionId,
+      contentType,
+      buffer: Buffer.from(data, "base64"),
+    });
+    if (result.error) return res.status(400).json({ error: result.error });
+    res.json({ saved: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
 module.exports = router;
+module.exports.uploadRouter = uploadRouter;

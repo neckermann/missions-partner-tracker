@@ -100,6 +100,23 @@ async function unmatchedEmails() {
   return { count: rows.length, latest: latestOf(rows, (r) => r.receivedAt) };
 }
 
+// Changes survey answers suggest to a partner's record, waiting for a person to decide.
+async function surveyUpdatesPending() {
+  const settings = await prisma.churchSettings.findUnique({
+    where: { id: "singleton" },
+    select: { enabledFeatures: true },
+  });
+  const on =
+    isFeatureEnabled(settings?.enabledFeatures, "surveys") &&
+    isFeatureEnabled(settings?.enabledFeatures, "careTeam");
+  if (!on) return { count: 0, latest: null };
+  const rows = await prisma.surveyProposal.findMany({
+    where: { status: "pending" },
+    select: { createdAt: true },
+  });
+  return { count: rows.length, latest: latestOf(rows, (r) => r.createdAt) };
+}
+
 async function inboundEmailFailures() {
   const rows = await prisma.inboundEmailFailure.findMany({ select: { receivedAt: true } });
   return { count: rows.length, latest: latestOf(rows, (r) => r.receivedAt) };
@@ -354,6 +371,16 @@ const CATEGORIES = [
     perUser: false,
     tripScoped: false,
     resolve: unmatchedEmails,
+  },
+  {
+    key: "surveyUpdatesPending",
+    label: "Survey updates to review",
+    icon: "📝",
+    linkTo: "/admin/survey-updates",
+    adminOnly: false,
+    perUser: false,
+    tripScoped: false,
+    resolve: surveyUpdatesPending,
   },
   {
     key: "inboundEmailFailures",

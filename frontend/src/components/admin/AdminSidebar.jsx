@@ -11,6 +11,7 @@ import ThemeToggle from "../shared/ThemeToggle.jsx";
 const NAV_BADGE_CATEGORIES = {
   pendingDispatches: ["dispatchesNeedingApproval"],
   inboundEmail: ["unmatchedEmails"],
+  surveyUpdates: ["surveyUpdatesPending"],
   prayerRequests: ["newPrayerRequests"],
   oneTimeNeeds: ["newOneTimeNeeds"],
   trips: [
@@ -169,6 +170,13 @@ function buildNavItems(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures
       icon: "📥",
       label: "Unmatched Email",
     },
+    enabledFeatures.surveys &&
+      enabledFeatures.careTeam && {
+        key: "surveyUpdates",
+        to: "/admin/survey-updates",
+        icon: "📝",
+        label: "Survey Updates",
+      },
     enabledFeatures.booklet && { key: "booklet", to: "/admin/booklet", icon: "📘", label: "Print Booklet" },
     enabledFeatures.reports && { key: "reports", to: "/admin/reports", icon: "📊", label: "Reports" },
   ].filter(Boolean);

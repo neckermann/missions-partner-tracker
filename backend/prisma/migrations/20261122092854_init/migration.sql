@@ -1085,6 +1085,7 @@ CREATE TABLE "SurveyQuestion" (
     "choices" TEXT[],
     "allowOther" BOOLEAN NOT NULL DEFAULT false,
     "required" BOOLEAN NOT NULL DEFAULT false,
+    "field" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "SurveyQuestion_pkey" PRIMARY KEY ("id")
@@ -1136,6 +1137,42 @@ CREATE TABLE "SurveyAnswer" (
     "other" TEXT,
 
     CONSTRAINT "SurveyAnswer_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "SurveyUpload" (
+    "id" TEXT NOT NULL,
+    "responseId" TEXT NOT NULL,
+    "partnerId" TEXT NOT NULL,
+    "questionId" TEXT,
+    "contentType" TEXT NOT NULL,
+    "fileSize" INTEGER NOT NULL,
+    "bytes" BYTEA NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "SurveyUpload_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "SurveyProposal" (
+    "id" TEXT NOT NULL,
+    "surveyId" TEXT NOT NULL,
+    "responseId" TEXT NOT NULL,
+    "partnerId" TEXT NOT NULL,
+    "questionId" TEXT,
+    "field" TEXT NOT NULL,
+    "fieldLabel" TEXT NOT NULL,
+    "currentValue" TEXT,
+    "proposedValue" TEXT,
+    "uploadId" TEXT,
+    "status" TEXT NOT NULL DEFAULT 'pending',
+    "appliedValue" TEXT,
+    "decidedAt" TIMESTAMP(3),
+    "decidedById" TEXT,
+    "decidedByName" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "SurveyProposal_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -1411,6 +1448,18 @@ CREATE UNIQUE INDEX "SurveyResponse_surveyId_partnerId_key" ON "SurveyResponse"(
 CREATE INDEX "SurveyAnswer_responseId_idx" ON "SurveyAnswer"("responseId");
 
 -- CreateIndex
+CREATE INDEX "SurveyUpload_responseId_idx" ON "SurveyUpload"("responseId");
+
+-- CreateIndex
+CREATE INDEX "SurveyProposal_status_createdAt_idx" ON "SurveyProposal"("status", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "SurveyProposal_partnerId_idx" ON "SurveyProposal"("partnerId");
+
+-- CreateIndex
+CREATE INDEX "SurveyProposal_responseId_idx" ON "SurveyProposal"("responseId");
+
+-- CreateIndex
 CREATE INDEX "_TripFlightSegmentToTripParticipant_B_index" ON "_TripFlightSegmentToTripParticipant"("B");
 
 -- AddForeignKey
@@ -1628,6 +1677,30 @@ ALTER TABLE "SurveyAnswer" ADD CONSTRAINT "SurveyAnswer_responseId_fkey" FOREIGN
 
 -- AddForeignKey
 ALTER TABLE "SurveyAnswer" ADD CONSTRAINT "SurveyAnswer_questionId_fkey" FOREIGN KEY ("questionId") REFERENCES "SurveyQuestion"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SurveyUpload" ADD CONSTRAINT "SurveyUpload_responseId_fkey" FOREIGN KEY ("responseId") REFERENCES "SurveyResponse"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SurveyUpload" ADD CONSTRAINT "SurveyUpload_partnerId_fkey" FOREIGN KEY ("partnerId") REFERENCES "Partner"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SurveyUpload" ADD CONSTRAINT "SurveyUpload_questionId_fkey" FOREIGN KEY ("questionId") REFERENCES "SurveyQuestion"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SurveyProposal" ADD CONSTRAINT "SurveyProposal_surveyId_fkey" FOREIGN KEY ("surveyId") REFERENCES "Survey"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SurveyProposal" ADD CONSTRAINT "SurveyProposal_responseId_fkey" FOREIGN KEY ("responseId") REFERENCES "SurveyResponse"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SurveyProposal" ADD CONSTRAINT "SurveyProposal_partnerId_fkey" FOREIGN KEY ("partnerId") REFERENCES "Partner"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SurveyProposal" ADD CONSTRAINT "SurveyProposal_questionId_fkey" FOREIGN KEY ("questionId") REFERENCES "SurveyQuestion"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SurveyProposal" ADD CONSTRAINT "SurveyProposal_uploadId_fkey" FOREIGN KEY ("uploadId") REFERENCES "SurveyUpload"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "_TripFlightSegmentToTripParticipant" ADD CONSTRAINT "_TripFlightSegmentToTripParticipant_A_fkey" FOREIGN KEY ("A") REFERENCES "TripFlightSegment"("id") ON DELETE CASCADE ON UPDATE CASCADE;

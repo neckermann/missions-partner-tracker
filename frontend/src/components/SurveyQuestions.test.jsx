@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import SurveyQuestions, {
   answersToPayload,
@@ -32,6 +32,31 @@ function Harness({ onAnswers }) {
     />
   );
 }
+
+describe("SurveyQuestions photo question", () => {
+  const photoQ = [
+    { id: "q9", kind: "photo", label: "A recent photo", choices: [], allowOther: false, required: false },
+  ];
+
+  it("offers a file picker to a partner, and explains where staff add one", () => {
+    const onPhoto = vi.fn();
+    const { rerender } = render(
+      <SurveyQuestions
+        questions={photoQ}
+        answers={{}}
+        onChange={() => {}}
+        onPhoto={onPhoto}
+        photos={["q9"]}
+      />
+    );
+    const file = new File(["x"], "me.png", { type: "image/png" });
+    fireEvent.change(screen.getByLabelText("A recent photo"), { target: { files: [file] } });
+    expect(onPhoto).toHaveBeenCalledWith("q9", file);
+    expect(screen.getByText(/Photo received/)).toBeInTheDocument();
+    rerender(<SurveyQuestions questions={photoQ} answers={{}} onChange={() => {}} />);
+    expect(screen.getByText(/Photo History/)).toBeInTheDocument();
+  });
+});
 
 describe("SurveyQuestions", () => {
   it("collects an answer of every kind and turns them into the API payload", () => {

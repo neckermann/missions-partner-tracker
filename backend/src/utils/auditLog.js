@@ -48,6 +48,9 @@ const AUDIT_ACTIONS = {
   "partner.deleted": { label: "Deleted a partner", category: "Deletes" },
   "trip.deleted": { label: "Deleted a trip", category: "Deletes" },
 
+  "survey.update_approved": { label: "Approved a change from a survey answer", category: "Data" },
+  "survey.update_rejected": { label: "Rejected a change from a survey answer", category: "Data" },
+
   "backup.downloaded": { label: "Downloaded a backup", category: "Data" },
 
   "partner.restricted_changed": { label: "Changed a partner's restricted status", category: "Restricted" },

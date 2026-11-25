@@ -3,12 +3,18 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import PublicSurvey from "./PublicSurvey.jsx";
-import { fetchPublicSurvey, savePublicSurvey, submitPublicSurvey } from "../api/client.js";
+import {
+  fetchPublicSurvey,
+  savePublicSurvey,
+  submitPublicSurvey,
+  uploadPublicSurveyPhoto,
+} from "../api/client.js";
 
 vi.mock("../api/client.js", () => ({
   fetchPublicSurvey: vi.fn(),
   savePublicSurvey: vi.fn(),
   submitPublicSurvey: vi.fn(),
+  uploadPublicSurveyPhoto: vi.fn(),
   fetchPublicSettings: vi.fn().mockResolvedValue({}),
 }));
 vi.mock("../components/PublicSiteHeader.jsx", () => ({ default: ({ title }) => <h1>{title}</h1> }));
@@ -38,6 +44,26 @@ beforeEach(() => {
   vi.clearAllMocks();
   savePublicSurvey.mockResolvedValue({ saved: true, submitted: false });
   submitPublicSurvey.mockResolvedValue({ saved: true, submitted: true });
+});
+
+describe("PublicSurvey photo", () => {
+  it("sends a chosen photo and says it arrived", async () => {
+    uploadPublicSurveyPhoto.mockResolvedValue({ saved: true });
+    fetchPublicSurvey.mockResolvedValue({
+      ...survey,
+      questions: [
+        { id: "q9", kind: "photo", label: "A recent photo", choices: [], allowOther: false, required: false },
+      ],
+      photos: [],
+    });
+    renderPage();
+    const input = await screen.findByLabelText("A recent photo");
+    fireEvent.change(input, { target: { files: [new File(["abc"], "me.png", { type: "image/png" })] } });
+    await waitFor(() =>
+      expect(uploadPublicSurveyPhoto).toHaveBeenCalledWith("abc", "q9", "image/png", expect.any(String))
+    );
+    expect(await screen.findByText(/Photo received/)).toBeInTheDocument();
+  });
 });
 
 describe("PublicSurvey", () => {

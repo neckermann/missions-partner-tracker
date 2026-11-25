@@ -90,6 +90,8 @@ const MODELS = [
   "surveyInvite", // -> survey, partner (token hash only)
   "surveyResponse", // -> survey, partner
   "surveyAnswer", // -> surveyResponse, surveyQuestion
+  "surveyUpload", // -> surveyResponse, partner, surveyQuestion (photo bytes awaiting approval)
+  "surveyProposal", // -> survey, surveyResponse, partner, surveyQuestion, surveyUpload
   "auditLog", // standalone: ids and snapshots, no FKs
   "savedReport", // savedReport.ownerId -> user
   "reportSchedule", // reportSchedule.savedReportId -> savedReport

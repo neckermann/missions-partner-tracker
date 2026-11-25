@@ -1020,6 +1020,24 @@ With **Partner surveys** turned on in [Enabled Features](ADMIN_GUIDE.md#feature-
 
 ![What a partner sees on their phone](docs/assets/screenshots/surveys-partner-page.png)
 
+#### Start from a template
+
+**+ New survey** can start from a template instead of a blank survey: **Care check-in**, **Annual update** (contact details, emergency contact, a photo and a short update) and **Furlough and visit planning**. A template just fills in questions you then edit freely; nothing stays linked to it.
+
+![Starting a survey from a template](docs/assets/screenshots/surveys-template.png)
+
+#### Updating a partner's record from their answers
+
+A question can be linked to a part of the partner's record: in the survey builder, pick **Suggest a change to their record** on a text or pick-one question, or use a **Photo** question. The Annual update template is already linked for the phone number, email, preferred contact method, emergency contact and photo.
+
+- **Nothing changes by itself.** When a partner's answer differs from what is on file, it appears on **Survey Updates** (sidebar, with a count, and on the bell) showing what is on file now next to what they answered. A photo shows as a thumbnail.
+- **Approve** applies it to their record, exactly as if you had edited it on their page ("last edited by" and the audit log record you). **Edit** lets you correct the value first (for example to fix a phone number's format) and then approves it. **Reject** leaves the record alone, and a rejected photo is deleted.
+- A photo a partner sends is held until you approve it, then becomes their current photo; the earlier one stays in their photo history.
+- Only a short list of fields can be linked: primary contact's phone, email and preferred contact method, emergency contact name, phone and email, a one-line overview, and the photo. Public visibility, restricted status, location and names can never be changed this way.
+- If the same answer was already approved or rejected, it is not proposed again; a changed answer replaces the one waiting. The **Decided** tab keeps the history.
+
+![Survey Updates: what each partner's answers suggest changing](docs/assets/screenshots/survey-updates.png)
+
 It records preferences; it doesn't schedule or assign anything, and the app never contacts a partner for you.
 
 ## Settings
