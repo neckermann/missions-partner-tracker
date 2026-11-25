@@ -1,12 +1,11 @@
 import { test, expect } from "@playwright/test";
 import { login, layoutProblems } from "./helpers.js";
 
-// Phone-width smoke test (#375): the main admin pages must not scroll sideways or push
-// anything past the screen edge, and the notification bell's dropdown must open on screen.
-// Both were real bugs (a bell dropdown ~250px off the edge, a partner page whose Edit and
-// Delete buttons were pushed off by a long link, a table widening the Financial tab), found
-// by walking the app at phone width. The pages that broke are set up with the data that broke
-// them: a long unbreakable URL and a trip contribution.
+// Phone-width smoke test: the main admin pages must not scroll sideways or push anything past
+// the screen edge, and the notification bell's dropdown must open on screen. Both were real
+// bugs (a bell dropdown ~250px off the edge, a partner page whose Edit and Delete buttons were
+// pushed off by a long link, a table widening the Financial tab). The pages that broke are set
+// up with the data that broke them: a long unbreakable URL and a trip contribution.
 test.use({ viewport: { width: 390, height: 800 } });
 
 test.describe("Phone layout (390px)", () => {

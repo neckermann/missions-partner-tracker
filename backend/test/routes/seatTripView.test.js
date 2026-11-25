@@ -1,4 +1,4 @@
-// #409: a care team seat sees a trip's names and dates only. A guest who can read a trip only
+// A care team seat sees a trip's names and dates only. A guest who can read a trip only
 // because they sit on its partner's care team gets no tokens, personal details, applications,
 // documents or money; a trip leader holding a grant, and the full roles, still see everything.
 const { test, before, after } = require("node:test");

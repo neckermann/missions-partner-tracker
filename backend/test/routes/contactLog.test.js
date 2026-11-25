@@ -1,9 +1,8 @@
-// #288: the partner contact log. Covers the feature gate (404 off, data
-// kept), who may log / fix / delete (anyone who can see the partner logs; a
-// guest only through a care team seat, never through a trip grant alone;
-// admin/editor fix and delete), validation, the references an entry may point
-// at, the My partners read model, the prayer-request auto-log, and the
-// single primary contact per partner.
+// The partner contact log. Covers the feature gate (404 off, data kept), who may log / fix /
+// delete (anyone who can see the partner logs; a guest only through a care team seat, never
+// through a trip grant alone; admin/editor fix and delete), validation, the references an
+// entry may point at, the My partners read model, the prayer-request auto-log, and the single
+// primary contact per partner.
 const { test, describe, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 require("dotenv").config({ quiet: true });

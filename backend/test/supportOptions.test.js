@@ -1,4 +1,4 @@
-// #374: the rules around support preferences' answers, and the example menu.
+// The rules around support preferences' answers, and the example menu.
 const { test, describe } = require("node:test");
 const assert = require("node:assert/strict");
 const {

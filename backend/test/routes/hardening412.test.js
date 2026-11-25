@@ -1,6 +1,6 @@
-// #412 (the #368 review's smaller items): ids in trip child writes must belong to the trip; the
-// emailed sign-in link is throttled per account and audits only real accounts; a record's source
-// file must be the same partner's; only staff attribute a contact to someone else; passkey
+// Smaller hardening items: ids in trip child writes must belong to the trip; the emailed
+// sign-in link is throttled per account and audits only real accounts; a record's source file
+// must be the same partner's; only staff attribute a contact to someone else; passkey
 // challenges are single-use through the database; the passkey relying party can't come from a
 // request header in production.
 const { test, describe, before, after } = require("node:test");

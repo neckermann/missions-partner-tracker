@@ -4,10 +4,10 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import AdminPendingDispatches from "./AdminPendingDispatches.jsx";
 import { fetchPendingDispatches, updatePendingDispatch } from "../api/client.js";
 
-// #289: a care team member's prayer request or need is held for staff review
-// whatever the partner. The page has to say WHY it's held -- "entered by a care
-// team member", not "restricted" -- and the approval dialog has to match, since
-// telling an admin an ordinary partner "is restricted" would be wrong.
+// A care team member's prayer request or need is held for staff review whatever the partner.
+// The page has to say WHY it's held ("entered by a care team member", not "restricted"), and
+// the approval dialog has to match, since telling an admin an ordinary partner "is restricted"
+// would be wrong.
 vi.mock("../api/client.js", () => ({
   fetchPendingDispatches: vi.fn(),
   deletePendingDispatch: vi.fn(),

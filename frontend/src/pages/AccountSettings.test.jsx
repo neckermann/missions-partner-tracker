@@ -4,12 +4,10 @@ import { render, screen, fireEvent, waitFor, within } from "@testing-library/rea
 import AccountSettings from "./AccountSettings.jsx";
 import { fetchCurrentUser, fetchPartners, updateNotifyByEmail } from "../api/client.js";
 
-// AccountSettings' own cadence picker (#209) -- filtered to only the
-// enabled tiers, with the signed-in admin's own already-saved cadence
-// kept visible/selectable even if it's since been disabled (the issue's
-// explicit "don't silently hide someone's current choice" requirement).
-// MFA setup/disable flows and the password-change section are
-// unexercised here -- they're unrelated to this feature.
+// AccountSettings' cadence picker: filtered to the enabled tiers, but the signed-in admin's
+// own already-saved cadence stays visible and selectable even if it has since been disabled (a
+// current choice is never silently hidden). The MFA and password-change sections are not
+// exercised here.
 vi.mock("../api/client.js", () => ({
   fetchPasskeys: vi.fn().mockResolvedValue({ passkeys: [], max: 5 }),
   registerPasskey: vi.fn(),

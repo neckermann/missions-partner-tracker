@@ -34,17 +34,10 @@ async function loginAs(email, password) {
   };
 }
 
-// Revoking access has to mean something immediately.
-//
-// The session is a stateless 8-hour JWT that carries the user's role in its
-// claims, and requireAuth used to trust those claims without ever consulting
-// the database. So deactivating an account, deleting it, or demoting an
-// admin to viewer changed nothing until the token expired -- a volunteer
-// whose access was pulled kept it for the rest of the working day, and
-// logging out only cleared the cookie while the token stayed valid.
-//
-// These tests hold the session cookie fixed and change the database
-// underneath it, which is exactly the scenario that used to fail.
+// Revoking access has to mean something immediately. The session is a stateless 8-hour JWT
+// carrying the user's role, and requireAuth once trusted those claims without consulting the
+// database, so deactivating, deleting or demoting someone changed nothing until the token
+// expired. These tests hold the session cookie fixed and change the database underneath it.
 
 let editor;
 let editorId;

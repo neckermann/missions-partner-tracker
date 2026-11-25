@@ -1,10 +1,7 @@
-// #327 Finding 6 -- buildTripParticipantAccessToken had no expiresIn at
-// all before this: the token opened a minor's record, donor contact
-// info, flights, and documents, and stayed valid indefinitely, revoked
-// only by an admin explicitly bumping accessTokenVersion. Pure unit
-// tests against the token-building function directly -- no HTTP/DB
-// needed, this is about the signed claims, not the routes that consume
-// them (those are covered elsewhere).
+// buildTripParticipantAccessToken must carry an expiresIn: the token opens a minor's record,
+// donor contact info, flights and documents, so it can't stay valid indefinitely, revoked only
+// by an admin bumping accessTokenVersion. Pure unit tests against the token-building function:
+// this is about the signed claims, not the routes that consume them.
 const { test, describe } = require("node:test");
 const assert = require("node:assert/strict");
 require("dotenv").config({ quiet: true });

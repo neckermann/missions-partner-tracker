@@ -2,9 +2,8 @@ import { test, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { login } from "./helpers.js";
 
-// Only gates on "serious"/"critical" violations -- "moderate"/"minor"
-// findings are worth tracking but shouldn't block every deploy on day
-// one. Tighten this once the backlog of lower-severity issues is cleared.
+// Gates only on "serious"/"critical" violations; "moderate"/"minor" ones are tracked but don't
+// block a deploy.
 const FAILING_IMPACTS = ["serious", "critical"];
 
 function summarize(violations) {

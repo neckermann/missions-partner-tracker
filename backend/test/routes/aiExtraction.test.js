@@ -62,8 +62,8 @@ describe("GET/PUT /api/settings/ai-extraction -- admin gate", () => {
   test("admin sees unconfigured, with no key field in the response at all", async () => {
     const res = await admin("/api/settings/ai-extraction");
     assert.equal(res.status, 200);
-    // model: null -- the plain-text companion field (#324) is always
-    // present and echoed back as-is, unlike apiKey/anthropicApiKey.
+    // model: null, the plain-text companion field, is always present and echoed back as-is, unlike
+    // apiKey/anthropicApiKey.
     assert.deepEqual(res.body, { configured: false, model: null });
     assert.ok(!("apiKey" in res.body) && !("anthropicApiKey" in res.body));
   });
@@ -102,9 +102,8 @@ describe("PUT /api/settings/ai-extraction -- write-only key", () => {
   });
 });
 
-// #324: extractionModel rides alongside the write-only key, but unlike it
-// is plain text, never encrypted, and echoed back as-is on every GET --
-// it's not a secret (see that field's own comment in schema.prisma).
+// extractionModel rides alongside the write-only key but is plain text, never encrypted, and
+// echoed back on every GET: it's not a secret (see its comment in schema.prisma).
 describe("PUT /api/settings/ai-extraction -- plain-text model field", () => {
   test("saving a model id round-trips on the next GET, independent of the key", async () => {
     const put = await admin("/api/settings/ai-extraction", {
@@ -157,16 +156,11 @@ describe("PUT /api/settings/ai-extraction -- plain-text model field", () => {
   });
 });
 
-// This is real, billable money on the key owner's own Anthropic account
-// (see the comment on anthropicApiKey in schema.prisma) -- these tests
-// are the explicit, automated "does it ever leak" guard asked for
-// alongside this feature, independent of (and on top of) the ordinary
-// admin-gate/write-only-field tests above. Rather than trust that every
-// endpoint which happens to touch ChurchSettings individually remembers
-// to omit the field, this greps the raw response text of every endpoint
-// a non-admin or a general settings fetch can reach, so a future route
-// that forgets to omit anthropicApiKey fails loudly here instead of
-// silently shipping a leak.
+// This is real, billable money on the key owner's Anthropic account (see anthropicApiKey in
+// schema.prisma), so this is the explicit automated leak guard, on top of the ordinary
+// admin-gate/write-only tests: it greps the raw response text of every endpoint a non-admin or
+// a general settings fetch can reach, so a future route that forgets to omit anthropicApiKey
+// fails here instead of silently leaking.
 describe("the real key literal never appears in any response, anywhere", () => {
   const REAL_KEY = "sk-ant-REAL-SECRET-should-never-leak-9f8e7d6c5b4a";
 
@@ -230,29 +224,19 @@ describe("AI request scanning route is gated by the feature flag", () => {
   });
 });
 
-// Regression test for a real production bug: PartnerFile's query in the
-// /extract route never included the bytesRow relation (the file's bytes
-// live in the split-off PartnerFileBytes table -- see that model's own
-// comment), so record.bytes was always undefined and buildFileBlock's
-// Buffer.from(undefined) threw a 500 on every single scan attempt, for
-// every file, before extraction.js's own client() ever got a chance to
-// check whether an API key is configured. No Anthropic API key is
-// configured in this file's tests (see the top-level before()), so if the
-// file's real bytes are now loaded correctly, this reaches and fails with
-// the expected "not configured" 400 instead of crashing on undefined.
+// Regression test for a production bug: PartnerFile's query in the /extract route never
+// included the bytesRow relation (the bytes live in the split-off PartnerFileBytes table), so
+// record.bytes was undefined and buildFileBlock's Buffer.from(undefined) threw a 500 on every
+// scan, before extraction.js's client() could check for an API key. With no key configured in
+// this file's tests, correctly loaded bytes reach the expected "not configured" 400.
 describe("the scan endpoint actually loads the file's bytes before calling Claude", () => {
   let partnerId;
   let fileId;
 
   before(async () => {
-    // anthropicApiKey: null explicitly, not just enabledFeatures -- an
-    // earlier describe in this same file ("write-only key") saves a real
-    // (fake-but-present) key and never clears it afterward, so without
-    // this, a key left over from that test makes the route actually
-    // attempt a call with it instead of reaching the "not configured"
-    // check this test means to exercise -- surfacing as a genuine 401
-    // from the AI provider rejecting that fake key, not this route's own
-    // "not configured" 400.
+    // anthropicApiKey: null explicitly, not just enabledFeatures: an earlier describe saves a fake
+    // key and never clears it, so without this the route would call the provider and surface its
+    // 401 instead of the "not configured" 400 this test targets.
     await prisma.churchSettings.update({
       where: { id: "singleton" },
       data: { enabledFeatures: { aiExtraction: true }, anthropicApiKey: null },
@@ -285,12 +269,10 @@ describe("the scan endpoint actually loads the file's bytes before calling Claud
   });
 });
 
-// #324: the model actually used by anthropic.messages.parse(), and the
-// explicit error when that model is unavailable. No real network call --
-// Messages.prototype.parse (shared across every `new Anthropic(...)`
-// instance, including the one client() constructs) is monkey-patched for
-// the duration of each test, the same "swap shared runtime state, restore
-// it after" technique joshuaProject.test.js uses for global.fetch.
+// The model actually used by anthropic.messages.parse(), and the explicit error when it is
+// unavailable. No real network call: Messages.prototype.parse (shared by every `new
+// Anthropic(...)`, including client()'s) is monkey-patched per test, the same swap-and-restore
+// technique joshuaProject.test.js uses for global.fetch.
 describe("#324: extraction uses the configured model, with an explicit error when it's unavailable", () => {
   let partnerId;
   let fileId;
@@ -407,8 +389,8 @@ describe("#324: extraction uses the configured model, with an explicit error whe
   });
 });
 
-// #323: warn (non-blocking) when this file already produced saved
-// PrayerRequest/SupportNeed rows on an earlier scan.
+// Warn (non-blocking) when this file already produced saved PrayerRequest/SupportNeed rows on
+// an earlier scan.
 describe("#323: already-scanned count on the extract response", () => {
   let partnerId;
   let fileId;
@@ -481,11 +463,9 @@ describe("#323: already-scanned count on the extract response", () => {
       },
     });
 
-    // anthropicApiKey stays null here on purpose -- extractRequestsFromFile
-    // itself 400s with "not configured" before ever reaching the AI, but
-    // the already-scanned count is independent of that (see the route's
-    // own Promise.all) and this test only needs to see IT come back
-    // correctly, not a successful scan.
+    // anthropicApiKey stays null on purpose: extractRequestsFromFile 400s with "not configured"
+    // before reaching the AI, but the already-scanned count is independent of that (see the
+    // route's Promise.all) and this test only needs it to come back correctly.
     const res = await admin(`/api/partner-files/${fileId}/extract`, { method: "POST" });
     assert.equal(res.status, 400);
     assert.ok(res.body.error, "the extraction failure itself still surfaces its own error");
@@ -521,9 +501,8 @@ describe("#323: already-scanned count on the extract response", () => {
   });
 });
 
-// Pure function, no API call -- the real footnote/name-changed artifacts
-// seen in a live test run against the Hartwell fixture (issue #94), not
-// hypothetical inputs.
+// Pure function, no API call: the footnote/name-changed artifacts seen in a live run against
+// the Hartwell fixture, not hypothetical inputs.
 describe("stripFootnoteArtifacts", () => {
   test("drops a footnote asterisk before a capitalized name", () => {
     assert.equal(
@@ -557,9 +536,8 @@ describe("stripFootnoteArtifacts", () => {
   });
 });
 
-// Source-linking (issue #94 part 2): a request/need created from the scan
-// modal can carry sourceFileId back to the file it came from. No API call
-// needed -- this is DB/route plumbing, exercised directly against the
+// Source-linking: a request/need created from the scan modal can carry sourceFileId back to
+// the file it came from. No API call needed; this is DB/route plumbing, exercised against the
 // create routes and a fixture PartnerFile of each kind.
 describe("prayer request / one-time need source linking", () => {
   let partnerId;

@@ -5,9 +5,8 @@ import { MemoryRouter } from "react-router-dom";
 import AdminSettingsAudit from "./AdminSettingsAudit.jsx";
 import { fetchAuditLog, fetchAuditMeta, setAuditRetention } from "../api/client.js";
 
-// #341: the audit log page -- the rows, the filters it sends, paging, a
-// deleted account still named, the retention setting, and the CSV link
-// carrying the on-screen filters.
+// The audit log page: the rows, the filters it sends, paging, a deleted account still named,
+// the retention setting, and the CSV link carrying the on-screen filters.
 vi.mock("../api/client.js", () => ({
   fetchAuditLog: vi.fn(),
   fetchAuditMeta: vi.fn(),

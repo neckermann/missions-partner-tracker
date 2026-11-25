@@ -3,10 +3,9 @@ const assert = require("node:assert/strict");
 require("dotenv").config({ quiet: true });
 const { startServer, stopServer } = require("./helpers");
 
-// #124: confirms the requireAuth browser-redirect behavior (unit-tested in
-// isolation in test/requireAuth.test.js) is actually wired into a real
-// route -- requireAuth runs before requireFeature/the handler itself, so
-// this needs no fixture data, just an unauthenticated browser-style GET.
+// Confirms the requireAuth browser-redirect behavior (unit-tested in test/requireAuth.test.js)
+// is wired into a real route. requireAuth runs before requireFeature/the handler, so this
+// needs no fixture data, just an unauthenticated browser-style GET.
 describe("GET a requireAuth-gated download route, unauthenticated, as a real browser", () => {
   after(stopServer);
 

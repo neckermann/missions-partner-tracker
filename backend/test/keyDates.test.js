@@ -1,4 +1,4 @@
-// #291: the pure key-date rule. No database.
+// The pure key-date rule. No database.
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const {

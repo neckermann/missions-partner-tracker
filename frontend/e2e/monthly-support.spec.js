@@ -31,9 +31,8 @@ test.describe("Monthly Support", () => {
     const row = page.locator(`tr[data-partner-id="${target.id}"]`);
     await expect(row).toContainText("$777");
 
-    // Deleting a mis-entered support entry through the History panel is
-    // the actual feature being tested (unlike the other CRUD specs'
-    // API-cleanup approach).
+    // Deleting a mis-entered support entry through the History panel is the feature under test
+    // (unlike the other CRUD specs, which clean up via the API).
     await row.getByRole("button", { name: /^History/ }).click();
 
     // The expanded History panel is the very next <tr> sibling, containing
@@ -44,9 +43,8 @@ test.describe("Monthly Support", () => {
     const historyRow = historyPanel.locator("tbody tr", { hasText: uniqueNotes });
     await expect(historyRow).toBeVisible();
     await historyRow.getByRole("button", { name: "Delete" }).click();
-    // Opens a styled confirm dialog (see useConfirmDialog.jsx), not a
-    // native confirm() -- click its own Delete button, scoped to the
-    // dialog role since the row's own trigger button has the same name.
+    // Opens a styled confirm dialog (useConfirmDialog.jsx), not a native confirm(); scope to the
+    // dialog role because the row's own trigger button has the same name.
     await page.getByRole("dialog").getByRole("button", { name: "Delete" }).click();
     await expect(historyPanel.locator("tbody tr", { hasText: uniqueNotes })).toHaveCount(0);
   });

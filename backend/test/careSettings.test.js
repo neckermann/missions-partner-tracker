@@ -1,5 +1,5 @@
-// #365: the two care timings are read from the church's settings, falling back to the old fixed
-// values when unset or out of range.
+// The two care timings are read from the church's settings, falling back to the defaults when
+// unset or out of range.
 const { test, describe } = require("node:test");
 const assert = require("node:assert/strict");
 const { careTimings, KEY_DATE_LEAD_RANGE, CONTACT_STALE_RANGE } = require("../src/utils/careSettings");

@@ -6,11 +6,10 @@ import { login, createGuest, setFeatures, restoreFeatures } from "./helpers.js";
 // what they can and cannot reach: their own partner or trip works, anything else says so, and
 // the pieces a guest must never have (monthly support, settings, deciding a need) stay closed.
 // The route tests cover the same rules one endpoint at a time; this covers them as a guest
-// experiences them, including the pages (#366). Whether a guest must enrol in two-factor is the
-// church-wide requirement's business (#385), tested in two-factor-requirement.spec.js; here the
-// helper signs them in either way. It turns care teams, the contact log and trip budgeting on,
-// so it is one of the specs that change settings (FEATURE_SPECS in playwright.config.js: serial,
-// restores).
+// experiences them, pages included. Whether a guest must enrol in two-factor is the
+// church-wide requirement's business (two-factor-requirement.spec.js); here the helper signs
+// them in either way. It turns care teams, the contact log and trip budgeting on, so it is one
+// of the specs that change settings (FEATURE_SPECS in playwright.config.js: serial, restores).
 test.describe.configure({ mode: "serial" });
 
 test.describe("Guest access", () => {

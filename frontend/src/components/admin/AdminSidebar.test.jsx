@@ -4,12 +4,10 @@ import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import AdminSidebar from "./AdminSidebar.jsx";
 
-// A guest (role: "guest", #356) is a scoped login -- this pins the nav half
-// of that: one link per granted trip, one per distinct partner, "My
-// account" (self-service password/MFA, reversing #329 Finding 2), log out,
-// and no Settings. The backend route tests are in
-// backend/test/routes/guestScope.test.js and the AdminLayout route guard
-// in AdminLayout.test.jsx.
+// A guest (role: "guest") is a scoped login; this pins the nav half of that: one link per
+// granted trip, one per distinct partner, "My account" (self-service password/MFA), log out,
+// and no Settings. The backend route tests are in backend/test/routes/guestScope.test.js and
+// the AdminLayout route guard in AdminLayout.test.jsx.
 vi.mock("../../api/client.js", () => ({
   logout: vi.fn(),
 }));

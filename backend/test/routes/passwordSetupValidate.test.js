@@ -1,8 +1,6 @@
-// #327 Finding 6 -- POST /api/auth/password-setup/validate, moved from
-// GET with the token in the query string. A real, usable setup-link
-// credential traveling in a URL gets written to access logs, can leak
-// via a Referer header, and sits in browser history -- same reasoning
-// as every other token this review moved off the query string.
+// POST /api/auth/password-setup/validate takes the token in the body, not the query string: a
+// usable setup-link credential in a URL is written to access logs, can leak via a Referer
+// header, and sits in browser history.
 const { test, describe, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 require("dotenv").config({ quiet: true });

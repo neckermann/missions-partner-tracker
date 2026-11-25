@@ -10,9 +10,7 @@ import {
   lastDayOfMonth,
 } from "./format.js";
 
-// These pin the two timezone traps this module exists to avoid. Both had
-// shipped: one for months across ten copies of the same helper, the other
-// caught earlier and fixed by hand in each of sixteen.
+// These pin the two timezone traps this module exists to avoid.
 
 afterEach(() => {
   vi.useRealTimers();
@@ -21,10 +19,9 @@ afterEach(() => {
 describe("todayInputValue", () => {
   test("returns the local calendar date, not the UTC one", () => {
     // 22:30 on 2026-09-22 in California is already 2026-09-23 in UTC.
-    // The old implementation -- new Date().toISOString().slice(0, 10) --
-    // returned the UTC date, so every date field in the app pre-filled
-    // tomorrow for the last hours of the user's day, and anyone who
-    // accepted the default recorded the wrong date.
+    // The naive new Date().toISOString().slice(0, 10) returns the UTC date, so every date field
+    // would pre-fill tomorrow for the last hours of the user's day and a default would record the
+    // wrong date.
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-09-23T05:30:00.000Z")); // 22:30 UTC-7
 

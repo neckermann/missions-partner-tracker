@@ -33,16 +33,11 @@ function startServer() {
   return startPromise;
 }
 
-// Disconnecting here, not just closing the HTTP server, matters a lot more
-// than it looks: pg's connection pool (the adapter prismaClient.js hands
-// Prisma) defaults to a 10-second idleTimeoutMillis before it lets Node's
-// event loop drain on its own. Every route-test *file* is its own process
-// (see the file-level comment above), so without this, each one's process
-// doesn't actually exit for ~10s after its tests finish -- not test time,
-// just an open idle connection nobody closed. Measured directly: a bare
-// script that queries once and exits naturally takes ~10.3s; the same
-// script calling prisma.$disconnect() first takes ~0.3s. With ~15 route
-// test files, that's most of npm run test:routes's runtime (#162).
+// Disconnecting here, not just closing the HTTP server, matters: pg's connection pool defaults
+// to a 10-second idleTimeoutMillis before Node's event loop can drain, and every route-test
+// file is its own process, so without this each one lingers ~10s after its tests finish.
+// Measured: a script that queries once and exits takes ~10.3s; calling prisma.$disconnect()
+// first, ~0.3s.
 async function stopServer() {
   if (server) await new Promise((resolve) => server.close(resolve));
   server = null;
@@ -69,13 +64,10 @@ async function removeTestUsers() {
   });
 }
 
-// Logs in and returns a `request` function that carries the session cookie.
-// Pass no role for an unauthenticated client. `role` is normally one of
-// TEST_USERS' own fixed keys (admin/editor/viewer); pass `{ email,
-// password }` instead for a one-off fixture account a test created itself
-// -- Trip Leader accounts need a real scopedTripId, which doesn't exist
-// at module-load time the way the 3 fixed TEST_USERS do, so they're
-// always created per-test and logged in this way.
+// Logs in and returns a `request` function that carries the session cookie. Pass no role for
+// an unauthenticated client. `role` is normally one of TEST_USERS' fixed keys
+// (admin/editor/viewer); pass `{ email, password }` for a one-off account a test created
+// itself.
 async function client(roleOrCreds) {
   const base = await startServer();
 
@@ -99,9 +91,8 @@ async function client(roleOrCreds) {
   return async function request(path, options = {}) {
     const headers = { ...(options.headers || {}) };
     if (cookie) headers.Cookie = cookie;
-    // FormData must pass through untouched -- fetch generates the multipart
-    // boundary itself, and setting Content-Type by hand (or JSON-encoding
-    // it, as this used to) leaves multer seeing no file at all.
+    // FormData must pass through untouched: fetch generates the multipart boundary itself, and
+    // setting Content-Type by hand (or JSON-encoding it) leaves multer seeing no file.
     const isFormData = typeof FormData !== "undefined" && options.body instanceof FormData;
     if (options.body !== undefined && !isFormData && typeof options.body !== "string") {
       headers["Content-Type"] = "application/json";
@@ -115,10 +106,8 @@ async function client(roleOrCreds) {
     } catch {
       body = text;
     }
-    // `headers` is here for the CSV export tests, which need to assert the
-    // Content-Type and the attachment filename -- the whole point of that
-    // endpoint is the response headers, not just the bytes. Additive: every
-    // existing caller destructures { status, body }.
+    // `headers` is for the CSV export tests, which assert the Content-Type and attachment
+    // filename; every other caller destructures { status, body }.
     return { status: res.status, body, headers: res.headers };
   };
 }

@@ -1,31 +1,24 @@
 import { describe, test, expect, vi, afterEach } from "vitest";
 import { inDateRange, resolveQuickRangeDates } from "./dateRange.js";
 
-// This pins the exact bug that kept recurring: inDateRange used to build
-// `new Date(dateValue)` and read it back with local getters, which
-// misreads a date-only API value (UTC midnight) as the previous calendar
-// day for anyone west of UTC. See format.js's header comment for the full
-// story.
+// Pins a recurring bug: inDateRange built `new Date(dateValue)` and read it back with local
+// getters, which misreads a date-only API value (UTC midnight) as the previous calendar day
+// for anyone west of UTC. See format.js's header comment.
 
 afterEach(() => {
   vi.useRealTimers();
 });
 
 describe("inDateRange", () => {
-  // vi.setSystemTime takes an absolute instant -- faking it with a UTC ISO
-  // string (as an earlier version of this test did) bakes in a specific
-  // real-world offset, so the local day inDateRange reads back for "now"
-  // depends on whatever timezone the machine running the test happens to be
-  // configured in. The local multi-arg Date constructor avoids that: it's
-  // self-consistent regardless of the runner's offset, since both the fake
-  // "now" and inDateRange's own reading of it resolve through the same
-  // local frame of reference. Same reasoning as the `local` fixture in
-  // format.test.js's todayInputValue tests.
+  // vi.setSystemTime takes an absolute instant, so faking it with a UTC ISO string bakes in a
+  // real-world offset and the local day inDateRange reads depends on the runner's timezone. The
+  // local multi-arg Date constructor is self-consistent regardless of offset, as with the
+  // `local` fixture in format.test.js's todayInputValue tests.
   test("a date-only API value for the 1st of the viewer's own current month counts as 'This Month'", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date(2026, 8, 22)); // local: 22 Sept 2026
 
-    // The exact shape that used to misread as the previous calendar day:
+    // The shape that misread as the previous calendar day:
     // a date-only value stored as UTC midnight.
     expect(inDateRange("2026-09-01T00:00:00.000Z", "month")).toBe(true);
   });

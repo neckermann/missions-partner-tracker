@@ -1,9 +1,9 @@
 import { test, expect } from "@playwright/test";
 import { login, setFeatures, restoreFeatures } from "./helpers.js";
 
-// Support preferences (#374), as people use it: an admin edits the church's menu in Settings
-// (an example set from an empty menu, or an option of their own), staff record a partner's
-// choices on the partner's page, and the report lists them. The route tests cover the rules one
+// Support preferences as people use them: an admin edits the church's menu in Settings (an
+// example set from an empty menu, or an option of their own), staff record a partner's choices
+// on the partner's page, and the report lists them. The route tests cover the rules one
 // endpoint at a time; this drives the screens. It turns Care teams and Support preferences on,
 // so it is one of the specs that change settings (FEATURE_SPECS in playwright.config.js:
 // serial, restores). Only partner-and-option data this spec created is removed afterwards; an

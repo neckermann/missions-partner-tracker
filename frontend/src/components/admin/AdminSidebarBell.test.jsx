@@ -5,10 +5,10 @@ import { MemoryRouter } from "react-router-dom";
 import AdminSidebar from "./AdminSidebar.jsx";
 
 // The notification bell's dropdown is position: fixed, placed from the bell's own screen
-// position. On a phone the bell sits near the right edge, so the dropdown used to run off
-// the screen (320px wide from x=316 on a 390px screen). It must stay fully on screen, and
-// close when the page scrolls or the window resizes, since a fixed dropdown would otherwise
-// stay put while its bell moves. jsdom does no layout, so the rectangles are supplied.
+// position. On a phone the bell sits near the right edge, so a 320px dropdown from x=316 on a
+// 390px screen ran off it. It must stay fully on screen, and close when the page scrolls or
+// the window resizes, since a fixed dropdown would otherwise stay put while its bell moves.
+// jsdom does no layout, so the rectangles are supplied.
 vi.mock("../../api/client.js", () => ({ logout: vi.fn() }));
 vi.mock("../../hooks/useCurrentUser.js", () => ({
   default: () => ({ isGuest: false, isAdmin: true, canWrite: true, loading: false }),

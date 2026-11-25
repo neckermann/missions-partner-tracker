@@ -1,4 +1,4 @@
-// "Forgot your password?" on the sign-in page: the self-service link now also serves an account
+// "Forgot your password?" on the sign-in page: the self-service link also serves an account
 // that already has a password. The same generic reply for everyone, one email a minute per
 // account, a one-hour link, every other session ended when it is used, never on a demo, never
 // while passwordless sign-in is on.

@@ -1,16 +1,10 @@
-// Regression coverage for POST /api/auth/password-setup/request (the
-// self-service "send me a new setup link" action). #345 email review:
-// this route previously called sendWelcomeEmail with no explicit
-// outboundEmail check first -- every other call site (users.js's own
-// POST /:id/setup-link and the welcome-email-on-create path) checks
-// isFeatureEnabled(settings?.enabledFeatures, "outboundEmail") before
-// attempting the send. This route "worked" by accident instead: with
-// outboundEmail off, sendWelcomeEmail throws its own "not configured"
-// error internally, and the route's own catch (deliberately swallowing
-// everything, so the generic response never reveals whether an account
-// exists) hid that too. Same end-user-visible behavior either way, but
-// relying on an incidental throw-and-swallow instead of an explicit
-// check is exactly the fragility this suite exists to pin down.
+// Regression coverage for POST /api/auth/password-setup/request (the self-service "send me a
+// new setup link" action). The route must check isFeatureEnabled(settings?.enabledFeatures,
+// "outboundEmail") before sending, like every other sendWelcomeEmail call site. Without it,
+// with outboundEmail off, sendWelcomeEmail threw its own "not configured" error and the
+// route's catch (which deliberately swallows everything so the response never reveals whether
+// an account exists) hid it: the same visible behavior, but reliant on an incidental
+// throw-and-swallow.
 const { test, describe, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 require("dotenv").config({ quiet: true });
@@ -20,10 +14,10 @@ const { client, stopServer } = require("./helpers");
 
 const FROM_DOMAIN = "route-test.passwordsetup.example";
 
-// Same mock-the-whole-domain technique tripParticipants.test.js/
-// dispatchOrchestrator.test.js already use for Postmark -- monkey-patch
-// global.fetch, matching only the Postmark host, so this suite can tell
-// whether a send was actually attempted (not just whether one failed).
+// Same mock-the-whole-domain technique as
+// tripParticipants.test.js/dispatchOrchestrator.test.js for Postmark: patch global.fetch,
+// matching only the Postmark host, so this suite can tell whether a send was attempted, not
+// just whether one failed.
 const realFetch = global.fetch;
 let postmarkCalls = [];
 global.fetch = (url, options) => {
@@ -51,9 +45,8 @@ before(async () => {
     where: { id: "singleton" },
     select: { enabledFeatures: true, postmarkServerToken: true, emailFromAddress: true },
   });
-  // Postmark fully configured (so a send would actually go out if the
-  // route attempted one), but outboundEmail itself left off -- the exact
-  // configuration that used to rely on sendWelcomeEmail's own throw.
+  // Postmark fully configured (so a send would go out if the route attempted one), but
+  // outboundEmail itself off.
   await prisma.churchSettings.upsert({
     where: { id: "singleton" },
     update: {

@@ -1,11 +1,8 @@
 import { test, expect } from "@playwright/test";
 import { login } from "./helpers.js";
 
-// Existing Trips / Plan a Trip are real tabs now (URL-backed), not just
-// local state switching which content renders -- regression coverage for
-// the exact bug this fixed: refreshing or landing directly on either
-// tab's own URL must show that tab, and clicking a tab must update the
-// URL, in both directions.
+// Existing Trips / Plan a Trip are URL-backed tabs: landing directly on either tab's URL must
+// show that tab, and clicking a tab must update the URL, in both directions.
 test.describe("Trips tabs", () => {
   test("clicking a tab updates the URL, and loading either URL directly lands on the right tab", async ({
     page,

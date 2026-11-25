@@ -1,11 +1,8 @@
 import { test, expect } from "@playwright/test";
 import { login, setFeatures, restoreFeatures } from "./helpers.js";
 
-// Regression coverage for the Team tab's migration off hand-rolled tables
-// and a raw inline form onto the shared Table + Modal/QuickActionModal
-// pattern (UX-consistency pass). Zero prior coverage of this page existed
-// before this -- drives both the "add participant directly" flow and the
-// "review a pending application" flow end to end against a real trip.
+// Covers the Team tab's shared Table + Modal/QuickActionModal flows end to end against a real
+// trip: "add participant directly" and "review a pending application".
 test.describe("Trip Team tab: Table + Modal", () => {
   let tripId;
   let previousFeatures;
@@ -109,17 +106,12 @@ test.describe("Trip Team tab: Table + Modal", () => {
     await expect(row).toBeVisible();
     await row.click();
 
-    // Row click navigates to the application's own detail page
-    // (AdminTripApplicationDetail.jsx) -- not a Modal. A popup-modal
-    // version of this previously shipped and was corrected in review,
-    // same reasoning as AdminUserForm.jsx's "New Partner"-shaped page.
+    // Row click navigates to the application's own detail page (AdminTripApplicationDetail.jsx),
+    // not a Modal.
     await page.waitForURL(/\/admin\/trips\/[^/]+\/applications\/[^/]+$/);
     await expect(page.locator("body")).toContainText(uniqueEmail);
-    // "Approve or Decline" opens one Wizard that handles both outcomes --
-    // Decision, then Confirm -- same shell as every other Wizard in the
-    // app, showing what the decision is about to do before actually doing
-    // it. No separate Review step -- the answers above are already the
-    // review.
+    // "Approve or Decline" opens one Wizard for both outcomes (Decision, then Confirm), showing
+    // what the decision will do before doing it.
     await page.getByRole("button", { name: "Approve or Decline" }).click();
     await page.getByLabel("Approve").check();
     await page.getByRole("button", { name: "Next" }).click(); // Decision -> Confirm
@@ -130,8 +122,7 @@ test.describe("Trip Team tab: Table + Modal", () => {
     // AdminTripApplicationDetail.jsx's handleFinish.
     await page.getByRole("button", { name: "Done" }).click();
 
-    // Approving navigates straight to the new participant's own detail page
-    // (same behavior as before this migration, unchanged).
+    // Approving navigates straight to the new participant's detail page.
     await page.waitForURL(/\/admin\/trips\/[^/]+\/participants\/[^/]+$/);
     await expect(page.locator("body")).toContainText("Review");
     await expect(page.locator("body")).not.toContainText(

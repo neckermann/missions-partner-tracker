@@ -64,7 +64,6 @@ describe("DemoBanner", () => {
     render(<DemoBanner />);
     expect(screen.getByText(/same for all of them/)).toBeTruthy();
     expect(screen.getAllByText("one-pw").length).toBe(1);
-    // every email is still listed
     expect(screen.getByText("admin@x.org")).toBeTruthy();
     expect(screen.getByText("care@x.org")).toBeTruthy();
     expect(screen.getByText("trip@x.org")).toBeTruthy();

@@ -1,7 +1,5 @@
-// #327 Finding 4 -- public, unauthenticated application-submission surface
-// had no previous test coverage at all. Covers the new input caps, the
-// honeypot, and that the route's own (now-reduced) body-size limit
-// actually applies here.
+// The public, unauthenticated application-submission surface: the input caps, the honeypot,
+// and that the route's reduced body-size limit actually applies here.
 const { test, describe, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 require("dotenv").config({ quiet: true });
@@ -94,7 +92,7 @@ describe("POST /api/public/trips/:id/apply", () => {
     assert.equal(count, 1);
   });
 
-  // #327 Finding 4: every string on this schema was unbounded before.
+  // Every string on this schema is capped.
   test("an oversized firstName is rejected", async () => {
     const trip = await createAcceptingTrip();
     const res = await anon(`/api/public/trips/${trip.id}/apply`, {
@@ -117,9 +115,8 @@ describe("POST /api/public/trips/:id/apply", () => {
     assert.equal(res.status, 400);
   });
 
-  // #327 Finding 4: a field the real form never shows. A filled honeypot
-  // gets the exact same success response a real submission gets, but
-  // nothing is written.
+  // A field the real form never shows (a honeypot). A filled honeypot gets the same success
+  // response a real submission gets, but nothing is written.
   test("a filled honeypot looks like success but writes nothing", async () => {
     const trip = await createAcceptingTrip();
     const res = await anon(`/api/public/trips/${trip.id}/apply`, {
@@ -132,11 +129,9 @@ describe("POST /api/public/trips/:id/apply", () => {
     assert.equal(count, 0);
   });
 
-  // #327 Finding 4: the global default dropped from 15mb to 100kb, and
-  // this route gets none of the larger scoped exceptions (those are only
-  // the Postmark webhook and the two base64-image routes) -- confirms the
-  // reduced default actually reaches this route, not just that it exists
-  // somewhere in server.js.
+  // The global body-size default is 100kb, and this route gets none of the larger scoped
+  // exceptions (only the Postmark webhook and the two base64-image routes): confirms the reduced
+  // default actually reaches this route.
   test("a body over the reduced default limit is rejected", async () => {
     const trip = await createAcceptingTrip();
     const res = await anon(`/api/public/trips/${trip.id}/apply`, {

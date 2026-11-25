@@ -4,7 +4,7 @@ import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Routes, Route, Outlet } from "react-router-dom";
 import AdminTripOverview from "./AdminTripOverview.jsx";
 
-// #358: the debrief a team wrote when the trip was wrapped up shows on the trip's overview.
+// The debrief a team wrote when the trip was wrapped up shows on the trip's overview.
 vi.mock("../api/client.js", () => ({ updateTrip: vi.fn() }));
 
 const trip = (extra = {}) => ({

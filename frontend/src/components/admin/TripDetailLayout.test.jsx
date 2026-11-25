@@ -5,9 +5,9 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import TripDetailLayout from "./TripDetailLayout.jsx";
 import { fetchTrip, fetchTripApplications, fetchTripsSettings } from "../../api/client.js";
 
-// The trip page's Financial tab depends on the church's "trip budgeting" setting. Staff read it
-// from the trip settings; a guest can't (that route is 403 for them, #327), so it comes with the
-// trip itself and the layout must not ask for the closed settings at all (#370).
+// The trip page's Financial tab depends on the church's "trip budgeting" setting. Staff read
+// it from the trip settings; a guest can't (that route is 403 for them), so it comes with the
+// trip itself and the layout must not ask for the closed settings at all.
 vi.mock("../../api/client.js", () => ({
   fetchTrip: vi.fn(),
   fetchTripApplications: vi.fn().mockResolvedValue([]),

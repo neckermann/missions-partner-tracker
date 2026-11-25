@@ -1,4 +1,4 @@
-// #386: the second step of sign-in offers a passkey and/or the authenticator-app code, according to
+// The second step of sign-in offers a passkey and/or the authenticator-app code, according to
 // what the account has; forced enrolment can finish with a passkey.
 import React from "react";
 import { describe, test, expect, vi, beforeEach } from "vitest";

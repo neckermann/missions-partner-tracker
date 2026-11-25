@@ -5,12 +5,10 @@ import AdminBooklet from "./AdminBooklet.jsx";
 import { fetchPartners } from "../api/client.js";
 import { useSettings } from "../context/SettingsContext.jsx";
 
-// AdminBooklet fetches the full partner list itself (fetchPartners({
-// include: "full" })) and reads two independent contexts for
-// church/branding details -- mock all three so most cases only have to
-// exercise the include/exclude filtering that feeds buildBookletHtml.
-// useSettings is a vi.fn() (not a fixed return value) because the #322
-// accent-resolution tests below need to vary primaryColor per test.
+// AdminBooklet fetches the full partner list itself (fetchPartners({ include: "full" })) and
+// reads two independent contexts for church/branding details; all three are mocked so most
+// cases only exercise the include/exclude filtering that feeds buildBookletHtml. useSettings
+// is a vi.fn() so the accent-resolution tests below can vary primaryColor per test.
 vi.mock("../api/client.js", () => ({
   fetchPartners: vi.fn(),
 }));
@@ -86,8 +84,8 @@ describe("AdminBooklet restricted-access filtering", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: "Restricted-access" }));
 
     await waitFor(() => expect(getPreviewHtml()).not.toContain("Restricted Missionary"));
-    // The bug under #270: this line used to still be present because the
-    // organizations filter never checked isRestricted at all.
+    // Guards the restricted-organization leak: the organizations filter never checked
+    // isRestricted, so this line printed anyway.
     expect(getPreviewHtml()).not.toContain("Restricted Org");
 
     // Unaffected entries keep printing either way.
@@ -96,7 +94,7 @@ describe("AdminBooklet restricted-access filtering", () => {
   });
 });
 
-// #288: a partner we are not to contact directly must not have their phone and email printed.
+// A partner we are not to contact directly must not have their phone and email printed.
 describe("AdminBooklet contact details and the contact level (#288)", () => {
   const withAdult = (over) => ({
     ...OPEN_MISSIONARY,
@@ -137,7 +135,7 @@ describe("AdminBooklet contact details and the contact level (#288)", () => {
     expect(html).not.toContain("Secret staff reason");
   });
 
-  // #411: addresses and the sending party's contact details are a way to reach them too.
+  // Addresses and the sending party's contact details are a way to reach them too.
   const withAddresses = (over) =>
     withAdult({
       addresses: [
@@ -177,14 +175,10 @@ describe("AdminBooklet contact details and the contact level (#288)", () => {
   });
 });
 
-// #346: the config page was restructured into a two-pane layout
-// (controls left, live preview right, see .booklet-layout in
-// index.css) instead of three stacked cards above a full-width scrolling
-// preview. These assert the structural invariant that reshuffle has to
-// preserve -- the preview stays outside the `no-print` controls column,
-// since that's what the Print Booklet button actually prints (see the
-// comment above the returned JSX in AdminBooklet.jsx) -- rather than
-// asserting anything about the visual layout itself.
+// The config page is a two-pane layout (controls left, live preview right, see .booklet-layout
+// in index.css). These assert the structural invariant that layout must preserve: the preview
+// stays outside the `no-print` controls column, since that is what the Print Booklet button
+// prints (see the comment above the returned JSX in AdminBooklet.jsx).
 describe("AdminBooklet layout: preview stays printable", () => {
   it("renders the preview outside the no-print controls column", async () => {
     fetchPartners.mockResolvedValue([OPEN_MISSIONARY]);
@@ -222,8 +216,7 @@ describe("AdminBooklet controls: survive the reshuffle", () => {
 
     await waitFor(() => expect(getPreviewHtml()).toContain("Open Missionary"));
 
-    // Cover page text: typing into the title field reaches the preview's
-    // cover section, same as before the reorganization.
+    // Cover page text: typing into the title field reaches the preview's cover section.
     const titleInput = screen.getByLabelText("Booklet Title");
     fireEvent.change(titleInput, { target: { value: "Our Sent Ones" } });
     await waitFor(() => expect(getPreviewHtml()).toContain("Our Sent Ones"));
@@ -237,9 +230,8 @@ describe("AdminBooklet controls: survive the reshuffle", () => {
   });
 });
 
-// #322: the template system was rebuilt as a data-driven catalog
-// (frontend/src/booklet/templates.js) that AdminBooklet.jsx's picker now
-// renders from, instead of a literal TEMPLATE_OPTIONS array here.
+// The template picker renders from the data-driven catalog
+// (frontend/src/booklet/templates.js).
 describe("AdminBooklet template picker", () => {
   it("renders exactly Classic and Modern, nothing else", async () => {
     fetchPartners.mockResolvedValue([OPEN_MISSIONARY]);
@@ -256,18 +248,15 @@ describe("AdminBooklet template picker", () => {
     expect(radios).toHaveLength(2);
     expect(screen.getByText("Classic")).toBeInTheDocument();
     expect(screen.getByText("Modern")).toBeInTheDocument();
-    // The four templates that existed before #322's rebuild are no longer
-    // offered in the picker.
+    // Templates that were removed are not offered in the picker.
     for (const deferred of ["Traditional", "Keepsake", "Portfolio", "Friendly"]) {
       expect(screen.queryByText(deferred)).not.toBeInTheDocument();
     }
   });
 });
 
-// #322 fix: the booklet's accent color now defaults to
-// ChurchSettings.primaryColor, with the old fixed four-color rotation
-// kept only as the fallback for an instance that hasn't set a brand
-// color.
+// The booklet's accent color defaults to ChurchSettings.primaryColor; the fixed four-color
+// rotation is only the fallback for an instance with no brand color.
 describe("AdminBooklet accent resolution", () => {
   function getCoverAccent() {
     const style = document.querySelector(".booklet-preview .booklet-cover").getAttribute("style");

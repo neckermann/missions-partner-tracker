@@ -13,7 +13,7 @@ import {
   addSupportExampleSet,
 } from "../api/client.js";
 
-// #374: the church's menu of support options, edited by an admin.
+// The church's menu of support options, edited by an admin.
 vi.mock("../api/client.js", () => ({
   fetchSupportOptions: vi.fn(),
   fetchSupportKinds: vi.fn(),

@@ -4,9 +4,9 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter, Link } from "react-router-dom";
 import AdminSidebar from "./AdminSidebar.jsx";
 
-// #384: on a phone the sidebar is a slim bar with a Menu button, closed until it is tapped and
-// closed again once a page is chosen. (What the CSS then does with those classes is checked in a
-// real browser by e2e/mobile-layout.spec.js; jsdom applies no stylesheet.)
+// On a phone the sidebar is a slim bar with a Menu button, closed until tapped and closed
+// again once a page is chosen. (What the CSS does with those classes is checked in a real
+// browser by e2e/mobile-layout.spec.js; jsdom applies no stylesheet.)
 vi.mock("../../api/client.js", () => ({ logout: vi.fn() }));
 vi.mock("../../hooks/useCurrentUser.js", () => ({
   default: () => ({ loading: false, isAdmin: true, isGuest: false, careTeamSeats: [] }),

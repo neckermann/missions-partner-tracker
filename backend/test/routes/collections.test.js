@@ -38,11 +38,9 @@ before(async () => {
   ]);
   await removeFixturePartners();
 
-  // trips defaults to off (#252) -- every other collection tested here
-  // (support-needs, prayer-requests, support-entries) still defaults on,
-  // so this suite never had to touch enabledFeatures before. Explicitly
-  // turn trips on for the duration, restoring whatever was there after,
-  // same pattern reports.test.js's own feature-gate describe already uses.
+  // trips defaults to off while every other collection tested here defaults on, so turn trips on
+  // for the duration and restore what was there, as reports.test.js's feature-gate describe
+  // does.
   const settings = await prisma.churchSettings.findUnique({
     where: { id: "singleton" },
     select: { enabledFeatures: true },
@@ -89,11 +87,9 @@ function collectionCases() {
       patch: { description: "edited" },
       readBack: (r) => r.description,
       expectAfterPatch: "edited",
-      // Trip.partnerId became nullable in #252 -- a standalone trip with
-      // no linked partner is now a valid, real case (§3's own "a Trip with
-      // no partnerId never appears on the planning page" decision assumes
-      // this is creatable at all), so this collection doesn't belong in
-      // the shared "rejects a create with no partnerId" loop below.
+      // Trip.partnerId is nullable: a standalone trip with no linked partner is valid (a Trip with
+      // no partnerId never appears on the planning page), so this collection doesn't belong in the
+      // shared "rejects a create with no partnerId" loop below.
       partnerIdOptional: true,
     },
     {
@@ -562,9 +558,8 @@ describe("support entries: append-only", () => {
 });
 
 describe("partner files: kind rules", () => {
-  // The one schema refinement this collapsed down to: a "other" kind
-  // needs a free-typed label. It has to hold on a partial update too,
-  // where either field can arrive on its own.
+  // The one schema refinement: an "other" kind needs a free-typed label. It must hold on a
+  // partial update too, where either field can arrive on its own.
   function upload(fields) {
     const form = new FormData();
     form.set("file", new Blob([Buffer.from("%PDF-1.4 test")], { type: "application/pdf" }), "t.pdf");
@@ -622,9 +617,8 @@ describe("partner files: kind rules", () => {
     form.set("receivedDate", "2026-01-01");
     const res = await admin("/api/partner-files", { method: "POST", body: form });
     assert.equal(res.status, 400);
-    // Assert the *reason*, not just the status: an earlier version of the
-    // test helper mangled FormData, so this passed on "No file provided"
-    // while never exercising the signature check at all.
+    // Assert the reason, not just the status: a broken test helper once mangled FormData, so this
+    // passed on "No file provided" without ever exercising the signature check.
     assert.match(res.body.error, /doesn't match its declared type/);
   });
 });

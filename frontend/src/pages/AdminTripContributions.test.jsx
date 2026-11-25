@@ -6,14 +6,11 @@ import AdminTripContributions from "./AdminTripContributions.jsx";
 import { fetchTrips, addTripContribution } from "../api/client.js";
 import useCurrentUser from "../hooks/useCurrentUser.js";
 
-// #272: this page is the cross-trip counterpart to AdminTripFinancial.jsx's
-// own per-trip contribution form -- same addTripContribution(tripId, payload)
-// call, just reachable with a Trip selector up front. Mocked the same way
-// AdminTripParticipantDetail.test.jsx mocks this module, plus
-// useCurrentUser directly (not a react-router useParams override -- this
-// page reads no route params). Rendered as a tab inside AdminTrips.jsx in
-// the real app, but tested standalone here -- it reads no route/outlet
-// context of its own, so this is an equivalent render.
+// This page is the cross-trip counterpart to AdminTripFinancial.jsx's per-trip contribution
+// form: the same addTripContribution(tripId, payload) call, reachable with a Trip selector up
+// front. Mocked like AdminTripParticipantDetail.test.jsx mocks this module, plus
+// useCurrentUser directly (the page reads no route params). It is a tab inside AdminTrips.jsx
+// in the real app but reads no route/outlet context, so it is tested standalone.
 vi.mock("../api/client.js", () => ({
   fetchTrips: vi.fn(),
   addTripContribution: vi.fn(),

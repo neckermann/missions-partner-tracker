@@ -1,16 +1,13 @@
 import { test, expect } from "@playwright/test";
 import { login, setFeatures, restoreFeatures } from "./helpers.js";
 
-// publicPrayerDigest defaults off, and POST /api/public/subscribe also
-// needs outboundEmail configured (see backend/test/routes/
-// publicSubscribe.test.js's own setup) -- turn both on before any test in
-// this file touches /subscribe, and put them back after.
-// beforeAll/afterAll run once per *worker*, not once globally -- forced
-// serial here so this file's own tests can't race each other.
+// publicPrayerDigest defaults off, and POST /api/public/subscribe also needs outboundEmail
+// configured (see backend/test/routes/publicSubscribe.test.js's setup), so both are turned on
+// before any test here touches /subscribe and put back after. beforeAll/afterAll run once per
+// worker, so the file is forced serial.
 //
-// Feature flags are one shared column that PUT /api/settings replaces whole, so this
-// file is one of the six that change them; they run together in their own serial
-// Playwright project, never alongside each other or the specs that read flags
+// Feature flags are one shared column that PUT /api/settings replaces whole, so this file is
+// one of the six that change them; they run together in their own serial Playwright project
 // (playwright.config.js). setFeatures/restoreFeatures (helpers.js) merge and restore.
 let previousFeatures;
 
@@ -20,11 +17,9 @@ test.describe("Public subscribe page", () => {
     const context = await browser.newContext();
     const page = await context.newPage();
     await login(page);
-    // /api/settings/email is itself gated on outboundEmail already being
-    // on (chicken-and-egg by design -- see that route's own comment), so
-    // outboundEmail has to be turned on via the generic settings PUT
-    // first, same two-step order backend/test/routes/publicSubscribe.test.js
-    // uses.
+    // /api/settings/email is gated on outboundEmail already being on (by design), so outboundEmail
+    // is turned on via the generic settings PUT first, as in
+    // backend/test/routes/publicSubscribe.test.js.
     previousFeatures = await setFeatures(page.request, { publicPrayerDigest: true, outboundEmail: true });
     await page.request.put("/api/settings/email", {
       data: { sendEnabled: true, serverToken: "e2e-test-token", fromAddress: "updates@example.test" },

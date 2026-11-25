@@ -1,22 +1,10 @@
-// Trips (#252) -- focused coverage of the parts most likely to be gotten
-// wrong by generic instinct: the feature-gate split between `trips` and
-// `publicTripDiscovery`, the restricted-partner mask-vs-exclude split
-// across public surfaces, and the lost-link recovery route's
-// enumeration-prevention guarantee -- plus trip-level reschedule-resend
-// and trip-wide documents. Ordinary CRUD is already covered by
-// collections.test.js/errors.test.js's shared parameterized cases.
-//
-// Split out of a single, much larger trips.test.js to mirror #271's
-// route split (routes/trips.js -> trips.js/tripMeetings.js/
-// tripRequirements.js/tripParticipants.js): this file now covers only
-// what's left of trips.js itself. Meeting CRUD/RSVP/.ics coverage moved
-// to tripMeetings.test.js; requirement CRUD/upload/fulfillment coverage
-// moved to tripRequirements.test.js; late-joiner/approval catch-up
-// coverage (adding or approving a participant into a trip that already
-// has meetings and/or requirements) moved to tripParticipants.test.js --
-// see that file's own header comment for why those stayed together
-// rather than splitting further by which domain the catch-up email
-// happens to be about.
+// Trips: focused coverage of the parts most likely to be gotten wrong by generic instinct: the
+// feature-gate split between `trips` and `publicTripDiscovery`, the restricted-partner
+// mask-vs-exclude split across public surfaces, the lost-link recovery route's
+// enumeration-prevention guarantee, trip-level reschedule-resend and trip-wide documents.
+// Ordinary CRUD is covered by collections.test.js/errors.test.js's shared parameterized cases.
+// Meetings are in tripMeetings.test.js, requirements in tripRequirements.test.js, and
+// late-joiner/approval catch-up in tripParticipants.test.js.
 const { test, describe, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 require("dotenv").config({ quiet: true });
@@ -30,10 +18,9 @@ const {
   FIXTURE_TAG,
 } = require("./helpers");
 
-// Same mock-the-whole-domain technique publicSubscribe.test.js/
-// dispatches.test.js already use for Postmark -- monkey-patch
-// global.fetch, matching only the Postmark host, so no real email ever
-// sends in this suite.
+// Same mock-the-whole-domain technique as publicSubscribe.test.js/dispatches.test.js for
+// Postmark: patch global.fetch, matching only the Postmark host, so no real email ever sends
+// in this suite.
 const realFetch = global.fetch;
 global.fetch = (url, options) => {
   if (String(url).startsWith("https://api.postmarkapp.com")) {
@@ -217,12 +204,9 @@ describe("Trips: lost-link recovery enumeration prevention", () => {
   });
 });
 
-// A different gap than the late-joiner suite in tripParticipants.test.js:
-// an EXISTING participant, not a new one. Every participant's welcome
-// email attaches the trip-dates .ics at the moment they join -- but
-// nothing used to resend it if an admin later changed startDate/endDate,
-// so an existing participant's calendar kept showing the old, now-wrong
-// dates.
+// An EXISTING participant, not a new one (unlike the late-joiner suite in
+// tripParticipants.test.js): every participant's welcome email attaches the trip-dates .ics,
+// so a later change to startDate/endDate must resend it or their calendar keeps the old dates.
 describe("Trips: reschedule resends trip dates", () => {
   async function captureEmails(run) {
     const captured = [];
@@ -362,11 +346,9 @@ describe("Trips: reschedule resends trip dates", () => {
     );
   });
 
-  // #310: this used to just silently drop the update -- the route didn't
-  // even look at sendTripDatesUpdateEmail's return value, and that
-  // function itself returned nothing on this path. Now it's the same
-  // manualFallback() shape every other sender in tripEmails.js already
-  // returns, surfaced on the response as `datesUpdateEmail`.
+  // The update must not be silently dropped: sendTripDatesUpdateEmail returns the same
+  // manualFallback() shape every other sender in tripEmails.js returns, surfaced on the response
+  // as `datesUpdateEmail`.
   test("outboundEmail off hands back a manual link instead of silently dropping the resend", async () => {
     await setFeatures({ outboundEmail: false });
     try {
@@ -396,16 +378,12 @@ describe("Trips: reschedule resends trip dates", () => {
   });
 });
 
-// #310 Gap 2: setting dates is also the first moment it's worth
-// re-checking whether anyone currently on the roster is still owed a
-// catch-up for a meeting/requirement that didn't exist yet when they
-// originally joined (a direct add or an approved application only ever
-// runs catch-up once, at join time). The `since: participant.createdAt`
-// scoping is what has to be right here: re-sending for something that
-// already existed when they joined (and so already went out via that
-// original join-time call) would be a real duplicate-send regression,
-// not just redundant -- these tests exist specifically to pin that down,
-// not just confirm the new code path fires at all.
+// Setting dates is also the first moment it's worth re-checking whether anyone on the roster
+// is owed a catch-up for a meeting/requirement that didn't exist when they joined (a direct
+// add or approved application only runs catch-up once, at join time). The `since:
+// participant.createdAt` scoping is what must be right: re-sending for something that already
+// existed at join time would be a duplicate-send regression, and these tests pin that down,
+// not just that the new path fires.
 describe("Trips: setting dates re-checks late-joiner catch-up", () => {
   async function captureEmails(run) {
     const captured = [];
@@ -452,9 +430,8 @@ describe("Trips: setting dates re-checks late-joiner catch-up", () => {
     const earlyInvite = joinSent.find((m) => /^Meeting: Orientation/.test(m.Subject));
     assert.ok(earlyInvite, "join-time catch-up must cover the meeting that already existed");
 
-    // A second meeting is added AFTER the participant joined -- the real
-    // issue #310 gap: nothing re-checks this participant for it until
-    // dates get set.
+    // A second meeting is added AFTER the participant joined: nothing re-checks this participant
+    // for it until dates get set.
     await prisma.tripMeeting.create({
       data: { tripId: trip.body.id, startAt: "2027-01-17T19:00:00.000Z", title: "Packing session" },
     });
@@ -480,9 +457,8 @@ describe("Trips: setting dates re-checks late-joiner catch-up", () => {
     );
     assert.equal(lateInvite.To, "late-joiner-310@example.test");
 
-    // Plus the trip-dates-update email itself, to the same participant --
-    // confirmed separately above, just noting it's expected in this count
-    // too so a future reader isn't surprised dateSent.length is 2.
+    // Plus the trip-dates-update email itself, to the same participant (confirmed above): expected
+    // in this count, so dateSent.length is 2.
     assert.equal(dateSent.length, 2, "exactly the new meeting's catch-up plus the dates-update email itself");
   });
 
@@ -526,9 +502,8 @@ describe("Trips: setting dates re-checks late-joiner catch-up", () => {
       undefined,
       "a meeting the participant was already caught up on at join time must not be re-sent on an unrelated dates change"
     );
-    // The dates-update email itself still goes out -- that's the
-    // unrelated, already-covered Gap 1 behavior, just confirming this
-    // test's own dates PUT did something rather than silently no-op'ing.
+    // The dates-update email itself still goes out, confirming this test's dates PUT did something
+    // rather than silently no-op'ing.
     assert.equal(dateSent.length, 1);
     assert.match(dateSent[0].Subject, /^Trip dates updated:/);
   });

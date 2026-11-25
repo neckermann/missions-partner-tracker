@@ -1,11 +1,8 @@
-// #327 Finding 10 -- a shared report's "shared" audience (anything that
-// leaves the signed-in app, e.g. a scheduled report email) masks a
-// restricted partner's name. This now respects
-// ChurchSettings.restrictedPartnerInitialsEnabled too, same as every
-// other masking site -- but a flattened report row only ever carries the
-// one partnerName string column (no separate fieldDisplayName column the
-// way a real Partner record has), so this path falls back to the fixed
-// generic label only, not fieldDisplayName, when initials are off.
+// A shared report's "shared" audience (anything that leaves the signed-in app, e.g. a
+// scheduled report email) masks a restricted partner's name, respecting
+// ChurchSettings.restrictedPartnerInitialsEnabled like every other masking site. A flattened
+// report row only carries a partnerName string (no separate fieldDisplayName), so with
+// initials off it falls back to the fixed generic label.
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { applyMasking } = require("../src/reporting/masking");

@@ -5,7 +5,7 @@ import { MemoryRouter } from "react-router-dom";
 import SupportPreferencesCard, { groupOptions, describeResponse } from "./SupportPreferencesCard.jsx";
 import { fetchPartnerSupportPreferences, savePartnerSupportPreferences } from "../../api/client.js";
 
-// #374: a partner's support preferences, recorded by staff or the care team.
+// A partner's support preferences, recorded by staff or the care team.
 vi.mock("../../api/client.js", () => ({
   fetchPartnerSupportPreferences: vi.fn(),
   savePartnerSupportPreferences: vi.fn(),

@@ -1,8 +1,7 @@
-// The audit trail end to end (#341): the real routes write the entries the
-// Audit log page will read. Covers sign-in (success and failure, never leaking a
-// reason to the caller), account changes, trip access, care teams, settings
-// (secrets noted as changed, never stored), feature toggles, partner/trip
-// deletes, backups and restricted-partner views.
+// The audit trail end to end: the real routes write the entries the Audit log page reads.
+// Covers sign-in (success and failure, never leaking a reason to the caller), account changes,
+// trip access, care teams, settings (secrets noted as changed, never stored), feature toggles,
+// partner/trip deletes, backups and restricted-partner views.
 const { test, describe, before, after, beforeEach } = require("node:test");
 const assert = require("node:assert/strict");
 require("dotenv").config({ quiet: true });

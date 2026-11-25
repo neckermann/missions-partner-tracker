@@ -1,10 +1,7 @@
-// #327 Finding 11.4 -- the font-family fallback
-// ('-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif')
-// was dropped straight into a double-quoted style="font-family:..."
-// attribute with no escaping, breaking the attribute open on *every*
-// rendered email/page that didn't have a custom brandFont configured --
-// i.e. nearly every install. Fixed by escaping fontFamily the same way
-// every other interpolated value in these templates already is.
+// The font-family fallback ('-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+// sans-serif') goes into a double-quoted style="font-family:..." attribute, so it must be
+// escaped like every other interpolated value in these templates; unescaped it broke the
+// attribute open on every email/page without a custom brandFont.
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { buildEmailDispatchMessage, buildTransactionalMessage } = require("../src/utils/emailDispatchShell");

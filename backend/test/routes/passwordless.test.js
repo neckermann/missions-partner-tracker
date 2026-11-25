@@ -1,8 +1,8 @@
-// #386 Layer 2: church-wide passwordless sign-in. Covers when it can be turned on (working email,
-// the admin has a passkey), that it ends password sign-in, that a passkey alone signs a person in
-// (and a replay, wrong site or stranger's credential doesn't), that someone with no passkey gets an
-// emailed one-time link and is then taken through adding one, that a link works once and expires,
-// and that outbound email can't be switched off underneath it.
+// Church-wide passwordless sign-in. Covers when it can be turned on (working email, the admin
+// has a passkey), that it ends password sign-in, that a passkey alone signs a person in (and a
+// replay, wrong site or stranger's credential doesn't), that someone with no passkey gets an
+// emailed one-time link and is then taken through adding one, that a link works once and
+// expires, and that outbound email can't be switched off underneath it.
 const { test, describe, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 require("dotenv").config({ quiet: true });
@@ -28,7 +28,7 @@ const cookieOf = (res) =>
     .map((c) => c.split(";")[0])
     .join("; ");
 // Like a browser: keeps the latest session cookie a response sets (enrolling the first passkey
-// re-issues it, #408).
+// re-issues it).
 const as = (cookie) => {
   let current = cookie;
   return async (path, options = {}) => {
@@ -75,7 +75,7 @@ async function userWithPasskey(tag, extra = {}) {
   const cookie = await loginCookie(user.email);
   const enrolled = await addPasskey(as(cookie), a);
   assert.equal(enrolled.status, 200);
-  // Enrolling the first passkey re-issues the session cookie (#408).
+  // Enrolling the first passkey re-issues the session cookie.
   return { user, a, cookie: cookieOf(enrolled) };
 }
 async function passkeySignIn(a, assertOptions = {}) {

@@ -1,4 +1,4 @@
-// #386: the Passkeys section on My account, and how Two-Factor Authentication reads with one.
+// The Passkeys section on My account, and how Two-Factor Authentication reads with one.
 import React from "react";
 import { describe, test, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";

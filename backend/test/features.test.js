@@ -21,10 +21,8 @@ describe("isFeatureEnabled", () => {
   });
 
   describe("aiExtraction (defaults to off, same as any other opt-in feature)", () => {
-    // Used to also require ANTHROPIC_API_KEY to be set as an env var --
-    // the key is admin-managed in ChurchSettings now (see
-    // test/routes/aiExtraction.test.js for that), so this is a plain
-    // toggle like groupme/joshuaProject, with no second gate here.
+    // A plain toggle like groupme/joshuaProject, with no env-var gate: the API key is
+    // admin-managed in ChurchSettings (see test/routes/aiExtraction.test.js).
     test("stays off with no stored value", () => {
       assert.equal(isFeatureEnabled({}, "aiExtraction"), false);
     });

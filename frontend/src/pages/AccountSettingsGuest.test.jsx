@@ -4,9 +4,9 @@ import { render, screen } from "@testing-library/react";
 import AccountSettings from "./AccountSettings.jsx";
 import { fetchCurrentUser } from "../api/client.js";
 
-// #356: a guest gets "My account" for password and MFA only; the admin digest is church-wide
-// content. Two-factor is not specific to the role (#385): it can be switched off by the person
-// unless the church requires it of everyone, which hides the switch-off for every role.
+// A guest gets "My account" for password and MFA only; the admin digest is church-wide
+// content. Two-factor is not specific to the role: a person can switch it off unless the
+// church requires it of everyone, which hides the switch-off for every role.
 vi.mock("../api/client.js", () => ({
   fetchPasskeys: vi.fn().mockResolvedValue({ passkeys: [], max: 5 }),
   registerPasskey: vi.fn(),

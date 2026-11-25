@@ -1,8 +1,8 @@
-// #374: support preferences. Covers the feature gate (404 when it or Care teams is off, data
-// kept), who reads and writes a partner's choices (staff; a guest only through a care team seat,
-// never through a trip grant alone; a viewer reads only), that the menu is admin-only, how each
-// kind of answer is validated and stored in real columns, retiring versus deleting an option,
-// and the example set.
+// Support preferences. Covers the feature gate (404 when it or Care teams is off, data kept),
+// who reads and writes a partner's choices (staff; a guest only through a care team seat,
+// never through a trip grant alone; a viewer reads only), that the menu is admin-only, how
+// each kind of answer is validated and stored in real columns, retiring versus deleting an
+// option, and the example set.
 const { test, describe, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 require("dotenv").config({ quiet: true });

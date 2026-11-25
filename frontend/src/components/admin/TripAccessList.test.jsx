@@ -3,8 +3,8 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import TripAccessList, { describeExpiry } from "./TripAccessList.jsx";
 
-// Grant expiry as an admin reads it (#356): derived from the trip's end
-// date unless an admin set a date, and an ended grant says so.
+// Grant expiry as an admin reads it: derived from the trip's end date unless an admin set a
+// date, and an ended grant says so.
 const base = { tripId: "t1", trip: { name: "Build" }, active: true };
 
 describe("describeExpiry", () => {

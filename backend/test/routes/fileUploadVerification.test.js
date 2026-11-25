@@ -1,10 +1,7 @@
-// #327 Finding 8 -- utils/fileResponse.js serves a file inline only if its
-// type is in VERIFIED_INLINE_TYPES, on the stated basis that those bytes
-// were signature-checked at upload. Two of the three gaps the review
-// found (the trip-document-requirement upload route is covered directly
-// in tripRequirements.test.js, alongside its sibling tests) are covered
-// here: partnerFiles.js's .eml handling, and the participant
-// self-service photo route.
+// utils/fileResponse.js serves a file inline only if its type is in VERIFIED_INLINE_TYPES, on
+// the basis that those bytes were signature-checked at upload. This covers two upload paths:
+// partnerFiles.js's .eml handling and the participant self-service photo route (the
+// trip-document-requirement upload is covered in tripRequirements.test.js).
 const { test, describe, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 require("dotenv").config({ quiet: true });
@@ -69,10 +66,8 @@ describe("POST /api/partner-files -- .eml handling (#327 Finding 8)", () => {
     assert.equal(partner.status, 201);
 
     const form = new FormData();
-    // Real email bytes, but a spoofed Content-Type that IS in
-    // VERIFIED_INLINE_TYPES -- before this fix, a .eml was exempt from
-    // the signature check entirely and stored with whatever the client
-    // declared.
+    // Real email bytes, but a spoofed Content-Type that IS in VERIFIED_INLINE_TYPES: a .eml must
+    // not be exempt from the signature check and stored with whatever the client declared.
     form.set(
       "file",
       new Blob([Buffer.from("From: sender@example.test\r\nSubject: Hi\r\n\r\nBody")], {

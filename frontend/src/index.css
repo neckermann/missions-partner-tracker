@@ -3,38 +3,15 @@
 * {
   box-sizing: border-box;
 }
-/* Shared visual tokens (UX-rebuild Phase 9: visual design) -- lifted
-   directly from the "Admin Navigation Options" design-reference
-   artifact's own :root. Sora for headings/sidebar-title/card titles,
-   Inter for body text, matching the artifact's font pairing exactly.
-   Shadow/radius scale too, so every shared component (admin-card,
-   admin-section, modal-panel, admin-table) reads as one system instead
-   of each having its own one-off border/radius. These are plain
-   visual tokens, not brand-customizable -- the 4 real --brand-* vars
-   (set by SettingsContext.jsx from ChurchSettings) stay the only
-   per-church-configurable colors. */
+/* Shared visual tokens: fonts and the shadow/radius scale. Not brand-customizable; the --brand-*
+   vars set by SettingsContext.jsx from ChurchSettings are the only per-church colors. */
 :root {
   --heading-font: Sora, Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --body-font: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 
-  /* Theme tokens (#283) -- light/dark/system appearance.
-     --------------------------------------------------------------------
-     Canonical token set (same names/roles as the design-reference mockup
-     -- see STYLE-GUIDE.md's design-tokens table): --bg/--surface/
-     --surface-2/--text/--muted/--border/--accent/--accent-soft/--warn/
-     --warn-soft/--danger/--shadow. Every value below is this app's
-     EXISTING light-mode literal (body background #f7f5f0, body text
-     #222, the old --border-soft/--muted-text/--shadow-card values, the
-     .status-pill.warn/.field-warning/.btn.danger colors, ...), so turning
-     this on changes nothing yet -- dark mode only exists once the
-     overrides further down apply.
-
-     --muted-text/--border-soft/--shadow-card are kept as aliases (not
-     removed) because dozens of existing rules in this file already
-     reference them by those names -- pointing the alias at the
-     canonical var() means every one of those rules becomes theme-aware
-     for free, without touching each rule individually. New rules should
-     reach for the canonical name directly. */
+  /* Theme tokens (light/dark/system); the canonical set is in STYLE-GUIDE.md's design-tokens table.
+     --muted-text/--border-soft/--shadow-card are aliases of the canonical vars so older rules are
+     theme-aware; new rules should use the canonical names. */
   --bg: #f7f5f0;
   --surface: #ffffff;
   --surface-2: #f4f5f7;
@@ -52,28 +29,17 @@
   --shadow: 0 1px 2px rgba(20, 25, 30, 0.06), 0 8px 24px rgba(20, 25, 30, 0.05);
   color-scheme: light;
 
-  /* Back-compat aliases -- see the comment above. */
+  /* Aliases of the canonical tokens. */
   --border-soft: var(--border);
   --muted-text: var(--muted);
   --shadow-card: var(--shadow);
 
-  /* Dark-mode-safe derived variants of the per-church brand colors
-     (ChurchSettings.primaryColor/highlightColor -> --brand-color/
-     --brand-highlight-color, set as an INLINE style on <html> by
-     SettingsContext.jsx when a church has configured one). An inline
-     style always wins over any rule in this file, so the dark-mode
-     blocks below can never override --brand-color/--brand-highlight-color
-     themselves once a church sets one -- only a var() that reads them
-     through color-mix() can adjust how they're *used*. In light mode
-     these just pass the real value through unchanged; in dark mode they
-     lighten it (mixed toward white) so a church's own accent stays
-     legible as foreground text/icons/borders on a now-dark surface
-     instead of reading as a raw, too-dark swatch. Only use these -safe
-     variants where the brand color is a TEXT/border/outline color sitting
-     on --surface/--bg -- a brand color used as a solid fill WITH WHITE
-     TEXT ON TOP (.btn, .status-pill.good, badges) keeps the raw variable:
-     that pairing's contrast ratio doesn't depend on the page's own
-     light/dark theme. */
+  /* Dark-mode-safe variants of the per-church brand colors. SettingsContext.jsx sets
+     --brand-color/--brand-highlight-color as inline styles on <html>, which always beat this file,
+     so dark mode can only adjust how they are used, via color-mix(). Light mode passes them
+     through; dark mode lightens them. Use the -safe variants where the brand color is text, a
+     border or an outline on --surface/--bg. A solid fill with white text on it (.btn,
+     .status-pill.good, badges) keeps the raw variable: that contrast does not depend on the theme. */
   --brand-color-safe: var(--brand-color, #2a5d3c);
   --brand-highlight-color-safe: var(--brand-highlight-color, #a6540f);
 
@@ -106,10 +72,8 @@
   }
 }
 
-/* Manual override: data-theme="dark"|"light" on <html>, set by
-   ThemeToggle.jsx/useTheme.js and persisted to localStorage. "system"
-   means no attribute at all, which is why there's no `[data-theme="system"]`
-   block -- that state is just "let the media query above decide." */
+/* Manual override: data-theme="dark"|"light" on <html>, set by ThemeToggle.jsx/useTheme.js. "system"
+   means no attribute, so there is no `[data-theme="system"]` block. */
 :root[data-theme="dark"] {
   --bg: #14171b;
   --surface: #1b1f24;
@@ -143,20 +107,12 @@ h4,
 .wizard-steps {
   font-family: var(--heading-font);
 }
-/* Brand customization, all set at runtime by SettingsContext.jsx from
-   ChurchSettings (see routes/publicSettings.js / schema.prisma for the
-   stored fields) -- each var's own fallback below is this app's generic
-   default, used until a church sets something different:
-   --brand-header-color (header + admin sidebar background),
-   --brand-color (ACCENT: buttons, links, headings, letterhead -- the color
-   people actually associate with the church), --brand-highlight-color
-   (hover/focus/active/selected interaction feedback), --brand-font (body
-   font stack). Highlight's own fallback (#a6540f) is deliberately darker
-   than it first looks right -- several of its uses (button hover,
-   status-pill.good) pair it with white text, and a lighter terracotta
-   failed WCAG AA color-contrast (confirmed: #c97a3d against white is only
-   3.3:1, need 4.5:1 -- #a6540f clears it at 5.4:1) in this repo's own
-   accessibility e2e suite. */
+/* Brand customization, set at runtime by SettingsContext.jsx from ChurchSettings; each fallback is
+   the generic default. --brand-header-color: header and admin sidebar background. --brand-color:
+   accent (buttons, links, headings, letterhead). --brand-highlight-color: hover/focus/active
+   feedback. --brand-font: body font stack. Highlight's fallback (#a6540f) is deliberately dark:
+   it is paired with white text (button hover, status-pill.good) and a lighter terracotta failed
+   WCAG AA (#c97a3d on white is 3.3:1; #a6540f is 5.4:1). */
 body {
   margin: 0;
   font-family: var(--brand-font, var(--body-font));
@@ -207,14 +163,9 @@ a {
   font-size: 1.15rem;
   margin: 0;
 }
-/* Fixed height, auto width (capped) -- adapts to a square icon-style logo
-   or a wide wordmark alike, rather than forcing every shape into a fixed
-   square. No background/border-radius: those were a white backing square
-   meant to keep a dark-colored logo legible against a dark header, but
-   that same backing makes a white-on-transparent logo (the normal
-   "reversed/light" variant churches already use for a colored header)
-   invisible instead -- a logo is expected to already suit the header it's
-   placed on, same assumption this app already makes for brand colors. */
+/* Fixed height, auto width (capped), so a square icon and a wide wordmark both fit. No background:
+   a backing square would make a white-on-transparent logo invisible; a logo is expected to suit
+   the header color it sits on. */
 .header-logo {
   height: 36px;
   width: auto;
@@ -304,8 +255,8 @@ a {
   align-items: center;
   justify-content: center;
 }
-/* Phone-only: opens and closes the menu (#384). Hidden beside the page, where the collapse
-   button does the equivalent job. */
+/* Phone-only: opens and closes the menu. Hidden beside the page, where the collapse button does
+   that job. */
 .admin-sidebar-menu-btn {
   display: none;
 }
@@ -484,7 +435,7 @@ a {
     align-items: stretch;
   }
   /* A slim bar (church name, bell, Menu) that stays at the top; the menu opens beneath it and
-     closes after a page is chosen, so a page's own heading is on the first screen (#384). */
+     closes after a page is chosen, so a page's own heading is on the first screen. */
   .admin-sidebar {
     width: 100%;
     height: auto;
@@ -544,17 +495,10 @@ a {
   grid-template-columns: 1fr;
 }
 @media (max-width: 800px) {
-  /* Side-by-side becomes stacked on mobile -- the map needs its own
-     explicit height here, not just "height: auto" on the grid, since
-     .map-container/.leaflet-container below resolve their own
-     `height: 100%` against *this* element. A 100% height means nothing
-     against an auto-height parent (that's the CSS percentage-height
-     rule: it only resolves against a parent with a definite height), so
-     without an explicit height here the map silently collapses to zero
-     height -- present in the DOM, invisible on screen, exactly the "map
-     page doesn't work at all" symptom. `order` puts the map first
-     (a map page should lead with the map, not a mile of list first),
-     while keeping the list's own DOM position unchanged. */
+  /* Stacked on mobile. The map needs an explicit height: .map-container/.leaflet-container resolve
+     `height: 100%` against this element, and a percentage height means nothing against an
+     auto-height parent, so the map would collapse to zero. `order` puts the map first without
+     moving the list in the DOM. */
   .map-layout {
     grid-template-columns: 1fr;
     grid-template-rows: 50vh auto;
@@ -638,12 +582,9 @@ a {
   border-radius: 50%;
   flex-shrink: 0;
 }
-/* Church logo preview on the About & Branding settings page -- rendered
-   against the admin's own configured Header Color (set inline, see
-   AdminSettingsAbout.jsx) so this is a real preview of how the logo will
-   actually look in the header, not an arbitrary crop. Fixed height, auto
-   width (capped) same as .header-logo -- adapts to a square icon or a
-   wide wordmark alike. */
+/* Church logo preview on the About & Branding settings page, rendered against the configured
+   Header Color (set inline in AdminSettingsAbout.jsx) so it shows how the logo looks in the
+   header. Sized like .header-logo. */
 .logo-preview {
   height: 48px;
   width: auto;
@@ -682,13 +623,9 @@ a {
   text-align: center;
 }
 
-/* Leaflet's own default attribution-control link ("Leaflet" ->
-   leafletjs.com) fails WCAG AA color-contrast and has no non-color
-   distinguisher (underline) -- axe-core flags this as a real "serious"
-   violation. Darkening it and adding an underline fixes both at once.
-   It is 12px normal-weight text, so the threshold is 4.5:1, not the 3:1
-   this rule originally aimed at: #0090c8 on the control's #f8f8f8 only
-   reached 3.39:1 and still failed. #0070a0 gives 5.17:1. */
+/* Leaflet's default attribution link fails WCAG AA contrast and has no non-color distinguisher;
+   axe-core flags it as serious. 12px normal-weight text needs 4.5:1: #0090c8 on the control's
+   #f8f8f8 reached only 3.39:1, #0070a0 gives 5.17:1. */
 .leaflet-control-attribution a {
   color: #0070a0;
   text-decoration: underline;
@@ -752,8 +689,7 @@ a {
   gap: 0.3rem;
   margin-bottom: 0.5rem;
 }
-/* .popup-avatar's dimensions now come from PhotoTile.jsx's inline style --
-   class kept as a styling hook (nothing else sets it). */
+/* Dimensions come from PhotoTile.jsx's inline style; the class is only a styling hook. */
 .popup-avatar {
   cursor: pointer;
 }
@@ -772,7 +708,6 @@ a {
   font-size: 0.8rem;
 }
 
-/* Public partner directory (/partners) and detail page (/partners/:type/:id) */
 .public-about-text {
   margin: 1.25rem 1.5rem 0;
   color: var(--text);
@@ -844,8 +779,7 @@ a {
   border-color: var(--brand-highlight-color, #a6540f);
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
 }
-/* .partner-card-photo's styling now comes entirely from PhotoTile.jsx's
-   inline style. */
+/* Styling comes from PhotoTile.jsx's inline style. */
 .partner-card-body {
   padding: 1rem;
 }
@@ -870,8 +804,7 @@ a {
   align-items: flex-start;
   flex-wrap: wrap;
 }
-/* .partner-detail-photo's styling now comes entirely from PhotoTile.jsx's
-   inline style. */
+/* Styling comes from PhotoTile.jsx's inline style. */
 .partner-links {
   display: flex;
   flex-wrap: wrap;
@@ -976,11 +909,9 @@ a {
   width: 100%;
   border-collapse: collapse;
 }
-/* Lets a wide table (many columns, a cramped last Actions column) scroll
-   horizontally instead of squeezing every column to fit the container --
-   width: auto + min-width: 100% means the table only grows past its
-   container when its own content actually needs to, so a short/narrow
-   table still fills the width exactly like plain .admin-table does. */
+/* Lets a wide table scroll horizontally instead of squeezing every column. width: auto plus
+   min-width: 100% grows the table past its container only when its content needs it; a short
+   table still fills the width like plain .admin-table. */
 .table-scroll {
   overflow-x: auto;
 }
@@ -988,13 +919,9 @@ a {
   width: auto;
   min-width: 100%;
 }
-/* Without this, the automatic table-layout algorithm treats
-   .table-actions' own flex-wrap as permission to shrink that column down
-   to a single button's width (wrapping the rest onto new lines) instead
-   of ever growing the table -- which defeats the scroll wrapper above
-   entirely, since the table never actually needs to overflow. Forcing
-   one row here is what makes the column's real min-width visible to that
-   algorithm, so a too-narrow container scrolls horizontally instead. */
+/* Without this, the automatic table-layout algorithm treats .table-actions' flex-wrap as
+   permission to shrink that column to one button wide, so the table never overflows and the
+   scroll wrapper above is useless. One row makes the column's real min-width visible. */
 .table-scroll .table-actions {
   flex-wrap: nowrap;
 }
@@ -1007,13 +934,9 @@ a {
   color: var(--muted-text);
   font-weight: 700;
 }
-/* Same active/interactive-feedback color every other control in the app
-   uses (tab underline, hover states) -- see STYLE-GUIDE.md's design
-   tokens -- rather than inventing a one-off color for this. The sort
-   icon (Table.jsx's SortIcon -- a real SVG, not a Unicode glyph, which
-   rendered inconsistently and bluntly across platforms) stays low-
-   opacity on every sortable header until hovered or active, so it reads
-   as a quiet affordance, not clutter repeated across the row. */
+/* Same interactive-feedback color as every other control (see STYLE-GUIDE.md design tokens). The
+   sort icon (Table.jsx's SortIcon, an SVG) stays low-opacity until hovered or active so it reads
+   as a quiet affordance. */
 .admin-table th.sortable {
   cursor: pointer;
   user-select: none;
@@ -1024,12 +947,8 @@ a {
 .admin-table th.sortable.sorted {
   color: var(--brand-highlight-color, #a6540f);
 }
-/* A sortable header's label and icon sit in this flex wrapper so the
-   icon stays put at the trailing edge, vertically centered against the
-   label -- without it, a label that wraps to two lines (e.g. "Sent By
-   Us" in a narrow column) pushed the icon down after its last line,
-   landing it at a different height than a one-line header's icon right
-   next to it. */
+/* Keeps a sortable header's icon at the trailing edge, vertically centered on the label; without
+   it a label that wraps to two lines pushed the icon below its last line. */
 .admin-table th .th-inner {
   display: flex;
   align-items: center;
@@ -1052,14 +971,9 @@ a {
 .admin-table tbody tr:hover {
   background: var(--surface-2);
 }
-/* No global `a { text-decoration: none }` reset exists in this file --
-   every other link-styled-as-something rule here sets it individually
-   (.breadcrumb a, .admin-settings-tabs a, etc.). .btn itself never did,
-   so an <a>/<Link> using it (e.g. the report pages' "Download CSV", or
-   any "+Add X"/"View details" link-as-button elsewhere) rendered with a
-   plain browser-default underline through its white text until now --
-   a <button> using .btn never showed this, which is why it went
-   unnoticed for a while. */
+/* No global `a { text-decoration: none }` reset exists, and .btn does not set one, so an
+   <a>/<Link> styled as .btn (report "Download CSV", "+Add X" links) would get the browser's
+   default underline through its white text. A <button> never shows it. */
 .btn {
   background: var(--brand-color, #2a5d3c);
   color: white;
@@ -1079,9 +993,7 @@ a {
 .btn:hover:not(.secondary):not(.danger) {
   background: var(--brand-highlight-color, #a6540f);
 }
-/* #999 (the old value) only gave white text ~2.85:1 contrast against it,
-   under WCAG AA's 4.5:1 minimum for normal-size text -- #666 clears it
-   with margin (~5.7:1). */
+/* #666 gives white text ~5.7:1, above WCAG AA's 4.5:1 minimum for normal-size text. */
 .btn.secondary {
   background: #666;
 }
@@ -1101,10 +1013,9 @@ a {
   gap: 0.5rem 0.75rem;
 }
 
-/* Like .table-actions, but for a cell with more controls than fit one
-   tidy row (e.g. AdminInboundEmailQueue.jsx's partner+kind pickers above
-   its action buttons) -- stacks into deliberate, grouped rows instead of
-   one flex-wrap bag where unrelated controls wrap together unpredictably. */
+/* Like .table-actions, for a cell with more controls than fit one row (e.g.
+   AdminInboundEmailQueue.jsx's pickers above its action buttons): grouped rows instead of one
+   flex-wrap bag where unrelated controls wrap together. */
 .table-actions-stack {
   display: flex;
   flex-direction: column;
@@ -1119,9 +1030,7 @@ a {
   flex-wrap: wrap;
   gap: 0.5rem 0.5rem;
 }
-/* The button row (View raw/Assign/Discard) reads as a distinct group from
-   the picker row above it -- a thin divider plus right-alignment, instead
-   of two rows of controls that otherwise look identical. */
+/* A thin divider plus right-alignment sets the button row apart from the picker row above it. */
 .table-actions-stack > .table-actions-row:last-child {
   justify-content: flex-end;
   padding-top: 0.5rem;
@@ -1156,10 +1065,8 @@ a {
   min-height: 90px;
   resize: vertical;
 }
-/* The generic rule above's padding squashes a color swatch into a thin
-   sliver (the padding eats into the swatch itself, there's no separate
-   "value area" the way text inputs have) -- a real swatch needs the
-   padding removed and an explicit height instead. */
+/* The generic rule's padding squashes a color swatch into a sliver (there is no separate value
+   area as in text inputs); a swatch needs no padding and an explicit height. */
 .admin-shell input[type="color"] {
   padding: 3px;
   height: 48px;
@@ -1315,23 +1222,18 @@ a {
   gap: 1.75rem;
 }
 
-/* Long edit forms (missionary/org/church settings) float Save/Cancel at the
-   bottom of the viewport instead of only at the end of the page, so they're
-   reachable without scrolling all the way down. The page needs matching
-   bottom padding (.form-has-floating-actions) so this bar never covers the
-   last field. */
+/* Long edit forms float Save/Cancel at the bottom of the viewport so they are reachable without
+   scrolling. The page needs matching bottom padding (.form-has-floating-actions) so the bar
+   never covers the last field. */
 .form-has-floating-actions {
   padding-bottom: 5.5rem;
 }
 .form-save-bar {
   position: fixed;
   bottom: 0;
-  /* Not 0 -- the bar used to span the full viewport width at full
-     viewport-fixed position, which put it on top of the sidebar's own
-     footer (My Account/Log out) at the bottom of the screen. Offsetting
-     past --sidebar-width (defined on .admin-layout) confines it to
-     .admin-main instead, and tracks the sidebar's collapsed/expanded
-     width automatically. */
+  /* Offset past --sidebar-width (defined on .admin-layout), not 0: a full-width fixed bar would
+     cover the sidebar's footer (My Account/Log out). This confines it to .admin-main and tracks
+     the sidebar's collapsed/expanded width. */
   left: var(--sidebar-width, 230px);
   right: 0;
   display: flex;
@@ -1343,10 +1245,9 @@ a {
   box-shadow: var(--shadow);
   z-index: 50;
 }
-/* Must come after the base rule: on mobile the sidebar stacks above the page
-   instead of sitting beside it, so there is nothing to offset past. (When
-   this override sat earlier in the file the base rule won, and the bar was
-   pushed past the right edge with its last buttons unreachable.) */
+/* Must come after the base rule: on mobile the sidebar stacks above the page, so there is
+   nothing to offset past. Earlier in the file the base rule wins and the bar's last buttons are
+   pushed off the right edge. */
 @media (max-width: 800px) {
   .form-save-bar {
     left: 0;
@@ -1472,11 +1373,8 @@ a {
 }
 
 .btn-remove {
-  /* Previously background:none/border:none -- a bare red glyph with no
-     visible button chrome at all, easy to miss entirely (flagged from a
-     real screenshot) and no better on touch, which has no hover state to
-     reveal it. A faint standing background/border makes it read as a
-     clickable control at rest, not just on hover. */
+  /* A faint standing background/border makes this read as a clickable control at rest; touch has
+     no hover state to reveal it. */
   background: color-mix(in srgb, var(--danger) 10%, var(--surface));
   border: 1px solid color-mix(in srgb, var(--danger) 35%, var(--surface));
   border-radius: 4px;
@@ -1561,8 +1459,8 @@ a {
   margin: 0;
 }
 
-/* Joshua Project's own progress-scale colors (#157), tiers 1 (least
-   reached) through 5 (most reached) -- see CountryStats.jsx's jpScaleTier. */
+/* Joshua Project's progress-scale colors, tier 1 (least reached) to 5 (most reached); see
+   CountryStats.jsx's jpScaleTier. */
 .jp-scale-pill {
   display: inline-block;
   font-size: 0.75rem;
@@ -1657,13 +1555,10 @@ a {
   color: white;
 }
 
-/* Every checkbox in the admin app renders as a pill toggle -- restyling
-   the native input directly (appearance: none + a ::before dot) rather
-   than wrapping it in extra markup, so any checkbox anywhere (present or
-   future) gets this for free. Still a real checkbox, so keyboard/
-   screen-reader behavior is unchanged. .admin-shell qualifies it so the
-   public site (no checkboxes today, but if one's ever added) isn't
-   silently opted in. */
+/* Every checkbox in the admin app renders as a pill toggle: the native input is restyled
+   (appearance: none + a ::before dot) so any checkbox gets it without extra markup, and it
+   stays a real checkbox for keyboard/screen readers. .admin-shell scopes it so the public site
+   is not opted in. */
 .admin-shell input[type="checkbox"] {
   appearance: none;
   -webkit-appearance: none;
@@ -1730,9 +1625,8 @@ a {
   border-color: var(--brand-highlight-color-safe, #a6540f);
   box-shadow: var(--shadow);
 }
-/* Eyebrow category label (e.g. "Communications", "Trips") shown above a
-   card's title -- CardGrid.jsx's optional `category` field. Omitted
-   entirely (no empty space reserved) when a call site doesn't pass one. */
+/* Eyebrow category label above a card's title (CardGrid.jsx's optional `category`); no space is
+   reserved when a call site omits it. */
 .admin-card-eyebrow {
   display: block;
   font-size: 0.68rem;
@@ -1755,33 +1649,16 @@ a {
   font-size: 0.9rem;
 }
 
-/* Booklet config page (AdminBooklet.jsx): a two-pane layout, controls on
-   the left and the live print preview pinned on the right, so the
-   preview is visible without scrolling past every control first.
-   Controls and preview are siblings, not parent/child -- see the comment
-   above this layout in AdminBooklet.jsx for why the preview can't be
-   nested inside the `no-print`-wrapped controls column.
+/* Booklet config page (AdminBooklet.jsx): controls on the left, live print preview pinned on the
+   right. They are siblings, not nested; see the comment in AdminBooklet.jsx for why.
 
-   Default (everything below the `min-width: 1500px` block further down)
-   is a single stacked column -- controls, then the preview beneath them
-   at its full 8.5in width -- same shape the page already had. Side-by-
-   side is a progressive enhancement for a wide-enough viewport, not the
-   baseline: .booklet-preview is a fixed 8.5in (not shrink-to-fit, see
-   its own comment below), so a side-by-side column narrower than that
-   doesn't shrink the preview, it just clips most of it behind
-   .booklet-preview-scroll's own horizontal scrollbar (scrolled to 0 by
-   default) -- confirmed by screenshot at 1280px wide (#346), where the
-   cover title rendered as "Missionary Par" because only the left ~2/3 of
-   each page was ever actually visible without scrolling right. Better to
-   fall back to the proven stacked layout below that width than default
-   to a silently truncated preview. */
+   Default is a single stacked column. Side-by-side is an enhancement for wide viewports:
+   .booklet-preview is a fixed 8.5in, so a narrower column does not shrink it, it clips it behind
+   .booklet-preview-scroll's scrollbar (at 1280px the cover title read "Missionary Par"). Better
+   to stack below that width than to show a silently truncated preview. */
 .booklet-admin-shell {
-  /* Wider than the standard 1000px .admin-shell cap -- this page can pair
-     a controls column with a full real-print-width (8.5in) preview pane
-     side by side, which the standard cap would otherwise rule out even
-     on a generously wide monitor. Print output is unaffected -- the
-     existing `.admin-shell { max-width: none; ... }` print reset below
-     overrides this too. */
+  /* Wider than the standard 1000px .admin-shell cap so a controls column and an 8.5in preview fit
+     side by side. The print reset `.admin-shell { max-width: none }` below overrides this too. */
   max-width: 1600px;
 }
 .booklet-admin-intro {
@@ -1803,12 +1680,9 @@ a {
   border-radius: var(--radius-lg);
   padding: 0.75rem;
 }
-/* Side by side only once a controls column (its own comfortable minimum,
-   not squeezed) plus the full 816px/8.5in preview plus their gap and
-   padding can all actually fit next to the expanded admin sidebar --
-   worked out against real viewport widths (1280/1366/1440 all fail that
-   math with the sidebar expanded; 1920 clears it with room to spare) and
-   confirmed by screenshot at 1536px wide, not just computed. */
+/* Side by side only when a controls column, the full 816px/8.5in preview, their gap and padding
+   fit beside the expanded admin sidebar. 1280/1366/1440 wide fail that with the sidebar
+   expanded; 1920 clears it. */
 @media (min-width: 1500px) {
   .booklet-layout {
     display: grid;
@@ -1819,27 +1693,18 @@ a {
   .booklet-preview-pane {
     position: sticky;
     top: 1.5rem;
-    /* Scrolls internally once the preview (which can run to dozens of
-       printed pages) is taller than the viewport, instead of the whole
-       page scrolling past this pane -- that's the actual fix for
-       "visible without scrolling past all the controls first". Reset for
-       print below: a real print/PDF job must never be clipped to one
-       screen's worth of this. */
+    /* Scrolls internally once the preview (dozens of printed pages) is taller than the viewport,
+       so the page does not scroll past this pane. Reset for print below: a print/PDF job must not
+       be clipped to one screen. */
     max-height: calc(100vh - 3rem);
     overflow-y: auto;
   }
 }
 
-/* Template picker -- a lightweight CSS-only visual swatch per template
-   (not a live render of the real template) so the choice reads at a
-   glance instead of two identical text-only cards. Driven by the same
-   token object templates.js/booklet.css already read (shapeStyle/
-   photoShape/frameStyle via data-* attributes, --accent via
-   resolveAccent()) -- a future third template's swatch is correct for
-   free, nothing to hand-author here. #346 follow-up: the first redesign
-   pass kept these as plain text cards, which the project owner flagged
-   as still reading like a default/unstyled form even though the page
-   layout itself had changed. */
+/* Template picker: a CSS-only swatch per template (not a live render) so the choice reads at a
+   glance. Driven by the same tokens templates.js/booklet.css read (shapeStyle/photoShape/
+   frameStyle via data-* attributes, --accent via resolveAccent()), so a new template's swatch
+   needs nothing hand-authored here. */
 .booklet-template-picker {
   display: flex;
   flex-wrap: wrap;
@@ -1955,24 +1820,14 @@ a {
   width: 55%;
 }
 
-/* "What Shows on Each Page" -- a grid of click-to-toggle pill chips
-   instead of a wrapped row of plain checkbox+label pairs (#346
-   follow-up). Each chip is a real <label>/<input type="checkbox"> pair
-   (same toggleField handler, same checked/disabled state as before) --
-   only the rendering changed, so keyboard/screen-reader behavior is
-   unchanged. The checkbox itself is visually hidden (not display: none,
-   which would drop it from the accessibility tree) rather than left
-   showing the app-wide toggle-switch skin (.admin-shell
-   input[type="checkbox"] above) -- the whole chip is this control's own
-   on/off indicator here, a switch rendered inside it too would be a
-   second, redundant indicator. */
+/* "What Shows on Each Page": a grid of click-to-toggle pill chips. Each chip is a real
+   <label>/<input type="checkbox"> pair. The checkbox is visually hidden (not display: none,
+   which would drop it from the accessibility tree) instead of showing the app-wide toggle
+   skin, since the chip is itself the on/off indicator. */
 .booklet-field-grid {
   display: grid;
-  /* 150px (not a rounder 190px+) specifically so this reads as a real
-     multi-column grid rather than a single stacked list inside the
-     controls column's own width (minmax(300px, 420px), see
-     .booklet-layout above) -- confirmed by screenshot at that column's
-     actual rendered width, not assumed. */
+  /* 150px (not a rounder 190px+) so this is a real multi-column grid rather than a single stacked
+     list inside the controls column (minmax(300px, 420px), see .booklet-layout). */
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap: 0.6rem;
 }
@@ -2043,20 +1898,10 @@ a {
   cursor: not-allowed;
 }
 
-/* 8.5in (a real US Letter page width) both ways -- min-width, not just
-   max-width -- deliberately not shrunk to fit a narrow container, since
-   this previews actual print proportions. overflow-x: auto on the outer
-   scroller lets a narrower container (a phone-width admin, or now also
-   .booklet-preview-pane's own right-hand column at an ordinary desktop
-   width -- see .booklet-layout above) scroll it horizontally instead of
-   squeezing the preview smaller than a real printed page actually is.
-   Before the two-pane layout (#346), the single-column page was wide
-   enough on most desktop widths that min-width was never in practice
-   doing anything different than max-width alone -- the preview pane's
-   own narrower column makes that no longer true. The outer
-   .booklet-preview-pane above now owns the surrounding margin/
-   background, so this wrapper itself no longer centers with its own
-   margin. */
+/* 8.5in (US Letter) both ways: min-width as well as max-width, so it previews real print
+   proportions and is not shrunk to fit a narrow container. overflow-x: auto on the outer
+   scroller lets a narrow container (phone, or .booklet-preview-pane's column) scroll it instead.
+   .booklet-preview-pane owns the surrounding margin and background. */
 .booklet-preview-scroll {
   overflow-x: auto;
 }
@@ -2083,25 +1928,17 @@ a {
     padding: 0;
   }
   /* Hide everything, then reveal only the booklet.
-     
-     Scoped with :has() so it applies on a page that actually contains a
-     booklet preview. Unscoped -- as this was -- `body *` hides every
-     element on EVERY print in the app, and only .booklet-preview is ever
-     revealed again, so any other printable view comes out as a blank
-     page. The Reports print button did exactly that: correct styles, no
-     content, because visibility was still hidden from here.
-     
-     The :where() is load-bearing, not decoration. :has() contributes the
-     specificity of its argument, so a bare `body:has(.booklet-preview) *`
-     scores (0,1,1) and outranks the `.booklet-preview` reveal below at
-     (0,1,0) -- which hides the booklet too, on its own page. :where()
-     contributes nothing, so this stays (0,0,1), exactly what plain
-     `body *` was, and the reveal still wins.
-     
-     The pattern itself is a blunt one; it survives because the booklet
-     really does want the rest of the page gone. Anything else that needs
-     printing should style its own section (see the Reports block below)
-     rather than extend the reveal list here. */
+
+     Scoped with :has() so it only applies on a page that contains a booklet preview. Unscoped,
+     `body *` blanks every other printable view (the Reports print button printed an empty page).
+
+     The :where() is load-bearing: :has() contributes its argument's specificity, so a bare
+     `body:has(.booklet-preview) *` scores (0,1,1) and outranks the `.booklet-preview` reveal
+     below at (0,1,0), hiding the booklet too. :where() contributes nothing, keeping this at
+     (0,0,1) so the reveal wins.
+
+     Blunt on purpose: anything else that needs printing should style its own section (see the
+     Reports block below) rather than extend the reveal list here. */
   body:where(:has(.booklet-preview)) * {
     visibility: hidden;
   }
@@ -2117,10 +1954,6 @@ a {
     width: 100%;
   }
 }
-
-/* ---------------------------------------------------------------------
-   Reports
-   --------------------------------------------------------------------- */
 
 .report-header {
   display: flex;
@@ -2158,22 +1991,13 @@ a {
   display: none;
 }
 
-/* Printing a report.
-
-   Plain CSS -- the same native @page/break-after approach the booklet now
-   uses too (see booklet.css). A report is a table, and the browser already
-   knows how to break one across pages and repeat its header -- that is what
-   thead does when printed. No pagination library, no CDN script, no CSP
-   question.
-
-   The viewer's own print dialog handles "Save as PDF", which is why there
-   is no PDF library here at all. */
+/* Printing a report: plain CSS (@page/break-after), no pagination library or CDN script. The
+   browser already breaks a table across pages and repeats its thead; the print dialog's "Save
+   as PDF" covers PDF. */
 @page {
   size: letter;
-  /* Generous and even. The earlier version zeroed .admin-shell's margin,
-     which also killed its `margin: auto` -- so the report printed jammed
-     against the left edge with an inch of nothing on the right. Let the
-     page box own the margins and the content simply fills it. */
+  /* Generous and even. Zeroing .admin-shell's margin also kills its `margin: auto`, which printed
+     the report against the left edge. Let the page box own the margins and the content fill it. */
   margin: 0.6in;
 }
 
@@ -2205,10 +2029,8 @@ a {
   .admin-shell {
     max-width: none;
     margin: 0;
-    /* On top of the @page margin. The page box alone left the table
-       reading as if it began at the paper's edge; this is the difference
-       between a document and a data dump. Nothing vertical, so the
-       letterhead still sits at the top of the sheet. */
+    /* On top of the @page margin, which alone leaves the table looking like it starts at the
+       paper's edge. Nothing vertical, so the letterhead still sits at the top of the sheet. */
     padding: 0 0.3in;
   }
   .admin-section {
@@ -2277,8 +2099,7 @@ a {
     border-collapse: collapse;
     font-size: 9pt;
   }
-  /* The point of the exercise: a long report keeps its column headings on
-     every page, and no row is split down the middle. */
+  /* A long report keeps its column headings on every page, and no row is split. */
   table.admin-table thead {
     display: table-header-group;
   }
@@ -2336,9 +2157,7 @@ a {
   }
 }
 
-/* AdminHome.jsx's search box + Cmd/Ctrl+K hint, and its "Recently
-   viewed" chips -- Phase 9 visual design, matching the design-reference
-   artifact's .home-search/.recent-chip exactly. */
+/* AdminHome.jsx's search box with Cmd/Ctrl+K hint, and its "Recently viewed" chips. */
 .home-search {
   display: flex;
   align-items: center;
@@ -2399,11 +2218,8 @@ a {
   margin-bottom: 2px;
 }
 
-/* Wizard.jsx's step-dot progress bar, above the existing numbered step
-   labels -- purely decorative (same role as the design-reference
-   artifact's .wizard-progress), so it's hidden rather than squashed at
-   a single step, matching that artifact's own 1-step "New User" note
-   that a progress bar isn't worth showing there. */
+/* Wizard.jsx's step-dot progress bar above the numbered step labels. Purely decorative, so it is
+   hidden rather than squashed at a single step. */
 .wizard-progress {
   display: flex;
   gap: 0.4rem;
@@ -2427,10 +2243,8 @@ a {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 0.75rem;
-  /* Was 0 on top -- this sits directly after .report-header (the row
-     count/date plus Download CSV/Print buttons) with nothing else
-     between them, so with no top margin the summary tiles crowded right
-     up against the button row. */
+  /* This sits directly after .report-header (row count/date plus Download CSV/Print), so it needs
+     a top margin or the tiles crowd the button row. */
   margin: 1.25rem 0;
 }
 .report-summary-item,
@@ -2475,7 +2289,6 @@ a {
     break-inside: avoid;
   }
 }
-/* A summary tile that filters the table when clicked. */
 button.report-summary-item {
   display: block;
   text-align: left;
@@ -2505,9 +2318,7 @@ button.report-summary-item[aria-pressed="true"] {
   color: var(--brand-color-safe, #2a5d3c);
 }
 
-/* Appearance toggle (#283) -- ThemeToggle.jsx. Same segmented-control
-   shape as the design-reference mockup's own "Appearance" control
-   (.seg/.seg-btn there), renamed to this app's own naming convention. */
+/* Appearance toggle (ThemeToggle.jsx), a segmented control. */
 .theme-toggle {
   display: inline-flex;
   background: var(--surface-2);

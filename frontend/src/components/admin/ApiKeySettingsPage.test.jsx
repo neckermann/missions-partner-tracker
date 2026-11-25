@@ -7,10 +7,8 @@ function openEditor() {
   fireEvent.click(screen.getByRole("heading", { name: "AI Features" }));
 }
 
-// #324: the plain-text `textField` (the model id) is optional and additive
-// -- Joshua Project's own usage of this component passes none, which the
-// existing write-only-key behavior (no textField prop at all) already
-// covers; these tests are specifically about the new field.
+// The plain-text `textField` (the model id) is optional: Joshua Project's usage passes none,
+// which the write-only-key tests already cover; these tests are about the new field.
 describe("ApiKeySettingsPage -- #324 plain-text model field", () => {
   const textField = {
     key: "model",

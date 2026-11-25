@@ -8,12 +8,9 @@ import {
   templateWrapperMarkup,
 } from "./templates.js";
 
-// #322: the booklet template picker is now driven entirely by this
-// catalog instead of a literal array in AdminBooklet.jsx -- these pin the
-// catalog's v1 shape (exactly Classic + Modern) and the accent-resolution
-// rule (ChurchSettings.primaryColor as the default, the fixed rotation
-// only as an unconfigured-instance fallback) so a future change to either
-// has to be deliberate.
+// Pins the catalog's v1 shape (exactly Classic + Modern) and the accent-resolution rule
+// (ChurchSettings.primaryColor as the default, the fixed rotation only as an
+// unconfigured-instance fallback) so a change to either has to be deliberate.
 
 describe("TEMPLATE_OPTIONS", () => {
   test("offers exactly Classic and Modern, in that order", () => {
@@ -45,9 +42,8 @@ describe("resolveAccent", () => {
 
   test("resolves to ChurchSettings.primaryColor when the church has set one", () => {
     expect(resolveAccent(classic, "#112233", 0)).toBe("#112233");
-    // Same brand color regardless of the rotation index -- a "brand"
-    // accentSource template doesn't vary accent per entry once a real
-    // brand color exists.
+    // Same brand color regardless of the rotation index: a "brand" accentSource template doesn't
+    // vary accent per entry once a real brand color exists.
     expect(resolveAccent(classic, "#112233", 3)).toBe("#112233");
   });
 

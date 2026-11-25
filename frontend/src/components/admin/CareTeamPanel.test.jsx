@@ -10,8 +10,8 @@ import {
   fetchDefaultCareLead,
 } from "../../api/client.js";
 
-// #289: one Lead plus Members per partner. Everyone who can see the partner
-// sees the team; only admin/editor can change it.
+// One Lead plus Members per partner. Everyone who can see the partner sees the team; only
+// admin/editor can change it.
 vi.mock("../../api/client.js", () => ({
   fetchCareTeam: vi.fn(),
   setCareTeam: vi.fn(),
@@ -117,7 +117,7 @@ describe("CareTeamPanel", () => {
   });
 });
 
-// #291: with nobody assigned, key-date reminders fall back to the default lead.
+// With nobody assigned, key-date reminders fall back to the default lead.
 describe("CareTeamPanel: key-date fallback (#291)", () => {
   beforeEach(() => fetchCareTeam.mockResolvedValue({ lead: null, members: [] }));
 
