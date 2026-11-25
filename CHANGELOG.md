@@ -23,6 +23,7 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 - **Action buttons in tables no longer wrap onto two lines** and come out different sizes; Delete, Retire and the like stay the same height as their neighbours.
 - **One tab bar for Trips, a trip's own pages and Partners**, with the same look in both themes. The active Trips tab was nearly invisible in dark mode.
 - **Cards placed one after another on a page (Reports, Care Team Settings, GroupMe, WhatsApp, the top of a partner page) now have space between them.**
+
 ## [0.1.0-beta.2] - 2026-11-25
 
 ### Security
