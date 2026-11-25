@@ -47,6 +47,10 @@ expires in 15 minutes; it signs you in and then walks you through adding a
 passkey. Lost your passkey? Ask an admin to **Reset MFA** on your account;
 they'll hand you a fresh way in.
 
+![The sign-in page with passwordless sign-in on: a passkey button and an emailed link](docs/assets/screenshots/sign-in-passwordless.png)
+
+![After the emailed link: add a passkey (or use an authenticator app) to finish signing in](docs/assets/screenshots/sign-in-add-passkey.png)
+
 ### Understanding your role
 
 Every user has one of three full roles:
@@ -743,7 +747,13 @@ When a trip is over, **Wrap up trip** (a button beside the trip's name, for admi
 5. **Photos.** The album link, if the trip has none.
 6. **Access.** When the trip leaders' access ends: 30 days after the trip's end date unless it was given another date. To extend it or end it now, use the Team tab.
 
+![A finished trip with its Wrap up trip button](docs/assets/screenshots/trip-ready-to-wrap-up.png)
+
+![The debrief step of the Wrap up trip wizard: four optional prompts](docs/assets/screenshots/trip-wrap-up-debrief.png)
+
 The debrief then shows on the trip's **Overview** (with **Edit debrief** to change it later; the first wrap-up time is kept). Nothing is emailed. Two bell items help: **Trips ready to wrap up** (staff, and a leader for their own trip) counts trips whose end date has passed and that aren't completed, and **Trips wrapped up** tells a partner's care team for two weeks after a trip is wrapped up.
+
+![A wrapped-up trip's Overview, with its debrief](docs/assets/screenshots/trip-debrief.png)
 
 ### Newsletters & Docs
 
@@ -957,6 +967,10 @@ With **Support preferences** turned on in [Enabled Features](ADMIN_GUIDE.md#feat
 - **Who can see it:** staff and the partner's care team only, on the partner's page. It never appears on the public site, in the booklet, or in dispatches. How a partner prefers to be contacted is the **Preferred contact** on their Contact card, not here.
 - **Reports → Support preferences** lists what each partner has chosen (sort by an option to see who wants it) or, with **Show: Partners with nothing recorded**, who still needs that conversation.
 
+![A partner's Support preferences card, grouped by kind of support](docs/assets/screenshots/support-preferences-card.png)
+
+![Settings → Support Preferences, the church's own menu](docs/assets/screenshots/support-preferences-settings.png)
+
 It records preferences; it doesn't schedule or assign anything, and the app never contacts a partner for you.
 
 ## Settings
@@ -1030,6 +1044,8 @@ everyone back; and outbound email can't be switched off while it is on. If
 email breaks, or someone loses their passkey, **Reset MFA** on their row
 clears it and you hand them a setup link. It can't be turned on for the
 public demo.
+
+![Manage Users with passwordless sign-in on](docs/assets/screenshots/manage-users-passwordless.png)
 
 **+ Add User** opens its own page: email, name,
 role (Admin, Editor, Viewer, or Guest — pick at least one trip for a
@@ -1657,6 +1673,8 @@ asks for your password. If your church requires two-factor, you can't remove
 your last way of signing in; add another first. A passkey only works on the
 address your church's site is served from. An admin's **Reset MFA** clears
 your passkeys along with your authenticator app.
+
+![My Account: two-factor enabled with passkeys, and the list of passkeys](docs/assets/screenshots/my-account-passkeys.png)
 
 If [Email (Sending)](#email-admin-only) is turned on for the church,
 there's also an **Email Dispatch** section here: a cadence (no
