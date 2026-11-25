@@ -669,6 +669,26 @@ router.put("/key-date-email", requireAuth, async (req, res, next) => {
   }
 });
 
+// Self-service: your own phone and profile (a line about how you help or when you are easiest to
+// reach). Open to every role, a guest included; name and email stay admin-managed.
+router.put("/profile", requireAuth, async (req, res, next) => {
+  try {
+    const data = z
+      .object({
+        phone: z.string().trim().max(40).nullable().optional(),
+        profile: z.string().trim().max(1000).nullable().optional(),
+      })
+      .parse(req.body);
+    const updateData = {};
+    if (data.phone !== undefined) updateData.phone = data.phone || null;
+    if (data.profile !== undefined) updateData.profile = data.profile || null;
+    const user = await prisma.user.update({ where: { id: req.user.id }, data: updateData });
+    res.json({ user: await sanitizeUser(user) });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // Plain HTML page (not JSON) for the unsubscribe link in digest emails (see
 // utils/emailDispatchShell.js's buildUnsubscribeUrl). Branded like the email's
 // header band (same colors, font and fallbacks). `message` is a string, or a
@@ -829,6 +849,8 @@ async function sanitizeUser(user) {
     email: user.email,
     firstName: user.firstName,
     lastName: user.lastName,
+    phone: user.phone,
+    profile: user.profile,
     role: user.role,
     authProvider: user.authProvider,
     mfaEnabled: user.mfaEnabled,

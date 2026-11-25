@@ -13,6 +13,8 @@ const initialValues = {
   email: "",
   firstName: "",
   lastName: "",
+  phone: "",
+  profile: "",
   role: "editor",
   authProvider: "local",
   password: "",
@@ -114,6 +116,15 @@ export default function AdminUserForm() {
               <input value={values.lastName} onChange={(e) => setValue("lastName", e.target.value)} />
             </label>
             <label>
+              Phone (optional)
+              <input
+                type="tel"
+                value={values.phone}
+                onChange={(e) => setValue("phone", e.target.value)}
+                maxLength={40}
+              />
+            </label>
+            <label>
               Role
               <select value={values.role} onChange={(e) => setValue("role", e.target.value)}>
                 <option value="admin">Admin</option>
@@ -123,6 +134,17 @@ export default function AdminUserForm() {
               </select>
             </label>
           </div>
+
+          <label style={{ display: "block", marginTop: "1rem" }}>
+            About them (optional)
+            <textarea
+              rows={2}
+              value={values.profile}
+              maxLength={1000}
+              placeholder="How they help, or when they are easiest to reach"
+              onChange={(e) => setValue("profile", e.target.value)}
+            />
+          </label>
 
           {values.role === "guest" && (
             <div style={{ marginTop: "1rem" }}>
