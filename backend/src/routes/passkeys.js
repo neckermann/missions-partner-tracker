@@ -14,6 +14,7 @@ const { setSessionCookie } = require("../utils/jwt");
 const { recordAuditSafe } = require("../utils/auditLog");
 const { isTwoFactorRequired } = require("../utils/twoFactor");
 const { isPasswordlessOn } = require("../utils/passwordless");
+const { isDemoDeployment } = require("../utils/demoMode");
 const {
   MAX_PASSKEYS,
   relyingParty,
@@ -27,6 +28,15 @@ const {
 // which hands over its `completeLogin` so a passkey sign-in ends exactly as a code sign-in does.
 module.exports = function passkeyRoutes({ completeLogin }) {
   const router = express.Router();
+
+  // The public demo shares its logins: a passkey added there would make every visitor's sign-in ask
+  // for it. So passkeys can't be added on a demo (#386), and the list says so.
+  const refuseOnDemo = (req, res, next) => {
+    if (isDemoDeployment()) {
+      return res.status(403).json({ error: "Passkeys are turned off on the public demo" });
+    }
+    next();
+  };
 
   const publicPasskey = (p) => ({
     id: p.id,
@@ -42,7 +52,7 @@ module.exports = function passkeyRoutes({ completeLogin }) {
         where: { userId: req.user.id },
         orderBy: { createdAt: "asc" },
       });
-      res.json({ passkeys: rows.map(publicPasskey), max: MAX_PASSKEYS });
+      res.json({ passkeys: rows.map(publicPasskey), max: MAX_PASSKEYS, demo: isDemoDeployment() });
     } catch (err) {
       next(err);
     }
@@ -52,7 +62,7 @@ module.exports = function passkeyRoutes({ completeLogin }) {
   // A session, or the forced-enrolment setup token (a person the church requires two-factor of
   // who has none yet): in that case finishing also signs them in, like a verified code does.
 
-  router.post("/register/options", requireAuthOrMfaSetup, async (req, res, next) => {
+  router.post("/register/options", refuseOnDemo, requireAuthOrMfaSetup, async (req, res, next) => {
     try {
       const user = await prisma.user.findUnique({
         where: { id: req.user.id },
@@ -95,7 +105,7 @@ module.exports = function passkeyRoutes({ completeLogin }) {
     label: z.string().trim().max(60).optional(),
   });
 
-  router.post("/register/verify", requireAuthOrMfaSetup, async (req, res, next) => {
+  router.post("/register/verify", refuseOnDemo, requireAuthOrMfaSetup, async (req, res, next) => {
     try {
       const body = registerSchema.parse(req.body);
       const user = await prisma.user.findUnique({

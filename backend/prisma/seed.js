@@ -3425,6 +3425,29 @@ async function seedTripDebriefsDemo() {
       data: { ...debriefs[i % debriefs.length], wrappedUpAt: wrapped },
     });
   }
+
+  // One trip that has finished but isn't wrapped up, so the "Trips ready to wrap up" bell item has
+  // something to show and a visitor can walk the Wrap up trip wizard themselves (#358).
+  const host = await prisma.trip.findFirst({
+    where: { partnerId: { not: null }, status: "completed" },
+    orderBy: { id: "asc" },
+    select: { partnerId: true, partner: { select: { displayName: true } } },
+  });
+  if (host?.partnerId) {
+    const day = 86400000;
+    await prisma.trip.create({
+      data: {
+        partnerId: host.partnerId,
+        name: `${host.partner.displayName.split(" ")[0]}'s Harvest Week team`,
+        status: "closed",
+        type: "Construction",
+        description: "A short team that has just come home. Try Wrap up trip on it.",
+        startDate: new Date(Date.now() - 12 * day),
+        endDate: new Date(Date.now() - 4 * day),
+        teamSizeMax: 6,
+      },
+    });
+  }
 }
 
 // ---------------------------------------------------------------------

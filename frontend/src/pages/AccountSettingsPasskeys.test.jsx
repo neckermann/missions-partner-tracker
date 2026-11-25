@@ -110,6 +110,14 @@ describe("Passkeys on My account", () => {
     expect(await screen.findByText(/can't create passkeys/)).toBeInTheDocument();
   });
 
+  test("on the public demo it says passkeys are off and offers no add form", async () => {
+    client.fetchCurrentUser.mockResolvedValue(user());
+    client.fetchPasskeys.mockResolvedValue({ passkeys: [], max: 5, demo: true });
+    render(<AccountSettings />);
+    expect(await screen.findByText(/turned off on the public demo/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add a passkey" })).not.toBeInTheDocument();
+  });
+
   test("with only passkeys, Two-Factor says so and offers no authenticator-app switch-off", async () => {
     client.fetchCurrentUser.mockResolvedValue(user({ mfaEnabled: true, passkeyCount: 1 }));
     client.fetchPasskeys.mockResolvedValue({ passkeys: [passkey()], max: 5 });
