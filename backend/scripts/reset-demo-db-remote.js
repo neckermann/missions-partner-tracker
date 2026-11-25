@@ -1,60 +1,34 @@
-// Runs scripts/reset-demo-data.js's resetDemoData() against the LIVE demo
-// Postgres on Render, from a local machine, instead of running it as a
-// one-off command on the Render service itself. Needed specifically after
-// a migration squash: a squash replaces the migration folder(s) on disk
-// with a new name/content that the live demo's own _prisma_migrations
-// table has no record of, so Render's own `preDeployCommand` (`prisma
-// migrate deploy`) fails with P3018 ("relation already exists") the
-// moment the new code tries to deploy -- deploy and migration are coupled
-// there, so there's no way to fix it from Render's own pipeline once it's
-// already wedged. Running the reset here first (which does a real
-// `migrate reset --force`, dropping and recreating from the new squashed
-// migration) clears that mismatch, so the *next* deploy's `migrate
-// deploy` finds the migration already applied and no-ops through it.
+// Runs scripts/reset-demo-data.js's resetDemoData() against the LIVE demo Postgres on Render,
+// from a local machine. Needed after a migration squash: the squash replaces the migration
+// folder with one the live _prisma_migrations table has no record of, so Render's
+// preDeployCommand (`prisma migrate deploy`) fails with P3018 and the deploy is wedged. Running
+// a real `migrate reset --force` here recreates from the squashed migration, so the next
+// deploy's `migrate deploy` no-ops.
 //
-// Two things this needs that `npm run demo:reset` (same script, run via
-// a Render shell or the admin's own reset route) doesn't:
-//
-// 1. DEMO_DATABASE_URL, not DATABASE_URL -- this repo's own .env has no
-//    bare DATABASE_URL at all (Render injects that directly on the
-//    service; there's nothing to point it at locally), so this script
-//    remaps DEMO_DATABASE_URL into DATABASE_URL before requiring
-//    reset-demo-data.js, which reads it via prismaClient.js as usual.
-//
-// 2. `?sslmode=require` appended to that URL. prismaClient.js's own
-//    parseDatabaseUrl() only turns TLS on when the connection string's
-//    sslmode query param is literally "require" -- a bare Render
-//    external connection string has no query string at all, so without
-//    this the @prisma/adapter-pg path connects with no TLS and fails
-//    with P1017 ConnectionClosed on every real query (migrate's own CLI
-//    connection logic tolerates the bare string fine, which is why this
-//    is easy to miss -- `migrate reset` succeeds, then the very next
-//    step, createAdmin.js's own prisma.user.upsert, fails).
+// What this needs beyond `npm run demo:reset`:
+// 1. DEMO_DATABASE_URL, not DATABASE_URL (this repo's .env has no bare DATABASE_URL; Render
+// injects it on the service). It is remapped into DATABASE_URL before requiring
+// reset-demo-data.js.
+// 2. `?sslmode=require` appended to that URL. prismaClient.js's parseDatabaseUrl() turns TLS on
+// only when sslmode is literally "require", and without it the @prisma/adapter-pg path fails
+// with P1017 on every query (`migrate reset` itself tolerates the bare string, which hides this
+// until createAdmin.js's first upsert).
 //
 // Usage: node scripts/reset-demo-db-remote.js
-// Requires the same env vars reset-demo-data.js itself needs
-// (DEMO_ADMIN_EMAIL/PASSWORD, GROUPME_*/POSTMARK_*/etc. for restoring
-// integrations) -- these live in demo/.env at the repo root (gitignored,
-// real secrets), not backend/.env (this app's own generic local-dev
-// config), since they're specific to operating the one live demo
-// instance, not to running this app at all. Loaded explicitly below by
-// path rather than relying on dotenv's cwd-relative default, so this
-// works the same regardless of where it's invoked from.
+// Needs the env vars reset-demo-data.js needs (DEMO_ADMIN_EMAIL/PASSWORD, GROUPME_*/POSTMARK_*,
+// etc.), which live in demo/.env at the repo root (gitignored), not backend/.env. They are
+// loaded by explicit path, so cwd doesn't matter.
 //
-// Prisma's own AI-agent safety guard additionally requires
-// PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION to be set, to the exact
-// verbatim text of the user's own most recent message consenting to this
-// specific destructive action against this specific database -- that is
-// deliberately NOT hardcoded here (a script that supplied its own
-// canned consent would defeat the point of the guard); set it in the
-// shell invocation each time this is actually run, e.g.:
+// Prisma's AI-agent safety guard also requires PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION, set
+// to the verbatim text of the user's own latest message consenting to this destructive action on
+// this database. It is deliberately not hardcoded (a canned consent would defeat the guard); set
+// it per run:
 //
-//   PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION="<their message>" node scripts/reset-demo-db-remote.js
+//   PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION="<their message>" node
+// scripts/reset-demo-db-remote.js
 //
-// Keep this script around (not a *.tmp.* throwaway) until 1.0.0 ships --
-// the demo's migration history still gets squashed on every schema
-// change until then (see the "pre-1.0 migration squashing" convention),
-// and this is the fastest way to recover the live demo DB each time.
+// Keep this script until 1.0.0: migrations are squashed on every schema change until then
+// (SPEC.md § 8.3), and this is the fastest way to recover the live demo DB.
 require("dotenv").config({ path: require("path").join(__dirname, "../../demo/.env"), quiet: true });
 
 const demoUrl = process.env.DEMO_DATABASE_URL;
