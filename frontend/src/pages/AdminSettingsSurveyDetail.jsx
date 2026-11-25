@@ -238,6 +238,359 @@ export default function AdminSettingsSurveyDetail() {
       return next;
     });
 
+  const sectionDetails = (
+    <div className="admin-section-group" key="details">
+      <h2 className="admin-group-heading">Details</h2>
+      <div className="admin-section">
+        <label>
+          Title
+          <input value={details.title} onChange={(e) => setDetails({ ...details, title: e.target.value })} />
+        </label>
+        <label>
+          Introduction (shown to the partner, and in the email)
+          <textarea
+            rows={3}
+            value={details.intro}
+            onChange={(e) => setDetails({ ...details, intro: e.target.value })}
+          />
+        </label>
+        <label>
+          Closes on (optional)
+          <input
+            type="date"
+            value={details.closesAt}
+            onChange={(e) => setDetails({ ...details, closesAt: e.target.value })}
+          />
+        </label>
+        <button type="button" className="btn" onClick={saveDetails} disabled={!details.title.trim()}>
+          Save details
+        </button>
+      </div>
+    </div>
+  );
+
+  const sectionQuestions = (
+    <div className="admin-section-group" key="questions">
+      <h2 className="admin-group-heading">Questions</h2>
+      <div className="admin-section">
+        {draft.length === 0 && <p style={{ color: "var(--muted)" }}>No questions yet.</p>}
+        {draft.map((q, i) => (
+          <div key={q.key} className="survey-question-row">
+            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+              <select
+                aria-label={`Kind of question ${i + 1}`}
+                value={q.kind}
+                onChange={(e) => patchQ(q.key, { kind: e.target.value, field: "" })}
+              >
+                {KINDS.map((k) => (
+                  <option key={k.value} value={k.value}>
+                    {k.label}
+                  </option>
+                ))}
+              </select>
+              <input
+                style={{ flex: 1, minWidth: "12rem" }}
+                aria-label={`Question ${i + 1}`}
+                placeholder="The question"
+                value={q.label}
+                onChange={(e) => patchQ(q.key, { label: e.target.value })}
+              />
+            </div>
+            {(q.kind === "single" || q.kind === "multiple") && (
+              <>
+                <textarea
+                  rows={3}
+                  aria-label={`Choices for question ${i + 1}`}
+                  placeholder="One choice per line"
+                  value={q.choicesText}
+                  onChange={(e) => patchQ(q.key, { choicesText: e.target.value })}
+                />
+                <label style={choiceRowStyle}>
+                  <input
+                    style={choiceInputStyle}
+                    type="checkbox"
+                    checked={q.allowOther}
+                    onChange={(e) => patchQ(q.key, { allowOther: e.target.checked })}
+                  />
+                  <span>Offer a “something else” box</span>
+                </label>
+              </>
+            )}
+            {(q.kind === "text" || q.kind === "single" || q.kind === "photo") && (
+              <label>
+                {q.kind === "photo"
+                  ? "A photo sent this way waits for you to approve it before it is added to their photos."
+                  : "Suggest a change to their record (staff approve it first)"}
+                {q.kind !== "photo" && (
+                  <select
+                    aria-label={`Part of the record for question ${i + 1}`}
+                    value={q.field}
+                    onChange={(e) => patchQ(q.key, { field: e.target.value })}
+                  >
+                    <option value="">Just keep the answer</option>
+                    {fields
+                      .filter((f) => f.kinds.includes(q.kind))
+                      .map((f) => (
+                        <option key={f.key} value={f.key}>
+                          Update: {f.label}
+                        </option>
+                      ))}
+                  </select>
+                )}
+              </label>
+            )}
+            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", alignItems: "center" }}>
+              <label style={choiceRowStyle}>
+                <input
+                  style={choiceInputStyle}
+                  type="checkbox"
+                  checked={q.required}
+                  onChange={(e) => patchQ(q.key, { required: e.target.checked })}
+                />
+                <span>Required</span>
+              </label>
+              <button
+                type="button"
+                className="btn secondary small"
+                disabled={i === 0}
+                onClick={() => moveQ(i, -1)}
+              >
+                Move up
+              </button>
+              <button
+                type="button"
+                className="btn secondary small"
+                disabled={i === draft.length - 1}
+                onClick={() => moveQ(i, 1)}
+              >
+                Move down
+              </button>
+              <button
+                type="button"
+                className="btn danger small"
+                onClick={() => setDraft((d) => d.filter((x) => x.key !== q.key))}
+              >
+                Remove
+              </button>
+            </div>
+          </div>
+        ))}
+        <div style={{ display: "flex", gap: "0.5rem" }}>
+          <button
+            type="button"
+            className="btn secondary"
+            onClick={() => setDraft((d) => [...d, blankQuestion()])}
+          >
+            + Add question
+          </button>
+          <button
+            type="button"
+            className="btn"
+            onClick={saveQuestions}
+            disabled={draft.some((q) => !q.label.trim())}
+          >
+            Save questions
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  const sectionSend = (
+    <div className="admin-section-group" key="send">
+      <h2 className="admin-group-heading">Send</h2>
+      <div className="admin-section">
+        {!isOpen ? (
+          <p style={{ color: "var(--muted)" }}>
+            Open the survey to send it. A person starts every send; nothing is emailed automatically.
+          </p>
+        ) : (
+          <>
+            {!emailOn && (
+              <p role="note" style={{ marginTop: 0, color: "var(--muted)" }}>
+                Email (Sending) is off, so links can&apos;t be emailed from here. Use{" "}
+                <strong>Get link</strong> beside a partner to copy their personal link and send it yourself (a
+                text, WhatsApp, or your own email), or turn on Email (Sending) in Settings → Enabled Features.
+              </p>
+            )}
+            <p style={{ color: "var(--muted)", marginTop: 0 }}>
+              Choose who to send a personal link to. Partners the app may not email (restricted, or marked not
+              to be contacted directly) or with no address can&apos;t be picked; fill the survey in for them
+              from their page instead.
+            </p>
+            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "0.5rem" }}>
+              <button
+                type="button"
+                className="btn secondary small"
+                onClick={() =>
+                  setChosen(
+                    new Set(
+                      recipients
+                        .filter((r) => r.canEmail && r.state === "not invited")
+                        .map((r) => r.partnerId)
+                    )
+                  )
+                }
+              >
+                Select everyone not yet sent
+              </button>
+              <button
+                type="button"
+                className="btn secondary small"
+                onClick={() =>
+                  setChosen(
+                    new Set(
+                      recipients.filter((r) => r.canEmail && r.state === "invited").map((r) => r.partnerId)
+                    )
+                  )
+                }
+              >
+                Select those still waiting
+              </button>
+              <button
+                type="button"
+                className="btn secondary small"
+                onClick={() =>
+                  setChosen(
+                    new Set(shown.filter((r) => r.canEmail && r.state !== "answered").map((r) => r.partnerId))
+                  )
+                }
+              >
+                Select all {search ? "shown" : "who can be emailed"}
+              </button>
+              <button type="button" className="btn secondary small" onClick={() => setChosen(new Set())}>
+                Clear
+              </button>
+            </div>
+            <input
+              type="search"
+              aria-label="Find a partner"
+              placeholder="Find a partner…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              style={{ marginBottom: "0.5rem" }}
+            />
+            <div className="survey-recipients">
+              {shown.length === 0 && <p style={{ color: "var(--muted)", margin: 0 }}>No partners match.</p>}
+              {shown.map((r) => (
+                <div
+                  key={r.partnerId}
+                  style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}
+                >
+                  <label style={{ ...choiceRowStyle, flex: 1, minWidth: "12rem" }}>
+                    <input
+                      style={choiceInputStyle}
+                      type="checkbox"
+                      disabled={!r.canEmail || r.state === "answered"}
+                      checked={chosen.has(r.partnerId)}
+                      onChange={() => toggle(r.partnerId)}
+                    />
+                    <span>
+                      {r.name}{" "}
+                      <span style={{ color: "var(--muted)" }}>
+                        · {r.state}
+                        {r.sentAt ? ` ${formatDate(r.sentAt)}` : ""}
+                        {!r.canEmail ? ` · can't email (${r.blockedReason})` : ""}
+                      </span>
+                    </span>
+                  </label>
+                  {r.canLink && r.state !== "answered" && (
+                    <button type="button" className="btn secondary small" onClick={() => getLink(r)}>
+                      Get link
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+            {linkInfo && (
+              <div className="admin-section" style={{ marginTop: "0.75rem" }}>
+                <strong>Link for {linkInfo.name}</strong>
+                <p style={{ color: "var(--muted)", margin: "0.25rem 0" }}>
+                  Nothing was emailed. Open it to try the survey as them, or send it to them yourself. It
+                  works until {formatDate(linkInfo.expiresAt)}, and an earlier link for them stops working.
+                </p>
+                <input
+                  readOnly
+                  value={linkInfo.url}
+                  aria-label="Survey link"
+                  onFocus={(e) => e.target.select()}
+                />
+                <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem" }}>
+                  <button type="button" className="btn small" onClick={copyLink}>
+                    Copy link
+                  </button>
+                  <a className="btn secondary small" href={linkInfo.url} target="_blank" rel="noreferrer">
+                    Open it
+                  </a>
+                </div>
+              </div>
+            )}
+            <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.75rem" }}>
+              <button
+                type="button"
+                className="btn"
+                disabled={!emailOn || chosen.size === 0}
+                onClick={() => send(false)}
+              >
+                Send to {chosen.size}
+              </button>
+              <button
+                type="button"
+                className="btn secondary"
+                disabled={!emailOn || chosen.size === 0}
+                onClick={() => send(true)}
+              >
+                Send as a reminder
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+
+  const sectionAnswers = (
+    <div className="admin-section-group" key="answers">
+      <h2 className="admin-group-heading">Answers</h2>
+      {results.responses.length === 0 && <p style={{ color: "var(--muted)" }}>No answers yet.</p>}
+      {results.responses.map((r) => (
+        <div key={r.id} className="admin-section">
+          <div style={{ display: "flex", justifyContent: "space-between", gap: "0.5rem", flexWrap: "wrap" }}>
+            <h3 style={{ margin: 0 }}>
+              <Link to={`/admin/partners/${r.partner.id}`}>{r.partner.displayName}</Link>
+            </h3>
+            <span style={{ color: "var(--muted)" }}>
+              {r.submittedAt ? `Answered ${formatDate(r.submittedAt)}` : "Saved, not finished"}
+              {r.enteredByName ? ` · entered by ${r.enteredByName}` : ""}
+            </span>
+          </div>
+          <dl style={{ margin: "0.5rem 0 0" }}>
+            {r.answers.map((a) => (
+              <div key={a.id} style={{ marginBottom: "0.4rem" }}>
+                <dt style={{ color: "var(--muted)", fontSize: "0.9rem" }}>{a.label}</dt>
+                <dd style={{ margin: 0 }}>{describeSavedAnswer(a) || "—"}</dd>
+              </div>
+            ))}
+          </dl>
+          {r.submittedAt && (
+            <button
+              type="button"
+              className="btn secondary small"
+              onClick={() =>
+                act(
+                  () => reopenSurveyResponse(id, r.partner.id),
+                  "Reopened. They can change their answers again."
+                )
+              }
+            >
+              Reopen
+            </button>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+
   return (
     <div className="admin-shell">
       <Breadcrumb
@@ -298,358 +651,14 @@ export default function AdminSettingsSurveyDetail() {
         ]}
       />
 
-      <div className="admin-section-group">
-        <h2 className="admin-group-heading">Details</h2>
-        <div className="admin-section">
-          <label>
-            Title
-            <input
-              value={details.title}
-              onChange={(e) => setDetails({ ...details, title: e.target.value })}
-            />
-          </label>
-          <label>
-            Introduction (shown to the partner, and in the email)
-            <textarea
-              rows={3}
-              value={details.intro}
-              onChange={(e) => setDetails({ ...details, intro: e.target.value })}
-            />
-          </label>
-          <label>
-            Closes on (optional)
-            <input
-              type="date"
-              value={details.closesAt}
-              onChange={(e) => setDetails({ ...details, closesAt: e.target.value })}
-            />
-          </label>
-          <button type="button" className="btn" onClick={saveDetails} disabled={!details.title.trim()}>
-            Save details
-          </button>
-        </div>
-      </div>
-
-      <div className="admin-section-group">
-        <h2 className="admin-group-heading">Questions</h2>
-        <div className="admin-section">
-          {draft.length === 0 && <p style={{ color: "var(--muted)" }}>No questions yet.</p>}
-          {draft.map((q, i) => (
-            <div key={q.key} className="survey-question-row">
-              <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-                <select
-                  aria-label={`Kind of question ${i + 1}`}
-                  value={q.kind}
-                  onChange={(e) => patchQ(q.key, { kind: e.target.value, field: "" })}
-                >
-                  {KINDS.map((k) => (
-                    <option key={k.value} value={k.value}>
-                      {k.label}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  style={{ flex: 1, minWidth: "12rem" }}
-                  aria-label={`Question ${i + 1}`}
-                  placeholder="The question"
-                  value={q.label}
-                  onChange={(e) => patchQ(q.key, { label: e.target.value })}
-                />
-              </div>
-              {(q.kind === "single" || q.kind === "multiple") && (
-                <>
-                  <textarea
-                    rows={3}
-                    aria-label={`Choices for question ${i + 1}`}
-                    placeholder="One choice per line"
-                    value={q.choicesText}
-                    onChange={(e) => patchQ(q.key, { choicesText: e.target.value })}
-                  />
-                  <label style={choiceRowStyle}>
-                    <input
-                      style={choiceInputStyle}
-                      type="checkbox"
-                      checked={q.allowOther}
-                      onChange={(e) => patchQ(q.key, { allowOther: e.target.checked })}
-                    />
-                    <span>Offer a “something else” box</span>
-                  </label>
-                </>
-              )}
-              {(q.kind === "text" || q.kind === "single" || q.kind === "photo") && (
-                <label>
-                  {q.kind === "photo"
-                    ? "A photo sent this way waits for you to approve it before it is added to their photos."
-                    : "Suggest a change to their record (staff approve it first)"}
-                  {q.kind !== "photo" && (
-                    <select
-                      aria-label={`Part of the record for question ${i + 1}`}
-                      value={q.field}
-                      onChange={(e) => patchQ(q.key, { field: e.target.value })}
-                    >
-                      <option value="">Just keep the answer</option>
-                      {fields
-                        .filter((f) => f.kinds.includes(q.kind))
-                        .map((f) => (
-                          <option key={f.key} value={f.key}>
-                            Update: {f.label}
-                          </option>
-                        ))}
-                    </select>
-                  )}
-                </label>
-              )}
-              <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", alignItems: "center" }}>
-                <label style={choiceRowStyle}>
-                  <input
-                    style={choiceInputStyle}
-                    type="checkbox"
-                    checked={q.required}
-                    onChange={(e) => patchQ(q.key, { required: e.target.checked })}
-                  />
-                  <span>Required</span>
-                </label>
-                <button
-                  type="button"
-                  className="btn secondary small"
-                  disabled={i === 0}
-                  onClick={() => moveQ(i, -1)}
-                >
-                  Move up
-                </button>
-                <button
-                  type="button"
-                  className="btn secondary small"
-                  disabled={i === draft.length - 1}
-                  onClick={() => moveQ(i, 1)}
-                >
-                  Move down
-                </button>
-                <button
-                  type="button"
-                  className="btn danger small"
-                  onClick={() => setDraft((d) => d.filter((x) => x.key !== q.key))}
-                >
-                  Remove
-                </button>
-              </div>
-            </div>
-          ))}
-          <div style={{ display: "flex", gap: "0.5rem" }}>
-            <button
-              type="button"
-              className="btn secondary"
-              onClick={() => setDraft((d) => [...d, blankQuestion()])}
-            >
-              + Add question
-            </button>
-            <button
-              type="button"
-              className="btn"
-              onClick={saveQuestions}
-              disabled={draft.some((q) => !q.label.trim())}
-            >
-              Save questions
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div className="admin-section-group">
-        <h2 className="admin-group-heading">Send</h2>
-        <div className="admin-section">
-          {!isOpen ? (
-            <p style={{ color: "var(--muted)" }}>
-              Open the survey to send it. A person starts every send; nothing is emailed automatically.
-            </p>
-          ) : (
-            <>
-              {!emailOn && (
-                <p role="note" style={{ marginTop: 0, color: "var(--muted)" }}>
-                  Email (Sending) is off, so links can&apos;t be emailed from here. Use{" "}
-                  <strong>Get link</strong> beside a partner to copy their personal link and send it yourself
-                  (a text, WhatsApp, or your own email), or turn on Email (Sending) in Settings → Enabled
-                  Features.
-                </p>
-              )}
-              <p style={{ color: "var(--muted)", marginTop: 0 }}>
-                Choose who to send a personal link to. Partners the app may not email (restricted, or marked
-                not to be contacted directly) or with no address can&apos;t be picked; fill the survey in for
-                them from their page instead.
-              </p>
-              <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "0.5rem" }}>
-                <button
-                  type="button"
-                  className="btn secondary small"
-                  onClick={() =>
-                    setChosen(
-                      new Set(
-                        recipients
-                          .filter((r) => r.canEmail && r.state === "not invited")
-                          .map((r) => r.partnerId)
-                      )
-                    )
-                  }
-                >
-                  Select everyone not yet sent
-                </button>
-                <button
-                  type="button"
-                  className="btn secondary small"
-                  onClick={() =>
-                    setChosen(
-                      new Set(
-                        recipients.filter((r) => r.canEmail && r.state === "invited").map((r) => r.partnerId)
-                      )
-                    )
-                  }
-                >
-                  Select those still waiting
-                </button>
-                <button
-                  type="button"
-                  className="btn secondary small"
-                  onClick={() =>
-                    setChosen(
-                      new Set(
-                        shown.filter((r) => r.canEmail && r.state !== "answered").map((r) => r.partnerId)
-                      )
-                    )
-                  }
-                >
-                  Select all {search ? "shown" : "who can be emailed"}
-                </button>
-                <button type="button" className="btn secondary small" onClick={() => setChosen(new Set())}>
-                  Clear
-                </button>
-              </div>
-              <input
-                type="search"
-                aria-label="Find a partner"
-                placeholder="Find a partner…"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                style={{ marginBottom: "0.5rem" }}
-              />
-              <div className="survey-recipients">
-                {shown.length === 0 && <p style={{ color: "var(--muted)", margin: 0 }}>No partners match.</p>}
-                {shown.map((r) => (
-                  <div
-                    key={r.partnerId}
-                    style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}
-                  >
-                    <label style={{ ...choiceRowStyle, flex: 1, minWidth: "12rem" }}>
-                      <input
-                        style={choiceInputStyle}
-                        type="checkbox"
-                        disabled={!r.canEmail || r.state === "answered"}
-                        checked={chosen.has(r.partnerId)}
-                        onChange={() => toggle(r.partnerId)}
-                      />
-                      <span>
-                        {r.name}{" "}
-                        <span style={{ color: "var(--muted)" }}>
-                          · {r.state}
-                          {r.sentAt ? ` ${formatDate(r.sentAt)}` : ""}
-                          {!r.canEmail ? ` · can't email (${r.blockedReason})` : ""}
-                        </span>
-                      </span>
-                    </label>
-                    {r.canLink && r.state !== "answered" && (
-                      <button type="button" className="btn secondary small" onClick={() => getLink(r)}>
-                        Get link
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-              {linkInfo && (
-                <div className="admin-section" style={{ marginTop: "0.75rem" }}>
-                  <strong>Link for {linkInfo.name}</strong>
-                  <p style={{ color: "var(--muted)", margin: "0.25rem 0" }}>
-                    Nothing was emailed. Open it to try the survey as them, or send it to them yourself. It
-                    works until {formatDate(linkInfo.expiresAt)}, and an earlier link for them stops working.
-                  </p>
-                  <input
-                    readOnly
-                    value={linkInfo.url}
-                    aria-label="Survey link"
-                    onFocus={(e) => e.target.select()}
-                  />
-                  <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem" }}>
-                    <button type="button" className="btn small" onClick={copyLink}>
-                      Copy link
-                    </button>
-                    <a className="btn secondary small" href={linkInfo.url} target="_blank" rel="noreferrer">
-                      Open it
-                    </a>
-                  </div>
-                </div>
-              )}
-              <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.75rem" }}>
-                <button
-                  type="button"
-                  className="btn"
-                  disabled={!emailOn || chosen.size === 0}
-                  onClick={() => send(false)}
-                >
-                  Send to {chosen.size}
-                </button>
-                <button
-                  type="button"
-                  className="btn secondary"
-                  disabled={!emailOn || chosen.size === 0}
-                  onClick={() => send(true)}
-                >
-                  Send as a reminder
-                </button>
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-
-      <div className="admin-section-group">
-        <h2 className="admin-group-heading">Answers</h2>
-        {results.responses.length === 0 && <p style={{ color: "var(--muted)" }}>No answers yet.</p>}
-        {results.responses.map((r) => (
-          <div key={r.id} className="admin-section">
-            <div
-              style={{ display: "flex", justifyContent: "space-between", gap: "0.5rem", flexWrap: "wrap" }}
-            >
-              <h3 style={{ margin: 0 }}>
-                <Link to={`/admin/partners/${r.partner.id}`}>{r.partner.displayName}</Link>
-              </h3>
-              <span style={{ color: "var(--muted)" }}>
-                {r.submittedAt ? `Answered ${formatDate(r.submittedAt)}` : "Saved, not finished"}
-                {r.enteredByName ? ` · entered by ${r.enteredByName}` : ""}
-              </span>
-            </div>
-            <dl style={{ margin: "0.5rem 0 0" }}>
-              {r.answers.map((a) => (
-                <div key={a.id} style={{ marginBottom: "0.4rem" }}>
-                  <dt style={{ color: "var(--muted)", fontSize: "0.9rem" }}>{a.label}</dt>
-                  <dd style={{ margin: 0 }}>{describeSavedAnswer(a) || "—"}</dd>
-                </div>
-              ))}
-            </dl>
-            {r.submittedAt && (
-              <button
-                type="button"
-                className="btn secondary small"
-                onClick={() =>
-                  act(
-                    () => reopenSurveyResponse(id, r.partner.id),
-                    "Reopened. They can change their answers again."
-                  )
-                }
-              >
-                Reopen
-              </button>
-            )}
-          </div>
-        ))}
-      </div>
+      {/* The order follows what a person is doing: building a draft, sending an open survey and
+          reading what comes back, or reading the answers to a closed one. The question list is long,
+          so it sits below whatever they came for once the survey is out. */}
+      {survey.status === "draft"
+        ? [sectionDetails, sectionQuestions, sectionSend]
+        : isOpen
+          ? [sectionSend, sectionAnswers, sectionQuestions, sectionDetails]
+          : [sectionAnswers, sectionQuestions, sectionDetails]}
       {confirmElement}
     </div>
   );
