@@ -12,6 +12,8 @@ const { isFeatureEnabled } = require("../utils/features");
 const { getSettings } = require("../utils/publicTripShared");
 const { isMinorForTrip } = require("../utils/tripParticipantSchema");
 
+const { loadApplicantQuestions, answerRows } = require("../utils/tripTemplates");
+
 const router = express.Router();
 
 // #327 Finding 4: every string here was unbounded and responses was an
@@ -148,7 +150,8 @@ async function createApplication(trip, settings, body, res) {
       emergencyContactLastName: data.emergencyContactLastName || null,
       emergencyContactPhone: data.emergencyContactPhone || null,
       emergencyContactEmail: data.emergencyContactEmail || null,
-      responses: data.responses || {},
+      // #394: each answer is its own row, kept with the question's wording at the time.
+      answers: { create: answerRows(await loadApplicantQuestions(trip.id), data.responses) },
     },
   });
   res.status(201).json({ submitted: true });

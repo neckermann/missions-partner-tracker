@@ -17,15 +17,14 @@ const prisma = require("../prismaClient");
 const { requireFeature } = require("../middleware/requireFeature");
 const { isFeatureEnabled } = require("../utils/features");
 const { getSettings, partnerFieldLabel, tripPartnerSelect } = require("../utils/publicTripShared");
+const { loadApplicantQuestions } = require("../utils/tripTemplates");
 
 const router = express.Router();
 
-// `template` is the church-wide ChurchSettings.tripApplicationTemplate --
-// rendered first, with this trip's own applicationQuestions layered after.
-// One combined, ordered list on the actual form; TripApplication.responses
-// stays keyed by question id regardless of which layer it came from, so
-// nothing downstream needs to know the difference.
-function shapeTripForApplicant(trip, settings) {
+// `questions` is the church-wide application questions first, with this trip's own layered
+// after (loadApplicantQuestions): one combined, ordered list on the actual form. An answer is
+// keyed by question id whichever layer it came from, so nothing downstream needs to know.
+function shapeTripForApplicant(trip, settings, questions) {
   return {
     id: trip.id,
     name: trip.name,
@@ -35,10 +34,7 @@ function shapeTripForApplicant(trip, settings) {
     endDate: trip.endDate,
     fieldDisplayName: partnerFieldLabel(trip.partner, settings),
     isRestricted: !!trip.partner?.isRestricted,
-    applicationQuestions: [
-      ...(settings?.tripApplicationTemplate || []),
-      ...(trip.applicationQuestions || []),
-    ],
+    applicationQuestions: questions,
     // Tells the public form whether to render the structured mailing-
     // address block at all -- see ChurchSettings.collectApplicantAddress's
     // own schema comment.
@@ -128,7 +124,6 @@ router.get("/:id", requireFeature("trips"), async (req, res, next) => {
         endDate: true,
         status: true,
         isPublic: true,
-        applicationQuestions: true,
         ...tripPartnerSelect,
       },
     });
@@ -137,7 +132,7 @@ router.get("/:id", requireFeature("trips"), async (req, res, next) => {
     if (!publiclyDiscoverable || !trip.isPublic || trip.status !== "accepting_applications") {
       return res.status(404).json({ error: "Not found" });
     }
-    res.json(shapeTripForApplicant(trip, settings));
+    res.json(shapeTripForApplicant(trip, settings, await loadApplicantQuestions(trip.id)));
   } catch (err) {
     next(err);
   }
@@ -161,14 +156,13 @@ router.get("/by-token/:token", requireFeature("trips"), async (req, res, next) =
         startDate: true,
         endDate: true,
         status: true,
-        applicationQuestions: true,
         ...tripPartnerSelect,
       },
     });
     if (!trip || trip.status !== "accepting_applications") {
       return res.status(404).json({ error: "Not found" });
     }
-    res.json(shapeTripForApplicant(trip, settings));
+    res.json(shapeTripForApplicant(trip, settings, await loadApplicantQuestions(trip.id)));
   } catch (err) {
     next(err);
   }

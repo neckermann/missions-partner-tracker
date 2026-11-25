@@ -343,10 +343,9 @@ model Trip {
   // ChurchSettings.allowPrivateApplicationLinks is on.
   applicationShareToken String? @unique
 
-  // An admin-defined, ordered list of plain free-text-answer questions
-  // specific to this trip -- [{ id, label, required }]. Never a fixed
-  // hardcoded starter set (CONTRIBUTING.md's "keep forks upgradable").
-  applicationQuestions Json?
+  // The questions this trip asks on its application, after the church-wide ones: real rows
+  // (ApplicationQuestion, scope "trip") in the admin's order (#394).
+  applicationQuestions ApplicationQuestion[]
 
   // External album link only -- never in-app file storage (see #130).
   // albumProvider is app-validated in trips.js, not a DB enum, matching
@@ -536,10 +535,9 @@ model TripParticipantPhoto {
 }
 
 // A submitted application to a Trip whose status is accepting_applications.
-// responses is keyed by each question's id from that trip's own
-// applicationQuestions -- { "<id>": "<answer text>" } -- since the
-// question set itself is per-trip and admin-defined, not a fixed schema
-// this app could widen a column for.
+// The answers are real rows (TripApplicationAnswer), one per question answered, each keeping the
+// question's wording as it was asked, so editing or deleting a question later never leaves an old
+// answer unlabelled (#394).
 model TripApplication {
   id     String @id @default(uuid())
   tripId String
@@ -550,8 +548,8 @@ model TripApplication {
   email     String
   phone     String?
 
-  status    String @default("pending") // "pending" | "approved" | "declined" | "withdrawn" -- tripFieldVisibility: intentionally admin-invisible on the participant page specifically, since every application reachable from an approved participant is, by construction, always "approved"; the pending-review list is where this status actually matters and does show it
-  responses Json?
+  status  String                  @default("pending") // "pending" | "approved" | "declined" | "withdrawn" -- tripFieldVisibility: intentionally admin-invisible on the participant page specifically, since every application reachable from an approved participant is, by construction, always "approved"; the pending-review list is where this status actually matters and does show it
+  answers TripApplicationAnswer[]
 
   // Structured mailing address, same shape as SendingParty's own flat
   // columns -- see TripParticipant's matching fields for the full
@@ -1122,6 +1120,8 @@ model AuditLog {
   // Where it came from (sign-in and access events).
   ip           String?
   // Old/new values and context. Secrets are noted as changed, never stored.
+  // JSON kept on purpose (#394): the shape differs per event type, it is only displayed, and
+  // everything searched or filtered on (actor, target, record, ip, kind, date) is a real column.
   details      Json?
 
   @@index([createdAt])
@@ -1312,6 +1312,8 @@ model SavedReport {
   id        String           @id @default(uuid())
   reportId  String // a report id from backend/src/reporting/registry.js
   name      String
+  // JSON kept on purpose (#394): each report has its own params, validated by that report's schema,
+  // and nothing queries inside them.
   params    Json
   shared    Boolean          @default(false)
   ownerId   String
@@ -1648,6 +1650,8 @@ model DispatchRecord {
   type      String
   partnerId String
   partner   Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  // JSON kept on purpose (#394): the content depends on `type`, is read whole to build a dispatch,
+  // and is never filtered on.
   payload   Json
   createdAt DateTime @default(now())
 
@@ -1983,6 +1987,7 @@ model ChurchSettings {
   // feature later is a one-line registry entry instead of a migration. A
   // missing key defaults to enabled -- see isFeatureEnabled in that same
   // file for the one exception (aiExtraction defaults to off).
+  // JSON kept on purpose (#394): a fork adds a feature without a migration.
   enabledFeatures Json @default("{}")
 
   // Deliberate, explicit opt-out of BackupReminder.jsx's periodic nudge --
@@ -2209,59 +2214,10 @@ model ChurchSettings {
   // send newsletters to.
   inboundEmailAddress String?
 
-  // Church-wide base question set every trip's application form renders
-  // first, before that trip's own applicationQuestions (Trip model, above).
-  // Same shape as applicationQuestions -- see utils/applicationQuestions.js
-  // for the one shared zod definition both this field and Trip's own use.
-  // Configured once under Settings -> Mission Trips instead of
-  // re-typed on every trip -- closes the "keep forks upgradable" gap a
-  // hardcoded starter question set would otherwise create. See
-  // publicTrips.js's shapeTripForApplicant for where the two layers get
-  // combined into one ordered list.
-  tripApplicationTemplate Json?
-
-  // A church-owned, editable/deletable library of reusable question
-  // snippets (same shape as tripApplicationTemplate/applicationQuestions)
-  // an admin can quickly copy onto the global template or a specific
-  // trip, instead of retyping a commonly-reused question every time.
-  // Purely a picker source -- nothing here is itself "live" on any
-  // application form until copied into one of those two places. Exists
-  // for the case tripApplicationTemplate alone can't cover: a question
-  // that's common but doesn't belong on *every* trip (e.g. a passport
-  // question only international trips need, a swimming-ability question
-  // only water-based ones need) -- tripApplicationTemplate is for
-  // "every trip asks this, no exceptions," this is for "commonly
-  // reused, picked per-trip as it actually applies."
-  tripQuestionLibrary Json?
-
-  // Church-wide requirement checklist every newly-created, actively-
-  // recruiting trip gets automatically -- [{ id, label, kind, bodyText?,
-  // reminderLeadDays? }]. Unlike tripApplicationTemplate above, this is
-  // NOT live-layered at read time: TripRequirement is a real relational
-  // model (fulfillment needs an actual foreign key to anti-join against,
-  // which a live-merged JSON list can't provide), so this is instead
-  // copied once into real TripRequirement rows at trip-creation time --
-  // see POST /api/trips' own comment for exactly which fields copy
-  // (mirroring the existing clone-a-trip route's label/kind/
-  // reminderLeadDays/bodyText copy, never dueAt). A deliberate
-  // consequence: editing this template later only affects trips created
-  // afterward, never retroactively changes an already-created trip's own
-  // copy -- protects an already-signed TripDocument's documentTextSnapshot
-  // from ever silently drifting out from under it.
-  tripRequirementTemplate Json?
-
-  // A church-owned, editable/deletable library of reusable requirement
-  // templates (same shape as tripRequirementTemplate above), picked
-  // per-trip onto a *specific* trip's own requirements at any time --
-  // not auto-copied onto every trip the way tripRequirementTemplate is.
-  // Exists for the exact case tripRequirementTemplate alone can't cover:
-  // a requirement that's common but doesn't belong on every trip (e.g.
-  // a minor travel release form, only needed on a trip that actually
-  // has minors on it) -- tripRequirementTemplate is "every trip needs
-  // this, no exceptions," this is "commonly reused, added per-trip as
-  // it actually applies." Same reasoning as tripQuestionLibrary's own
-  // schema comment, one tier over.
-  tripRequirementLibrary Json?
+  // The church-wide application questions, the requirement checklist copied onto every new trip,
+  // and the two pick-from libraries are real rows, not JSON (#394): ApplicationQuestion with scope
+  // "template" or "library", and RequirementTemplateItem with scope "template" or "library".
+  // Settings -> Mission Trips reads and saves them as ordered lists. See utils/tripTemplates.js.
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -2568,6 +2524,62 @@ model PartnerSupportPreference {
 
   @@unique([partnerId, optionId])
   @@index([optionId])
+}
+
+// #394: one question on a trip application, in an admin-chosen order. `scope` says where it lives:
+// "trip" (that trip's own questions, tripId set), "template" (the church-wide questions every
+// trip's form asks first) or "library" (a pick-from list, never shown on a form until copied).
+// `type` is app-validated (text, textarea, select, checkboxes, date); `options` only matters for
+// select and checkboxes.
+model ApplicationQuestion {
+  id       String   @id @default(uuid())
+  scope    String
+  tripId   String?
+  trip     Trip?    @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  position Int
+  label    String
+  required Boolean  @default(false)
+  type     String   @default("text")
+  options  String[]
+
+  answers TripApplicationAnswer[]
+
+  @@index([tripId])
+  @@index([scope, position])
+}
+
+// #394: one answer on a submitted application. `label` is the question as it was worded when the
+// person answered; `questionId` is cleared if the question is later deleted, so the answer stays
+// readable. A text answer is `value`; a checkboxes answer is `values`.
+model TripApplicationAnswer {
+  id            String               @id @default(uuid())
+  applicationId String
+  application   TripApplication      @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  questionId    String?
+  question      ApplicationQuestion? @relation(fields: [questionId], references: [id], onDelete: SetNull)
+  position      Int
+  label         String
+  value         String?              @db.Text
+  values        String[]
+
+  @@index([applicationId])
+  @@index([questionId])
+}
+
+// #394: one entry of the church-wide requirement checklist. `scope` "template" is copied onto every
+// new, still-active trip as real TripRequirement rows; "library" is a pick-from list for a single
+// trip. Same fields as TripRequirement, minus the dates and statuses that only exist on a real one.
+model RequirementTemplateItem {
+  id               String  @id @default(uuid())
+  scope            String
+  position         Int
+  label            String
+  kind             String  @default("document")
+  bodyText         String? @db.Text
+  reminderLeadDays Int?
+  minorsOnly       Boolean @default(false)
+
+  @@index([scope, position])
 }
 
 // #386: a passkey (WebAuthn credential) a person has added as a second sign-in factor, next to or

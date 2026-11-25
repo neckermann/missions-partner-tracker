@@ -10,6 +10,7 @@ const { z } = require("zod");
 const prisma = require("../prismaClient");
 const { requireAuth, requireRole, requireTripScope } = require("../middleware/requireAuth");
 const { requireFeature } = require("../middleware/requireFeature");
+const { ANSWERS_INCLUDE } = require("../utils/tripTemplates");
 
 async function tripIdOfApplication(req) {
   const row = await prisma.tripApplication.findUnique({
@@ -51,7 +52,10 @@ async function getSettings() {
 
 router.get("/:id/applications", requireTripScope("id"), async (req, res, next) => {
   try {
-    const applications = await prisma.tripApplication.findMany({ where: { tripId: req.params.id } });
+    const applications = await prisma.tripApplication.findMany({
+      where: { tripId: req.params.id },
+      include: { answers: ANSWERS_INCLUDE },
+    });
     res.json(applications);
   } catch (err) {
     next(err);

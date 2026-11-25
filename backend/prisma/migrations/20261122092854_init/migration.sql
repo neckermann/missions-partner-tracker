@@ -117,7 +117,6 @@ CREATE TABLE "Trip" (
     "supportRaisingGoal" INTEGER,
     "isPublic" BOOLEAN NOT NULL DEFAULT false,
     "applicationShareToken" TEXT,
-    "applicationQuestions" JSONB,
     "albumProvider" TEXT,
     "albumUrl" TEXT,
     "debriefWhatWeDid" TEXT,
@@ -189,7 +188,6 @@ CREATE TABLE "TripApplication" (
     "email" TEXT NOT NULL,
     "phone" TEXT,
     "status" TEXT NOT NULL DEFAULT 'pending',
-    "responses" JSONB,
     "addressLine1" TEXT,
     "addressLine2" TEXT,
     "city" TEXT,
@@ -804,10 +802,6 @@ CREATE TABLE "ChurchSettings" (
     "allowPublicSupportRaisingLinks" BOOLEAN NOT NULL DEFAULT false,
     "enableTripBudgeting" BOOLEAN NOT NULL DEFAULT false,
     "inboundEmailAddress" TEXT,
-    "tripApplicationTemplate" JSONB,
-    "tripQuestionLibrary" JSONB,
-    "tripRequirementTemplate" JSONB,
-    "tripRequirementLibrary" JSONB,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "updatedById" TEXT,
@@ -944,6 +938,47 @@ CREATE TABLE "PartnerSupportPreference" (
     "lastEditedAt" TIMESTAMP(3),
 
     CONSTRAINT "PartnerSupportPreference_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "ApplicationQuestion" (
+    "id" TEXT NOT NULL,
+    "scope" TEXT NOT NULL,
+    "tripId" TEXT,
+    "position" INTEGER NOT NULL,
+    "label" TEXT NOT NULL,
+    "required" BOOLEAN NOT NULL DEFAULT false,
+    "type" TEXT NOT NULL DEFAULT 'text',
+    "options" TEXT[],
+
+    CONSTRAINT "ApplicationQuestion_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "TripApplicationAnswer" (
+    "id" TEXT NOT NULL,
+    "applicationId" TEXT NOT NULL,
+    "questionId" TEXT,
+    "position" INTEGER NOT NULL,
+    "label" TEXT NOT NULL,
+    "value" TEXT,
+    "values" TEXT[],
+
+    CONSTRAINT "TripApplicationAnswer_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "RequirementTemplateItem" (
+    "id" TEXT NOT NULL,
+    "scope" TEXT NOT NULL,
+    "position" INTEGER NOT NULL,
+    "label" TEXT NOT NULL,
+    "kind" TEXT NOT NULL DEFAULT 'document',
+    "bodyText" TEXT,
+    "reminderLeadDays" INTEGER,
+    "minorsOnly" BOOLEAN NOT NULL DEFAULT false,
+
+    CONSTRAINT "RequirementTemplateItem_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -1200,6 +1235,21 @@ CREATE INDEX "PartnerSupportPreference_optionId_idx" ON "PartnerSupportPreferenc
 CREATE UNIQUE INDEX "PartnerSupportPreference_partnerId_optionId_key" ON "PartnerSupportPreference"("partnerId", "optionId");
 
 -- CreateIndex
+CREATE INDEX "ApplicationQuestion_tripId_idx" ON "ApplicationQuestion"("tripId");
+
+-- CreateIndex
+CREATE INDEX "ApplicationQuestion_scope_position_idx" ON "ApplicationQuestion"("scope", "position");
+
+-- CreateIndex
+CREATE INDEX "TripApplicationAnswer_applicationId_idx" ON "TripApplicationAnswer"("applicationId");
+
+-- CreateIndex
+CREATE INDEX "TripApplicationAnswer_questionId_idx" ON "TripApplicationAnswer"("questionId");
+
+-- CreateIndex
+CREATE INDEX "RequirementTemplateItem_scope_position_idx" ON "RequirementTemplateItem"("scope", "position");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "UserPasskey_credentialId_key" ON "UserPasskey"("credentialId");
 
 -- CreateIndex
@@ -1390,6 +1440,15 @@ ALTER TABLE "PartnerSupportPreference" ADD CONSTRAINT "PartnerSupportPreference_
 
 -- AddForeignKey
 ALTER TABLE "PartnerSupportPreference" ADD CONSTRAINT "PartnerSupportPreference_optionId_fkey" FOREIGN KEY ("optionId") REFERENCES "SupportOption"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ApplicationQuestion" ADD CONSTRAINT "ApplicationQuestion_tripId_fkey" FOREIGN KEY ("tripId") REFERENCES "Trip"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "TripApplicationAnswer" ADD CONSTRAINT "TripApplicationAnswer_applicationId_fkey" FOREIGN KEY ("applicationId") REFERENCES "TripApplication"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "TripApplicationAnswer" ADD CONSTRAINT "TripApplicationAnswer_questionId_fkey" FOREIGN KEY ("questionId") REFERENCES "ApplicationQuestion"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "UserPasskey" ADD CONSTRAINT "UserPasskey_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;

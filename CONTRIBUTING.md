@@ -215,6 +215,17 @@ Two rules for new models and lists (see
   `lastEditedByName` and `lastEditedAt` columns.** The Prisma extension
   stamps them for you on every write in a signed-in request; without the
   columns the record never shows "Last edited by".
+- **Use real columns, not `Json`, for anything with a fixed shape (#394).**
+  A list of plain strings is a `String[]` column; an ordered list of
+  structured items an admin edits (questions, checklist entries) is a child
+  table with a `position` column, and the API can still send and receive it
+  as an ordered array (see `backend/src/utils/tripTemplates.js`). `Json` is
+  acceptable only when the shape genuinely varies per record, it is read and
+  written whole, and nothing filters, sorts or reports on what is inside it:
+  `AuditLog.details`, `SavedReport.params`, `NotifiableEvent.payload`, and
+  `ChurchSettings.enabledFeatures` (so a fork adds a feature flag without a
+  migration). Say why in a comment on the column. Don't store JSON or
+  comma-separated values in a `String` column either.
 - **A new list about partners, or about things that belong to a partner,
   takes the `sendingChurch` filter** (`withSendingChurch` in
   `backend/src/utils/sendingChurch.js`, and the shared `FilterBar` field),

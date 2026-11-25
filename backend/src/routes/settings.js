@@ -16,6 +16,7 @@ const { makeExtResolver, uploadFilteredBy } = require("../utils/upload");
 // /api/settings prefix from server.js. This file had grown to cover all
 // six sub-resources in one place -- same anti-pattern trips.js had, same
 // fix.
+const { loadChurchLists } = require("../utils/tripTemplates");
 const { KEY_DATE_LEAD_RANGE, CONTACT_STALE_RANGE } = require("../utils/careSettings");
 const router = express.Router();
 router.use(requireAuth); // everything below requires a logged-in user
@@ -211,10 +212,6 @@ router.get("/", async (req, res, next) => {
           allowPrivateApplicationLinks: true,
           allowPublicSupportRaisingLinks: true,
           enableTripBudgeting: true,
-          tripApplicationTemplate: true,
-          tripQuestionLibrary: true,
-          tripRequirementTemplate: true,
-          tripRequirementLibrary: true,
           cadenceBiweeklyEnabled: true,
           cadenceMonthlyEnabled: true,
           cadenceQuarterlyEnabled: true,
@@ -248,7 +245,12 @@ router.get("/", async (req, res, next) => {
       group: FEATURES[key].group,
       section: FEATURES[key].section,
     }));
-    res.json({ ...shapeSettings(settings), featureRegistry, sentByOurChurchCount });
+    res.json({
+      ...shapeSettings(settings),
+      ...(settings ? await loadChurchLists() : {}),
+      featureRegistry,
+      sentByOurChurchCount,
+    });
   } catch (err) {
     next(err);
   }
