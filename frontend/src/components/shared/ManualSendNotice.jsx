@@ -1,23 +1,12 @@
-import React, { useState } from "react";
+import React from "react";
+import CopyButton from "./CopyButton.jsx";
 
 // Shown where a feature's email would have gone out but Email (Sending) isn't enabled (SPEC.md
 // § 4): hands the link/content to an admin to copy and send themselves. `recipients` is one
 // { name?, email?, url } or an array of them.
 export default function ManualSendNotice({ recipients, title = "Email sending isn't enabled here" }) {
   const list = Array.isArray(recipients) ? recipients : [recipients];
-  const [copiedIndex, setCopiedIndex] = useState(null);
-
   if (list.length === 0) return null;
-
-  async function copy(url, index) {
-    try {
-      await navigator.clipboard.writeText(url);
-      setCopiedIndex(index);
-      setTimeout(() => setCopiedIndex((i) => (i === index ? null : i)), 2000);
-    } catch {
-      // Clipboard access can be denied; the link is still selectable by hand in the input below.
-    }
-  }
 
   return (
     <div className="admin-section" style={{ background: "var(--warn-soft)", borderColor: "var(--warn)" }}>
@@ -41,9 +30,7 @@ export default function ManualSendNotice({ recipients, title = "Email sending is
             ) : null}
           </div>
           <input readOnly value={r.url} onFocus={(e) => e.target.select()} style={{ flex: 1 }} />
-          <button type="button" className="btn secondary small" onClick={() => copy(r.url, i)}>
-            {copiedIndex === i ? "Copied!" : "Copy"}
-          </button>
+          <CopyButton text={r.url} label={r.name ? `Copy link for ${r.name}` : "Copy link"} showText />
         </div>
       ))}
     </div>

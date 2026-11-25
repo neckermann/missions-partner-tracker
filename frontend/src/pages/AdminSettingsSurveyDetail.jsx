@@ -19,6 +19,7 @@ import StatTiles from "../components/shared/StatTiles.jsx";
 import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
 import { describeSavedAnswer, choiceRowStyle, choiceInputStyle } from "../components/SurveyQuestions.jsx";
 import { useSettings } from "../context/SettingsContext.jsx";
+import ManualSendNotice from "../components/shared/ManualSendNotice.jsx";
 import { formatDate } from "../utils/format.js";
 
 const KINDS = [
@@ -64,7 +65,11 @@ export default function AdminSettingsSurveyDetail() {
   const { enabledFeatures } = useSettings();
   const emailOn = Boolean(enabledFeatures?.outboundEmail);
   const [chosen, setChosen] = useState(new Set());
-  const [linkInfo, setLinkInfo] = useState(null); // { name, url, expiresAt } of the last link made
+  // Links made without emailing them: [{ name, url }], for the admin to send themselves.
+  const [links, setLinks] = useState([]);
+  // Who can be picked: with Email (Sending) on, someone with an address the app may email; with it off,
+  // anyone the app may contact at all (the link goes out by hand).
+  const reach = (r) => (emailOn ? r.canEmail : r.canLink);
   const [search, setSearch] = useState("");
   const [results, setResults] = useState({ responses: [] });
   const [message, setMessage] = useState("");
@@ -165,25 +170,24 @@ export default function AdminSettingsSurveyDetail() {
     });
   }
 
-  async function getLink(r) {
+  // A personal link for each chosen partner (or the one beside a name), with nothing emailed.
+  async function makeLinks(partners) {
     setError("");
     setMessage("");
-    try {
-      const l = await createSurveyLink(id, r.partnerId);
-      setLinkInfo({ name: r.name, url: l.url, expiresAt: l.expiresAt });
-      await reload();
-    } catch (err) {
-      setError(err.response?.data?.error || "Something went wrong");
+    const made = [];
+    const failed = [];
+    for (const r of partners) {
+      try {
+        const l = await createSurveyLink(id, r.partnerId);
+        made.push({ name: r.name, url: l.url });
+      } catch (err) {
+        failed.push(`${r.name} (${err.response?.data?.error || "something went wrong"})`);
+      }
     }
-  }
-
-  async function copyLink() {
-    try {
-      await navigator.clipboard.writeText(linkInfo.url);
-      setMessage("Link copied.");
-    } catch {
-      setMessage("Couldn't copy. Select the link and copy it by hand.");
-    }
+    setLinks(made);
+    if (failed.length) setError(`No link for: ${failed.join("; ")}.`);
+    setChosen(new Set());
+    await reload();
   }
 
   async function send(reminder) {
@@ -415,9 +419,10 @@ export default function AdminSettingsSurveyDetail() {
           <>
             {!emailOn && (
               <p role="note" style={{ marginTop: 0, color: "var(--muted)" }}>
-                Email (Sending) is off, so links can&apos;t be emailed from here. Use{" "}
-                <strong>Get link</strong> beside a partner to copy their personal link and send it yourself (a
-                text, WhatsApp, or your own email), or turn on Email (Sending) in Settings → Enabled Features.
+                Email (Sending) is off, so links can&apos;t be emailed from here. Pick partners and choose{" "}
+                <strong>Get links</strong> (or <strong>Get link</strong> beside one name) to copy their
+                personal links and send them yourself (a text, WhatsApp, or your own email), or turn on Email
+                (Sending) in Settings → Enabled Features.
               </p>
             )}
             <p style={{ color: "var(--muted)", marginTop: 0 }}>
@@ -432,9 +437,7 @@ export default function AdminSettingsSurveyDetail() {
                 onClick={() =>
                   setChosen(
                     new Set(
-                      recipients
-                        .filter((r) => r.canEmail && r.state === "not invited")
-                        .map((r) => r.partnerId)
+                      recipients.filter((r) => reach(r) && r.state === "not invited").map((r) => r.partnerId)
                     )
                   )
                 }
@@ -447,7 +450,7 @@ export default function AdminSettingsSurveyDetail() {
                 onClick={() =>
                   setChosen(
                     new Set(
-                      recipients.filter((r) => r.canEmail && r.state === "invited").map((r) => r.partnerId)
+                      recipients.filter((r) => reach(r) && r.state === "invited").map((r) => r.partnerId)
                     )
                   )
                 }
@@ -459,7 +462,7 @@ export default function AdminSettingsSurveyDetail() {
                 className="btn secondary small"
                 onClick={() =>
                   setChosen(
-                    new Set(shown.filter((r) => r.canEmail && r.state !== "answered").map((r) => r.partnerId))
+                    new Set(shown.filter((r) => reach(r) && r.state !== "answered").map((r) => r.partnerId))
                   )
                 }
               >
@@ -488,7 +491,7 @@ export default function AdminSettingsSurveyDetail() {
                     <input
                       style={choiceInputStyle}
                       type="checkbox"
-                      disabled={!r.canEmail || r.state === "answered"}
+                      disabled={!reach(r) || r.state === "answered"}
                       checked={chosen.has(r.partnerId)}
                       onChange={() => toggle(r.partnerId)}
                     />
@@ -497,58 +500,56 @@ export default function AdminSettingsSurveyDetail() {
                       <span style={{ color: "var(--muted)" }}>
                         · {r.state}
                         {r.sentAt ? ` ${formatDate(r.sentAt)}` : ""}
-                        {!r.canEmail ? ` · can't email (${r.blockedReason})` : ""}
+                        {!reach(r)
+                          ? ` · can't ${emailOn ? "email" : "give a link"} (${r.blockedReason})`
+                          : ""}
                       </span>
                     </span>
                   </label>
                   {r.canLink && r.state !== "answered" && (
-                    <button type="button" className="btn secondary small" onClick={() => getLink(r)}>
+                    <button type="button" className="btn secondary small" onClick={() => makeLinks([r])}>
                       Get link
                     </button>
                   )}
                 </div>
               ))}
             </div>
-            {linkInfo && (
-              <div className="admin-section" style={{ marginTop: "0.75rem" }}>
-                <strong>Link for {linkInfo.name}</strong>
-                <p style={{ color: "var(--muted)", margin: "0.25rem 0" }}>
-                  Nothing was emailed. Open it to try the survey as them, or send it to them yourself. It
-                  works until {formatDate(linkInfo.expiresAt)}, and an earlier link for them stops working.
-                </p>
-                <input
-                  readOnly
-                  value={linkInfo.url}
-                  aria-label="Survey link"
-                  onFocus={(e) => e.target.select()}
-                />
-                <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem" }}>
-                  <button type="button" className="btn small" onClick={copyLink}>
-                    Copy link
-                  </button>
-                  <a className="btn secondary small" href={linkInfo.url} target="_blank" rel="noreferrer">
-                    Open it
-                  </a>
-                </div>
-              </div>
+            {links.length > 0 && (
+              <ManualSendNotice
+                recipients={links}
+                title="Nothing was emailed. Send each partner their personal link yourself"
+              />
             )}
-            <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.75rem" }}>
-              <button
-                type="button"
-                className="btn"
-                disabled={!emailOn || chosen.size === 0}
-                onClick={() => send(false)}
-              >
-                Send to {chosen.size}
-              </button>
-              <button
-                type="button"
-                className="btn secondary"
-                disabled={!emailOn || chosen.size === 0}
-                onClick={() => send(true)}
-              >
-                Send as a reminder
-              </button>
+            <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.75rem", flexWrap: "wrap" }}>
+              {emailOn ? (
+                <>
+                  <button
+                    type="button"
+                    className="btn"
+                    disabled={chosen.size === 0}
+                    onClick={() => send(false)}
+                  >
+                    Send to {chosen.size}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn secondary"
+                    disabled={chosen.size === 0}
+                    onClick={() => send(true)}
+                  >
+                    Send as a reminder
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  className="btn"
+                  disabled={chosen.size === 0}
+                  onClick={() => makeLinks(recipients.filter((r) => chosen.has(r.partnerId)))}
+                >
+                  Get links for {chosen.size}
+                </button>
+              )}
             </div>
           </>
         )}

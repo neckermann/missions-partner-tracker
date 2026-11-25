@@ -16,6 +16,7 @@ import {
 import { formatDate, formatFileSize } from "../utils/format.js";
 import SignatureCapture from "../components/SignatureCapture.jsx";
 import { buildCalendarLinks, meetingDescription } from "../utils/calendarLinks.js";
+import CopyButton from "../components/shared/CopyButton.jsx";
 
 // Same wording as the email invite's own RSVP links (backend/src/utils/tripEmails.js).
 const RSVP_LABELS = { yes: "Yes", no: "No", maybe: "Maybe" };
@@ -271,7 +272,11 @@ export default function PublicTripParticipant() {
             <h3>Your support-raising page</h3>
             <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
               Share this link with family and friends:{" "}
-              <code>{`${window.location.origin}/trip-support-raising/${data.shareToken}`}</code>
+              <code>{`${window.location.origin}/trip-support-raising/${data.shareToken}`}</code>{" "}
+              <CopyButton
+                text={`${window.location.origin}/trip-support-raising/${data.shareToken}`}
+                label="Copy your support-raising link"
+              />
             </p>
             {!editingPage ? (
               <>

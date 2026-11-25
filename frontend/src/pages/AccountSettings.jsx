@@ -18,6 +18,7 @@ import { useSettings } from "../context/SettingsContext.jsx";
 import EditableSection from "../components/admin/EditableSection.jsx";
 import MfaAppGuide from "../components/MfaAppGuide.jsx";
 import ThemeToggle from "../components/shared/ThemeToggle.jsx";
+import CopyButton from "../components/shared/CopyButton.jsx";
 
 const emptyPasswordDraft = { currentPassword: "", newPassword: "", confirmPassword: "" };
 
@@ -586,7 +587,8 @@ function MfaSection({ user, onChange }) {
             <p>Scan this QR code with your authenticator app (Google Authenticator, Authy, etc.):</p>
             <img src={setupData.qrCode} alt="MFA QR code" style={{ width: 200, height: 200 }} />
             <p style={{ fontSize: "0.85rem", color: "var(--muted)" }}>
-              Can't scan it? Enter this code manually: <code>{setupData.secret}</code>
+              Can't scan it? Enter this code manually: <code>{setupData.secret}</code>{" "}
+              <CopyButton text={setupData.secret} label="Copy the setup key" />
             </p>
             <label>
               Enter the 6-digit code from the app to confirm

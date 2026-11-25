@@ -6,11 +6,13 @@ import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
 import ApplicationQuestionsEditor from "../components/admin/ApplicationQuestionsEditor.jsx";
 import Table from "../components/shared/Table.jsx";
 import QuickActionModal from "../components/shared/QuickActionModal.jsx";
+import ManualSendNotice from "../components/shared/ManualSendNotice.jsx";
 import { mapServerErrorMessage } from "../utils/friendlyError.js";
 import useCurrentUser from "../hooks/useCurrentUser.js";
 import { TripGuestsPanel } from "../components/admin/GuestAccessPanels.jsx";
 import CareTeamPanel from "../components/admin/CareTeamPanel.jsx";
 import { useSettings } from "../context/SettingsContext.jsx";
+import CopyButton from "../components/shared/CopyButton.jsx";
 
 // Confirmed Team plus the recruiting pipeline that feeds it (Applications, the private link,
 // this trip's application questions). Application rows open AdminTripApplicationDetail.jsx.
@@ -23,6 +25,8 @@ export default function AdminTripTeam() {
   const [showDeclined, setShowDeclined] = useState(false);
   const [showAddParticipant, setShowAddParticipant] = useState(false);
   const [newParticipant, setNewParticipant] = useState({ firstName: "", lastName: "", email: "" });
+  // The access link for a participant just added, when Email (Sending) is off and nothing was emailed.
+  const [manualAccess, setManualAccess] = useState(null);
 
   function reportError(err, fallback) {
     setError(mapServerErrorMessage(err?.response?.data?.error) || fallback);
@@ -53,7 +57,16 @@ export default function AdminTripTeam() {
 
   async function handleAddParticipant() {
     if (!newParticipant.firstName) return false;
-    await addTripParticipant(id, newParticipant);
+    const added = await addTripParticipant(id, newParticipant);
+    setManualAccess(
+      added?.teamWelcomeEmail?.manualUrl
+        ? {
+            name: [newParticipant.firstName, newParticipant.lastName].filter(Boolean).join(" "),
+            email: newParticipant.email,
+            url: added.teamWelcomeEmail.manualUrl,
+          }
+        : null
+    );
     setNewParticipant({ firstName: "", lastName: "", email: "" });
     reload();
   }
@@ -217,7 +230,11 @@ export default function AdminTripTeam() {
         </p>
         {trip.applicationShareToken ? (
           <p>
-            <code>{`${window.location.origin}/apply/by-token/${trip.applicationShareToken}`}</code>
+            <code>{`${window.location.origin}/apply/by-token/${trip.applicationShareToken}`}</code>{" "}
+            <CopyButton
+              text={`${window.location.origin}/apply/by-token/${trip.applicationShareToken}`}
+              label="Copy application link"
+            />
           </p>
         ) : (
           <p style={{ color: "var(--muted)" }}>No link generated yet.</p>
@@ -273,6 +290,13 @@ export default function AdminTripTeam() {
           </ul>
         )}
       </div>
+
+      {manualAccess && (
+        <ManualSendNotice
+          recipients={manualAccess}
+          title="Email sending isn't enabled here, so send this participant their trip link yourself"
+        />
+      )}
 
       {showAddParticipant && (
         <QuickActionModal
