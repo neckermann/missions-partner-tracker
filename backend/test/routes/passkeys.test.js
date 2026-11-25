@@ -388,3 +388,22 @@ describe("admin reset and forced enrolment", () => {
     }
   });
 });
+
+describe("the public demo", () => {
+  test("can't add a passkey (its logins are shared), and the list says so", async () => {
+    const user = await makeUser("demo");
+    const who = as((await login(user.email)).cookie);
+    process.env.DEMO_RESET_TOKEN = "test-demo-token";
+    try {
+      assert.equal((await who("/api/auth/passkeys/register/options", { method: "POST" })).status, 403);
+      assert.equal(
+        (await who("/api/auth/passkeys/register/verify", { method: "POST", body: {} })).status,
+        403
+      );
+      assert.equal((await who("/api/auth/passkeys")).body.demo, true);
+    } finally {
+      delete process.env.DEMO_RESET_TOKEN;
+    }
+    assert.equal((await who("/api/auth/passkeys")).body.demo, false);
+  });
+});
