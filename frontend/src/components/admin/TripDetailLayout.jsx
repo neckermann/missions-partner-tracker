@@ -136,6 +136,12 @@ export default function TripDetailLayout() {
       <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginTop: "0.5rem" }}>
         <h2 style={{ margin: 0 }}>{trip.name || trip.type || "Trip"}</h2>
         <TripStatusBadge status={trip.status} />
+        {/* #358: finishing a trip is its own guided step; a finished one is edited from its debrief. */}
+        {canWrite && trip.status !== "completed" && (
+          <Link className="btn small" to="wrap-up" style={{ marginLeft: "auto" }}>
+            Wrap up trip
+          </Link>
+        )}
         {trip.partner?.isRestricted && (
           <span
             style={{

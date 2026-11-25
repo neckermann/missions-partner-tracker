@@ -374,6 +374,15 @@ model Trip {
   // public submissions, which have no signed-in person. The name is a snapshot
   // so it still reads after that account is deleted.
   // When the trip was added (#383). Shown on the trip page and sortable on the Trips list.
+  // #358: what the team learned on the way home, one plain-text answer per fixed prompt of the
+  // Wrap up trip wizard (all optional), and when the trip was wrapped up (its status set to
+  // "completed" through that wizard; null for a trip finished any other way).
+  debriefWhatWeDid    String?   @db.Text
+  debriefWentWell     String?   @db.Text
+  debriefWasHard      String?   @db.Text
+  debriefPartnerNeeds String?   @db.Text
+  wrappedUpAt         DateTime?
+
   createdAt        DateTime  @default(now())
   lastEditedById   String?
   lastEditedByName String?

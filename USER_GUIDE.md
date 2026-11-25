@@ -723,6 +723,19 @@ can't be used to check whether someone has a trip record at all.
 
 ![Lost-link recovery](docs/assets/screenshots/public-trip-access-recovery.png)
 
+#### Wrapping up a trip
+
+When a trip is over, **Wrap up trip** (a button beside the trip's name, for admins, editors and the trip's own leaders) walks through finishing it. It is called *wrap up*, not *close*, because the status **Closed** already means applications are closed and the team is committed, which is not the trip being over.
+
+1. **What happened.** Confirm the actual start and end dates. Finishing marks the trip **Completed**.
+2. **Debrief.** A short plain-text answer under each of four prompts: *What did the team do? What went well? What was hard? What does the partner need next?* Every prompt is optional.
+3. **Follow-up.** With the [Contact log](#contact-log) on, tick **Log a visit for this trip** to add it to the partner's contact log (topic "Trip", we reached out) with an optional follow-up date. A trip leader who has a trip grant but isn't on the partner's care team doesn't see this step, since they never reach the contact log.
+4. **Loose ends.** Links to the Requirements, Financial and Team tabs for anything still open.
+5. **Photos.** The album link, if the trip has none.
+6. **Access.** When the trip leaders' access ends: 30 days after the trip's end date unless it was given another date. To extend it or end it now, use the Team tab.
+
+The debrief then shows on the trip's **Overview** (with **Edit debrief** to change it later; the first wrap-up time is kept). Nothing is emailed. Two bell items help: **Trips ready to wrap up** (staff, and a leader for their own trip) counts trips whose end date has passed and that aren't completed, and **Trips wrapped up** tells a partner's care team for two weeks after a trip is wrapped up.
+
 ### Newsletters & Docs
 
 One place for every file a partner sends — a newsletter update, a

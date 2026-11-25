@@ -670,6 +670,13 @@ export async function createTrip(payload) {
   return data;
 }
 
+// Finish a trip in one step (#358): the actual dates, a short debrief, the album link, and an
+// optional contact for the partner. Marks the trip completed.
+export async function wrapUpTrip(id, payload) {
+  const { data } = await api.post(`/trips/${id}/wrap-up`, payload);
+  return data;
+}
+
 export async function updateTrip(id, payload) {
   const { data } = await api.put(`/trips/${id}`, payload);
   return data;

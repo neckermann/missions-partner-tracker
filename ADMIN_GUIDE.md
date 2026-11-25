@@ -1101,6 +1101,9 @@ anyone else's.
 
 ### Trips
 
+*Wrapping a trip up:* a trip is finished with **Wrap up trip** on its page (a guided step: the actual dates, a short debrief, an optional contact-log visit for the partner, loose ends, the photo album and when leader access ends), not by editing its status to Completed, though that still works. The debrief is stored on the trip, and the bell shows **Trips ready to wrap up** once an end date has passed. See [USER_GUIDE.md § Wrapping up a trip](USER_GUIDE.md#wrapping-up-a-trip).
+
+
 Trips tracks a mission trip's full lifecycle — recruiting, team,
 meetings, documents, budget, support raising — not just a historical
 log of past trips. A trip belongs to a planning partner and moves

@@ -33,6 +33,7 @@
 const prisma = require("../prismaClient");
 const { needsReview } = require("../utils/dispatchEligibility");
 const { isCareTeamEnabled } = require("../utils/guestAccess");
+const { isFeatureEnabled } = require("../utils/features");
 const {
   isContactLogEnabled,
   loadAssignedPartners,
@@ -148,6 +149,48 @@ async function tripsDepartingSoon(_opts, scopeTripIds) {
   // in trips.js).
   const linkTo = rows.length === 1 ? `/admin/trips/${rows[0].id}` : undefined;
   return { count: rows.length, latest: latestOf(rows, (r) => r.startDate), linkTo };
+}
+
+// #358: a trip whose end date has passed and that hasn't been wrapped up (marked completed). For a
+// trip leader it is their own trip (scopeTripIds); linked straight to the trip when there is one.
+async function tripsReadyToWrapUp(_opts, scopeTripIds) {
+  const now = new Date();
+  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const rows = await prisma.trip.findMany({
+    where: {
+      status: { not: "completed" },
+      endDate: { lt: today },
+      ...(scopeTripIds ? { id: { in: scopeTripIds } } : {}),
+    },
+    select: { id: true, endDate: true },
+  });
+  const linkTo = rows.length === 1 ? `/admin/trips/${rows[0].id}` : undefined;
+  return { count: rows.length, latest: latestOf(rows, (r) => r.endDate), linkTo };
+}
+
+// #358: a trip wrapped up in the last two weeks, for the partner's care team: the debrief is the
+// most useful thing to read before the next contact. Counts nothing while trips or care teams are
+// off, and only the partners this login holds a seat on.
+const WRAPPED_UP_WINDOW_DAYS = 14;
+async function tripsWrappedUp({ userId }) {
+  if (!userId || !(await isCareTeamEnabled())) return { count: 0, latest: null };
+  const settings = await prisma.churchSettings.findUnique({
+    where: { id: "singleton" },
+    select: { enabledFeatures: true },
+  });
+  if (!isFeatureEnabled(settings?.enabledFeatures, "trips")) return { count: 0, latest: null };
+  const seats = await prisma.careTeamMember.findMany({
+    where: { userId, partner: { archived: false } },
+    select: { partnerId: true },
+  });
+  if (seats.length === 0) return { count: 0, latest: null };
+  const since = new Date(Date.now() - WRAPPED_UP_WINDOW_DAYS * 86400000);
+  const rows = await prisma.trip.findMany({
+    where: { partnerId: { in: seats.map((s) => s.partnerId) }, wrappedUpAt: { gte: since } },
+    select: { id: true, wrappedUpAt: true },
+  });
+  const linkTo = rows.length === 1 ? `/admin/trips/${rows[0].id}` : undefined;
+  return { count: rows.length, latest: latestOf(rows, (r) => r.wrappedUpAt), linkTo };
 }
 
 // A requirement is fulfilled the same way tripReminderScheduler.js already
@@ -396,6 +439,27 @@ const CATEGORIES = [
     perUser: false,
     tripScoped: true,
     resolve: tripsDepartingSoon,
+  },
+  {
+    key: "tripsReadyToWrapUp",
+    label: "Trips ready to wrap up",
+    icon: "🏁",
+    linkTo: "/admin/trips",
+    adminOnly: false,
+    perUser: false,
+    tripScoped: true,
+    resolve: tripsReadyToWrapUp,
+  },
+  {
+    key: "tripsWrappedUp",
+    label: "Trips wrapped up",
+    icon: "📝",
+    linkTo: "/admin/trips",
+    adminOnly: false,
+    perUser: false,
+    tripScoped: false,
+    guestVisible: true,
+    resolve: tripsWrappedUp,
   },
   {
     key: "tripsDepartingSoonIncomplete",

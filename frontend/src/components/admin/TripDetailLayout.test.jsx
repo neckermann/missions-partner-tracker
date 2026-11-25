@@ -139,3 +139,41 @@ describe("TripDetailLayout: a trip that can't be loaded", () => {
     expect(await screen.findByText("You don't have access to this trip.")).toBeInTheDocument();
   });
 });
+
+describe("TripDetailLayout: Wrap up trip (#358)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    fetchTripApplications.mockResolvedValue([]);
+    fetchTripsSettings.mockResolvedValue({});
+  });
+
+  it("offers Wrap up trip to someone who can write an open trip, linking to the wizard", async () => {
+    user.current = { isGuest: false, canWrite: true, isAdmin: true, canAccessTrip: () => true };
+    fetchTrip.mockResolvedValue({ ...TRIP, status: "closed" });
+    renderLayout();
+    const link = await screen.findByRole("link", { name: "Wrap up trip" });
+    expect(link).toHaveAttribute("href", "/admin/trips/t1/wrap-up");
+  });
+
+  it("offers it to a trip leader for their own trip", async () => {
+    user.current = { isGuest: true, canWrite: false, isAdmin: false, canAccessTrip: () => true };
+    fetchTrip.mockResolvedValue({ ...TRIP, status: "closed" });
+    renderLayout();
+    expect(await screen.findByRole("link", { name: "Wrap up trip" })).toBeInTheDocument();
+  });
+
+  it("does not offer it once the trip is completed, or to someone who can't write it", async () => {
+    user.current = { isGuest: false, canWrite: true, isAdmin: true, canAccessTrip: () => true };
+    fetchTrip.mockResolvedValue({ ...TRIP, status: "completed" });
+    const first = renderLayout();
+    await screen.findByRole("heading", { name: "Summer Trip" });
+    expect(screen.queryByRole("link", { name: "Wrap up trip" })).not.toBeInTheDocument();
+    first.unmount();
+
+    user.current = { isGuest: true, canWrite: false, isAdmin: false, canAccessTrip: () => false };
+    fetchTrip.mockResolvedValue({ ...TRIP, status: "closed" });
+    renderLayout();
+    await screen.findByRole("heading", { name: "Summer Trip" });
+    expect(screen.queryByRole("link", { name: "Wrap up trip" })).not.toBeInTheDocument();
+  });
+});

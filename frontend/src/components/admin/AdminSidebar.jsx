@@ -22,6 +22,7 @@ const NAV_BADGE_CATEGORIES = {
     "tripsDepartingSoonIncomplete",
     "overdueTripRequirements",
     "tripApplicationsPending",
+    "tripsReadyToWrapUp",
   ],
 };
 

@@ -896,6 +896,21 @@ booklet or in a dispatch. Both tables are in `backup.js`'s `MODELS`; the *Suppor
 report (`reporting/reports/partners.js`) lists responses per partner and option, or the
 partners with none recorded, masking a restricted partner's answers like its other sensitive fields.
 
+### 5.8 Wrapping up a trip (#358)
+
+`POST /api/trips/:id/wrap-up` (admin, editor, or a guest for a trip they hold a grant on:
+`requireTripScope`, the same reach as editing the trip) finishes a trip in one step: it sets
+`status` to `completed`, records `wrappedUpAt` (kept on a later run, so editing the debrief doesn't
+move it), may correct `startDate`/`endDate` and the album link, and stores the debrief in four plain
+text columns (`debriefWhatWeDid`, `debriefWentWell`, `debriefWasHard`, `debriefPartnerNeeds`, all
+optional, an empty answer stored as null). With `followUp.logContact`, the contact log on, a partner
+on the trip, and a caller who may use the log for that partner (`readableNeedPartnerIds`: staff, or a
+guest on its care team; never a trip leader with only a trip grant), it also adds a `ContactLog` entry
+(visit, outbound, topic `trip`) with the optional follow-up date; the response says whether it did.
+Nothing is emailed. Ending leader access stays with the existing grant routes (the wizard links to the
+Team tab). Two bell categories read it: `tripsReadyToWrapUp` (trip-scoped: end date passed, not
+completed) and `tripsWrappedUp` (the partner's care team, for 14 days).
+
 ## 6. The dispatch system (#202 redesign + WhatsApp)
 
 Visual diagram, with the admin-vs-public and GroupMe-vs-WhatsApp

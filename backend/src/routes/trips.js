@@ -29,6 +29,8 @@ const { sendStoredFile } = require("../utils/fileResponse");
 const { tripDocumentUpload } = require("../utils/upload");
 const { participantSchema, defaultParticipantGoal } = require("../utils/tripParticipantSchema");
 const { SOON_DAYS, isRequirementFulfilledForParticipant } = require("../notifications/categories");
+const { isContactLogEnabled } = require("../utils/contactLogQueries");
+const { readableNeedPartnerIds } = require("../utils/guestAccess");
 
 // Lookups for routes addressed by a child record's own id, not the trip's
 // -- requireTripScope needs the owning trip id before it can check it
@@ -540,6 +542,113 @@ router.put(
       }
 
       res.json({ ...updated, datesUpdateEmail });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// The Wrap up trip wizard (#358): finishes a trip in one step -- the actual dates, a short debrief
+// (a plain-text answer under each fixed prompt, all optional), the album link, and, when the
+// contact log is on and the person may use it, a contact for the partner with an optional
+// follow-up date -- and sets the trip to "completed". Open to admin, editor and a trip leader for
+// their own trip (requireTripScope), the same reach as editing the trip. Nothing is emailed: the
+// trip is over. Running it again just edits the debrief; the first wrap-up time is kept.
+const wrapUpText = z.string().trim().max(5000).optional().nullable();
+const wrapUpSchema = z
+  .object({
+    startDate: z.coerce.date().optional().nullable(),
+    endDate: z.coerce.date().optional().nullable(),
+    debrief: z
+      .object({
+        whatWeDid: wrapUpText,
+        wentWell: wrapUpText,
+        wasHard: wrapUpText,
+        partnerNeeds: wrapUpText,
+      })
+      .optional(),
+    albumProvider: z.enum(["google_photos", "icloud", "other"]).optional().nullable(),
+    albumUrl: z.string().optional().nullable(),
+    followUp: z
+      .object({
+        logContact: z.boolean(),
+        followUpDate: z.coerce.date().optional().nullable(),
+      })
+      .optional(),
+  })
+  .refine(datesInOrder, DATE_ORDER_ISSUE)
+  .refine(albumLinkValid, ALBUM_LINK_ISSUE);
+
+const DEBRIEF_COLUMNS = {
+  whatWeDid: "debriefWhatWeDid",
+  wentWell: "debriefWentWell",
+  wasHard: "debriefWasHard",
+  partnerNeeds: "debriefPartnerNeeds",
+};
+
+router.post(
+  "/:id/wrap-up",
+  requireRole("admin", "editor", "guest"),
+  requireTripScope("id"),
+  async (req, res, next) => {
+    try {
+      const body = wrapUpSchema.parse(req.body);
+      const existing = await prisma.trip.findUnique({ where: { id: req.params.id } });
+      if (!existing) return res.status(404).json({ error: "Not found" });
+
+      const startDate = body.startDate !== undefined ? body.startDate : existing.startDate;
+      const endDate = body.endDate !== undefined ? body.endDate : existing.endDate;
+      if (startDate && endDate && endDate < startDate) {
+        return res.status(400).json({ error: "endDate cannot be before startDate" });
+      }
+
+      const debrief = {};
+      for (const [key, column] of Object.entries(DEBRIEF_COLUMNS)) {
+        if (body.debrief && body.debrief[key] !== undefined) debrief[column] = body.debrief[key] || null;
+      }
+
+      // The partner contact: only when asked for, the contact log is on, this trip has a partner,
+      // and the person may use the log for that partner (staff, or a guest on its care team; a
+      // trip leader with a trip grant alone never reaches the contact log).
+      let contactLogged = false;
+      const reach = readableNeedPartnerIds(req.user);
+      const mayLog = existing.partnerId && (reach === null || reach.includes(existing.partnerId));
+      const wantsContact = body.followUp?.logContact === true;
+
+      const updated = await prisma.$transaction(async (tx) => {
+        const trip = await tx.trip.update({
+          where: { id: existing.id },
+          data: {
+            status: "completed",
+            wrappedUpAt: existing.wrappedUpAt ?? new Date(),
+            ...(body.startDate !== undefined ? { startDate: body.startDate } : {}),
+            ...(body.endDate !== undefined ? { endDate: body.endDate } : {}),
+            ...(body.albumProvider !== undefined ? { albumProvider: body.albumProvider } : {}),
+            ...(body.albumUrl !== undefined ? { albumUrl: body.albumUrl } : {}),
+            ...debrief,
+          },
+          include: tripInclude,
+        });
+        if (wantsContact && mayLog && (await isContactLogEnabled())) {
+          const day = endDate ? new Date(endDate) : new Date();
+          await tx.contactLog.create({
+            data: {
+              partnerId: existing.partnerId,
+              contactType: "visit",
+              direction: "outbound",
+              topics: ["trip"],
+              contactDate: new Date(Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate())),
+              notes: `Trip wrapped up${existing.name ? `: ${existing.name}` : ""}.`,
+              followUpDate: body.followUp.followUpDate || null,
+              contactedById: req.user.id,
+              createdById: req.user.id,
+            },
+          });
+          contactLogged = true;
+        }
+        return trip;
+      });
+      res.json({ trip: updated, contactLogged });
     } catch (err) {
       next(err);
     }

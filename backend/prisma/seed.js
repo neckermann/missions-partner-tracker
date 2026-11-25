@@ -3336,6 +3336,55 @@ async function seedSupportPreferencesDemo() {
 }
 
 // ---------------------------------------------------------------------
+// Trip debriefs demo (#358): a few completed trips with a wrap-up debrief, so the Debrief section
+// on a trip's Overview has something to show. The most recent ones were wrapped up in the last
+// two weeks, so the care team's "Trips wrapped up" bell item has something to say too. Demo
+// extras only; deterministic (by end date, newest first).
+// ---------------------------------------------------------------------
+async function seedTripDebriefsDemo() {
+  console.log("Seeding trip debriefs...");
+  const trips = await prisma.trip.findMany({
+    where: { status: "completed", partnerId: { not: null }, endDate: { not: null } },
+    orderBy: [{ endDate: "desc" }, { id: "asc" }],
+    take: 6,
+    select: { id: true, endDate: true },
+  });
+  const debriefs = [
+    {
+      debriefWhatWeDid: "Ran a week of children's programs and helped repaint the community hall.",
+      debriefWentWell:
+        "The team worked well together and the local volunteers joined in on the last two days.",
+      debriefWasHard: "Heat, and a day lost to a transport strike.",
+      debriefPartnerNeeds: "Another team in the spring, and help buying paint for the second building.",
+    },
+    {
+      debriefWhatWeDid: "Medical clinic and home visits in three villages.",
+      debriefWentWell: "Over two hundred people seen, and the local nurses took part throughout.",
+      debriefWasHard: "Running short of some medicines by midweek.",
+      debriefPartnerNeeds:
+        "A supply of basic medicines, and a follow-up visit for the families we couldn't reach.",
+    },
+    {
+      debriefWhatWeDid: "Built a roof frame for the new school classroom.",
+      debriefWentWell: "Finished a day early.",
+      debriefWasHard: "",
+      debriefPartnerNeeds: "Funds for roofing sheets.",
+    },
+  ];
+  for (const [i, trip] of trips.entries()) {
+    // Wrapped up some days ago (never before the trip ended), so the newest are inside the
+    // two-week window the care team's bell item looks at.
+    const wrapped = new Date(
+      Math.max(trip.endDate.getTime() + 86400000, Date.now() - (i * 4 + 1) * 86400000)
+    );
+    await prisma.trip.update({
+      where: { id: trip.id },
+      data: { ...debriefs[i % debriefs.length], wrappedUpAt: wrapped },
+    });
+  }
+}
+
+// ---------------------------------------------------------------------
 // Care team updates demo (#292): a decided need and an answered prayer on a
 // partner the published care member looks after, so "Updates to pass on to
 // partners" has something to show on the bell. Relative dates, like the other
@@ -3978,6 +4027,7 @@ async function main() {
     await seedContactLogDemo();
     await seedKeyDatesDemo();
     await seedSupportPreferencesDemo();
+    await seedTripDebriefsDemo();
     await seedPartnerUpdatesDemo();
     await seedAuditLogDemo();
     await seedLastEditedDemo();
