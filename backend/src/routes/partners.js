@@ -1,5 +1,6 @@
 const express = require("express");
 const { z } = require("zod");
+const { CONTACT_METHODS, CONTACT_LEVELS } = require("../utils/contactMethods");
 const prisma = require("../prismaClient");
 const { recordAudit, recordRestrictedView } = require("../utils/auditLog");
 const { latestOf, partnerLastUpdated, listFields } = require("../utils/lastUpdated");
@@ -206,7 +207,6 @@ const partnerSchema = z.object({
   fipsCountryCode: z.string().optional().nullable(),
   isPublic: z.boolean().optional(),
   isRestricted: z.boolean().optional(),
-  preferredContactMethod: z.string().optional().nullable(),
   overview: z.string().optional().nullable(),
   overviewShort: z.string().optional().nullable(),
   focusArea: z.string().optional().nullable(),
@@ -223,11 +223,18 @@ const partnerSchema = z.object({
   contactLastName: z.string().optional().nullable(),
   contactPhone: z.string().optional().nullable(),
   contactEmail: z.string().optional().nullable(),
+  contactMethod: z.enum(CONTACT_METHODS).optional().nullable(),
+  contactMethodNote: z.string().trim().max(200).optional().nullable(),
 
   // --- Missionary-only ---
-  contactSafe: z.boolean().optional(),
-  // #288: staff-facing note shown instead of tap-to-call actions when contactSafe is off.
+  // How careful to be when reaching them, and the guidelines and go-between that go with it.
+  contactLevel: z.enum(CONTACT_LEVELS).optional(),
+  contactChannels: z.array(z.enum(CONTACT_METHODS)).optional(),
   contactInstructions: z.string().trim().max(2000).optional().nullable(),
+  contactViaName: z.string().trim().max(200).optional().nullable(),
+  contactViaRole: z.string().trim().max(200).optional().nullable(),
+  contactViaPhone: z.string().trim().max(100).optional().nullable(),
+  contactViaEmail: z.string().trim().max(200).optional().nullable(),
   sentByOurChurch: z.boolean().optional(),
   anniversary: z.coerce.date().optional().nullable(),
   emergencyContactName: z.string().optional().nullable(),

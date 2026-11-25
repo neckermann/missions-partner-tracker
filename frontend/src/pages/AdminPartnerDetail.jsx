@@ -51,6 +51,7 @@ import StatusPill from "../components/admin/StatusPill.jsx";
 import Field from "../components/admin/Field.jsx";
 import PhotoHistorySection from "../components/admin/PhotoHistorySection.jsx";
 import CareTeamPanel from "../components/admin/CareTeamPanel.jsx";
+import { contactLevelOf } from "../utils/contactMethods.js";
 import ContactCard from "../components/admin/ContactCard.jsx";
 import SupportPreferencesCard from "../components/admin/SupportPreferencesCard.jsx";
 import ContactLogSection from "../components/admin/ContactLogSection.jsx";
@@ -96,8 +97,6 @@ import useCurrentUser from "../hooks/useCurrentUser.js";
 // A cleared <input type="date"> is "", which `z.coerce.date()` turns into an
 // Invalid Date and rejects -- "no date" has to travel as null.
 const dateOrNull = (value) => value || null;
-
-const CONTACT_METHOD_PRESETS = ["Email", "Phone", "WhatsApp", "Signal"];
 
 const emptyAddress = {
   addressLine1: "",
@@ -765,7 +764,13 @@ export default function AdminPartnerDetail() {
           below, and repeating it here made every page look the same. */}
       {(() => {
         const pills = [
-          !isOrg && !p.contactSafe && <StatusPill key="unsafe" label="Not safe to contact" color="#a6540f" />,
+          !isOrg && contactLevelOf(p) !== "normal" && (
+            <StatusPill
+              key="unsafe"
+              label={contactLevelOf(p) === "no_direct" ? "Don't contact directly" : "Use caution"}
+              color="#a6540f"
+            />
+          ),
           !p.isPublic && <StatusPill key="notpublic" label="Not public" color="#6b6f76" />,
           p.isRestricted && <StatusPill key="restricted" label="Restricted-access" color="#a6540f" />,
           !isOrg && p.sentByOurChurch && (
@@ -789,7 +794,15 @@ export default function AdminPartnerDetail() {
         <CareTeamPanel partnerId={p.id} canEdit={canWrite} canInviteGuest={isAdmin} />
       )}
 
-      {contactLogShown && <ContactCard partner={p} adults={collections.adults} entries={contactEntries} />}
+      <ContactCard
+        partner={p}
+        adults={collections.adults}
+        entries={contactEntries}
+        showLog={contactLogShown}
+        canEdit={canEdit}
+        canEditCare={canWrite}
+        onChanged={reload}
+      />
 
       {enabledFeatures.supportPreferences && enabledFeatures.careTeam && (
         <SupportPreferencesCard partnerId={p.id} isAdmin={isAdmin} />
@@ -826,9 +839,6 @@ export default function AdminPartnerDetail() {
             displayName: p.displayName,
             isPublic: p.isPublic,
             isRestricted: p.isRestricted,
-            ...(!isOrg
-              ? { contactSafe: p.contactSafe, contactInstructions: p.contactInstructions || "" }
-              : {}),
           }}
           view={(v) => (
             <>
@@ -836,11 +846,7 @@ export default function AdminPartnerDetail() {
               <div className="admin-checkbox-row" style={{ marginTop: "0.75rem" }}>
                 <Field label="Shown on public site" value={v.isPublic ? "Yes" : "No"} />
                 <Field label="Restricted-access location" value={v.isRestricted ? "Yes" : "No"} />
-                {!isOrg && <Field label="Safe to Contact" value={v.contactSafe ? "Yes" : "No"} />}
               </div>
-              {!isOrg && !v.contactSafe && v.contactInstructions && (
-                <Field label="Special communication instructions" value={v.contactInstructions} />
-              )}
             </>
           )}
           edit={(d, set) => (
@@ -866,28 +872,7 @@ export default function AdminPartnerDetail() {
                   />
                   Restricted-access location
                 </label>
-                {!isOrg && (
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={d.contactSafe}
-                      onChange={(e) => set("contactSafe", e.target.checked)}
-                    />
-                    Safe to contact
-                  </label>
-                )}
               </div>
-              {!isOrg && !d.contactSafe && (
-                <label style={{ display: "block", marginTop: "0.75rem" }}>
-                  Special communication instructions
-                  <textarea
-                    rows={3}
-                    value={d.contactInstructions}
-                    onChange={(e) => set("contactInstructions", e.target.value)}
-                    placeholder="How, if at all, should this partner be contacted? Shown instead of the call/text/email buttons."
-                  />
-                </label>
-              )}
             </>
           )}
         />
@@ -1212,7 +1197,6 @@ export default function AdminPartnerDetail() {
             value={{
               address: { ...emptyAddress, receiveMail: false, receivePackages: false, ...mailing },
               orgType: p.orgType || "Local",
-              preferredContactMethod: p.preferredContactMethod || "",
               contactFirstName: p.contactFirstName || "",
               contactLastName: p.contactLastName || "",
               contactPhone: p.contactPhone || "",
@@ -1220,7 +1204,6 @@ export default function AdminPartnerDetail() {
             }}
             view={(v) => (
               <>
-                <Field label="Preferred Contact Method" value={v.preferredContactMethod} showEmpty />
                 {isOrg && (
                   <div style={{ display: "flex", flexWrap: "wrap", gap: "1.5rem", marginTop: "0.75rem" }}>
                     <Field
@@ -1249,15 +1232,6 @@ export default function AdminPartnerDetail() {
                       </select>
                     </label>
                   )}
-                  <label>
-                    Preferred Contact Method
-                    <PresetOrCustomSelect
-                      value={d.preferredContactMethod}
-                      onChange={(v) => set("preferredContactMethod", v)}
-                      presets={CONTACT_METHOD_PRESETS}
-                      placeholder="e.g. Telegram"
-                    />
-                  </label>
                   {isOrg && (
                     <>
                       <label>

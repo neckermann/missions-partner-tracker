@@ -2566,6 +2566,30 @@ button.report-summary-item[aria-pressed="true"] {
   white-space: nowrap;
 }
 
+/* The contact card's "how they like to be reached" highlight, and its two warnings. */
+.contact-highlight {
+  display: inline-block;
+  margin-top: 0.5rem;
+  padding: 0.25rem 0.7rem;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--text);
+  font-size: 0.95rem;
+}
+.contact-notice {
+  margin-top: 0.75rem;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid var(--warn);
+  border-left-width: 4px;
+  border-radius: var(--radius-md);
+  background: var(--warn-soft);
+  color: var(--text);
+}
+.contact-notice-stop {
+  border-color: var(--danger);
+}
+
 /* The quieter "of 74 total" beside a tile's number. */
 .stat-tile-hint {
   font-size: 0.85rem;
@@ -2606,4 +2630,9 @@ button.report-summary-item[aria-pressed="true"] {
   border-left-width: 4px;
   border-radius: var(--radius-md);
   font-size: 0.9rem;
+}
+
+/* Read-only label/value pairs stacked in a card (Field.jsx) get a little room between them. */
+.field-view:not(:last-child) {
+  margin-bottom: 0.65rem;
 }

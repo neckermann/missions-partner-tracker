@@ -78,13 +78,26 @@ model Partner {
   lastPrayedWithCongregationAt DateTime? @db.Date
 
   // --- Contact ---
-  preferredContactMethod String? // e.g. "Email", "Phone Call", "Text/SMS", "WhatsApp", "Mail"
-  // Missionary-only: whether it's ok to contact them directly.
-  contactSafe            Boolean @default(true)
-  // #288: shown instead of the tap-to-call/text/email actions when
-  // contactSafe is off ("special communication instructions"). Free text,
-  // staff-facing.
-  contactInstructions    String? @db.Text
+  // How careful to be when reaching this partner, set on the Contact card (replaces the old
+  // safe / not-safe switch):
+  //   "normal"    -- reach them as usual;
+  //   "caution"   -- reachable, but follow contactInstructions (and only the contactChannels ticked,
+  //                  when any are);
+  //   "no_direct" -- don't contact them directly: the card hides their number and email and shows
+  //                  who to go through (contactVia*) and contactInstructions instead.
+  // Missionary-only: an organization is always "normal".
+  contactLevel           String   @default("normal")
+  // "caution" only: the ways it is ok to reach them ("call", "text", "email", "whatsapp",
+  // "signal", "messenger", "other"). Empty means any.
+  contactChannels        String[] @default([])
+  // Shown with the guidelines for "caution" and "no_direct" ("special communication instructions").
+  // Free text, staff-facing.
+  contactInstructions    String?  @db.Text
+  // "no_direct" only: the person to go through instead.
+  contactViaName         String?
+  contactViaRole         String?
+  contactViaPhone        String?
+  contactViaEmail        String?
   // Missionary-only: true when this church (see ChurchSettings) is this
   // missionary's sending church — distinct from the SendingParty relation
   // below, which records details about whichever church actually sends
@@ -99,6 +112,9 @@ model Partner {
   contactLastName        String?
   contactPhone           String?
   contactEmail           String?
+  // Organization-only: how that person likes to be reached (see Adult.contactMethod for a family).
+  contactMethod          String?
+  contactMethodNote      String?
 
   // --- Kind-specific profile fields ---
   orgType               String? // organization-only: "Local" | "National"
@@ -215,6 +231,10 @@ model Adult {
   // partial unique index in the migration (Prisma can't express a WHERE on a
   // unique), and by the route, which clears the old one when a new one is set.
   isPrimaryContact Boolean   @default(false)
+  // How this person likes to be reached: "call", "text", "email", "whatsapp", "signal",
+  // "messenger" or "other" (with contactMethodNote saying how). Shown on the Contact card.
+  contactMethod     String?
+  contactMethodNote String?
   createdAt        DateTime  @default(now())
 
   // #341: who last changed this record, as a current-state fact (overwritten in

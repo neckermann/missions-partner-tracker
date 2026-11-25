@@ -441,13 +441,95 @@ describe("contact card: primary contact and instructions", () => {
   test("special communication instructions save with the partner", async () => {
     const res = await editor(`/api/partners/${partnerA.id}`, {
       method: "PUT",
-      body: { contactSafe: false, contactInstructions: "  Email only; never call after 8pm.  " },
+      body: { contactLevel: "no_direct", contactInstructions: "  Email only; never call after 8pm.  " },
     });
     assert.equal(res.status, 200);
-    assert.equal(res.body.contactSafe, false);
+    assert.equal(res.body.contactLevel, "no_direct");
     assert.equal(res.body.contactInstructions, "Email only; never call after 8pm.");
     const read = await viewer(`/api/partners/${partnerA.id}`);
     assert.equal(read.body.contactInstructions, "Email only; never call after 8pm.");
+  });
+});
+
+describe("the contact card: how to reach a partner", () => {
+  const adult = (extra = {}) => ({ partnerId: partnerA.id, firstName: "Sam", ...extra });
+
+  test("an adult carries the way they like to be reached, and only a known way is accepted", async () => {
+    const made = await editor("/api/adults", {
+      method: "POST",
+      body: adult({ firstName: "Methodical", contactMethod: "signal" }),
+    });
+    assert.equal(made.status, 201, JSON.stringify(made.body));
+    assert.equal(made.body.contactMethod, "signal");
+    const other = await editor(`/api/adults/${made.body.id}`, {
+      method: "PUT",
+      body: adult({ firstName: "Methodical", contactMethod: "other", contactMethodNote: "  Telegram  " }),
+    });
+    assert.equal(other.status, 200, JSON.stringify(other.body));
+    assert.equal(other.body.contactMethod, "other");
+    assert.equal(other.body.contactMethodNote, "Telegram");
+    const bad = await editor(`/api/adults/${made.body.id}`, {
+      method: "PUT",
+      body: adult({ firstName: "Methodical", contactMethod: "carrier-pigeon" }),
+    });
+    assert.equal(bad.status, 400);
+  });
+
+  test("caution keeps the partner reachable but limits the ways, no_direct names who to go through", async () => {
+    const caution = await editor(`/api/partners/${partnerA.id}`, {
+      method: "PUT",
+      body: {
+        contactLevel: "caution",
+        contactChannels: ["email", "whatsapp"],
+        contactInstructions: "Please don't say 'mission' in the subject.",
+      },
+    });
+    assert.equal(caution.status, 200, JSON.stringify(caution.body));
+    assert.equal(caution.body.contactLevel, "caution");
+    assert.deepEqual(caution.body.contactChannels, ["email", "whatsapp"]);
+
+    const via = await editor(`/api/partners/${partnerA.id}`, {
+      method: "PUT",
+      body: {
+        contactLevel: "no_direct",
+        contactChannels: [],
+        contactViaName: "Mission office",
+        contactViaRole: "Sending organization",
+        contactViaPhone: "555-0100",
+        contactViaEmail: "office@example.org",
+      },
+    });
+    assert.equal(via.status, 200, JSON.stringify(via.body));
+    const read = await viewer(`/api/partners/${partnerA.id}`);
+    assert.equal(read.body.contactLevel, "no_direct");
+    assert.equal(read.body.contactViaName, "Mission office");
+    assert.equal(read.body.contactViaEmail, "office@example.org");
+
+    for (const body of [{ contactLevel: "kinda" }, { contactChannels: ["pigeon"] }]) {
+      const res = await editor(`/api/partners/${partnerA.id}`, { method: "PUT", body });
+      assert.equal(res.status, 400, JSON.stringify(body));
+    }
+    await editor(`/api/partners/${partnerA.id}`, {
+      method: "PUT",
+      body: { contactLevel: "normal", contactChannels: [], contactViaName: null, contactInstructions: null },
+    });
+  });
+
+  test("an organization's named contact carries its own way to be reached", async () => {
+    const org = await admin("/api/partners", {
+      method: "POST",
+      body: {
+        kind: "organization",
+        displayName: `${FIXTURE_TAG} Org ${Date.now()}`,
+        contactFirstName: "Olive",
+        contactEmail: "olive@example.org",
+        contactMethod: "email",
+        contactMethodNote: "mornings",
+      },
+    });
+    assert.equal(org.status, 201, JSON.stringify(org.body));
+    assert.equal(org.body.contactMethod, "email");
+    assert.equal(org.body.contactMethodNote, "mornings");
   });
 });
 

@@ -1,3 +1,4 @@
+import { methodLabel } from "../utils/contactMethods.js";
 import React, { useEffect, useMemo, useState } from "react";
 import { fetchPartners } from "../api/client.js";
 import "../styles/booklet.css";
@@ -74,11 +75,14 @@ function renderFamilyBlock(m, fields) {
     // email or preferred method printed in a booklet that's handed out. Names
     // still print; the details don't, and the staff-only special
     // instructions (which may say why) are never printed either.
-    const withhold = m.contactSafe === false;
+    const withhold = m.contactLevel === "no_direct";
+    const primary = (m.adults || []).find((a) => a.isPrimaryContact) || (m.adults || [])[0];
     if (withhold) {
       rows.push("<p><strong>Contact:</strong> Details withheld.</p>");
-    } else if (m.preferredContactMethod) {
-      rows.push(`<p><strong>Preferred Contact:</strong> ${escapeHtml(m.preferredContactMethod)}</p>`);
+    } else if (primary?.contactMethod) {
+      rows.push(
+        `<p><strong>Preferred Contact:</strong> ${escapeHtml(methodLabel(primary.contactMethod, primary.contactMethodNote))}</p>`
+      );
     }
     (m.adults || []).forEach((a) => {
       const parts = withhold ? [] : [a.phone1, a.email].filter(Boolean).map(escapeHtml);
@@ -281,7 +285,7 @@ function buildMissionaryPageHtml(m, accent, fields) {
   const mailing = addressByType(m.addresses, "mailing");
   // A partner not safe to contact prints no address either, nor their sending party's contact
   // details (#288, #411): the name and the family's names still print.
-  const unsafe = m.contactSafe === false;
+  const unsafe = m.contactLevel === "no_direct";
 
   return `
     <section class="booklet-page" style="--accent:${accent}">

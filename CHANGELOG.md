@@ -25,6 +25,8 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 - **Visitors can choose Light or Dark on the public site** with a small switch in the header; it follows their device unless they pick one.
 - **More records carry a created date ([#383](https://github.com/neckermann/missions-partner-tracker/issues/383)).** A partner's addresses and sending party, a trip's budget lines and flight segments, and application questions now record when they were added (trips and applications already did).
 - **"Forgot your password?" on the sign-in page.** When the site can send email, anyone can ask for a link to choose a new password. The link works once and lasts an hour, a reset signs the account out everywhere else, and the reply is the same whether or not the address has an account (at most one email a minute per account). It reuses the setup-link machinery, so no database change. Not offered while email is off, on a demo, or with passwordless sign-in on.
+- **The Contact card is where you edit how to reach a partner.** **Edit** on the card picks who to reach first (a list of the adults, or an organization's named contact) and how each person likes to be reached: a phone call, text, email, WhatsApp, Signal, Messenger or another way, shown highlighted as "Prefers Email". The card is shown even when the contact log is off.
+- **Contacting a partner has three settings, not two.** The old safe / not-safe switch is now **Normal**, **Use caution** (their details stay under a warning with your guidelines, and you can limit the ways it is ok to reach them, so only those buttons show) and **Don't contact directly** (their number, email and buttons are hidden, replaced by who to go through, with that person's call and email buttons, and the guidelines). The printed booklet withholds details for **Don't contact directly**.
 
 ### Fixed
 
@@ -41,7 +43,7 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ### Upgrading
 
-- **A database that ran `0.1.0-beta.2` must be reset again (pre-1.0).** The single baseline migration (`20261122092854_init`) gained a `createdAt` column on `Address`, `SendingParty`, `TripBudgetLine`, `TripFlightSegment` and `ApplicationQuestion`, so `npx prisma migrate deploy` against a database that already ran it will not apply it. Reset the database (`npx prisma migrate reset`), or reset a demo through its reset job.
+- **A database that ran `0.1.0-beta.2` must be reset again (pre-1.0).** The single baseline migration (`20261122092854_init`) gained a `createdAt` column on `Address`, `SendingParty`, `TripBudgetLine`, `TripFlightSegment` and `ApplicationQuestion`, and the contact changes: `Partner.contactSafe` and `Partner.preferredContactMethod` are gone, replaced by `Partner.contactLevel`, `contactChannels`, `contactViaName`/`Role`/`Phone`/`Email` and (for an organization) `contactMethod`/`contactMethodNote`, with `contactMethod`/`contactMethodNote` on each `Adult`. There is nothing to carry across before 1.0, and `npx prisma migrate deploy` against a database that already ran the baseline will not apply it. Reset the database (`npx prisma migrate reset`), or reset a demo through its reset job.
 
 ## [0.1.0-beta.2] - 2026-11-25
 

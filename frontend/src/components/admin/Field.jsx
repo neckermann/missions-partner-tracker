@@ -14,7 +14,7 @@ export default function Field({ label, value, showEmpty = false }) {
   // minWidth: 0 and overflowWrap: a long unbreakable value (an email address, a URL) wraps
   // instead of pushing the page wider than a phone screen.
   return (
-    <div style={{ minWidth: 0 }}>
+    <div className="field-view" style={{ minWidth: 0 }}>
       <div
         style={{
           fontSize: "0.75rem",

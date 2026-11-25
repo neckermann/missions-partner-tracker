@@ -693,7 +693,7 @@ const FALLBACK_CHURCH_NAMES = [
   "Faith Community Church",
   "Riverside Chapel",
 ];
-const CONTACT_METHODS = ["Email", "Phone", "WhatsApp", "Signal"];
+const CONTACT_METHODS = ["email", "call", "whatsapp", "signal", "text"];
 
 const SEASON_NOTES = [
   "Best visited outside the rainy season, typically May–September.",
@@ -3169,7 +3169,7 @@ async function seedContactLogDemo() {
   // One partner who is not safe to contact, so the card's "special
   // communication instructions" and the booklet's withholding are visible.
   const sensitive = await prisma.partner.findFirst({
-    where: { kind: "missionary", archived: false, isRestricted: false, contactSafe: true },
+    where: { kind: "missionary", archived: false, isRestricted: false, contactLevel: "normal" },
     orderBy: { displayName: "desc" },
     select: { id: true },
   });
@@ -3177,9 +3177,32 @@ async function seedContactLogDemo() {
     await prisma.partner.update({
       where: { id: sensitive.id },
       data: {
-        contactSafe: false,
+        contactLevel: "no_direct",
         contactInstructions:
-          "Please don't call or text. Email the family's sending organization, who will relay messages.",
+          "Please don't call or text them. Go through their sending organization, who relay messages.",
+        contactViaName: "Mission office",
+        contactViaRole: "Sending organization",
+        contactViaPhone: "(555) 010-0199",
+        contactViaEmail: "office@sending-org.example.org",
+      },
+    });
+  }
+  // And one that is reachable, with guidelines: email only, and some words to avoid.
+  const careful = await prisma.partner.findFirst({
+    where: { kind: "missionary", archived: false, isRestricted: false, contactLevel: "normal" },
+    orderBy: { displayName: "asc" },
+    select: { id: true },
+  });
+  if (careful) {
+    // Their family prefers email too, so the card and the guidelines agree.
+    await prisma.adult.updateMany({ where: { partnerId: careful.id }, data: { contactMethod: "email" } });
+    await prisma.partner.update({
+      where: { id: careful.id },
+      data: {
+        contactLevel: "caution",
+        contactChannels: ["email"],
+        contactInstructions:
+          'Email only, never text or call. Please don\'t use the words "church planting" or "mission" in the subject line.',
       },
     });
   }
@@ -3804,6 +3827,7 @@ async function main() {
             phone2: chance(0.25) ? fakePhone() : null,
             email: `${slugify(displayName.split(" and ")[0])}.${slugify(last)}@example.com`,
             birthday: dateBetween(60, 28),
+            contactMethod: pick(CONTACT_METHODS),
           },
           {
             // displayName.split(" and ")[1] is "<firstName> <lastName>" --
@@ -3814,6 +3838,7 @@ async function main() {
             phone2: null,
             email: `${slugify(displayName.split(" and ")[1])}@example.com`,
             birthday: dateBetween(58, 26),
+            contactMethod: pick(CONTACT_METHODS),
           },
         ]
       : [
@@ -3824,6 +3849,7 @@ async function main() {
             phone2: chance(0.15) ? fakePhone() : null,
             email: `${slugify(displayName)}@example.com`,
             birthday: dateBetween(55, 25),
+            contactMethod: pick(CONTACT_METHODS),
           },
         ];
     const childCount = isFamily && chance(0.6) ? randInt(1, 4) : 0;
@@ -3869,8 +3895,6 @@ async function main() {
         isRestricted,
         archived,
         archivedAt: archived ? dateBetween(0, 0) : null,
-        contactSafe: chance(0.85),
-        preferredContactMethod: pick(CONTACT_METHODS),
         sentByOurChurch: !!sentByOurChurch,
         overview,
         overviewShort,
@@ -4030,7 +4054,7 @@ async function main() {
         contactLastName: pick(LAST),
         contactPhone: fakePhone(),
         contactEmail: `info@${slugify(name)}.example.org`,
-        preferredContactMethod: pick(CONTACT_METHODS),
+        contactMethod: pick(CONTACT_METHODS),
         links: { create: buildLinks(slugify(name)) },
         tripTeamSizeMin: chance(0.7) ? randInt(4, 8) : null,
         tripTeamSizeMax: chance(0.7) ? randInt(10, 20) : null,

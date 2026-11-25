@@ -233,7 +233,7 @@ describe("key-date email: the daily run", () => {
     });
     await admin(`/api/partners/${p.id}`, {
       method: "PUT",
-      body: { contactSafe: false, contactInstructions: "SECRET relay only" },
+      body: { contactLevel: "no_direct", contactInstructions: "SECRET relay only" },
     });
     await addAdult(p.id, dateIn(2), "Maryann");
     const u = await makeUser("masked");
