@@ -639,6 +639,11 @@ const digestSubscriptionSchema = z.object({
 });
 router.put("/dispatch-by-email", requireAuth, async (req, res, next) => {
   try {
+    // The admin digest carries every partner's prayer requests, needs and amounts, which a scoped
+    // guest must never receive (#407). The UI hides this for a guest; the server refuses it too.
+    if (req.user.role === "guest") {
+      return res.status(403).json({ error: "Insufficient permissions" });
+    }
     const parsed = digestSubscriptionSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ error: parsed.error.issues[0]?.message || "Invalid request" });

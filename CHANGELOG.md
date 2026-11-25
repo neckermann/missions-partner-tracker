@@ -16,6 +16,11 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ## [Unreleased]
 
+### Security
+
+- **A guest can no longer subscribe to the church-wide email digest, and no longer receives it ([#407](https://github.com/neckermann/missions-partner-tracker/issues/407)).** `PUT /api/auth/dispatch-by-email` now refuses a guest, and both the scheduled digest and the urgent dispatch go only to admins, editors and viewers (they carry every partner's prayer requests, needs and amounts). A care team guest still gets the key-date email, which is built from their own partners.
+- **Passkey enrolment ([#408](https://github.com/neckermann/missions-partner-tracker/issues/408)):** a forced-enrolment setup token is refused once the account has enrolled, the first passkey ends sessions opened before it (the tab that added it stays signed in), and removing a passkey, which asks for the password, is rate limited.
+
 ## [0.1.0-beta.1] - 2026-11-25
 
 ### Added
