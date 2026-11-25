@@ -1,7 +1,6 @@
-// The report catalog. Each module in ./reports exports `reports`, an array
-// of { id, group, label, question, params, fields, columns, fetch, compute }.
-// Adding a report means adding it to one of those modules (or a new one
-// listed here) -- the route and the frontend pick it up from the catalog.
+// The report catalog. Each module in ./reports exports `reports`, an array of
+// { id, group, label, question, params, fields, columns, fetch, compute }. Add a
+// report there and the route and frontend pick it up.
 const { applyMasking } = require("./masking");
 
 const GROUPS = [
@@ -76,11 +75,9 @@ function getReport(id, { role, isEnabled }) {
   return report && allowed(report, role, isEnabled) ? report : null;
 }
 
-// Parse, fetch, compute, then mask in one place. `audience` is "admin" for
-// the signed-in app; anything that leaves the app must pass "shared",
-// along with `settings` (#327 Finding 10 -- governs whether a restricted
-// partner's masked name is initials or a generic label; only read when
-// audience is "shared", since applyMasking is a no-op otherwise).
+// Parse, fetch, compute, then mask in one place. `audience` is "admin" for the
+// signed-in app; anything leaving it must pass "shared" with `settings` (decides
+// whether a restricted partner's masked name is initials or a generic label).
 async function runReport(report, query, { prisma, today, audience = "admin", settings }) {
   const params = report.params.parse(query);
   const data = await report.fetch(params, { prisma, today });

@@ -1,13 +1,8 @@
-// Admin-only digest content building -- source links, newsletter blocks
-// with titles, nesting a request/need under the newsletter it was
-// sourced from. Renamed from emailDigest.js: that name suggested it
-// owned "the email digest" generally, which stopped being true once the
-// public digest got its own content-builder (publicEmailDispatchContent.js).
+// Admin-only digest content building: source links, newsletter blocks with titles,
+// nesting a request/need under the newsletter it came from.
 const { escapeHtml, nl2br, typeLabel, brandButton } = require("./emailDispatchShell");
 
-// Groups blurbs by partner, and within each partner, nests a
-// request/need under the newsletter blurb it was sourced from when that
-// newsletter is also in this batch.
+// Groups blurbs by partner, nesting a request/need under the newsletter blurb it came from when that newsletter is in the batch.
 function groupByPartner(blurbs) {
   const byPartner = new Map(); // partnerId -> { partnerId, partnerName, newsletters: [{ blurb, children: [] }], standalone: [] }
 
@@ -57,11 +52,8 @@ function renderBlurbHtml(blurb, accentColor, highlightColor) {
     </div>`;
 }
 
-// The newsletter block's own title line (new -- see buildBlurb's
-// newsletterCreated case in dispatchBlurbs.js) renders right under
-// the "New Newsletter" label, above the "Read the full newsletter"
-// button. Masked to nothing for a restricted partner's newsletter, same
-// as every other identifying field on that row.
+// The newsletter's title line renders under the "New Newsletter" label, above the
+// "Read the full newsletter" button; masked to nothing for a restricted partner.
 function renderNewsletterBlock(blurb, children, accentColor, highlightColor) {
   return `
     <div style="margin:0;">
@@ -143,11 +135,9 @@ function renderPartnerText(group, tile) {
   return lines;
 }
 
-// `eligibleRows` are the DispatchRecord rows already filtered through
-// isEligibleForChannel for CHANNELS.EMAIL_ADMIN, already turned into
-// blurbs via buildBlurb (dispatchBlurbs.js) by the caller
-// (emailDispatchDelivery.js). `tile` lookup is partnerDetailsById -- undefined
-// entries fall back to the classic, tile-less layout.
+// `eligibleRows` are DispatchRecord rows already filtered through isEligibleForChannel
+// for CHANNELS.EMAIL_ADMIN and turned into blurbs via buildBlurb by the caller
+// (emailDispatchDelivery.js). Tile lookup is partnerDetailsById; missing entries fall back to the tile-less layout.
 function buildAdminEmailDispatchContent(blurbs, partnerDetailsById, churchSettings) {
   const groups = groupByPartner(blurbs);
   const accentColor = churchSettings?.primaryColor || "#2a5d3c";

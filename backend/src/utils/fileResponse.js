@@ -1,33 +1,21 @@
-// Sends a file stored in the database back to the browser.
+// Sends a file stored in the database back to the browser. Shared by the
+// newsletter and document download routes.
 //
-// Shared by the newsletter and document download routes, which were
-// byte-identical, so the rule below lives in one place rather than two.
-//
-// The rule: a file is only served `inline` -- i.e. rendered by the browser
-// -- if its bytes were actually verified against its declared type on the
-// way in (see utils/fileSignature.js). Everything else downloads.
-//
-// That matters for .eml specifically. Email files have no reliable magic
-// bytes across mail clients, so upload skips signature verification for
-// them, and the stored contentType is whatever the client claimed. Without
-// this, an editor could upload `notes.eml` declaring `text/html`, and an
-// admin opening it would render attacker-authored markup on this app's own
-// origin. Helmet's CSP blocks scripts, so the ceiling is convincing
-// same-origin phishing UI rather than XSS -- but nobody reads a raw .eml in
-// a browser tab anyway, so forcing the download costs nothing and removes
-// the vector.
+// A file is served `inline` (rendered) only if its bytes were verified against its
+// declared type on upload (utils/fileSignature.js); everything else downloads.
+// This matters for .eml: it has no reliable magic bytes, so upload skips
+// verification and the stored contentType is whatever the client claimed. Otherwise
+// an editor could upload `notes.eml` declaring `text/html` and an admin opening it
+// would render attacker markup on this origin (CSP blocks scripts, so the ceiling
+// is same-origin phishing UI). Forcing the download costs nothing.
 
-// Types whose bytes are checked at upload time and are therefore safe to
-// hand the browser to render. Mirrors utils/fileSignature.js. image/webp is
-// here because routes/partners.js accepts and signature-verifies it for
-// partner/org photos (newsletters/documents don't -- their own upload
-// fileFilter never allows webp in the first place, so this is inert there).
+// Types verified at upload and so safe to render; mirrors utils/fileSignature.js.
+// image/webp is accepted and verified by routes/partners.js for photos only.
 const VERIFIED_INLINE_TYPES = new Set(["application/pdf", "image/jpeg", "image/png", "image/webp"]);
 
-// A filename reaches a response header here. busboy percent-decodes RFC 5987
-// `filename*`, so control characters can survive an upload; Node rejects
-// those when setting a header, turning a bad filename into a 500 rather than
-// a clean response. Strip anything that can't safely appear.
+// A filename reaches a response header. busboy percent-decodes RFC 5987
+// `filename*`, so control characters can survive an upload and Node rejects
+// them in a header (a 500). Strip anything that can't safely appear.
 function safeFilename(name) {
   const cleaned = [...String(name || "")]
     .filter((ch) => {
@@ -49,8 +37,7 @@ function sendStoredFile(res, record) {
 
   res.set("Content-Type", inlineSafe ? declared : "application/octet-stream");
   res.set("Content-Disposition", `${inlineSafe ? "inline" : "attachment"}; filename="${filename}"`);
-  // These are partner records behind a login; no shared cache should keep a
-  // copy, and the download URL shouldn't be re-served to anyone else.
+  // Partner records behind a login: no shared cache should keep a copy.
   res.set("Cache-Control", "private, no-store");
   res.send(record.bytes);
 }

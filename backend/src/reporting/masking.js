@@ -1,28 +1,19 @@
-// Who may see what, applied in ONE place after a report computes -- never
-// inside an individual report, so no report can forget it or opt out.
+// Who may see what, applied in ONE place after a report computes, never inside a
+// report, so none can forget or opt out.
+//  - "admin": a signed-in admin/editor/viewer, who already reads every partner's
+//    full record (ADMIN_GUIDE.md "Who can see what"); rows pass unchanged.
+//  - "shared": anything leaving the signed-in app (scheduled email, public
+//    summary). A restricted partner is reduced to initials and every `sensitive`
+//    column is blanked for its rows, as on the public site and dispatch channels.
 //
-// Two audiences:
-//  - "admin": a signed-in admin/editor/viewer looking at the app. They
-//    already read every partner's full record (see ADMIN_GUIDE.md "Who can
-//    see what"), so rows pass through unchanged.
-//  - "shared": anything that leaves the signed-in app -- a scheduled email,
-//    a public summary. A restricted-access partner is reduced to initials
-//    and every column marked `sensitive` is blanked for that partner's rows,
-//    the same promise the public site and dispatch channels already make.
-//
-// A report marks a row about a restricted partner with `_restricted: true`
-// and the partner-name column key as `partnerName`. Keys that start with an
-// underscore are internal and are always stripped from the output.
+// A report marks a restricted partner's row `_restricted: true` and the name
+// column key `partnerName`. Underscore-prefixed keys are internal and always stripped.
 const { toInitials } = require("../utils/maskData");
 
 const PARTNER_NAME_KEY = "partnerName";
-// #327 Finding 10 -- same generic fallback maskedDisplayName() uses when
-// initials are turned off and there's no fieldDisplayName to fall back
-// to. A flattened report row only ever carries the one partnerName
-// string column, with no separate fieldDisplayName column available the
-// way a real Partner record has one, so this path can't offer that
-// fallback the way every other masking site in the app does -- it's
-// initials-or-this-fixed-label, not initials-or-fieldDisplayName-or-this.
+// Same generic fallback as maskedDisplayName() when initials are off. A flattened
+// report row has only a partnerName string (no fieldDisplayName), so this path is
+// initials-or-this-fixed-label.
 const GENERIC_RESTRICTED_LABEL = "A restricted-access partner";
 
 function stripInternal(row) {

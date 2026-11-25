@@ -1,16 +1,11 @@
-// Forward-geocodes a physical address into { lat, lng } using OpenStreetMap
-// Nominatim (free, no API key). Used as a save-time convenience — if it
-// fails or finds nothing, callers should just leave gpsLat/gpsLng null
-// rather than blocking the save.
+// Forward-geocodes a physical address into { lat, lng } with OpenStreetMap
+// Nominatim (free, no key). A save-time convenience: on failure callers leave
+// gpsLat/gpsLng null rather than block the save.
 //
-// Deliberately geocodes to city/state/country only, never the street
-// address line — public map pins should land on the nearest city, not an
-// exact street address, even when a full address is on file for internal
-// reference.
-// Nominatim's usage policy requires a real contact in the User-Agent so
-// misbehaving traffic can be reached instead of just blocked — set
-// NOMINATIM_CONTACT to your own email before deploying a fork, so requests
-// aren't attributed to this project's original author.
+// Geocodes city/state/country only, never the street line, so public map pins land
+// on the nearest city.
+// Nominatim's usage policy requires a real contact in the User-Agent: set
+// NOMINATIM_CONTACT to your own email before deploying a fork.
 const USER_AGENT = `MissionsPartnerTracker/1.0 (contact: ${process.env.NOMINATIM_CONTACT || "nicholas.eckermann@gmail.com"})`;
 
 async function geocodeAddress({ city, stateProvinceRegion, country } = {}) {
@@ -30,9 +25,7 @@ async function geocodeAddress({ city, stateProvinceRegion, country } = {}) {
     if (!results.length) return null;
     const lat = parseFloat(results[0].lat);
     const lng = parseFloat(results[0].lon);
-    // A malformed upstream result (missing/non-numeric lat or lon) should
-    // leave gpsLat/gpsLng null, same as "found nothing" -- not persist
-    // NaN, which the caller has no reason to expect or guard against.
+    // A malformed upstream result (missing/non-numeric lat or lon) leaves gpsLat/gpsLng null, not NaN.
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
     return { lat, lng };
   } catch (err) {

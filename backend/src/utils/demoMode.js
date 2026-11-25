@@ -1,23 +1,19 @@
-// What makes a deployment a public demo, and what a demo never does. Demo-only:
-// DEMO_RESET_TOKEN is never set on a real church's deployment (see
-// routes/publicSettings.js and server.js, which key off the same variable).
+// What makes a deployment a public demo, and what a demo never does. DEMO_RESET_TOKEN
+// is never set on a real deployment (publicSettings.js and server.js key off it too).
 
 // True on a public demo deployment.
 function isDemoDeployment() {
   return Boolean(process.env.DEMO_RESET_TOKEN);
 }
 
-// Features a demo keeps OFF on every reset, even though it turns the rest on.
-// The standing rule: a demo must not send email to its seeded accounts (they
-// are fake addresses, so mail to them just bounces and spends the email
-// plan's limit), so anything that emails people on its own schedule stays off
-// there. The reset script and the seed both apply this, because the seed
-// rewrites the feature list after the reset script does.
+// Features a demo keeps OFF on every reset. Standing rule: a demo must not email
+// its seeded accounts (fake addresses bounce and spend the email plan), so anything
+// emailing people on a schedule stays off. The reset script and the seed both apply
+// this, because the seed rewrites the feature list after the reset.
 //
-// Currently empty: the key-date reminders (#291) are ON for a demo so a visitor sees the bell
-// alert (#365). Their email can't go out anyway, because the daily job returns early on any
-// deployment where DEMO_RESET_TOKEN is set (keyDateReminderScheduler.js). Add a feature key here
-// if a new scheduled email ever needs the flag itself kept off.
+// Currently empty: key-date reminders are ON so a visitor sees the bell alert; their
+// email can't go out because the daily job returns early when DEMO_RESET_TOKEN is
+// set (keyDateReminderScheduler.js). Add a key if a new scheduled email needs the flag off.
 const DEMO_DISABLED_FEATURES = [];
 
 // { feature: false } for each, to spread over a feature object.

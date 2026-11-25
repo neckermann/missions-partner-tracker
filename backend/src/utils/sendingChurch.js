@@ -1,10 +1,8 @@
-// Filtering lists by a partner's sending church -- ours included. A partner's
-// sending church is its `SendingParty` of type "church" (one per partner);
-// "sent by our church" is the partner flag `sentByOurChurch`, which also writes
-// our own church into that SendingParty (routes/partners.js syncSendingChurch).
-// So "ours" is one option that means the flag, and every other option is a church
-// name. The same query parameter (`sendingChurch`) works on every list that is
-// about partners or things that belong to a partner.
+// Filtering lists by a partner's sending church, ours included. A sending church
+// is the partner's `SendingParty` of type "church"; "sent by our church" is the
+// flag `sentByOurChurch`, which also writes our church into that SendingParty
+// (routes/partners.js syncSendingChurch). So "ours" is one option meaning the flag,
+// and every other option is a church name. The `sendingChurch` query parameter works on every partner-related list.
 const prisma = require("../prismaClient");
 
 // The value for "our own church" in the `sendingChurch` query parameter and the

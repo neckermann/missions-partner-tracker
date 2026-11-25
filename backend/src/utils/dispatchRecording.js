@@ -1,21 +1,16 @@
-// Channel-neutral entry points for every record-lifecycle event a route
-// notifies on: a prayer request/one-time need/newsletter created, or a
-// prayer request answered / one-time need decided. Every notifying
-// route calls one of these, never a specific channel's notify function.
+// Channel-neutral entry points for every record-lifecycle event a route notifies
+// on (prayer request/one-time need/newsletter created, prayer answered, need
+// decided). Routes call these, never a channel's notify function.
 //
-// Every event is recorded, with one exception: a restricted partner's
-// event is only recorded if allowRestrictedPartnerDispatch is on
-// (see dispatchEligibility.js's isRestrictedPartnerBlocked). Every
-// other setting only ever affects delivery, never recording -- see
-// isEligibleForChannel, which each channel calls at send time instead.
+// Every event is recorded except a restricted partner's when
+// allowRestrictedPartnerDispatch is off (dispatchEligibility.js
+// isRestrictedPartnerBlocked). All other settings affect only delivery, via
+// isEligibleForChannel at send time.
 const prisma = require("../prismaClient");
 const { isRestrictedPartnerBlocked, getChurchSettings } = require("./dispatchEligibility");
 const { sendUrgentDispatch } = require("./dispatchOrchestrator");
 
-// Every function below is best-effort: a broken write must never block
-// the save that triggered it (a corrupted ChurchSettings row, a
-// transient DB hiccup -- rare, but the save itself must survive it
-// regardless).
+// Every function here is best-effort: a broken write must never block the save that triggered it.
 async function safeNotify(label, fn) {
   try {
     await fn();
@@ -24,11 +19,9 @@ async function safeNotify(label, fn) {
   }
 }
 
-// `review`, when given, is { reviewedById, reviewedText } -- the inline
-// "approve now" path from the creation form, written in the same
-// create call rather than a later PUT. Harmless to pass for a
-// non-restricted partner (or a type outside REVIEW_GATED_TYPES) --
-// needsReview() simply never looks at dispatchReviewedAt in that case.
+// `review`, when given, is { reviewedById, reviewedText }: the inline "approve
+// now" path, written in the same create. Harmless for a non-restricted partner
+// or a type outside REVIEW_GATED_TYPES (needsReview() never reads it then).
 async function enqueue(type, partnerId, payload, review, requireReview = false) {
   const reviewFields = review
     ? {
@@ -42,12 +35,9 @@ async function enqueue(type, partnerId, payload, review, requireReview = false) 
   });
 }
 
-// The one place recording still depends on a setting -- restricted-
-// partner events only. Re-fetches isRestricted fresh by id rather than
-// trusting the caller's partner shape: every call site here only has a
-// route's own partnerRefSelect ({ id, kind, displayName }) on hand, not
-// a guaranteed isRestricted, and this is the one safety-critical check
-// in the system.
+// The one place recording depends on a setting (restricted-partner events only).
+// Re-fetches isRestricted by id rather than trusting the caller's partner shape,
+// which lacks it; this is the one safety-critical check in the system.
 async function createDispatchRecord(type, partner, payload, review, requireReview = false) {
   const [settings, freshPartner] = await Promise.all([
     getChurchSettings(),
@@ -57,26 +47,21 @@ async function createDispatchRecord(type, partner, payload, review, requireRevie
   return enqueue(type, partner.id, payload, review, requireReview);
 }
 
-// Fires the immediate cross-channel dispatch when isUrgent is set --
-// sendUrgentDispatch still calls isEligibleForChannel per channel
-// (restricted-partner review, chat-channel mutes, the public email
-// dispatch's prayer-only rule all still apply; only each channel's
-// cadence/schedule wait is bypassed). Awaited, not fire-and-forget.
+// Fires the immediate dispatch when isUrgent is set. sendUrgentDispatch still
+// calls isEligibleForChannel per channel; only the cadence wait is bypassed.
+// Awaited, not fire-and-forget.
 async function maybeDispatchUrgent(row, partner, isUrgent) {
   if (!row || !isUrgent) return;
   await sendUrgentDispatch(row, partner);
 }
 
-// `approval`, when given, is { reviewerId } -- set when the admin/editor
-// checked "Review and approve now" on the creation form instead of
-// leaving this for Pending Dispatches later. reviewedText is always
-// exactly what they just typed, never an edited version -- a different
-// wording still goes through Pending Dispatches' own Edit flow.
+// `approval`, when given, is { reviewerId }: the admin/editor checked "Review and
+// approve now". reviewedText is exactly what they typed; other wording goes
+// through Pending Dispatches' Edit flow.
 //
-// `options.requireReview` (#289) is set for a care team member's submission:
-// the record is held for staff review whatever the partner, and the
-// inline-approve and urgent shortcuts are ignored for it -- nothing a
-// non-staff login enters is sent before an admin/editor approves it.
+// `options.requireReview` is set for a care team member's submission: the record
+// is held for staff review whatever the partner, and inline-approve and urgent
+// are ignored; nothing a non-staff login enters sends before staff approve it.
 async function notifyPrayerRequestCreated(prayerRequest, approval, { requireReview = false } = {}) {
   await safeNotify("Prayer request created", async () => {
     const review =
@@ -115,8 +100,7 @@ async function notifyPrayerRequestAnswered(prayerRequest, { requireReview = fals
   });
 }
 
-// Same inline "approve now" path as notifyPrayerRequestCreated above --
-// see that function's own comment.
+// Same inline "approve now" path as notifyPrayerRequestCreated.
 async function notifySupportNeedCreated(supportNeed, approval, { requireReview = false } = {}) {
   await safeNotify("Support need created", async () => {
     const review =
@@ -130,9 +114,7 @@ async function notifySupportNeedCreated(supportNeed, approval, { requireReview =
         partnerName: supportNeed.partner?.displayName || "A partner",
         description: supportNeed.description,
         // One-time needs never reach the public email dispatch (not in
-        // dispatchBlurbs.js's PUBLIC_EMAIL_DISPATCH_TYPES) -- admin-only, so
-        // the requested amount is safe to surface in the dispatch
-        // itself rather than requiring a trip to the One-Time Needs page.
+        // PUBLIC_EMAIL_DISPATCH_TYPES), so the requested amount is safe to include.
         requestedAmount: supportNeed.requestedAmount,
         sourceFileId: supportNeed.sourceFile?.id || null,
       },
@@ -150,16 +132,14 @@ async function notifySupportNeedDecided(supportNeed) {
       description: supportNeed.description,
       approvedAmount: supportNeed.approvedAmount,
       requestedAmount: supportNeed.requestedAmount,
-      // Admin-only, same reasoning as requestedAmount above -- documents
-      // why the decision came out the way it did.
+      // Admin-only, like requestedAmount: why the decision came out this way.
       decisionNote: supportNeed.decisionNote || null,
       sourceFileId: supportNeed.sourceFile?.id || null,
     });
   });
 }
 
-// `options.requireReview` (#289): a care team member's upload is held for
-// staff review like their prayer requests and needs.
+// `options.requireReview`: a care team member's upload is held for staff review like their requests.
 async function notifyNewsletterCreated(newsletter, { requireReview = false } = {}) {
   await safeNotify("Newsletter created", async () => {
     await createDispatchRecord(

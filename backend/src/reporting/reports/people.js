@@ -119,22 +119,20 @@ const usersAccess = {
           mfaEnabled: true,
           mfaSetupRequired: true,
           passwordHash: true,
-          // A guest's access comes from its grants (#356), so "expires" and
-          // "Expired" are worked out from those, not from a column on User.
+          // A guest's access comes from its grants, so "expires"/"Expired" derive from those, not a User column.
           tripAccess: { select: GRANT_SELECT },
         },
       }),
       prisma.churchSettings.findUnique({ where: { id: "singleton" }, select: { requireTwoFactor: true } }),
     ]);
-    // The church-wide requirement (#385) applies to every account.
+    // The church-wide two-factor requirement applies to every account.
     return users.map((u) => ({ ...u, twoFactorRequired: settings?.requireTwoFactor === true }));
   },
   compute(users) {
     const rows = users.map((u) => {
       const grants = u.role === "guest" ? summarizeGrants(u.tripAccess) : [];
       const reason = guestInactiveReason(u, grants);
-      // When the last of a guest's active grants lapses; blank when any of
-      // them never does (a trip with no end date) or for the full roles.
+      // When the last of a guest's active grants lapses; blank if any never does or for full roles.
       const live = grants.filter((g) => g.active);
       const expiry =
         live.length === 0 || live.some((g) => !g.effectiveExpiresAt)

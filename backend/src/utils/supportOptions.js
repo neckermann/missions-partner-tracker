@@ -1,7 +1,7 @@
-// #374: support preferences -- the rules around the church's menu of options and a partner's
-// answers to it. The menu itself is data the church edits (SupportOption rows), never code;
-// the only things fixed here are the kinds of question, how an answer to each kind is
-// validated and shaped, and an example set a church can add and then edit or delete.
+// Support preferences: the rules around the church's menu of options and a
+// partner's answers. The menu is church-edited data (SupportOption rows); fixed
+// here are the kinds of question, how each kind's answer is validated and shaped,
+// and an example set a church can add and then edit or delete.
 const prisma = require("../prismaClient");
 
 const KINDS = [
@@ -16,19 +16,19 @@ const CHOICE_KINDS = ["single", "multiple"];
 const MAX_CHOICES = 20;
 const MAX_TEXT = 2000;
 
-// What a partner's answer is stored as, in PartnerSupportPreference's own columns:
-//   offer    -> only `selected` (whether they want it)
-//   single   -> `choice` (one of the option's choices) or `other` (their own words)
-//   multiple -> `choices` (any of the option's choices) and/or `other`
+// How a partner's answer is stored in PartnerSupportPreference:
+//   offer    -> only `selected`
+//   single   -> `choice` or `other` (their own words)
+//   multiple -> `choices` and/or `other`
 //   text     -> `text`
-// `selected` is also true when a question has an answer, so "who has chosen anything for this
-// option" is one column for every kind.
+// `selected` is also true when a question has an answer, so "who chose anything
+// for this option" is one column for every kind.
 
 const clean = (v) => (typeof v === "string" ? v.trim() : "");
 
-// Checks a submitted response against its option. Returns the columns to store
-// ({ selected, choice, choices, other, text, note }), or { empty: true } when there is nothing
-// to keep (not selected, no answer, no note), or { error } when it doesn't fit the option.
+// Checks a response against its option. Returns the columns to store ({ selected,
+// choice, choices, other, text, note }), { empty: true } when there is nothing to
+// keep, or { error } when it doesn't fit the option.
 function normalizeResponse(option, raw) {
   const note = clean(raw?.note).slice(0, MAX_TEXT) || null;
   const blank = { choice: null, choices: [], other: null, text: null };
@@ -57,7 +57,6 @@ function normalizeResponse(option, raw) {
     return finish(Boolean(choice || other), { choice, other });
   }
 
-  // multiple
   const picked = [...new Set((Array.isArray(raw?.choices) ? raw.choices : []).map(clean).filter(Boolean))];
   const bad = picked.find((c) => !allowed.includes(c));
   if (bad) return { error: `"${bad}" isn't one of the choices for "${option.label}"` };
@@ -73,8 +72,7 @@ function describeAnswer(option, pref) {
   return [...(pref.choices || []), ...(pref.other ? [pref.other] : [])].join(", ");
 }
 
-// One example set a church can add from an empty catalog and then edit, reorder or delete.
-// Generic wording across five kinds of support; a church's own list will differ.
+// An example set a church can add from an empty catalog, then edit, reorder or delete.
 const EXAMPLE_OPTIONS = [
   { group: "Logistics", label: "Help finding a place to stay while you are home" },
   { group: "Logistics", label: "Help with transportation while you are home" },
@@ -110,8 +108,7 @@ const EXAMPLE_OPTIONS = [
   },
 ];
 
-// Adds the example set when the catalog is empty. Returns how many were added (0 when the
-// church already has options, so it never doubles up or overwrites a church's own list).
+// Adds the example set when the catalog is empty; returns how many (0 if the church has options, so it never overwrites).
 async function addExampleOptions(db = prisma) {
   if ((await db.supportOption.count()) > 0) return 0;
   const orderIn = new Map();

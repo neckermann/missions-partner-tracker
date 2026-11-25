@@ -1,18 +1,11 @@
-// Welcome email for a new account: a secure "set your password" button,
-// the right guide links for the account type, and (when MFA is required)
-// a plain-language heads-up about the authenticator app they'll need.
-// Rendered in the same branded shell as the digests
-// (emailDispatchShell.js's buildTransactionalMessage) so it looks like
-// everything else this church sends.
+// Welcome email for a new account: a secure "set your password" button, the guide
+// links for the account type, and (when MFA is required) a heads-up about the
+// authenticator app. Rendered in the branded shell (buildTransactionalMessage).
 //
-// Guide URLs point at this project's own published docs site (the
-// GitHub Pages-rendered guide, not a raw GitHub blob -- see
-// docs/user-guide.html and docs/assets/guide.js: that page reimplements
-// GitHub's own heading-slug algorithm specifically so these #anchor
-// fragments resolve identically there) -- not configurable per fork.
-// These are this project's own documentation, not church-specific
-// branding, so there's no "keep forks upgradable" reason to make them an
-// env var or a ChurchSettings field (see issue #303).
+// Guide URLs point at this project's own published docs site (not a raw GitHub
+// blob: docs/assets/guide.js reimplements GitHub's heading-slug algorithm so the
+// #anchors resolve). They are project documentation, not church branding, so
+// they aren't configurable per fork.
 const { renderEmail, blocks } = require("./emailTemplate");
 const { buildSetupUrl, setupTtlHours, RESET_TTL_HOURS } = require("./passwordSetup");
 
@@ -46,8 +39,7 @@ function describeExpiry(hours) {
   return hours === 1 ? "1 hour" : `${hours} hours`;
 }
 
-// Pure -- no I/O -- so it's unit-testable. `settings` is the ChurchSettings
-// row (or null). Returns { subject, html, text }.
+// Pure (no I/O). `settings` is the ChurchSettings row (or null). Returns { subject, html, text }.
 function buildWelcomeEmail({ user, setupUrl, expiresInHours, settings, requireMfa }) {
   const church = settings?.churchName || "the missions tracker";
   const isGuest = user.role === "guest";
@@ -80,18 +72,14 @@ function buildWelcomeEmail({ user, setupUrl, expiresInHours, settings, requireMf
   });
 }
 
-// Issues a fresh setup link and emails it. Throws if email isn't
-// configured or APP_BASE_URL is unset (nothing clickable to send); callers
-// catch and report that so the account itself is never lost to a mail
-// failure.
+// Issues a fresh setup link and emails it. Throws if email isn't configured or
+// APP_BASE_URL is unset; callers report that so the account isn't lost to a mail failure.
 async function sendWelcomeEmail(user, { requireMfa = false } = {}) {
-  // Required lazily so the pure builders above stay unit-testable without a
-  // generated Prisma client / database.
+  // Required lazily so the pure builders above stay unit-testable without a Prisma client/database.
   const prisma = require("../prismaClient");
   const { sendEmail } = require("./email");
   const { issueSetupToken } = require("./passwordSetup");
-  // #386 Layer 2: with passwordless sign-in on there is no password to choose, so the new person
-  // gets a sign-in link instead (and adds a passkey after it).
+  // With passwordless sign-in on there is no password to choose, so send a sign-in link (they add a passkey after).
   const { isPasswordlessOn, sendSignInLinkEmail } = require("./passwordless");
   if (await isPasswordlessOn()) return sendSignInLinkEmail(user);
   if (!buildSetupUrl("probe")) {
@@ -111,8 +99,8 @@ async function sendWelcomeEmail(user, { requireMfa = false } = {}) {
   await sendEmail({ to: user.email, ...message });
 }
 
-// Pure. The email for "I forgot my password": a one-hour link that lets the person choose a new
-// one. Signing in afterwards still asks for their second factor, if they have one.
+// Pure. The "I forgot my password" email: a one-hour link to choose a new one.
+// Signing in afterwards still asks for their second factor, if any.
 function buildPasswordResetEmail({ user, resetUrl, expiresInHours, settings }) {
   const church = settings?.churchName || "the missions tracker";
   return renderEmail({

@@ -1,6 +1,5 @@
-// #288: the "partners I look after" read model, shared by the My partners
-// tab (GET /api/contact-log/assigned) and the partnersNeedingContact
-// notification so the two can never disagree about who is overdue.
+// The "partners I look after" read model, shared by the My partners tab (GET
+// /api/contact-log/assigned) and the partnersNeedingContact notification so they agree on who is overdue.
 
 const prisma = require("../prismaClient");
 const { nextAnnual, daysBetween, toUtcDay, DAY_MS } = require("../reporting/definitions");
@@ -8,8 +7,7 @@ const { isFeatureEnabled } = require("./features");
 const { autoLogForPrayerRequest } = require("./contactLog");
 const { careTimings } = require("./careSettings");
 
-// Latest contact date per partner, from the log alone. Any entry counts,
-// whichever direction and whoever made it -- "has anyone been in touch".
+// Latest contact date per partner, from the log alone. Any entry counts: "has anyone been in touch".
 async function lastContactByPartner(partnerIds) {
   if (partnerIds.length === 0) return new Map();
   const rows = await prisma.contactLog.groupBy({
@@ -20,8 +18,7 @@ async function lastContactByPartner(partnerIds) {
   return new Map(rows.map((r) => [r.partnerId, r._max.contactDate]));
 }
 
-// The earliest follow-up date still waiting on a later contact: a follow-up
-// is answered the moment anything is logged on or after the day it was set.
+// The earliest follow-up date still waiting on a later contact (answered once anything is logged on or after it).
 function openFollowUp(logs) {
   const open = logs.filter(
     (l) =>
@@ -31,8 +28,7 @@ function openFollowUp(logs) {
   return open.reduce((min, l) => (!min || l.followUpDate < min ? l.followUpDate : min), null);
 }
 
-// Every partner this login holds a care team seat on (not archived), with the
-// columns the tab shows. `today` is a Date (UTC day) so tests can pin it.
+// Every partner this login holds a care team seat on (not archived), with the tab's columns. `today` is a UTC-day Date so tests can pin it.
 async function loadAssignedPartners(userId, today = new Date()) {
   const { contactStaleDays } = await careTimings();
   const partnerSelect = {
@@ -53,9 +49,9 @@ async function loadAssignedPartners(userId, today = new Date()) {
     select: { isLead: true, createdAt: true, partner: { select: partnerSelect } },
   });
 
-  // The church's default lead is the fallback for a partner with no care team (#365), the same
-  // fallback key-date reminders already use. Only for staff: a guest's reach is exactly the
-  // partners they hold a grant on, and a fallback must not widen that.
+  // The church's default lead is the fallback for a partner with no care team,
+  // as key-date reminders use. Staff only: a guest's reach is exactly their
+  // grants and a fallback must not widen it.
   let fallback = [];
   const settings = await prisma.churchSettings.findUnique({
     where: { id: "singleton" },
@@ -99,10 +95,9 @@ async function loadAssignedPartners(userId, today = new Date()) {
     p.children.forEach((c) => consider(c.birthday, "Birthday", c.firstName || ""));
     consider(p.anniversary, "Anniversary", "");
 
-    // When this partner became overdue: the day the quiet clock ran out (from
-    // the last contact, or from joining the team if never contacted), or the
-    // follow-up date, whichever came first. The notification uses the latest
-    // of these to know when something NEW needs attention.
+    // When this partner became overdue: when the quiet clock ran out (from the last
+    // contact, or joining the team if never contacted) or the follow-up date,
+    // whichever came first. The notification uses the latest to detect NEW items.
     const quietSince = new Date(toUtcDay(last || seatSince).getTime() + contactStaleDays * DAY_MS);
     const dueDates = [];
     if (daysSinceContact === null || daysSinceContact >= contactStaleDays) dueDates.push(quietSince);
@@ -137,11 +132,11 @@ async function loadAssignedPartners(userId, today = new Date()) {
   return rows;
 }
 
-// An answered prayer or a decided need on these partners that nobody has passed on yet (#292,
-// shown on the bell and, per partner, on the contact log): done once someone logs an OUTBOUND
-// contact for the partner on or after it, topic "need" for a decision, "encouragement" or "prayer"
-// for an answer. Items are [{ partnerId, kind: "need" | "prayer", id, date, label, topic }],
-// `topic` being the one a thank-you would be logged under.
+// An answered prayer or decided need nobody has passed on yet (bell and per-partner
+// contact log): done once someone logs an OUTBOUND contact for the partner on or
+// after it (topic "need" for a decision, "encouragement" or "prayer" for an answer).
+// Items are [{ partnerId, kind: "need" | "prayer", id, date, label, topic }], `topic`
+// being what a thank-you would be logged under.
 const UPDATE_WINDOW_DAYS = 30;
 
 async function loadUpdatesToPassOn(partnerIds, now = new Date()) {
@@ -205,9 +200,8 @@ async function isContactLogEnabled() {
   return isFeatureEnabled(settings?.enabledFeatures, "contactLog");
 }
 
-// A care team member's new prayer request is also the contact they just had.
-// Best-effort, like the notifications: a failure here must never block saving
-// the request itself. Returns the entry, or null when off / not applicable.
+// A care team member's new prayer request is also a contact they just had.
+// Best-effort: a failure must never block saving the request. Returns the entry, or null.
 async function logContactForPrayerRequest(request, user, options) {
   try {
     if (!(await isContactLogEnabled())) return null;

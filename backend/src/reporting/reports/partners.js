@@ -318,11 +318,10 @@ const lastHeardFrom = {
     { key: "visit", label: "Last church visit", type: "date" },
     { key: "lastPrayedWithCongregation", label: "Last prayed w/ congregation", type: "date" },
   ],
-  // #288: when the contact log is on, a logged contact counts as hearing
-  // from (or being in touch with) a partner just as a newsletter does -- a
-  // partner is only "quiet" when BOTH are old. A church visit counts as well (#364): hearing
-  // from a partner in person is hearing from them. Settings are read here, the report's own
-  // fetch, because the hub gives fetch/compute no feature state.
+  // When the contact log is on, a logged contact or a church visit counts as hearing
+  // from a partner like a newsletter does (hearing in person is hearing); a partner is
+  // "quiet" only when ALL are old. Settings are read here because the hub gives
+  // fetch/compute no feature state.
   fetch: async (params, { prisma }) => {
     const settings = await prisma.churchSettings.findUnique({
       where: { id: "singleton" },
@@ -401,9 +400,8 @@ const lastHeardFrom = {
   },
 };
 
-// #289: which partners have no one at the church assigned to keep in touch.
-// Lives in the reporting hub (AGENTS.md) rather than as a bespoke page, and
-// only exists while the careTeam feature is on.
+// Which partners have no one assigned to keep in touch. Part of the reporting hub
+// (AGENTS.md); only exists while the careTeam feature is on.
 const careTeamCoverage = {
   id: "care-team-coverage",
   group: "people",
@@ -466,11 +464,10 @@ const careTeamCoverage = {
   },
 };
 
-// #374: what partners have asked the church and their care team for. One row per partner and
-// chosen option, so sorting or filtering by an option answers "which partners want X"; or the
-// partners with nothing recorded, so the care team knows who still needs that conversation.
-// A partner's answers can be sensitive, so a restricted partner's are masked like its other
-// sensitive fields.
+// What partners have asked the church and their care team for: one row per partner
+// and chosen option (so filtering by an option answers "which partners want X"), or
+// partners with nothing recorded. A partner's answers can be sensitive, so a
+// restricted partner's are masked like its other sensitive fields.
 const supportPreferences = {
   id: "support-preferences",
   group: "people",

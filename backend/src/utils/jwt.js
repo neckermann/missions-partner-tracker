@@ -1,19 +1,14 @@
 const jwt = require("jsonwebtoken");
 
-// One number, not two independently-maintained durations -- TOKEN_TTL
-// (the jwt.sign expiresIn string) and TOKEN_TTL_MS (the cookie's maxAge)
-// used to be separate literals that could drift out of sync if one was
-// ever changed without the other. Drifting either direction is bad: the
-// cookie outliving the token means the browser keeps sending an
-// already-expired token, which just gets rejected -- a confusing
-// shorter-than-expected session; the token outliving the cookie forces an
-// unnecessary re-login before the token itself was actually due to expire.
+// One number for both TOKEN_TTL (jwt.sign expiresIn) and TOKEN_TTL_MS (cookie
+// maxAge) so they can't drift: a cookie outliving the token sends an expired token
+// (confusing short session); a token outliving the cookie forces an early re-login.
 const TOKEN_TTL_HOURS = 8;
 const TOKEN_TTL = `${TOKEN_TTL_HOURS}h`;
 const TOKEN_TTL_MS = TOKEN_TTL_HOURS * 60 * 60 * 1000;
 const SESSION_COOKIE_NAME = "session";
 
-// Issued by login in routes/auth.js -- the one place a session is minted.
+// Issued by login in routes/auth.js, the one place a session is minted.
 function signToken(user) {
   return jwt.sign(
     {
@@ -23,10 +18,8 @@ function signToken(user) {
       lastName: user.lastName,
       role: user.role,
       authProvider: user.authProvider,
-      // #327 Finding 7 -- compared against the row's own value in
-      // requireAuth.js on every request. A mismatch means this token
-      // predates a password/MFA change or role change that should have
-      // ended it.
+      // Compared with the row's value in requireAuth.js each request; a mismatch
+      // means the token predates a password/MFA/role change that should have ended it.
       sessionVersion: user.sessionVersion,
     },
     process.env.SESSION_SECRET,
@@ -34,15 +27,12 @@ function signToken(user) {
   );
 }
 
-// The one place the session cookie's flags are set — login and logout
-// both call this so there's no risk of the two flows drifting apart.
-// httpOnly means client-side JS can never read (or steal, via XSS) the
-// token; sameSite: "lax" (not "strict") is deliberate — "strict" wouldn't
-// send the cookie on a plain top-level navigation arriving from outside
-// the app (a bookmark, a link in an email), forcing a needless re-login,
-// while "lax" still blocks the cookie from being sent on any cross-site
-// POST/PUT/DELETE, which is all the CSRF defense this app needs since
-// every state-changing route uses one of those verbs.
+// The one place the session cookie's flags are set (login and logout share it).
+// httpOnly keeps client JS (XSS) from reading the token. sameSite "lax" not
+// "strict": strict wouldn't send the cookie on a top-level navigation from outside
+// (bookmark, emailed link), forcing a needless re-login, while lax still blocks
+// cross-site POST/PUT/DELETE, which is all the CSRF defense needed since every
+// state-changing route uses those verbs.
 function setSessionCookie(res, user) {
   res.cookie(SESSION_COOKIE_NAME, signToken(user), {
     httpOnly: true,

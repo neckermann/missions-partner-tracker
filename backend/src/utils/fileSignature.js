@@ -1,19 +1,10 @@
-// Multer's fileFilter only checks the client-supplied Content-Type header
-// on an upload, which is trivially spoofable -- a file could claim to be
-// image/jpeg while actually containing arbitrary bytes. This verifies the
-// file's real content matches what it claims to be, checking the first few
-// bytes against each format's well-known magic number.
-//
-// A handful of hardcoded signatures (rather than a library like
-// `file-type`) is deliberate: this app only ever accepts a small fixed set
-// of formats, and recent `file-type` releases are ESM-only, which doesn't
-// mix cleanly with this CommonJS backend.
+// Multer's fileFilter checks only the client-supplied Content-Type, which is
+// trivially spoofable. This verifies the real content against each format's
+// magic number. Hardcoded signatures rather than `file-type`: only a small fixed
+// set of formats is accepted, and recent `file-type` is ESM-only (this backend is CommonJS).
 const isOle2 = (buf) =>
-  // The legacy "Compound File Binary" container format — shared by every
-  // pre-2007 Office file (.doc, .xls, .ppt alike). This confirms the bytes
-  // are really an OLE2 container and not, say, plain text with a spoofed
-  // Content-Type; it can't tell a .doc from an .xls, since nothing at this
-  // level distinguishes them without parsing the container's internals.
+  // The "Compound File Binary" container shared by every pre-2007 Office file
+  // (.doc, .xls, .ppt). Confirms an OLE2 container, not which Office type.
   buf.length >= 8 &&
   buf[0] === 0xd0 &&
   buf[1] === 0xcf &&
@@ -24,17 +15,12 @@ const isOle2 = (buf) =>
   buf[6] === 0x1a &&
   buf[7] === 0xe1;
 const isZip = (buf) =>
-  // Modern Office formats (.docx, .xlsx) are ZIP archives under the hood —
-  // same caveat as OLE2 above, this confirms "a real ZIP container", not
-  // specifically "a Word document".
+  // .docx/.xlsx are ZIP archives; this confirms a ZIP container, not a Word document.
   buf.length >= 4 && buf[0] === 0x50 && buf[1] === 0x4b && buf[2] === 0x03 && buf[3] === 0x04;
 
-// HEIC/HEIF files are ISO Base Media File Format (the same container family
-// as MP4): a "ftyp" box at byte offset 4, followed by a 4-byte major brand.
-// These are the brand codes real-world encoders (iPhones especially) and
-// the HEIF spec itself actually produce -- "heic" covers the overwhelming
-// majority of iPhone photos, the rest cover the less common profiles
-// (10-bit, multiview, scalable, image sequences).
+// HEIC/HEIF is ISO Base Media File Format: a "ftyp" box at byte 4 followed by a
+// 4-byte major brand. These are the brands real encoders (iPhones) and the HEIF
+// spec produce; "heic" covers most iPhone photos.
 const HEIC_BRANDS = new Set(["heic", "heix", "heim", "heis", "hevc", "hevx", "mif1", "msf1"]);
 const isHeic = (buf) =>
   buf.length >= 12 && buf.toString("ascii", 4, 8) === "ftyp" && HEIC_BRANDS.has(buf.toString("ascii", 8, 12));
@@ -53,10 +39,8 @@ const SIGNATURES = {
     buf[7] === 0x0a,
   "image/webp": (buf) =>
     buf.length >= 12 && buf.toString("ascii", 0, 4) === "RIFF" && buf.toString("ascii", 8, 12) === "WEBP",
-  // Browsers are inconsistent about which of these two MIME types they
-  // report for a HEIC file (sometimes neither, see resolveImageExt in
-  // routes/partners.js) -- registering the same check under both means
-  // whichever one a given browser sends still verifies correctly.
+  // Browsers are inconsistent about which of these MIME types they report for
+  // HEIC (sometimes neither; see resolveImageExt in routes/partners.js), so register both.
   "image/heic": isHeic,
   "image/heif": isHeic,
   "application/pdf": (buf) => buf.length >= 5 && buf.toString("ascii", 0, 5) === "%PDF-",
@@ -66,40 +50,28 @@ const SIGNATURES = {
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": isZip,
 };
 
-// Returns true if `buffer`'s actual content matches what `declaredMime`
-// claims it is. A declared type with no known signature (e.g. .eml, which
-// has no reliable magic bytes across mail clients) always fails closed --
-// callers should only skip this check for formats they've deliberately
-// decided can't be verified this way, never by relying on this returning
-// true for the unknown case.
+// True if `buffer`'s content matches what `declaredMime` claims. A declared type
+// with no known signature (e.g. .eml) always fails closed: callers may skip this
+// only for formats they deliberately decided can't be verified, never by relying
+// on true for the unknown case.
 function matchesFileSignature(buffer, declaredMime) {
   const check = SIGNATURES[declaredMime];
   return Boolean(check && buffer && check(buffer));
 }
 
-// #327 Finding 8: .eml's browser-reported Content-Type is unreliable
-// (often application/octet-stream or blank), and it has no reliable
-// magic bytes of its own across mail clients -- recognized by filename
-// extension instead, same reasoning utils/extraction.js's own isEml has
-// (duplicated rather than imported: that's a higher-level feature
-// module, this is a generic low-level one, and it's one line unlikely to
-// drift).
+// .eml's Content-Type is unreliable (often octet-stream or blank) and it has no
+// magic bytes, so it's recognized by extension, as in utils/extraction.js isEml
+// (duplicated: that is a higher-level module).
 function isEmlFilename(fileName) {
   return /\.eml$/i.test(fileName || "");
 }
 
-// The one place a multer-uploaded file's real type gets decided --
-// every upload route should call this rather than trusting
-// file.mimetype directly, so none of them can skip the check by
-// accident (the original bug this fixes: three call sites stored the
-// client's declared type unverified). Returns { ok: true, contentType }
-// with the type to actually store, or { ok: false } when the bytes
-// don't match what was declared. A .eml is never signature-checked --
-// there's nothing reliable to check -- and always stored as the
-// canonical message/rfc822, regardless of what the client declared.
-// `signatureMimeOverride` lets a caller resolve a browser-unreliable
-// Content-Type to what it's actually supposed to be first (HEIC/webp,
-// see routes/partners.js's resolveImageExt) before checking.
+// The one place an uploaded file's real type is decided; every upload route
+// should call this rather than trust file.mimetype. Returns { ok: true,
+// contentType } with the type to store, or { ok: false } when the bytes don't
+// match. A .eml is never signature-checked and is stored as message/rfc822.
+// `signatureMimeOverride` lets a caller first resolve a browser-unreliable type
+// (HEIC/webp, see resolveImageExt in routes/partners.js).
 function verifyUpload(file, { signatureMimeOverride } = {}) {
   if (isEmlFilename(file.originalname)) {
     return { ok: true, contentType: "message/rfc822" };

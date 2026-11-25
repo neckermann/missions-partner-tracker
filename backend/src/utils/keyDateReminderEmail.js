@@ -1,15 +1,12 @@
-// #291: the daily key-date email -- ONE message per person listing everything
-// coming up for the partners they look after (never one per partner), sent
-// only on a day something is due. Pure: no I/O, so the wording and the
-// masking are unit-testable. Rendered in the same branded shell as the other
-// transactional mail (emailTemplate.js).
+// The daily key-date email: ONE message per person listing everything coming up
+// for the partners they look after, sent only on a day something is due. Pure
+// (no I/O) so wording and masking are unit-testable; uses the branded
+// transactional shell (emailTemplate.js).
 //
-// Masking. This leaves the app, so a restricted partner is named the way every
-// other outbound message names one (maskedDisplayName: initials, or the
-// field/generic label), and a restricted family's own names are left out
-// entirely. A partner marked not safe to contact gets a pointer to the
-// special instructions on their page -- never the instructions themselves --
-// so a reminder to "send a card" can't read as "call them".
+// Masking: this leaves the app, so a restricted partner is named as elsewhere
+// outbound (maskedDisplayName) and a restricted family's own names are left out.
+// A partner marked not safe to contact gets a pointer to the special instructions
+// on their page, never the instructions themselves, so "send a card" can't read as "call them".
 
 const { renderEmail, blocks } = require("./emailTemplate");
 const { maskedDisplayName } = require("./maskData");

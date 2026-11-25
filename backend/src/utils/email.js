@@ -1,19 +1,14 @@
-// Outbound email via Postmark (see #71) -- a transactional email provider,
-// not SMTP against the church's own Gmail/Microsoft mailbox. That path was
-// ruled out: Microsoft is turning off SMTP AUTH basic auth for every
-// Exchange Online tenant by end of 2026, and direct-from-this-app sending
-// isn't viable either (Render's static outbound IPs are a shared, unowned
-// /24 range -- useless for SPF/DKIM-grade sending reputation). Postmark's
-// HTTP API needs only a single server token, never touches the church's
-// own mailbox, and is unaffected by either provider's auth deprecations.
+// Outbound email via Postmark (a transactional provider), not SMTP against the
+// church's own mailbox: Microsoft is disabling SMTP AUTH basic auth for Exchange
+// Online by end of 2026, and sending directly from this app isn't viable (Render's
+// outbound IPs are a shared range, useless for SPF/DKIM reputation). Postmark's
+// HTTP API needs only a server token.
 const { ServerClient } = require("postmark");
 const prisma = require("../prismaClient");
 const { decryptField } = require("./crypto");
 
-// Admin-managed in ChurchSettings -- see that field's own comment in
-// schema.prisma. No implicit env-var fallback, same reasoning as
-// extraction.js's client(): an old env var left behind on a host can't
-// quietly come back into play once the token is meant to be admin-managed.
+// Admin-managed in ChurchSettings. No env-var fallback (as extraction.js's
+// client()), so a stale env var can't come back into play.
 async function client() {
   const settings = await prisma.churchSettings.findUnique({
     where: { id: "singleton" },
@@ -32,21 +27,13 @@ async function client() {
   };
 }
 
-// Unlike groupmeChannel.js's postToGroupMe (which swallows its own failures
-// because nothing has ever depended on a GroupMe post actually landing),
-// this throws on failure -- no consumer exists yet (see #71's scope), and
-// whatever calls this later gets to decide whether a failed send is
-// fire-and-log (a report email) or something to surface directly (a
-// future password-reset email, where silently failing would be actively
-// harmful).
-// attachments (#252) -- [{ Name, Content (base64), ContentType }],
-// Postmark's own shape, passed straight through. Only the trip-meeting/
-// team-invite .ics sends use this today.
+// Unlike groupmeChannel.js's postToGroupMe, this throws on failure; the caller
+// decides whether a failed send is fire-and-log (a report) or surfaced (a
+// password reset).
+// attachments: [{ Name, Content (base64), ContentType }], Postmark's own shape,
+// passed straight through (used by the trip .ics sends).
 //
-// No replyTo param -- every send in this app replies to the From address.
-// The one feature that ever needed an override (trip document-request,
-// which pointed replies at the inbound address so they'd file as a
-// TripDocument) was removed rather than kept; see CHANGELOG.md.
+// No replyTo param: every send replies to the From address.
 async function sendEmail({ to, subject, text, html, attachments }) {
   const { postmark, fromAddress } = await client();
   return postmark.sendEmail({
@@ -59,22 +46,14 @@ async function sendEmail({ to, subject, text, html, attachments }) {
   });
 }
 
-// Sends up to 500 already-fully-built messages in one Postmark API call
-// (POST /email/batch) -- a transport optimization only. Each message is
-// still independently addressed (its own To/Subject/HtmlBody/TextBody),
-// so this never reduces the number of emails sent or billed, and no
-// recipient is ever visible to another -- there's no Cc/Bcc involved,
-// just fewer HTTP round-trips for the same N sends. Callers chunk to
-// <=250 per call themselves (see emailDispatchDelivery.js), well under
-// Postmark's 500-message/50MB cap, to leave real headroom. `messages`
-// are { To, Subject, HtmlBody, TextBody } objects, matching sendEmail's
-// own shape plus the capitalized Postmark field names batch expects
-// directly (emailDispatchShell.js's buildEmailDispatchMessage already returns this
-// exact shape). Returns one response entry per message, in the same
-// order submitted, each with its own ErrorCode -- callers check that
-// per-entry rather than relying on the call as a whole succeeding or
-// failing, since one bad address must never affect any other message in
-// the same batch.
+// Sends up to 500 fully-built messages in one Postmark call (POST /email/batch):
+// a transport optimization only. Each message is still independently addressed
+// (no Cc/Bcc, no recipient visible to another) and billed. Callers chunk to <=250
+// (see emailDispatchDelivery.js) for headroom under Postmark's 500-message/50MB
+// cap. `messages` are { To, Subject, HtmlBody, TextBody } (the shape
+// buildEmailDispatchMessage returns). Returns one entry per message in submission
+// order, each with its own ErrorCode; callers check per entry since one bad
+// address must not affect the batch.
 async function sendEmailBatch(messages) {
   const { postmark, fromAddress } = await client();
   return postmark.sendEmailBatch(messages.map((m) => ({ ...m, From: fromAddress })));

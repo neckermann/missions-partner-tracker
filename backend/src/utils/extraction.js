@@ -5,16 +5,11 @@ const { simpleParser } = require("mailparser");
 const prisma = require("../prismaClient");
 const { decryptField } = require("./crypto");
 
-// Matches the fields PrayerRequest/SupportNeed actually need on create (see
-// schema.prisma) -- dateReceived/requestDate aren't extracted, the caller
-// defaults those to the source newsletter/document's own receivedDate.
-// background is NOT a PrayerRequest/SupportNeed column -- it only exists so
-// ExtractionReviewModal.jsx can join it with requestText/description into
-// one editable block before either ever reaches the database (see that
-// component's comment). Keeping it a separate model-output field here, not
-// pre-joined, is what lets the verbatim rule below stay checkable: a
-// reviewer can see exactly which words came from the letter and which are
-// Claude's own summary.
+// Matches the fields PrayerRequest/SupportNeed need on create; dateReceived/
+// requestDate aren't extracted (the caller defaults them to the source's
+// receivedDate). `background` is NOT a column: ExtractionReviewModal.jsx joins it
+// with requestText/description before saving. Kept separate so the verbatim rule
+// stays checkable: a reviewer sees which words came from the letter and which are Claude's summary.
 const ExtractionSchema = z.object({
   prayerRequests: z.array(
     z.object({
@@ -27,20 +22,15 @@ const ExtractionSchema = z.object({
     z.object({
       background: z.string(),
       description: z.string(),
-      // null when a specific dollar figure isn't stated -- the review UI
-      // leaves that field blank rather than guessing a number.
+      // null when no dollar figure is stated; the review UI leaves it blank rather than guessing.
       requestedAmount: z.number().int().positive().nullable(),
     })
   ),
 });
 
-// Strips artifacts that show up verbatim in extracted text because they're
-// verbatim in the letter -- a footnote marker (bare asterisk right before
-// or after the name it annotates) and the "(name changed)" parenthetical
-// the footnote itself usually explains. The prompt also asks Claude not to
-// copy these, but doing it here too means a prompt miss can't leak one
-// through -- this runs on every request/need/background string before any
-// of them reach the review modal.
+// Strips artifacts verbatim in the letter: a footnote marker (bare asterisk next
+// to a name) and the "(name changed)" parenthetical. The prompt asks Claude not
+// to copy these, but this runs on every string before the review modal so a prompt miss can't leak one.
 function stripFootnoteArtifacts(text) {
   if (!text) return text;
   return text
@@ -68,22 +58,14 @@ requestText and description must be VERBATIM -- copy the exact sentence(s) stati
 
 background is a SEPARATE field, 1-2 sentences, a neutral third-person summary of the situation or event behind the request/need -- written in your own words, not verbatim. Use only what the letter itself says, drawn from anywhere in it, not outside knowledge. Resolve vague references ("the teenager we mentioned," "his mother," "the application") to what they actually refer to. If multiple requests share the same underlying situation, reuse the same background for each rather than writing it once and leaving the others without context.`;
 
-// The model this app ships with when a church hasn't overridden it --
-// deliberately NOT changed by #324 (see that issue): changing the built-in
-// default is a separate cost/quality decision that needs the eval harness
-// from #94 Part 5 first.
+// The shipped default when a church hasn't overridden it. Changing it is a
+// separate cost/quality decision that needs the eval harness first.
 const DEFAULT_MODEL = "claude-opus-5";
 
-// Admin-managed in ChurchSettings -- see that field's own comment in
-// schema.prisma. No implicit env-var fallback: the Anthropic SDK reads
-// ANTHROPIC_API_KEY from the environment by default when constructed with
-// no options, which this deliberately avoids by always passing an
-// explicit apiKey, so an old env var left behind on a host can't quietly
-// come back into play once the key is meant to be admin-managed.
-//
-// Also resolves the model to use (see ChurchSettings.extractionModel's own
-// comment, #324) in the same query -- both live on the one singleton row,
-// so there's no reason to round-trip twice.
+// Admin-managed in ChurchSettings. No env-var fallback: the Anthropic SDK reads
+// ANTHROPIC_API_KEY by default, so an explicit apiKey is always passed to keep a
+// stale env var from coming back into play. Also resolves the model
+// (ChurchSettings.extractionModel) in the same query.
 async function client() {
   const settings = await prisma.churchSettings.findUnique({
     where: { id: "singleton" },
@@ -102,27 +84,19 @@ async function client() {
   };
 }
 
-// .eml's browser-reported contentType is unreliable (often
-// application/octet-stream or blank -- see the same comment in
-// routes/partnerFiles.js), so it's recognized by filename extension
-// instead, same as upload-time validation does.
+// A .eml's browser-reported contentType is unreliable (often octet-stream or
+// blank; see routes/partnerFiles.js), so it's recognized by extension.
 function isEml(fileName) {
   return /\.eml$/i.test(fileName || "");
 }
 
-// Builds the one Claude content block this file becomes: PDF/JPEG/PNG go in
-// as-is (native document/vision input, no separate parsing needed); .eml is
-// parsed with mailparser and sent as plain text -- it's just structured text
-// (RFC 822 headers + a text/html body), nothing like Word/Excel's opaque
-// binary formats, so no vision call is needed for it at all. Word/Excel
-// themselves stay unsupported: no text-extraction step for those (yet).
+// Builds the one Claude content block for this file: PDF/JPEG/PNG go in as-is
+// (native document/vision input); .eml is parsed with mailparser and sent as
+// text. Word/Excel are unsupported (no text-extraction step).
 async function buildFileBlock({ bytes, contentType, fileName }) {
-  // Prisma's driver adapter (@prisma/adapter-pg) returns Bytes columns as a
-  // plain Uint8Array, not a Node Buffer -- Uint8Array has no overridden
-  // toString(encoding), so bytes.toString("base64") silently produces
-  // "37,80,68,70,..." (Array.prototype.toString's comma-joined decimals)
-  // instead of base64. Buffer.from() wraps the same underlying data without
-  // copying it, and does have the real base64 encoder.
+  // The driver adapter returns Bytes as a plain Uint8Array, whose toString("base64")
+  // silently yields "37,80,68,70,...". Buffer.from() wraps the same data (no copy)
+  // and has the real base64 encoder.
   const buffer = Buffer.from(bytes);
 
   const blockType = SUPPORTED_CONTENT_TYPES[contentType];
@@ -157,9 +131,7 @@ async function extractRequestsFromFile(record) {
   try {
     response = await anthropic.messages.parse({
       model,
-      // Was 4096 -- too tight once background joined requestText/description
-      // as a third field per item, long enough to truncate mid-output on a
-      // letter with several requests and cause the max_tokens case below.
+      // Long enough that a letter with several requests (three fields per item) doesn't truncate mid-output.
       max_tokens: 8192,
       system: SYSTEM_PROMPT,
       messages: [
@@ -177,13 +149,9 @@ async function extractRequestsFromFile(record) {
       output_config: { format: zodOutputFormat(ExtractionSchema) },
     });
   } catch (err) {
-    // A typo'd or retired model id (#324's "configured model unavailable"
-    // case) comes back from the API as a 404 not_found_error, which the SDK
-    // surfaces as NotFoundError -- mirror the explicit, user-facing error
-    // client() above already gives for the sibling "no key configured"
-    // case, rather than letting this fall through as a generic 500. Any
-    // other APIError (rate limit, overloaded, a real auth failure, etc.)
-    // isn't this specific case and is left to propagate as-is.
+    // A typo'd or retired model id comes back as a 404 not_found_error (SDK
+    // NotFoundError): give the same user-facing error as the "no key configured"
+    // case above instead of a generic 500. Other APIErrors propagate as-is.
     if (err instanceof Anthropic.NotFoundError) {
       const wrapped = new Error("The configured AI model isn't available — check Settings → AI Features");
       wrapped.status = 400;
@@ -198,12 +166,9 @@ async function extractRequestsFromFile(record) {
     throw err;
   }
 
-  // A truncated or unparseable response used to fall through to an empty
-  // result, indistinguishable from "scanned fine, found nothing" -- both
-  // are real possibilities (a long letter can still run out of output
-  // budget even at the higher limit above; structured output isn't a hard
-  // guarantee), so both are now a visible error instead of a silent empty
-  // list.
+  // A truncated or unparseable response must be a visible error, not an empty
+  // result indistinguishable from "scanned fine, found nothing" (a long letter can
+  // run out of output budget; structured output isn't a hard guarantee).
   if (response.stop_reason === "max_tokens") {
     const err = new Error("This file is too long to scan in one pass -- try a shorter excerpt");
     err.status = 422;

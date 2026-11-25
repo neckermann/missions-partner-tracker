@@ -1,11 +1,8 @@
-// The shared render shell for both the admin digest and the public
-// digest -- masthead/card/footer markup, brand color/logo resolution,
-// the partner-photo-tile header, the subject-line template, the
-// signature block, and the plain-text fallback renderer. Everything
-// genuinely audience-agnostic lives here; adminEmailDispatchContent.js and
-// publicEmailDispatchContent.js each build their own `content` (an
-// { itemsHtml, textLines, subtitleLine } shape) and hand it to
-// buildEmailDispatchMessage below, which wraps it in this shared shell.
+// Shared render shell for the admin and public digests: masthead/card/footer
+// markup, brand color/logo, partner-photo-tile header, subject template,
+// signature, plain-text fallback. adminEmailDispatchContent.js and
+// publicEmailDispatchContent.js build `content` ({ itemsHtml, textLines,
+// subtitleLine }) and pass it to buildEmailDispatchMessage below.
 const jwt = require("jsonwebtoken");
 const { appBaseUrl } = require("./dispatchBlurbs");
 const { missionaryHouseholdCategory } = require("./maskData");
@@ -14,10 +11,8 @@ const { withPhotoUrl } = require("./photoUrls");
 
 const HEADER_FALLBACK_COLOR = "#2c2a28";
 const ACCENT_FALLBACK_COLOR = "#2a5d3c";
-// #a6540f, not the lighter #c97a3d it might look like it should be --
-// see the matching comment in frontend/src/index.css: a lighter
-// terracotta fails WCAG AA color-contrast against the white text it
-// pairs with in several uses.
+// #a6540f, not a lighter terracotta: it must pass WCAG AA contrast against its
+// white text (see the matching comment in frontend/src/index.css).
 const HIGHLIGHT_FALLBACK_COLOR = "#a6540f";
 const FONT_FALLBACK = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
 
@@ -32,65 +27,46 @@ function nl2br(value) {
   return escapeHtml(value).replace(/\n/g, "<br>");
 }
 
-// A colored uppercase label (church's own highlightColor) in place of a
-// plain bold line.
+// A colored uppercase label (church highlightColor) in place of a plain bold line.
 function typeLabel(label, highlightColor) {
   return `<p style="margin:0;color:${highlightColor};font-size:14px;font-weight:700;letter-spacing:0.3px;text-transform:uppercase;">${escapeHtml(label)}</p>`;
 }
 
-// A real button (church's own accentColor) instead of a plain text link.
+// A real button (church accentColor) instead of a plain text link.
 function brandButton(url, label, accentColor) {
   return `<a href="${url}" style="display:inline-block;margin-top:10px;padding:9px 18px;background-color:${accentColor};color:#ffffff;border-radius:7px;text-decoration:none;font-size:13px;font-weight:600;">${escapeHtml(label)}</a>`;
 }
 
-// Resolves to a church-free generic fallback when `p` is missing (the
-// partner's been deleted) -- missionaryHouseholdCategory handles an
-// empty object fine (no adults/children -> "single"), so this never
-// throws, it just renders a plain default silhouette as a last resort.
-// Shared by both audiences now -- the public digest gains this same
-// photo-tile treatment, with the same restricted-partner masking
-// (silhouette, no real photo) built in regardless of who's looking.
+// Falls back to a generic silhouette when `p` is missing (partner deleted).
+// Shared by both audiences, with restricted-partner masking built in.
 function partnerTileDetails(p) {
   if (!p) return null;
   const restricted = !!p.isRestricted;
   const base = appBaseUrl();
-  // #327 Finding 10 -- a restricted missionary always gets the plain
-  // single-person shape (never the real household shape, itself
-  // identifying info). The real household category is still used for a
-  // non-restricted missionary with no photo uploaded yet -- that's just
-  // placeholder variety, not a security boundary, so it's unaffected.
+  // A restricted missionary always gets the single-person shape: the real
+  // household shape is itself identifying. Non-restricted ones without a photo
+  // keep the household shape (placeholder variety, not a security boundary).
   const category =
     p.kind === "organization" ? "organization" : restricted ? "single" : missionaryHouseholdCategory(p);
   const realPhotoSrc =
     !restricted && base && p.photos?.[0] ? `${base}${withPhotoUrl(p.photos[0]).url}` : null;
-  // Never the real photo for a restricted partner -- a generic
-  // silhouette instead, same as a missing photo gets for anyone else.
-  // Must be an actual URL here, not silhouetteFor()'s data: URI -- most
-  // email clients (Outlook chief among them) strip or refuse a data:
-  // URI in an email. routes/silhouette.js serves the same shape as a
-  // real, reachable image.
+  // Never the real photo for a restricted partner. Must be a reachable URL, not
+  // silhouetteFor()'s data: URI, which many email clients (Outlook) strip;
+  // routes/silhouette.js serves the same shape.
   const silhouetteSrc = base ? `${base}/api/silhouette/${category}.svg` : silhouetteFor(category);
   return {
     fieldDisplayName: p.fieldDisplayName || null,
-    // #327 Finding 10 -- dropped for a restricted partner (same
-    // reasoning as maskData.js's toPublicPartner): combined with
-    // country and a masked name, "supported since 2014" narrows a small
-    // country's expat community further than it needs to.
+    // Dropped for a restricted partner (as in maskData.js toPublicPartner): with
+    // country and a masked name, "supported since 2014" narrows a small expat community.
     supportingSinceYear: restricted || !p.supportingSince ? null : new Date(p.supportingSince).getFullYear(),
     overviewShort: restricted ? "Restricted-access location." : p.overviewShort || null,
     photoSrc: realPhotoSrc || silhouetteSrc,
   };
 }
 
-// Same { id, <purpose>: true } shape routes/auth.js already uses for
-// MFA-pending/MFA-setup tokens, signed with the same SESSION_SECRET.
-// #327 Finding 1: this token has no *type* check distinguishing it from a
-// real session (that's fixed in middleware/requireAuth.js), but as
-// defense-in-depth it also shouldn't be able to live forever the way the
-// session-cookie-shaped forgery did. 90 days is generous enough that an
-// unsubscribe link saved from an old digest email still works for anyone
-// who kept it a while, same as auth.js's signMfaPendingToken/
-// signMfaSetupToken use expiresIn for their own shorter-lived purposes.
+// Same { id, <purpose>: true } shape as routes/auth.js's MFA tokens, signed with
+// SESSION_SECRET. requireAuth rejects it as a session, but it also expires: 90
+// days, long enough for an unsubscribe link saved from an old digest.
 const UNSUBSCRIBE_TOKEN_TTL = "90d";
 
 function buildUnsubscribeToken(userId) {
@@ -105,10 +81,8 @@ function buildUnsubscribeUrl(userId) {
   return `${base}/api/auth/unsubscribe?token=${encodeURIComponent(buildUnsubscribeToken(userId))}`;
 }
 
-// Same two-distinct-discriminator-keys reasoning as routes/auth.js's own
-// unsubscribe token above -- a confirm link can never be replayed as an
-// unsubscribe link or vice versa, and a PublicSubscriber token can't be
-// confused with a User one either.
+// Distinct discriminator keys: a confirm link can't be replayed as an
+// unsubscribe link, and a PublicSubscriber token can't pass as a User one.
 function buildSubscriberConfirmToken(subscriberId) {
   return jwt.sign({ id: subscriberId, subscriberConfirm: true }, process.env.SESSION_SECRET);
 }
@@ -117,14 +91,9 @@ function buildSubscriberUnsubscribeToken(subscriberId) {
   return jwt.sign({ id: subscriberId, subscriberUnsubscribe: true }, process.env.SESSION_SECRET);
 }
 
-// #327 Finding 11 -- POST /api/public/subscribe used to apply a change to
-// an already-confirmed subscriber's preferences immediately, with no
-// proof the requester actually owns that email address: anyone who knew
-// (or guessed) a subscriber's address could silently re-scope or
-// re-cadence their subscription. The proposed change travels inside this
-// token itself (not written to the row at all until confirmed) so no
-// schema change is needed -- same shape discriminator pattern as every
-// other token here, plus the actual proposed values as extra claims.
+// A change to an already-confirmed subscriber's preferences must be confirmed
+// by the email owner, or anyone knowing the address could re-scope their
+// subscription. The proposed values travel inside the token (nothing is written until confirmed).
 function buildSubscriberConfirmChangeToken(subscriberId, { cadence, allPartners, partnerIds }) {
   return jwt.sign(
     { id: subscriberId, subscriberConfirmChange: true, cadence, allPartners, partnerIds },
@@ -151,8 +120,7 @@ function buildSubscriberUnsubscribeUrl(subscriberId) {
   return `${base}/api/public/unsubscribe?token=${encodeURIComponent(buildSubscriberUnsubscribeToken(subscriberId))}`;
 }
 
-// A plain postal address string from the structured Address fields on
-// the About Church settings page -- null if nothing's set.
+// A postal address string from the About Church address fields; null if none set.
 function formatAddress(address) {
   if (!address) return null;
   const line1 = [address.addressLine1, address.addressLine2].filter(Boolean).join(", ");
@@ -161,16 +129,9 @@ function formatAddress(address) {
   return [line1, cityStateZip, address.country].filter(Boolean).join(", ") || null;
 }
 
-// The footer's church-contact block -- church name, mailing address,
-// phone, website, each included only if actually configured. A real
-// mailing address in a periodic bulk email's footer is expected
-// practice (CAN-SPAM), not just a nice-to-have. Shared by both
-// audiences now -- the public digest gains this same footer.
+// The footer's church-contact block: name, mailing address, phone, website, each
+// only if configured. A mailing address in bulk-email footers is expected (CAN-SPAM).
 function buildContactLines(churchSettings, churchName, accentColor) {
-  // #271 Finding 3: ChurchSettings' address fields are flat columns now,
-  // not a nested Json blob -- formatAddress() already only reads the
-  // same addressLine1/.../country field names, so churchSettings itself
-  // is the right shape to pass directly.
   const address = formatAddress(churchSettings);
   const phone = churchSettings?.phone || null;
   const website = churchSettings?.websiteLink || null;
@@ -194,15 +155,12 @@ function buildContactLines(churchSettings, churchName, accentColor) {
   return { html, text };
 }
 
-// The built-in subject when an admin hasn't written their own -- same
-// token template a custom subject uses, not a separate hardcoded
-// string. {term} resolves to whatever this church calls its partners.
+// Built-in subject when an admin hasn't written one; same token template as a
+// custom subject. {term} is what this church calls its partners.
 const DEFAULT_SUBJECT_TEMPLATE = "{date} {church} - {term} Updates";
 
-// A custom subject is plain text with a handful of supported tokens, not
-// a real template language. {cadence} (renamed from {frequency} to
-// match the field rename -- see schema.prisma's own comment) reflects
-// the tier actually being sent.
+// A custom subject is plain text with a few tokens, not a template language.
+// {cadence} reflects the tier actually being sent.
 function buildSubject(template, churchName, churchSettings, recipientName, cadence) {
   const now = new Date();
   const cadenceLabel = cadence ? cadence.charAt(0).toUpperCase() + cadence.slice(1) : "";
@@ -217,9 +175,7 @@ function buildSubject(template, churchName, churchSettings, recipientName, caden
     .replace(/\{term\}/g, term);
 }
 
-// Plain-text fallback -- every email client that renders HTML also
-// accepts a text part, and some (screen readers, very old clients)
-// prefer it outright.
+// Plain-text fallback: some clients (screen readers, very old ones) prefer it.
 function renderText(textLines, unsubscribeUrl, greetingName, signature, contactLines) {
   const lines = [];
   lines.push(greetingName ? `Hi ${greetingName},` : "Hi there,", "");
@@ -230,12 +186,10 @@ function renderText(textLines, unsubscribeUrl, greetingName, signature, contactL
   return lines.join("\n");
 }
 
-// The one exported entry point. `recipient` is { email, name?, kind,
-// cadence }, `content` is whatever adminEmailDispatchContent.js/
-// publicEmailDispatchContent.js built ({ itemsHtml, textLines, subtitleLine }),
-// `settings` is the full ChurchSettings row. Returns a plain
-// { To, Subject, HtmlBody, TextBody } object -- the exact shape
-// sendEmailBatch expects. Doesn't send anything itself.
+// The one exported entry point. `recipient` is { email, name?, kind, cadence };
+// `content` is what the admin/public content builders return; `settings` is the
+// full ChurchSettings row. Returns { To, Subject, HtmlBody, TextBody} for
+// sendEmailBatch; sends nothing itself.
 function buildEmailDispatchMessage(recipient, content, settings, unsubscribeUrl) {
   const churchName = settings?.churchName || "Missions Partner Tracker";
   const headerColor = settings?.headerColor || HEADER_FALLBACK_COLOR;
@@ -293,14 +247,8 @@ function buildEmailDispatchMessage(recipient, content, settings, unsubscribeUrl)
     ),
     HtmlBody: html,
     TextBody: renderText(content.textLines, unsubscribeUrl, recipient.name, signature, contactLines),
-    // #327 Finding 6: RFC 8058 one-click unsubscribe -- a mail client
-    // (Gmail/Yahoo enforce this) can show its own native "Unsubscribe"
-    // button that POSTs straight to unsubscribeUrl with no page ever
-    // shown, instead of the recipient having to click through to the
-    // confirm-button page routes/auth.js and routes/publicUnsubscribe.js
-    // now render. Both headers are required together -- some clients
-    // won't trust List-Unsubscribe alone without the matching -Post
-    // header confirming the endpoint accepts the one-click POST form.
+    // RFC 8058 one-click unsubscribe: Gmail/Yahoo show a native button that POSTs
+    // to unsubscribeUrl. Both headers are required together.
     Headers: [
       { Name: "List-Unsubscribe", Value: `<${unsubscribeUrl}>` },
       { Name: "List-Unsubscribe-Post", Value: "List-Unsubscribe=One-Click" },
@@ -308,19 +256,15 @@ function buildEmailDispatchMessage(recipient, content, settings, unsubscribeUrl)
   };
 }
 
-// The church's own button/link color, with the same fallback the shell uses.
+// The church's button/link color, with the shell's fallback.
 function accentColorFor(settings) {
   return settings?.primaryColor || ACCENT_FALLBACK_COLOR;
 }
 
-// One-off transactional message (a welcome email, a notice) in the same
-// branded shell as the digests -- church-colored masthead, logo, card
-// footer with the church's contact block -- but without the digest-only
-// parts (subject template, signature, "unsubscribe" footer), since
-// nobody unsubscribes from "set up your account." `bodyHtml`/`bodyText`
-// are the message body below the greeting; `footerNote` is the one line
-// of small print above the contact block. Returns { subject, html, text }
-// for utils/email.js's sendEmail. Doesn't send anything itself.
+// One-off transactional message (welcome email, notice) in the branded shell,
+// without digest-only parts (subject template, signature, unsubscribe footer).
+// `bodyHtml`/`bodyText` sit below the greeting; `footerNote` is the small print
+// above the contact block. Returns { subject, html, text }; sends nothing itself.
 function buildTransactionalMessage({
   settings,
   subject,

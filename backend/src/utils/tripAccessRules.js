@@ -1,22 +1,17 @@
-// The pure rules for trip-access grants (#356): when a grant lapses, what a
-// grant looks like to the UI, and why a guest might be inactive. No I/O and
-// no Prisma import, so the reporting registry (which is deliberately
-// database-free until a report's fetch runs) and unit tests can use it.
-// utils/guestAccess.js adds the queries on top.
+// The pure rules for trip-access grants: when a grant lapses, how it looks to the
+// UI, why a guest might be inactive. No I/O or Prisma import, so the database-free
+// reporting registry and unit tests can use it; utils/guestAccess.js adds queries.
 
-// Trip access lapses this long after the trip's end date, unless an admin
-// overrides it on the grant. Fixed, not a ChurchSettings field (#356: terms
-// and timings are plain defaults in v1; a setting can come later).
+// Trip access lapses this long after the trip's end date unless an admin overrides it on the grant. Fixed, not a setting.
 const TRIP_ACCESS_GRACE_DAYS = 30;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-// The last instant a grant is valid, or null for "never lapses". An
-// explicit override on the grant wins over the derived date in both
-// directions (extend, or end now). Derived from Trip.endDate at check
-// time rather than stored, so changing the trip's dates moves every
-// grant's expiry with it. endDate is a date-only column (UTC midnight),
-// so the last valid instant is the end of that day + the grace period.
+// The last instant a grant is valid, or null for "never lapses". An explicit
+// override on the grant wins in both directions (extend, or end now). Derived
+// from Trip.endDate at check time, so changing the trip's dates moves every
+// grant's expiry. endDate is date-only (UTC midnight), so this is the end of
+// that day plus the grace period.
 function effectiveExpiry(grant, trip) {
   if (grant.expiresAt) return grant.expiresAt;
   if (trip?.endDate) {
@@ -30,8 +25,7 @@ function isGrantActive(grant, trip, now = new Date()) {
   return !expiry || expiry >= now;
 }
 
-// A date-only value from an admin ("extend access to 2027-03-01") means
-// through the end of that day; a full timestamp is taken as given.
+// A date-only admin value ("extend access to 2027-03-01") means through the end of that day; a full timestamp is taken as given.
 function parseOverrideExpiry(value) {
   if (value === null || value === undefined) return value;
   if (value instanceof Date) return value;
@@ -40,9 +34,8 @@ function parseOverrideExpiry(value) {
   return new Date(s);
 }
 
-// Shapes TripAccess rows (selected with their trip's endDate) into what the
-// admin UI and /me need: the stored override, the effective expiry, and
-// whether the grant is active right now. Expired grants are included.
+// Shapes TripAccess rows (selected with their trip's endDate) for the admin UI and
+// /me: the stored override, effective expiry, and whether it is active now. Includes expired grants.
 const GRANT_SELECT = {
   id: true,
   tripId: true,
@@ -76,13 +69,11 @@ function summarizeGrants(rows, now = new Date()) {
   });
 }
 
-// Why a guest can currently do nothing, or null when they can. Computed,
-// not stored, so it can't go stale as trip dates move. Feeds the Users
-// list's "Inactive accounts" filter so an admin can reach out and clean up.
-// `seatCount` is the number of care team seats that currently count (the
-// caller passes 0 when the careTeam feature is off, since seats are ignored
-// then); a seat is a grant that never expires (#289), so it keeps a guest
-// signed-in-able even when every trip has lapsed.
+// Why a guest can currently do nothing, or null. Computed, not stored, so it
+// can't go stale as trip dates move; feeds the Users list's "Inactive accounts"
+// filter. `seatCount` is the care team seats that count (the caller passes 0 when
+// careTeam is off); a seat never expires, so it keeps a guest signed-in-able
+// even when every trip has lapsed.
 function guestInactiveReason(user, grants, seatCount = 0) {
   if (user.role !== "guest") return null;
   if (!user.active) return "deactivated";

@@ -1,12 +1,8 @@
 const crypto = require("crypto");
 
-// AES-256-GCM field-level encryption for secrets that must be stored
-// reversibly (TOTP verification and the GroupMe access token both need the
-// raw value back -- to check a 6-digit code and to call the GroupMe API,
-// respectively -- so hashing isn't an option). This is the same right-sized
-// pattern Rails (ActiveRecord::Encryption) and Django
-// (django-cryptography/Fernet) use for single-tenant apps — a full KMS/
-// envelope-encryption setup is disproportionate infrastructure here.
+// AES-256-GCM field-level encryption for secrets stored reversibly (TOTP and the
+// GroupMe token need the raw value back, so hashing isn't an option). A KMS/envelope
+// setup is disproportionate for a single-tenant app.
 const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 12; // recommended IV size for GCM
 const FORMAT_PREFIX = "v1";
@@ -27,9 +23,8 @@ function isEncrypted(value) {
   return typeof value === "string" && value.startsWith(`${FORMAT_PREFIX}:`);
 }
 
-// Returns "v1:<iv>:<authTag>:<ciphertext>" (all base64) — self-describing
-// so a stored value doesn't need a separate column to know it's encrypted,
-// and a future format revision can coexist with "v1" during migration.
+// Returns "v1:<iv>:<authTag>:<ciphertext>" (all base64): self-describing, so no
+// separate "is encrypted" column, and a future format can coexist with "v1".
 function encryptField(plaintext) {
   if (plaintext == null) return null;
   const iv = crypto.randomBytes(IV_LENGTH);
@@ -44,9 +39,8 @@ function encryptField(plaintext) {
   ].join(":");
 }
 
-// Refuses anything that isn't in the stored ciphertext format. Accepting a
-// plaintext value would mean someone who can write to the database could
-// downgrade an encrypted secret to plaintext and have it silently honoured.
+// Refuses anything not in the ciphertext format: accepting plaintext would let
+// someone who can write to the database downgrade an encrypted secret silently.
 function decryptField(stored) {
   if (stored == null) return null;
   if (!isEncrypted(stored)) {

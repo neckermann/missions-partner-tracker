@@ -1,8 +1,6 @@
-// Emails saved report views on a cadence (ReportSchedule). Runs in the
-// worker process like the other schedulers. Everything it sends is rendered
-// for the "shared" audience -- restricted partners masked -- because an
-// email can be forwarded; a report the owner's role could not open is
-// skipped rather than sent.
+// Emails saved report views on a cadence (ReportSchedule); runs in the worker.
+// Rendered for the "shared" audience (restricted partners masked) because an email
+// can be forwarded; a report the owner's role can't open is skipped.
 const cron = require("node-cron");
 const prisma = require("../prismaClient");
 const { isFeatureEnabled } = require("./features");

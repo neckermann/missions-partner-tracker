@@ -1,18 +1,8 @@
-// The real default ChurchSettings.tripRequirementTemplate every brand-new
-// fork gets -- both the real first-run setup path (routes/auth.js's
-// POST /setup) and dev-demo's own seed (prisma/seed.js) use this same
-// constant, deliberately identical, no demo-specific divergence. Both
-// entries auto-apply to every newly-created trip; minorsOnly on the Minor
-// Travel Release makes it completely inert on a trip with no actual minor
-// participants (see Trip.collectParentGuardianInfo's history -- that
-// per-trip manual "will this trip have minors" prediction toggle was
-// removed entirely in favor of this always-present, automatically-scoped
-// requirement, combined with TripParticipant.dateOfBirth always being
-// collected and required on the public application now), so there's no
-// downside to it being present by default -- this closes the real gap of
-// a trip nobody predicted would have minors getting one anyway with no
-// safety net, rather than leaving it in the opt-in library where an admin
-// has to remember to add it per-trip.
+// The default ChurchSettings.tripRequirementTemplate for every new fork, used by
+// first-run setup (routes/auth.js POST /setup) and the dev-demo seed
+// (prisma/seed.js) alike. Both entries auto-apply to every new trip; minorsOnly on
+// the Minor Travel Release makes it inert on a trip with no minors, so it is
+// present by default rather than left in the opt-in library for an admin to remember.
 const LIABILITY_RELEASE_TEXT = `Liability Release and Code of Conduct — Short-Term Mission Trip
 
 I understand that participation in this short-term mission trip involves inherent risks, including but not limited to travel-related injury, illness, and property loss, and that these risks cannot be entirely eliminated no matter what care is taken. I voluntarily assume all such risks and release the church, its staff, and its partner organizations from liability for any injury, loss, or damage arising from my participation, except where caused by gross negligence.
@@ -27,14 +17,10 @@ This agreement is governed by the laws of the state in which the church is locat
 
 This is a starting template, not legal advice -- have it reviewed by your own church's legal counsel before relying on it.`;
 
-// Written in the parent/guardian's own voice, parallel in structure to
-// LIABILITY_RELEASE_TEXT above (risk acknowledgment, code-of-conduct
-// consent on the minor's behalf, medical-treatment authorization --
-// specifically needed here since a minor generally can't consent to their
-// own medical treatment, media release, governing law), not copied from
-// any real source. A starting point, not vetted legal advice -- the
-// trailing note says so explicitly, same as a church would want to have
-// any release form reviewed by its own counsel before relying on it.
+// Written in the parent/guardian's voice, parallel to LIABILITY_RELEASE_TEXT
+// (risk acknowledgment, code-of-conduct consent, medical-treatment authorization,
+// media release, governing law). A starting point, not vetted legal advice; the
+// trailing note says so.
 const MINOR_RELEASE_TEXT = `Minor Travel Release, Consent, and Medical Authorization — Short-Term Mission Trip
 
 I am the parent or legal guardian of the minor named on this form, and I give my permission for them to participate in this short-term mission trip.

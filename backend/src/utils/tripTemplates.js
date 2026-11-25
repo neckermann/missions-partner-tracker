@@ -1,15 +1,12 @@
-// #394: the lists an admin edits as whole ordered lists -- a trip's application questions, the
-// church-wide application questions and their library, and the requirement checklist and its
-// library -- are real rows (ApplicationQuestion, RequirementTemplateItem). The API still speaks in
-// ordered arrays (`[{ id, label, ... }]`), so these helpers are the one place that turns an array
-// into rows and back, and the answers on an application into the `responses` map the public form
-// posts.
+// The lists an admin edits as whole ordered lists (a trip's application questions,
+// the church-wide ones and their library, the requirement checklist and its library)
+// are real rows (ApplicationQuestion, RequirementTemplateItem). The API still speaks
+// ordered arrays (`[{ id, label, ... }]`), so these helpers are the one place that
+// converts arrays to rows and back, and application answers to the `responses` map the public form posts.
 const crypto = require("crypto");
 const prisma = require("../prismaClient");
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-// ---- Application questions ---------------------------------------------------------------
 
 const QUESTION_ORDER = { orderBy: { position: "asc" } };
 
@@ -26,9 +23,9 @@ async function loadQuestions(scope, tripId = null, db = prisma) {
   return rows.map(toQuestion);
 }
 
-// Makes the stored list equal to `items`, in that order. An item keeps its row when its id is
-// already in this list; a new item takes the id it came with if that is an unused UUID, otherwise
-// a fresh one (so a copied entry never collides with the original). Returns the saved list.
+// Makes the stored list equal to `items`, in order. An item keeps its row when its
+// id is already in the list; a new item keeps its id if it is an unused UUID, else
+// gets a fresh one (so a copied entry never collides). Returns the saved list.
 async function replaceQuestions(db, scope, tripId, items) {
   const where = { scope, tripId };
   const existing = new Set(
@@ -95,10 +92,8 @@ async function copyTripQuestions(db, fromTripId, toTripId) {
   });
 }
 
-// ---- Answers -----------------------------------------------------------------------------
-
-// Turns the public form's `{ questionId: "text" | ["a", "b"] }` into answer rows for the questions
-// that were really asked of this trip. A key that isn't one of those questions is ignored.
+// Turns the public form's `{ questionId: "text" | ["a", "b"] }` into answer rows for
+// the questions really asked of this trip; unknown keys are ignored.
 function answerRows(questions, responses) {
   const byId = new Map(questions.map((q) => [q.id, q]));
   const rows = [];
@@ -120,11 +115,8 @@ function answerRows(questions, responses) {
 
 const ANSWERS_INCLUDE = { orderBy: { position: "asc" } };
 
-// What an answer looks like in the API: its question (if it still exists), the wording it was asked
-// with, and the answer as text or a list.
+// An answer as the API shows it: its question (if it still exists), the wording it was asked with, and the answer as text or a list.
 const toAnswer = (a) => ({ questionId: a.questionId, label: a.label, value: a.value, values: a.values });
-
-// ---- Requirement checklist ---------------------------------------------------------------
 
 const toRequirement = (r) => ({
   id: r.id,
@@ -180,8 +172,6 @@ async function replaceRequirementItems(db, scope, items) {
   }
   return loadRequirementItems(scope, db);
 }
-
-// ---- The four church-wide lists, under their old setting names -----------------------------
 
 async function loadChurchLists(db = prisma) {
   const [tripApplicationTemplate, tripQuestionLibrary, tripRequirementTemplate, tripRequirementLibrary] =
