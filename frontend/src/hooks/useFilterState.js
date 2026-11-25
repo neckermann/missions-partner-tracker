@@ -1,17 +1,9 @@
 import { useCallback, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 
-// Backs <FilterBar> (components/shared/FilterBar.jsx): keeps a page's
-// filter values in the URL query string instead of plain useState, so a
-// filtered view can be bookmarked, shared, or restored by the back
-// button -- none of which plain component state survives.
-//
-// `fields` is the same [{ name, label, type, options?, showWhen? }]
-// contract the field-driven form itself renders from (see FilterBar) --
-// this hook only needs `name` and `type` off each one, to know how to
-// coerce a raw query-string value back to what the field expects.
-// `defaults` fills in anything not present in the URL (e.g. "active" as
-// the initial status pill).
+// Backs <FilterBar>: keeps filter values in the URL query string so a filtered view can be
+// bookmarked, shared or restored by Back. `fields` is the FilterBar contract (only `name` and
+// `type` are used, to coerce query-string values); `defaults` fills anything absent from the URL.
 function coerce(field, raw) {
   if (raw === null) return undefined;
   if (field?.type === "checkbox") return raw === "true";

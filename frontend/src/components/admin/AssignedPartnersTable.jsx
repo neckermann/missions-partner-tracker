@@ -6,11 +6,9 @@ import Table from "../shared/Table.jsx";
 import StatusPill from "./StatusPill.jsx";
 import { formatDateLong } from "../../utils/format.js";
 
-// "My partners" (#288): the partners this login holds a care team seat on,
-// longest-quiet first, with what a person looking after them wants at a
-// glance. The server computes everything (GET /api/contact-log/assigned), the
-// same read model the "Partners to reach out to" notification counts, so the
-// two never disagree about who is overdue.
+// "My partners": the partners this login holds a care team seat on, longest-quiet first. The server
+// computes everything (GET /api/contact-log/assigned), the same read model the "Partners to reach
+// out to" notification counts, so the two never disagree about who is overdue.
 
 // Mirrors the server's KEY_DATE_LEAD_DAYS (utils/keyDates.js).
 const KEY_DATE_SOON_DAYS = 7;
@@ -39,7 +37,7 @@ export default function AssignedPartnersTable() {
         r.isLead ? (
           <StatusPill label="Lead" color="#2a5d3c" />
         ) : r.viaDefaultLead ? (
-          // No care team on this partner: it came to the church's default lead (#365).
+          // No care team on this partner: it came to the church's default lead.
           <StatusPill label="Default lead" color="#6b6f76" />
         ) : (
           "Member"
@@ -77,7 +75,7 @@ export default function AssignedPartnersTable() {
         r.nextKeyDate ? (
           <span>
             {`${r.nextKeyDate.occasion}${r.nextKeyDate.who ? ` (${r.nextKeyDate.who})` : ""} · ${formatDateLong(r.nextKeyDate.date)}`}
-            {/* #291: inside the reminder window -- the same 7 days the bell and email use */}
+            {/* Inside the reminder window -- the same 7 days the bell and email use */}
             {enabledFeatures.keyDates && r.nextKeyDate.daysUntil <= KEY_DATE_SOON_DAYS && (
               <StatusPill label={r.nextKeyDate.daysUntil === 0 ? "Today" : "Soon"} color="#a6540f" />
             )}

@@ -3,13 +3,8 @@ import { Link, useLocation } from "react-router-dom";
 import { useSettings } from "../context/SettingsContext.jsx";
 import ThemeToggle from "./shared/ThemeToggle.jsx";
 
-// Shared across all 4 public-site pages (PublicDirectory, PublicMap,
-// PublicPartnerDetail, PublicSubscribe) -- previously each had its own
-// independent header with its own nav-link labels/styling, which had
-// already drifted (e.g. "View Map" vs "Partner Directory" for the same
-// destination). One component, one source of truth for the nav-link row;
-// each page still owns its own title/subtitle and anything extra
-// (PublicMap's Start/Stop Tour button) via children.
+// Shared by the four public-site pages so the nav-link row has one source of truth; each page owns
+// its title/subtitle and extras (e.g. PublicMap's tour button) via children.
 const NAV_LINKS = [
   { to: "/", label: "Directory", feature: "publicDirectory" },
   { to: "/map", label: "Map", feature: "publicMap" },

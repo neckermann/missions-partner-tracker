@@ -1,15 +1,8 @@
-// "Add to calendar" web links for the calendars that have a plain URL
-// format (Google, Outlook personal and work/school, Yahoo). Apple
-// Calendar and most other apps have no such link and still need the .ics
-// file, so callers show those links alongside the .ics download, not
-// instead of it.
+// "Add to calendar" web links for calendars with a plain URL format (Google, Outlook personal and
+// work/school, Yahoo). Others (Apple) still need the .ics, so show these alongside it. These are
+// undocumented URL schemes, not an official API: verify against each provider when touching this.
 //
-// These are widely used but undocumented URL schemes, not an official
-// API -- providers have changed parameter details before, so verify them
-// against each provider when touching this file.
-//
-// Duration matches the server-side .ics (utils/tripEmails.js
-// buildMeetingIcs): one hour, since meetings only store a start time.
+// Duration matches the server .ics (utils/tripEmails.js buildMeetingIcs): one hour.
 export const DEFAULT_MEETING_MINUTES = 60;
 
 // encodeURIComponent, not URLSearchParams: Outlook's deeplink shows a

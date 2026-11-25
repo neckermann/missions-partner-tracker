@@ -1,9 +1,8 @@
 import React from "react";
 import AddressFields from "./AddressFields.jsx";
 
-// `checkbox` is optional — used by the Sending Church instance only, to
-// fold the "sent by our own church" toggle into the same box as the
-// church's own details instead of a separate section above it.
+// `checkbox` is optional, used by the Sending Church instance to fold the "sent by our own
+// church" toggle into the same box.
 export default function SendingPartySection({ title, value, onChange, checkbox }) {
   function update(field, val) {
     onChange({ ...value, [field]: val });

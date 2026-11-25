@@ -1,19 +1,14 @@
 import axios from "axios";
 import { startRegistration, startAuthentication, browserSupportsWebAuthn } from "@simplewebauthn/browser";
 
-// The backend serves this frontend directly (see backend/src/server.js),
-// so "/api" always resolves same-origin — in local dev, Vite's proxy
-// forwards it to the backend dev server (see vite.config.js); in
-// production, Express serves both from the same origin.
+// Same-origin "/api": Vite proxies it in dev (vite.config.js), Express serves both in production.
 export const api = axios.create({
   baseURL: "/api",
 });
 
-// A session that stops working while someone is using the admin app -- it expired, or the church
-// turned on the two-factor requirement (#385) and this account has not enrolled -- sends them to
-// sign in again. Without this every open page just shows load errors until they happen to reload.
-// Only for a 401 on an admin page and not for the sign-in calls themselves (/auth/*: a wrong
-// password is also a 401, and the admin shell checks /auth/me on its own).
+// A session that ends mid-use (expired, or MFA became required and this account hasn't enrolled)
+// sends the user back to sign in. Skips /auth/* calls: a wrong password is also a 401, and the
+// admin shell checks /auth/me itself.
 export function signInAgainIfSessionEnded(error, { pathname, search }, redirect) {
   const url = error?.config?.url || "";
   if (error?.response?.status === 401 && pathname.startsWith("/admin") && !url.startsWith("/auth/")) {
@@ -28,15 +23,10 @@ api.interceptors.response.use(
   }
 );
 
-// No token to attach here — the session lives in an httpOnly cookie
-// (set by the backend on login; see backend/src/utils/jwt.js), which the
-// browser sends automatically on every same-origin request. Client-side
-// JS never sees the token at all, which is the point: an XSS bug can't
-// steal a credential it can't read.
+// No token attached: the session is an httpOnly cookie the browser sends itself, so client JS
+// (and any XSS) never sees a credential.
 
-// Missionaries and organizations are one resource now, distinguished by
-// `kind` — pass { kind: "missionary" } to narrow. See the Partner model
-// comment in backend/prisma/schema.prisma for why they merged.
+// Missionaries and organizations are one resource; pass { kind: "missionary" } to narrow.
 export async function fetchPublicPartners(params = {}) {
   const { data } = await api.get("/public/partners", { params });
   return data;
@@ -52,22 +42,14 @@ export async function fetchCountryInfo(countryCode) {
   return data;
 }
 
-// Public, no-login prayer-digest subscriptions. Shared by
-// PublicSubscribe.jsx's "subscribe to everyone or pick several" page and
-// PublicPartnerDetail.jsx's "follow this partner" form -- the caller
-// bakes in allPartners/partnerIds for whichever scope it's offering.
+// Public digest subscriptions, shared by the subscribe page and the per-partner follow form.
 export async function subscribeToDigest({ email, cadence, allPartners, partnerIds }) {
   const { data } = await api.post("/public/subscribe", { email, cadence, allPartners, partnerIds });
   return data; // { message }
 }
 
-// --- Partners (admin) ---
-//
-// fetchPartners returns summary rows only — enough to render a list, not a
-// partner's whole history. fetchPartner returns the record plus its
-// one-per-partner sub-records (addresses, family, sending parties,
-// furloughs, visits, photos); the history collections each come from their
-// own endpoint below, so a section fetches only what it displays.
+// fetchPartners returns summary rows; fetchPartner adds the one-per-partner sub-records. History
+// collections have their own endpoints below so a section fetches only what it shows.
 
 export async function fetchPartners(params = {}) {
   const { data } = await api.get("/partners", { params });
@@ -90,10 +72,8 @@ export async function createPartner(payload) {
   return data;
 }
 
-// A partial update: only the keys you send are touched, so a section can
-// save just its own fields. Collection arrays (trips, support entries,
-// needs, prayer requests, partner files) are ignored if sent — each has
-// its own endpoint.
+// Partial update: only the keys sent are touched. Collection arrays are ignored (each has its
+// own endpoint).
 export async function updatePartner(id, payload) {
   const { data } = await api.put(`/partners/${id}`, payload);
   return data;
@@ -113,13 +93,8 @@ export async function unarchivePartner(id) {
   return data;
 }
 
-// Overwrites every partner marked "Sent by our church" with Church
-// Settings' current info -- the deliberate counterpart to the automatic
-// blanks-only fill that runs when a partner's own checkbox is first
-// checked. Surfaced on the About Church page, not per-partner, since the
-// goal is keeping every sent-by-us partner in sync together, not
-// maintaining individual partner-by-partner sync state. Returns
-// { updatedCount }.
+// Overwrites every "Sent by our church" partner with Church Settings' current info (the
+// deliberate counterpart to the blanks-only auto-fill). Returns { updatedCount }.
 export async function syncAllSendingChurch() {
   const { data } = await api.post("/partners/sync-sending-church");
   return data;
@@ -142,23 +117,17 @@ export async function fetchChurchSettings() {
   return data;
 }
 
-// Backs the "an update is available" banner in AdminLayout.jsx. Admin-role
-// only, so a non-admin staff account just won't see the banner rather than
-// erroring — see UpdateBanner.jsx.
+// Admin-role only: a non-admin account just won't see the banner (see UpdateBanner.jsx).
 export async function fetchVersionCheck() {
   const { data } = await api.get("/version-check");
   return data;
 }
 
-// Backs AdminSystemInfo.jsx. Admin-role only, same reasoning as
-// fetchVersionCheck above.
 export async function fetchSystemInfo() {
   const { data } = await api.get("/system-info");
   return data;
 }
 
-// Backs the database-backup reminder in AdminLayout.jsx. Admin-role only,
-// same reasoning as fetchVersionCheck above -- see BackupReminder.jsx.
 export async function fetchBackupCheck() {
   const { data } = await api.get("/backup-check");
   return data;
@@ -176,11 +145,7 @@ export async function uploadChurchLogo(file) {
   return data;
 }
 
-// GroupMe integration -- admin-only on the backend (see routes/settings.js),
-// so these only ever succeed from AdminSettingsGroupMe.jsx. The access
-// token itself never appears in any response; fetchGroupMeSettings()
-// returns { configured, groupId, groupName, prayerTopicId/Name,
-// oneTimeNeedTopicId/Name, newsletterTopicId/Name }.
+// Admin-only. The access token never appears in any response.
 export async function fetchGroupMeSettings() {
   const { data } = await api.get("/settings/groupme");
   return data;
@@ -191,8 +156,7 @@ export async function updateGroupMeSettings(payload) {
   return data;
 }
 
-// Live lookups against GroupMe itself, for the group/topic pickers --
-// requires a token already saved (400s otherwise, see the backend route).
+// Live GroupMe lookups for the pickers; 400s until a token is saved.
 export async function fetchGroupMeGroups() {
   const { data } = await api.get("/settings/groupme/groups");
   return data;
@@ -203,12 +167,8 @@ export async function fetchGroupMeTopics(groupId) {
   return data;
 }
 
-// WhatsApp integration -- admin-only AND behind the `whatsapp` feature on
-// the backend (404 when it's off), so these only ever succeed from
-// AdminSettingsWhatsApp.jsx. There is no token: the linked session lives
-// encrypted server-side and is never returned. fetchWhatsAppSettings()
-// returns { paired, phoneNumber, communityId/Name, prayerGroupId/Name,
-// oneTimeNeedGroupId/Name, newsletterGroupId/Name, connection }.
+// Admin-only and behind the `whatsapp` feature (404 when off). The linked session lives
+// encrypted server-side and is never returned.
 export async function fetchWhatsAppSettings() {
   const { data } = await api.get("/settings/whatsapp");
   return data;
@@ -246,9 +206,7 @@ export async function unlinkWhatsApp() {
   return data;
 }
 
-// Joshua Project integration -- admin-only on the backend, same pattern as
-// GroupMe above. fetchJoshuaProjectSettings() returns { configured }; the
-// API key itself never appears in any response.
+// Admin-only. The API key never appears in any response.
 export async function fetchJoshuaProjectSettings() {
   const { data } = await api.get("/settings/joshua-project");
   return data;
@@ -259,11 +217,7 @@ export async function updateJoshuaProjectSettings(payload) {
   return data;
 }
 
-// AI request scanning (Anthropic) -- admin-only on the backend, same
-// pattern as GroupMe/Joshua Project above. fetchAiExtractionSettings()
-// returns { configured, model }; the API key itself never appears in any
-// response, but model (not a secret, see ChurchSettings.extractionModel's
-// comment, #324) is plain text and echoed back as-is.
+// Admin-only. The API key never appears in any response; the model name is not a secret.
 export async function fetchAiExtractionSettings() {
   const { data } = await api.get("/settings/ai-extraction");
   return data;
@@ -274,14 +228,9 @@ export async function updateAiExtractionSettings(payload) {
   return data;
 }
 
-// Email (Postmark) -- sending and receiving share one settings page and
-// one admin-only route pair, but are independently gated (see
-// backend/src/utils/features.js's "email"/"inboundEmail" keys).
-// fetchEmailSettings() returns { sendEnabled, outboundConfigured,
-// fromAddress, receiveEnabled, inboundConfigured, webhookUsername,
-// webhookPath } -- the server token and webhook password never appear in
-// any response. sendTestEmail() sends a real email to the caller's own
-// account address.
+// Sending and receiving share one admin-only route pair but are gated independently
+// (backend/src/utils/features.js). The server token and webhook password never appear in a
+// response. sendTestEmail() sends to the caller's own address.
 export async function fetchEmailSettings() {
   const { data } = await api.get("/settings/email");
   return data;
@@ -297,20 +246,15 @@ export async function sendTestEmail() {
   return data;
 }
 
-// The review queue -- inbound emails Postmark couldn't automatically match
-// to a partner. assignInboundEmail files it as a PartnerFile of the
-// chosen kind (#206, defaults to "newsletter" server-side if omitted)
-// against the chosen partner and removes it from the queue;
-// discardInboundEmail removes it without filing anything.
+// Review queue: inbound emails that matched no partner. assign files one as a PartnerFile
+// (kind defaults to "newsletter" server-side); discard removes it without filing.
 export async function fetchPendingInboundEmails() {
   const { data } = await api.get("/inbound-email");
   return data;
 }
 
-// Trips (#252): the backend's own /assign route takes partnerId XOR
-// tripParticipantId (never both) -- when assigning to a participant it
-// files as a TripDocument instead of a PartnerFile, and kind/customKind
-// are ignored since a TripDocument has no "kind" of its own.
+// The backend /assign route takes partnerId XOR tripParticipantId. For a participant it files a
+// TripDocument, which has no kind, so kind/customKind are ignored.
 export async function assignInboundEmail(
   id,
   { partnerId, tripParticipantId, requirementId, kind, customKind }
@@ -329,15 +273,9 @@ export async function discardInboundEmail(id) {
   await api.delete(`/inbound-email/${id}`);
 }
 
-// Dispatches -- the email dispatch's own cadence-tier schedule, the
-// shared chat-channel daily-hour schedule, the chat channels' content-type
-// mutes, and email dispatch appearance are all church-wide ChurchSettings,
-// fetched/updated the same write-whole-object-back pattern as every other
-// settings sub-resource here. fetchPendingDispatches works the actual
-// review queue -- there's no manual "send now" override anymore; every
-// channel only ever sends on its own schedule, or immediately via an
-// urgent dispatch triggered from the prayer-request/one-time-need forms
-// themselves.
+// Dispatch schedules, channel mutes and email appearance are church-wide ChurchSettings, written
+// back as whole objects like every other settings sub-resource. fetchPendingDispatches is the
+// review queue; channels only send on their own schedule or via an urgent dispatch.
 export async function fetchDispatchSettings() {
   const { data } = await api.get("/settings/dispatches");
   return data;
@@ -348,9 +286,7 @@ export async function updateDispatchSettings(payload) {
   return data;
 }
 
-// Counts-only admin visibility into the digest subscriber base -- no
-// email addresses in this response, see that route's own comment. Any
-// logged-in role can read it, same as fetchPendingDispatches.
+// Counts only, never addresses. Any logged-in role can read it.
 export async function fetchScopedDigestSummary() {
   const { data } = await api.get("/scoped-digest/summary");
   return data; // { adminSubscribedCount, publicConfirmedCount, publicUnconfirmedCount }
@@ -370,50 +306,30 @@ export async function markNotificationSeen(category) {
   await api.post("/notifications/seen", { category });
 }
 
-// The real (unmasked) text behind a queued row -- GET /pending's own list
-// always shows the masked/placeholder version for a restricted partner,
-// same as what would actually send; this is the separate "let an admin
-// look before editing" lookup (#187).
+// The real (unmasked) text behind a queued row. GET /pending always shows the masked version
+// for a restricted partner; this is the separate "let an admin look before editing" lookup.
 export async function revealPendingDispatch(id) {
   const { data } = await api.get(`/dispatches/pending/${id}`);
   return data;
 }
 
-// Saves an admin's edit to a queued row's text -- available on any row,
-// not just a restricted partner's. For a restricted real-content row
-// specifically, saving here is also what clears it to send (see
-// dispatchEligibility.js's needsReview()); for every other row it's
-// purely a content edit.
-//
-// Any caller that clears a `needsReview` row through this function must
-// confirm the exact text first, same as every other path that does --
-// see components/admin/ApproveRestrictedTextConfirmBody.jsx and
-// hooks/useConfirmDialog.jsx (or, if already inside another Modal, a
-// same-dialog confirm step like DispatchReviewModal.jsx's own, since
-// nesting a second Modal on top breaks Escape -- see that file's
-// comment). Don't write a new window.confirm() for this; every existing
-// one for this exact confirmation was intentionally replaced.
+// Saves an admin's edit to a queued row's text. For a restricted real-content row, saving also
+// clears it to send (dispatchEligibility.js needsReview()), so callers must confirm the exact
+// text first: ApproveRestrictedTextConfirmBody + useConfirmDialog, or a same-dialog confirm step
+// when already inside a Modal (nested Modals break Escape; see DispatchReviewModal.jsx).
 export async function updatePendingDispatch(id, text) {
   const { data } = await api.put(`/dispatches/pending/${id}`, { text });
   return data;
 }
 
-// Discards one queued dispatch without sending it on any channel --
-// e.g. a restricted partner's update the admin decides shouldn't go out
-// this round.
+// Discards one queued dispatch without sending it on any channel.
 export async function deletePendingDispatch(id) {
   await api.delete(`/dispatches/pending/${id}`);
 }
 
-// Real admin/public subscriber counts for a partner, cadence-blind --
-// used to populate the "Mark as urgent" confirm dialog's numbers before
-// an urgent send actually fires.
-//
-// Any new UI that lets an admin set isUrgent on creation should reuse
-// components/admin/UrgentSendConfirmBody.jsx + hooks/useConfirmDialog.jsx
-// for that confirm, not a new window.confirm() -- that body already
-// composes the right audience list from enabledFeatures (utils/urgentSend.js)
-// so it can't go stale the way four independent copies did before.
+// Real admin/public subscriber counts for the "Mark as urgent" confirm dialog. Any UI that sets
+// isUrgent on creation must reuse UrgentSendConfirmBody + useConfirmDialog so the audience list
+// comes from one place (utils/urgentSend.js).
 export async function fetchUrgentRecipientCount(partnerId) {
   const { data } = await api.get("/dispatches/urgent-recipient-count", { params: { partnerId } });
   return data; // { adminCount, publicCount }
@@ -424,10 +340,7 @@ export async function fetchPublicSettings() {
   return data;
 }
 
-// Every collection fetcher below takes an optional { partnerId } to scope
-// it to one partner. The consolidated admin pages call them bare; the
-// sections on a partner's page pass the id. Either way it's one query,
-// rather than loading every partner and filtering in the browser.
+// Every collection fetcher takes an optional { partnerId } to scope it to one partner.
 export async function fetchSupportNeeds(params = {}) {
   const { data } = await api.get("/support-needs", { params });
   return data;
@@ -447,9 +360,8 @@ export async function deleteSupportNeed(id) {
   await api.delete(`/support-needs/${id}`);
 }
 
-// No update function for support entries on purpose -- they're
-// point-in-time ledger records, not editable in place (see the route's
-// comment); fix a mistake by deleting the bad entry and adding a new one.
+// No update for support entries: they are point-in-time ledger records. Fix a mistake by
+// deleting the entry and adding a new one.
 export async function fetchSupportEntries(params = {}) {
   const { data } = await api.get("/support-entries", { params });
   return data;
@@ -464,10 +376,7 @@ export async function deleteSupportEntry(id) {
   await api.delete(`/support-entries/${id}`);
 }
 
-// Adults/children/furloughs/church visits/links/languages -- each its own
-// resource with per-row create/update/delete, same shape as the
-// collections above (see backend/src/routes/partners.js's PUT comment for
-// why none of these are accepted on a partner update anymore).
+// Per-row create/update/delete resources, not accepted on a partner update.
 export async function fetchAdults(params = {}) {
   const { data } = await api.get("/adults", { params });
   return data;
@@ -516,8 +425,7 @@ export async function deleteFurlough(id) {
   await api.delete(`/furloughs/${id}`);
 }
 
-// Contact log (#288). The fixed type/direction/topic lists come from the
-// server so the UI never keeps its own copy.
+// Contact log. The type/direction/topic lists come from the server so the UI keeps no copy.
 export async function fetchContactLogOptions() {
   const { data } = await api.get("/contact-log/options");
   return data;
@@ -526,13 +434,13 @@ export async function fetchContactLog(params = {}) {
   const { data } = await api.get("/contact-log", { params });
   return data;
 }
-// Church visits and newsletters filed, read-only, to show alongside the log's own entries (#364).
+// Church visits and newsletters filed, read-only, shown alongside the log's own entries.
 export async function fetchContactTimeline(partnerId) {
   const { data } = await api.get("/contact-log/timeline", { params: { partnerId } });
   return data.events;
 }
-// What is still waiting to be passed on for a partner (a decided need, an answered prayer), so
-// the page can offer a one-tap "log a thank-you" (#364).
+// What is still waiting to be passed on for a partner (a decided need, an answered prayer),
+// so the page can offer a one-tap "log a thank-you".
 export async function fetchContactUpdates(partnerId) {
   const { data } = await api.get("/contact-log/updates", { params: { partnerId } });
   return data.updates;
@@ -617,13 +525,9 @@ export async function deleteTripType(id) {
   await api.delete(`/trip-types/${id}`);
 }
 
-// Optional { partnerId, tripType, year } filters — the Trip History page
-// used to fetch every partner with all their relations and flatten the
-// trips out client-side; this is one query instead.
-// Reports. `listReports` returns the picker metadata (filter fields and
-// columns); `runReport` returns the rows for one. The CSV download is NOT
-// here -- it goes through a plain same-origin navigation so the browser
-// handles the file, the same approach as partner file downloads.
+// Optional { partnerId, tripType, year } filters.
+// Reports: listReports returns picker metadata, runReport the rows. The CSV download is a plain
+// same-origin navigation so the browser handles the file.
 export async function listReports() {
   const { data } = await api.get("/reports");
   return data;
@@ -634,8 +538,7 @@ export async function runReport(id, params = {}) {
   return data;
 }
 
-// Builds the URL the Download CSV button navigates to. Same endpoint and
-// the same params as runReport, so the file matches what is on screen.
+// Builds the Download CSV URL: same endpoint and params as runReport, so the file matches the screen.
 export function reportCsvUrl(id, params = {}) {
   const query = new URLSearchParams({ ...params, format: "csv" });
   return `/api/reports/${id}?${query}`;
@@ -671,8 +574,7 @@ export async function createTrip(payload) {
   return data;
 }
 
-// Finish a trip in one step (#358): the actual dates, a short debrief, the album link, and an
-// optional contact for the partner. Marks the trip completed.
+// Finish a trip in one step: actual dates, debrief, album link, optional partner contact.
 export async function wrapUpTrip(id, payload) {
   const { data } = await api.post(`/trips/${id}/wrap-up`, payload);
   return data;
@@ -687,7 +589,6 @@ export async function deleteTrip(id) {
   await api.delete(`/trips/${id}`);
 }
 
-// Trips (#252) -- admin-side additions beyond the plain CRUD above.
 export async function fetchTripPlanning() {
   const { data } = await api.get("/trips/planning");
   return data;
@@ -720,11 +621,8 @@ export async function generateSupportRaisingLink(participantId) {
   const { data } = await api.post(`/trips/participants/${participantId}/generate-support-raising-link`);
   return data;
 }
-// One combined admin route for everything editable on a participant's
-// behalf -- contact details (always available) and story/photo (same
-// fields the participant could also self-edit, different trust
-// boundary). payload is any subset of { firstName, lastName, email,
-// phone, story, photo (base64), photoContentType }.
+// One admin route for everything editable on a participant's behalf. payload is any subset of
+// { firstName, lastName, email, phone, story, photo (base64), photoContentType }.
 export async function updateTripParticipant(participantId, payload) {
   const { data } = await api.put(`/trips/participants/${participantId}`, payload);
   return data;
@@ -733,9 +631,8 @@ export async function resendParticipantAccessLink(participantId) {
   const { data } = await api.post(`/trips/participants/${participantId}/request-access-link`);
   return data;
 }
-// Generalized (#252 follow-on) -- a requirement is a document or a plain
-// task, optionally with a due date and a reminder lead time; `payload`
-// is { label, kind?, dueAt?, reminderLeadDays?, minorsOnly? } (#278).
+// A requirement is a document or a plain task, optionally with a due date and reminder lead
+// time; payload is { label, kind?, dueAt?, reminderLeadDays?, minorsOnly? }.
 export async function addTripRequirement(tripId, payload) {
   const { data } = await api.post(`/trips/${tripId}/requirements`, payload);
   return data;
@@ -747,8 +644,7 @@ export async function updateTripRequirement(id, payload) {
 export async function deleteTripRequirement(id) {
   await api.delete(`/trips/requirements/${id}`);
 }
-// Planned-expense budget lines (trip-wide, estimate-only for v1) --
-// `payload` is { label, estimatedAmount }.
+// Trip-wide planned-expense lines; payload is { label, estimatedAmount }.
 export async function addTripBudgetLine(tripId, payload) {
   const { data } = await api.post(`/trips/${tripId}/budget-lines`, payload);
   return data;
@@ -771,8 +667,7 @@ export async function updateTripFlightSegment(id, payload) {
 export async function deleteTripFlightSegment(id) {
   await api.delete(`/trips/flight-segments/${id}`);
 }
-// Task-kind only -- a document requirement is fulfilled by uploading its
-// document (uploadTripDocument below), never this route.
+// Task-kind only: a document requirement is fulfilled by uploading its document instead.
 export async function setTripRequirementComplete(requirementId, participantId, completed) {
   const { data } = await api.put(
     `/trips/requirements/${requirementId}/participants/${participantId}/complete`,
@@ -784,13 +679,8 @@ export async function addTripContribution(tripId, payload) {
   const { data } = await api.post(`/trips/${tripId}/contributions`, payload);
   return data;
 }
-// Manually logs a document as received -- the other paths into
-// TripDocument are inboundEmail.js's /assign (an inbound email the admin
-// routes to a participant) and the participant's own per-requirement
-// self-service upload (uploadTripRequirementDocument below); this one
-// covers a document that arrived by any other means (mail, in person, a
-// file the admin already has). participantId/requirementId/title are all
-// optional, same as the backend route itself allows.
+// Manually logs a received document. Other paths into TripDocument: inbound-email /assign and
+// the participant's self-service upload. participantId/requirementId/title are all optional.
 export async function uploadTripDocument(tripId, file, { participantId, requirementId, title } = {}) {
   const formData = new FormData();
   formData.append("file", file);
@@ -823,9 +713,7 @@ export async function deleteTripMeeting(id) {
   await api.delete(`/trips/meetings/${id}`);
 }
 
-// Trips church-wide settings (giving instructions, donor-contact opt-in,
-// the two private-link gates) -- its own dedicated sub-route, same
-// pattern as fetchJoshuaProjectSettings/updateJoshuaProjectSettings above.
+// Trips church-wide settings, in their own sub-route.
 export async function fetchTripsSettings() {
   const { data } = await api.get("/settings/trips");
   return data;
@@ -835,7 +723,7 @@ export async function updateTripsSettings(payload) {
   return data;
 }
 
-// Trips public surfaces (#252) -- no auth, feature-gated server-side.
+// Trips public surfaces: no auth, feature-gated server-side.
 export async function fetchPublicTrips() {
   const { data } = await api.get("/public/trips");
   return data;
@@ -868,18 +756,13 @@ export async function requestTripParticipantAccessLink(email) {
   const { data } = await api.post(`/public/trips/participants/request-access-link`, { email });
   return data;
 }
-// E-signature (#252 follow-on) -- payload is { token, signerName, signatureImage? }.
-// Fulfills an "esignature"-kind requirement; the server generates a real
-// signed PDF and files it as an ordinary document, same as any upload.
+// payload is { token, signerName, signatureImage? }. The server generates and files a signed PDF.
 export async function signTripRequirement(requirementId, payload) {
   const { data } = await api.post(`/public/trips/participants/sign/${requirementId}`, payload);
   return data;
 }
-// Document-kind counterpart to the e-signature route above -- multipart,
-// not JSON, since this carries an actual file (reuses the same shared
-// file-type/size rules as the admin upload route -- see backend/src/
-// utils/upload.js). Re-uploading via the same link replaces the prior
-// file rather than adding a second one.
+// Multipart (carries a file; shared type/size rules in backend/src/utils/upload.js). Re-uploading
+// via the same link replaces the prior file.
 export async function uploadTripRequirementDocument(requirementId, { token, file }) {
   const formData = new FormData();
   formData.append("file", file);
@@ -889,38 +772,26 @@ export async function uploadTripRequirementDocument(requirementId, { token, file
   );
   return data;
 }
-// Self-service story/photo edit -- payload is { token, story?, photo?
-// (base64 data URL), photoContentType? }. No review step.
+// Self-service edit: { token, story?, photo? (base64 data URL), photoContentType? }.
 export async function updateTripParticipantSelfService(payload) {
   const { data } = await api.put(`/public/trips/participants/self-service`, payload);
   return data;
 }
-// Public, unauthenticated by design -- a participant's own support-
-// raising photo, same route serves the self-service/public/admin-preview
-// views. Returns the route path, not bytes -- callers point an <img> at it.
+// Public by design. Returns the route path, not bytes: point an <img> at it.
 export function tripParticipantPhotoUrl(participantId) {
   return `/api/public/trips/participants/${participantId}/photo`;
 }
-// Token-gated, not session-auth -- the token travels as a query param the
-// same way every other self-service GET on this page already does (e.g.
-// fetchTripParticipantSelfService). Returns the route path, not bytes --
-// callers point a plain link/window.open at it, same convention as the
-// admin page's own handleViewDocument.
+// Token-gated: the token travels as a query param. Returns the route path, not bytes.
 export function tripDocumentDownloadUrl(documentId, token) {
   return `/api/public/trips/participants/documents/${documentId}/download?token=${encodeURIComponent(token)}`;
 }
 
-// Plain GET, same convention as tripDocumentDownloadUrl above -- a direct
-// link/window.open target, not an axios call, so the browser/calendar app
-// handles the .ics download itself.
+// Plain GET link so the browser/calendar app handles the .ics download.
 export function tripMeetingIcsUrl(meetingId, token) {
   return `/api/public/trips/meetings/${meetingId}/ics?token=${encodeURIComponent(token)}`;
 }
 
-// Plain GET link, same existing route the email invite's own RSVP links
-// already point to (backend/src/routes/publicTrips.js) -- clicking
-// navigates to a small confirmation page and records the response
-// server-side; no separate self-service-specific RSVP mechanism.
+// Plain GET link to the route the email invite's RSVP links use; records the response server-side.
 export function tripMeetingRsvpUrl(meetingId, response, token) {
   return `/api/public/trips/meetings/${meetingId}/rsvp?token=${encodeURIComponent(token)}&response=${response}`;
 }
@@ -958,16 +829,13 @@ export async function deletePartnerFile(id) {
   await api.delete(`/partner-files/${id}`);
 }
 
-// Everything but the file itself is editable, including `kind` -- see the
-// PUT route comment in backend/src/routes/partnerFiles.js.
+// Everything but the file itself is editable, including `kind`.
 export async function updatePartnerFile(id, data) {
   const { data: updated } = await api.put(`/partner-files/${id}`, data);
   return updated;
 }
 
-// Returns { prayerRequests: [...], oneTimeNeeds: [...] } -- nothing is
-// persisted server-side, the caller reviews and explicitly adds each one
-// (see ExtractionReviewModal.jsx).
+// Returns { prayerRequests, oneTimeNeeds }; nothing is persisted until the caller adds each.
 export async function extractFromPartnerFile(id) {
   const { data } = await api.post(`/partner-files/${id}/extract`);
   return data;
@@ -985,10 +853,8 @@ export async function completeSetup(email, password) {
 
 export async function login(email, password) {
   const { data } = await api.post("/auth/login", { email, password });
-  // MFA-enabled accounts get a pendingToken (verify a code); accounts an
-  // admin has required MFA on but haven't enrolled yet get a setupToken
-  // (must enroll first) — neither is a real session. Otherwise the backend
-  // has already set the session cookie; there's nothing left to do here.
+  // MFA-enabled accounts get a pendingToken (verify a code); accounts that must enroll get a
+  // setupToken. Neither is a real session; otherwise the cookie is already set.
   return data;
 }
 
@@ -1017,13 +883,8 @@ export async function resetUserMfa(id) {
   return data;
 }
 
-// These two use the setupToken issued alongside `mfaSetupRequired: true`
-// from /auth/login — there's no session cookie yet at this point, so it's
-// passed explicitly as a Bearer header instead (the one place this app
-// still uses bearer-style auth; see requireAuthOrMfaSetup on the backend).
-// Uses a plain axios request rather than the shared `api` instance simply
-// because there's no reason to route it through the same instance — no
-// interceptor to avoid anymore, but no shared config needed either.
+// Sent as an explicit Bearer setupToken (no session cookie yet during forced enrolment): the one
+// place this app uses bearer auth. Plain axios, not the shared `api` instance.
 export async function startForcedMfaSetup(setupToken) {
   const { data } = await axios.post(
     `${api.defaults.baseURL}/auth/mfa/setup`,
@@ -1042,15 +903,14 @@ export async function confirmForcedMfaSetup(setupToken, token) {
   return data;
 }
 
-// #386: passkeys. The server hands out WebAuthn options plus a signed challenge token; the browser
-// answers them (`@simplewebauthn/browser`) and the answer goes back with that token.
+// Passkeys: the server hands out WebAuthn options plus a signed challenge token that goes back
+// with the browser's answer.
 export async function fetchPasskeys() {
   const { data } = await api.get("/auth/passkeys");
   return data; // { passkeys: [{ id, label, createdAt, lastUsedAt }], max }
 }
 
-// `setupToken` is given while a person is being taken through forced enrolment (no session yet);
-// otherwise the session cookie does it.
+// `setupToken` is given during forced enrolment (no session yet); otherwise the cookie does it.
 export async function registerPasskey(label, setupToken) {
   const config = setupToken ? { headers: { Authorization: `Bearer ${setupToken}` } } : undefined;
   const { data: begin } = await api.post("/auth/passkeys/register/options", {}, config);
@@ -1079,8 +939,7 @@ export async function loginWithPasskey(pendingToken) {
   return data;
 }
 
-// #386 Layer 2: passwordless sign-in. A passkey alone (the browser offers the ones it holds for this
-// site), or an emailed one-time link for someone who hasn't added one yet.
+// Passwordless sign-in: a passkey, or an emailed one-time link.
 export async function signInWithPasskeyOnly() {
   const { data: begin } = await api.post("/auth/passkeys/passwordless/options");
   const response = await startAuthentication({ optionsJSON: begin.options });
@@ -1096,7 +955,6 @@ export async function requestSignInLink(email) {
   return data;
 }
 
-// Same shapes as a password sign-in: a session, a second step, or enrolment to finish.
 export async function redeemSignInLink(token) {
   const { data } = await api.post("/auth/passwordless/link/redeem", { token });
   return data;
@@ -1105,9 +963,7 @@ export async function redeemSignInLink(token) {
 export { browserSupportsWebAuthn };
 
 export async function logout() {
-  // The session is an httpOnly cookie — client-side JS can't clear it
-  // itself, so this has to be a real request; the backend clears it via
-  // Set-Cookie in response.
+  // The session is an httpOnly cookie JS can't clear, so this is a real request.
   await api.post("/auth/logout");
 }
 
@@ -1125,10 +981,7 @@ export async function changePassword(currentPassword, newPassword) {
   return data;
 }
 
-// Self-service cadence + scope for the admin digest email -- same
-// self-service-from-Account-Settings pattern as the MFA enroll/disable
-// calls above.
-// Turn the daily key-date email off or on for yourself (#365); the bell alert is unaffected.
+// Turn the daily key-date email on or off for yourself; the bell alert is unaffected.
 export async function setKeyDateEmailOptOut(optOut) {
   const { data } = await api.put("/auth/key-date-email", { optOut });
   return data.user;
@@ -1138,17 +991,15 @@ export async function updateNotifyByEmail({ cadence, allPartners, partnerIds }) 
   return data.user;
 }
 
-// `inactive: true` lists only guest accounts that can't currently sign in
-// (deactivated, all trip access lapsed, or none left) -- see #356.
+// `inactive: true` lists only guest accounts that can't currently sign in.
 export async function fetchUsers({ inactive = false } = {}) {
   const { data } = await api.get("/users", { params: inactive ? { inactive: true } : undefined });
   return data;
 }
 
-// --- Guest trip access (#356). Admin only. ---
-// Grants for one guest, and guests for one trip. A grant's `expiresAt` is
-// only an override; `effectiveExpiresAt` is what actually applies (the
-// override, else the trip's end date + 30 days, else null = no expiry).
+// --- Guest trip access (admin only) ---
+// A grant's `expiresAt` is only an override; `effectiveExpiresAt` is what applies (the
+// override, else trip end + 30 days, else null = no expiry).
 export async function fetchUserTripAccess(userId) {
   const { data } = await api.get(`/users/${userId}/trip-access`);
   return data;
@@ -1161,8 +1012,7 @@ export async function addUserTripAccess(userId, { tripId, expiresAt = null }) {
   const { data } = await api.post(`/users/${userId}/trip-access`, { tripId, expiresAt });
   return data;
 }
-// expiresAt: a date/timestamp to extend or end early, null to go back to
-// the derived date.
+// expiresAt: a date to extend or end early, null to go back to the derived date.
 export async function setUserTripAccessExpiry(userId, tripId, expiresAt) {
   const { data } = await api.put(`/users/${userId}/trip-access/${tripId}`, { expiresAt });
   return data;
@@ -1177,14 +1027,12 @@ export async function fetchUser(id) {
   return data;
 }
 
-// Sends (or re-sends) the welcome/password-setup email to an account that
-// has no password yet.
+// Sends (or re-sends) the welcome email to an account with no password yet.
 export async function sendUserSetupLink(id) {
   const { data } = await api.post(`/users/${id}/setup-link`);
   return data;
 }
 
-// --- First-time password setup (public, token from the welcome email) ---
 export async function validatePasswordSetup(token) {
   const { data } = await api.post("/auth/password-setup/validate", { token });
   return data;
@@ -1212,10 +1060,8 @@ export async function deleteUser(id) {
   await api.delete(`/users/${id}`);
 }
 
-// --- Care teams (#289). Gated by the careTeam feature (404 when off). ---
-// A partner's team: { lead: member|null, members: [member] } where member is
-// { userId, isLead, firstName, lastName, role, email? } (no email for a
-// guest viewer).
+// Care teams (gated by the careTeam feature; 404 when off). A team is { lead: member|null,
+// members: [member] }; a guest viewer gets no member emails.
 export async function fetchCareTeam(partnerId) {
   const { data } = await api.get(`/care-team/${partnerId}`);
   return data;
@@ -1226,8 +1072,7 @@ export async function setCareTeam(partnerId, { leadUserId, memberUserIds }) {
   return data;
 }
 // Active logins a team can be made from (admin/editor).
-// The church's default lead (#291): who key-date reminders go to for a partner
-// with no care team. Admin sets it; admin/editor read it.
+// The church's default lead: who key-date reminders go to for a partner with no care team.
 export async function fetchDefaultCareLead() {
   const { data } = await api.get("/care-team/default-lead");
   return data.defaultLead;
@@ -1241,9 +1086,8 @@ export async function fetchCareTeamCandidates() {
   return data;
 }
 
-// --- Support preferences (#374). Gated by supportPreferences + careTeam (404 when off). ---
-// The church's menu (admin): { id, group, label, kind, choices[], allowOther, sortOrder, active,
-// answerCount }.
+// Support preferences (gated by supportPreferences + careTeam; 404 when off). The church's menu
+// (admin): { id, group, label, kind, choices[], allowOther, sortOrder, active, answerCount }.
 export async function fetchSupportOptions() {
   const { data } = await api.get("/support-preferences/options");
   return data;
@@ -1271,8 +1115,7 @@ export async function fetchSupportKinds() {
   const { data } = await api.get("/support-preferences/kinds");
   return data.kinds;
 }
-// A partner's choices: { options: [menu], preferences: [{ optionId, selected, choice, choices,
-// other, text, note, lastEditedByName, lastEditedAt }], canEdit }.
+// A partner's choices: { options: [menu], preferences: [...], canEdit }.
 export async function fetchPartnerSupportPreferences(partnerId) {
   const { data } = await api.get(`/support-preferences/partner/${partnerId}`);
   return data;
@@ -1282,16 +1125,14 @@ export async function savePartnerSupportPreferences(partnerId, preferences) {
   return data;
 }
 
-// The partners this login may read, as { id, kind, displayName, archived } --
-// all of them for a full role, just the ones their grants reach for a guest
-// (#289). What a picker uses when a guest can't list the whole directory.
+// The partners this login may read, as { id, kind, displayName, archived }: all of them for a
+// full role, only grant-reachable ones for a guest. For pickers when a guest can't list the directory.
 export async function fetchReachablePartners() {
   const { data } = await api.get("/partners/reachable");
   return data;
 }
 
-// --- Audit log (#341) ---
-// Empty filters are dropped, not sent as "" (the date inputs start blank).
+// Audit log. Empty filters are dropped, not sent as "".
 const withoutBlanks = (params) => Object.fromEntries(Object.entries(params).filter(([, v]) => v));
 export async function fetchAuditLog(params = {}) {
   const { data } = await api.get("/audit", { params: withoutBlanks(params) });
@@ -1305,8 +1146,7 @@ export async function setAuditRetention(days) {
   const { data } = await api.put("/audit/retention", { days });
   return data;
 }
-// A plain link the browser downloads (the session cookie rides along), same as
-// reportCsvUrl -- the filters on screen are the filters exported.
+// A plain link the browser downloads; the filters on screen are the filters exported.
 export function auditExportUrl(params = {}) {
   const query = new URLSearchParams(Object.entries(withoutBlanks(params))).toString();
   return `${api.defaults.baseURL}/audit/export${query ? `?${query}` : ""}`;

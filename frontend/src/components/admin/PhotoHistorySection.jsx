@@ -5,10 +5,8 @@ import useConfirmDialog from "../../hooks/useConfirmDialog.jsx";
 import ConfirmMessageBody from "../ConfirmMessageBody.jsx";
 import PhotoTile from "../shared/PhotoTile.jsx";
 
-// Uploading always adds a new photo rather than replacing the current one;
-// photos is expected pre-sorted newest-received-first (see
-// partnerRecordInclude in backend/src/routes/partners.js), so photos[0] is
-// "current."
+// Uploading always adds a photo; `photos` is expected newest-received-first (partnerRecordInclude
+// in backend/src/routes/partners.js), so photos[0] is the current one.
 export default function PhotoHistorySection({
   partnerId,
   photos,
@@ -23,12 +21,9 @@ export default function PhotoHistorySection({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  // Visibility only, not a crop editor -- this app has no crop-editing
-  // infrastructure anywhere to extend (confirmed before building this). Shows
-  // exactly what object-fit: cover will actually keep in the two real shapes
-  // this photo ends up in (Partner Detail's 160px circle, Directory's 160px
-  // rect card) before upload, so a badly-framed photo is caught here instead
-  // of discovered later on the live page.
+  // Preview only, not a crop editor: shows what object-fit: cover will keep in the two shapes the
+  // photo ends up in (Partner Detail's circle, Directory's rect card), so bad framing is caught
+  // before upload.
   const previewUrl = useMemo(() => (file ? URL.createObjectURL(file) : null), [file]);
   useEffect(() => {
     return () => {
@@ -91,10 +86,8 @@ export default function PhotoHistorySection({
               Photo (JPEG, PNG, WebP, or HEIC/HEIF)
               <input
                 type="file"
-                // Extensions alongside the MIME types -- a HEIC file (the
-                // default on every iPhone) doesn't reliably report a MIME
-                // type the browser's own file picker can filter on, same
-                // reasoning as resolveImageExt on the backend.
+                // Extensions alongside MIME types: a HEIC file (iPhone default) doesn't reliably report a MIME
+                // type the file picker can filter on (same as resolveImageExt on the backend).
                 accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
                 onChange={(e) => setFile(e.target.files[0] || null)}
                 required

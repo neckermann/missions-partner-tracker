@@ -14,20 +14,15 @@ import { mapServerErrorMessage } from "../../utils/friendlyError.js";
 import TripAccessList from "./TripAccessList.jsx";
 import { tripOptionLabel } from "./TripGrantPicker.jsx";
 
-// Admin-only screens for the grants behind a guest login (#356). The same
-// rows are reachable two ways -- "what can this guest reach" (the Users
-// page) and "who can reach this trip" (the trip's own page) -- so both
-// panels share one set of actions. Every change goes through the grant
-// endpoints in routes/users.js, which take effect on the
-// guest's very next request.
+// Admin-only screens for the grants behind a guest login, reachable per guest (Users page) and per
+// trip (the trip's page); both share one set of actions. Changes go through the grant endpoints in
+// routes/users.js and take effect on the guest's next request.
 
 function guestName(user) {
   return [user.firstName, user.lastName].filter(Boolean).join(" ") || user.email;
 }
 
-// Shared actions. `reload` re-fetches this panel's own list; `userIdOf`
-// resolves which guest a row belongs to (fixed for the per-guest panel,
-// per-row for the per-trip one).
+// Shared actions. `reload` re-fetches the panel's list; `userIdOf` resolves a row's guest.
 function useGrantActions({ reload, userIdOf, onChanged, setError }) {
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
   const [busy, setBusy] = useState(false);

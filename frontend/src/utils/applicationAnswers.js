@@ -1,6 +1,6 @@
-// #394: an application's answers are stored one per question, each with the wording it was asked
-// with. This lists every question currently on the form (unanswered ones read "(no answer)"),
-// then any answer whose question has since been removed, under the wording it had.
+// An application's answers are stored one per question, each with the wording it was asked with.
+// This lists every question currently on the form (unanswered read "(no answer)"), then any answer
+// whose question was since removed, under its original wording.
 export function applicationAnswerList(questions, answers) {
   const given = new Map((answers || []).filter((a) => a.questionId).map((a) => [a.questionId, a]));
   const text = (a) => (a?.values?.length ? a.values.join(", ") : a?.value) || "(no answer)";

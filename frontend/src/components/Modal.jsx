@@ -1,41 +1,21 @@
 import React, { useEffect, useRef } from "react";
 
-// An accessible dialog, done once.
-//
-// The app's only modal previously did none of this: no role, no
-// aria-modal, no label, no Escape handler, no focus management. The
-// background stayed fully interactive behind the overlay, and the only way
-// out was clicking -- so a keyboard or screen-reader user could neither
-// tell a dialog had opened nor leave it.
-//
-// What this handles:
-//   - announces itself as a dialog, labelled by its own heading
-//   - moves focus in on open and restores it to the trigger on close
-//   - traps Tab inside, so the background can't be reached while it's open
-//   - closes on Escape, and on a click outside the panel
-//
-// `title` is rendered as the heading and referenced by aria-labelledby, so
-// the two can't drift apart.
+// An accessible dialog: announces itself labelled by its heading (`title`, via aria-labelledby),
+// moves focus in and restores it on close, traps Tab, and closes on Escape or an outside click.
 export default function Modal({ title, onClose, children, maxWidth = "40rem" }) {
   const panelRef = useRef(null);
   const headingId = useRef(`modal-title-${Math.random().toString(36).slice(2)}`);
   const previouslyFocused = useRef(null);
-  // Read by the keydown listener below instead of putting onClose in that
-  // effect's own deps -- callers almost never memoize onClose, so a deps
-  // array of [onClose] re-ran this whole effect (including the initial
-  // panelRef.current?.focus() a few lines down) on every parent re-render,
-  // which stole focus back to the panel away from whatever input someone
-  // was actively typing in after just one keystroke. The ref always reads
-  // the latest onClose without that.
+  // Read by the keydown listener instead of listing onClose in the effect deps: callers rarely
+  // memoize it, so deps would re-run the effect (and its focus call) on every parent render and
+  // steal focus from the input being typed in.
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
 
   useEffect(() => {
     previouslyFocused.current = document.activeElement;
 
-    // Focus the panel itself rather than the first control: a screen reader
-    // then announces the dialog and its title before its contents. Mount
-    // only -- see onCloseRef above for why this effect has no deps.
+    // Focus the panel, not the first control, so a screen reader announces the title first.
     panelRef.current?.focus();
 
     function onKeyDown(e) {
@@ -56,8 +36,7 @@ export default function Modal({ title, onClose, children, maxWidth = "40rem" }) 
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
 
-      // Wrap at both ends, and catch the case where focus has somehow
-      // escaped the panel entirely.
+      // Wrap at both ends, and catch focus that has escaped the panel.
       if (e.shiftKey && (document.activeElement === first || document.activeElement === panelRef.current)) {
         e.preventDefault();
         last.focus();
@@ -70,8 +49,7 @@ export default function Modal({ title, onClose, children, maxWidth = "40rem" }) 
     document.addEventListener("keydown", onKeyDown, true);
     return () => {
       document.removeEventListener("keydown", onKeyDown, true);
-      // Return focus to whatever opened this, so the user doesn't get
-      // dumped back at the top of the document.
+      // Return focus to whatever opened this.
       if (previouslyFocused.current instanceof HTMLElement) previouslyFocused.current.focus();
     };
   }, []);
@@ -79,10 +57,8 @@ export default function Modal({ title, onClose, children, maxWidth = "40rem" }) 
   return (
     <div
       className="modal-backdrop"
-      // role="presentation" is accurate, not a lint dodge: the backdrop
-      // carries no content and is not a control. Clicking it to dismiss is a
-      // mouse convenience layered on top, and Escape above is the keyboard
-      // equivalent -- so there is nothing here a keyboard user is missing.
+      // role="presentation" is accurate, not a lint dodge: the backdrop is not a control, and Escape is
+      // the keyboard equivalent of clicking it.
       role="presentation"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();

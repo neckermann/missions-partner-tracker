@@ -1,23 +1,11 @@
 import { useRef, useState } from "react";
 import { fetchPartnerFiles } from "../api/client.js";
 
-// Loads a partner's files on demand, for the Source (optional) dropdown on
-// a Prayer Request/One-Time Need add/edit form -- re-fetched per selection
-// rather than loading every partner's files up front, since these pages
-// span every partner (unlike PrayerRequestSection.jsx's per-partner
-// version, which already has its one partner's files loaded).
-//
-// Copy-pasted identically (function + race-guard ref both) in
-// AdminOneTimeNeeds.jsx and AdminPrayerRequests.jsx (see #135) -- same
-// hoisting reasoning as useLoadMore.js.
+// Loads a partner's files on demand for the Source dropdown on a Prayer Request/One-Time Need
+// form. Fetched per selection because these pages span every partner.
 export default function useSourceFiles() {
   const [sourceFiles, setSourceFiles] = useState([]);
-  // Switching the selected partner in the Add form, or clicking Edit on a
-  // different row, before a slower loadSourceFiles() call for the
-  // previous partner resolves, would otherwise let a previous partner's
-  // files land in the SourcePicker after the current partner's already
-  // did. Tracks which partner the most recent call was actually for,
-  // checked when it resolves.
+  // Guards a slow earlier load for a previous partner from landing after the current partner's.
   const sourceFilesForRef = useRef(null);
 
   function loadSourceFiles(partnerId) {

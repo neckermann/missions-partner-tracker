@@ -10,15 +10,10 @@ import { useSettings } from "../../context/SettingsContext.jsx";
 import QuickActionModal from "../shared/QuickActionModal.jsx";
 import StatusPill from "./StatusPill.jsx";
 
-// A partner's care team (#289): one Lead plus Members, all logins. The same
-// panel serves the partner page and the trip page, and is the "assign a care
-// team" wizard from both -- pick the lead and the members, save, done.
-// Terms are fixed ("Care team", "Lead", "Member", "Guest"), not settings.
-//
-// Everyone who can see the partner can see the team; only admin/editor
-// (`canEdit`) can change it. A guest sees names only (the API leaves emails
-// off for them). `showHeading` lets the trip page, which has its own
-// heading, drop the card chrome.
+// A partner's care team: one Lead plus Members, all logins. Serves both the partner page and the
+// trip page, and is the "assign a care team" wizard from both. Terms are fixed, not settings.
+// Everyone who can see the partner sees the team; only admin/editor (`canEdit`) can change it. A
+// guest sees names only (the API omits emails). `showHeading` lets the trip page drop the card chrome.
 export function memberName(m) {
   return [m.firstName, m.lastName].filter(Boolean).join(" ") || m.email || "Someone";
 }
@@ -27,9 +22,8 @@ export default function CareTeamPanel({ partnerId, canEdit, canInviteGuest = fal
   const [team, setTeam] = useState(null);
   const [failed, setFailed] = useState(false);
   const [editing, setEditing] = useState(false);
-  // #291: with nobody assigned, key-date reminders go to the default lead --
-  // say so to staff, who are the ones who can fix it. (The endpoint is
-  // admin/editor only, so this is skipped for everyone else.)
+  // With nobody assigned, key-date reminders go to the default lead: tell staff (the endpoint is
+  // admin/editor only, so it is skipped for everyone else).
   const { enabledFeatures } = useSettings();
   const [defaultLead, setDefaultLead] = useState(null);
   const teamIsEmpty = !!team && !team.lead && team.members.length === 0;

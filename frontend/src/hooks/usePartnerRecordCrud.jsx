@@ -1,14 +1,9 @@
 import React, { useState } from "react";
 import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
 
-// Shared add/edit/delete plumbing for the small partner-scoped record
-// lists on Partner Detail (Adults, Children, Furloughs, Church Visits,
-// Links, Languages) -- each is its own resource with its own endpoint
-// (see backend/src/routes/partners.js's PUT comment), and each gets the
-// identical "+Add" popup / per-row Edit / per-row Delete treatment, just
-// with different form fields. This owns the create-vs-update state
-// (`editingId` null means adding a new one) and the delete confirmation;
-// the caller still owns the form's own field JSX and payload shaping.
+// Shared add/edit/delete plumbing for the small partner-scoped record lists on Partner Detail,
+// each its own resource and endpoint. Owns the create-vs-update state (`editingId` null means
+// adding) and the delete confirmation; the caller owns the form fields and payload shaping.
 export default function usePartnerRecordCrud({ createFn, updateFn, deleteFn, reload, confirmDialog }) {
   const [form, setForm] = useState(null);
   const [editingId, setEditingId] = useState(null);

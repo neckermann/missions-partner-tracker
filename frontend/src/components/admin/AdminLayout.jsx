@@ -6,22 +6,15 @@ import BackupReminder from "./BackupReminder.jsx";
 import ErrorBoundary from "../ErrorBoundary.jsx";
 import useCurrentUser from "../../hooks/useCurrentUser.js";
 
-// Shared shell for every /admin/* route (list pages, detail pages, and
-// forms alike) — mounted once at the route level so the sidebar persists
-// across navigation instead of being re-declared per page.
+// Shared shell for every /admin/* route, mounted once so the sidebar persists across navigation.
 export default function AdminLayout() {
   const location = useLocation();
   const { isGuest, guestTripIds, guestReadTripIds, careTeamSeats, loading } = useCurrentUser();
 
-  // Guest (role: "guest") is a scoped login -- the subtree of each trip
-  // it was granted, a read-only look at those trips' partners (Partner
-  // Detail itself still enforces which ones, server-side), and its own
-  // "My account" page (#356), nothing else. One check here instead of wrapping every other
-  // route individually -- every /admin/* route renders through this
-  // layout, so this is the single place that's guaranteed to see every
-  // navigation. The backend's own requireTripScope/requirePartnerQueryScope
-  // are still the real boundary (every route 403s on its own); this only
-  // keeps a guest from seeing a flash of the wrong page first.
+  // A guest is a scoped login: its granted trips, a read-only look at their partners, and "My
+  // account". Checked here because every /admin/* route renders through this layout. The backend
+  // (requireTripScope/requirePartnerQueryScope) is the real boundary; this only avoids a flash of
+  // the wrong page.
   if (!loading && isGuest) {
     const allowed =
       // Every trip the guest may open: those they were granted, and -- read
@@ -29,7 +22,7 @@ export default function AdminLayout() {
       guestReadTripIds.some((id) => location.pathname.startsWith(`/admin/trips/${id}`)) ||
       location.pathname.startsWith("/admin/partners/") ||
       // The Partners and Trips lists every role has, each limited by the server
-      // to what the guest reaches (#289)...
+      // to what the guest reaches ...
       ["/admin/partners", "/admin/trips"].includes(location.pathname) ||
       // ...and the other list pages only for a care team member -- a trip
       // leader's scope is smaller.
@@ -39,12 +32,7 @@ export default function AdminLayout() {
         )) ||
       location.pathname === "/admin/account";
     if (!allowed) {
-      // Carries a reason so the landing page can surface a real, visible
-      // explanation (TripDetailLayout.jsx reads this) instead of a silent
-      // bounce -- defense in depth for whatever link still slips through
-      // despite every page deliberately not rendering one to a place this
-      // role can't go (see TripDetailLayout.jsx's and
-      // AdminTripParticipantDetail.jsx's own trimmed breadcrumbs).
+      // Carries a reason so the landing page can explain the redirect (TripDetailLayout.jsx reads it).
       // Back to their own first trip (with a visible reason); a guest who
       // reaches things only through a care team seat goes to their partners;
       // one with nothing at all goes to sign in.

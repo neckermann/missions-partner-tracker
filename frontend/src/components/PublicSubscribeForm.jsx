@@ -2,12 +2,8 @@ import React, { useEffect, useState } from "react";
 import { fetchPublicPartners, subscribeToDigest } from "../api/client.js";
 import { useSettings } from "../context/SettingsContext.jsx";
 
-// Labels in display order -- also doubles as the fallback preference
-// order a new subscriber's cadence defaults to (#209), monthly first:
-// same order routes/settingsDispatches.js's PUT uses to pick a fallback
-// for an already-subscribed person moved off a descoped tier, applied
-// here to picking a sensible *default* for someone who hasn't chosen
-// anything yet.
+// Labels in display order; also the preference order for a new subscriber's default cadence
+// (monthly first), matching routes/settingsDispatches.js's fallback order.
 const CADENCE_OPTIONS = [
   { value: "biweekly", label: "Biweekly" },
   { value: "monthly", label: "Monthly" },
@@ -15,19 +11,12 @@ const CADENCE_OPTIONS = [
 ];
 const CADENCE_PREFERENCE = ["monthly", "quarterly", "biweekly"];
 
-// Shared by PublicSubscribe.jsx's "subscribe to everyone or pick several"
-// page and PublicPartnerDetail.jsx's "follow this partner" form (#202).
-// Two modes: with `picker` unset (the follow form's case), the caller
-// bakes in a fixed scope (allPartners/partnerIds) and nothing here
-// changes -- no picker UI, no partner fetch. With `picker` set (the
-// dedicated Subscribe page's case), the form manages its own scope state
-// and lets the visitor choose all partners or several specific ones.
+// Shared by the Subscribe page and the per-partner follow form. With `picker` unset the caller
+// bakes in a fixed scope (allPartners/partnerIds); with `picker` set the form manages its own
+// scope and lets the visitor choose all partners or several.
 export default function PublicSubscribeForm({ allPartners, partnerIds, title, description, picker = false }) {
   const { cadenceTiersEnabled } = useSettings();
-  // Both forms this component backs are new-subscriber-only (#209) --
-  // unlike AccountSettings.jsx's own cadence picker, there's no existing
-  // saved choice to keep visible, so this filters down to only the
-  // enabled tiers with no exception.
+  // Both forms are new-subscriber-only, so only enabled tiers are offered (no saved choice to keep).
   const enabledTiers = CADENCE_PREFERENCE.filter((tier) => cadenceTiersEnabled[tier]);
   const cadenceOptions = CADENCE_OPTIONS.filter((opt) => enabledTiers.includes(opt.value));
   const defaultCadence = enabledTiers[0] || "monthly";
@@ -38,19 +27,14 @@ export default function PublicSubscribeForm({ allPartners, partnerIds, title, de
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  // Corrects the pre-selected cadence once the real settings land, if
-  // the current pick (set from this context's own pre-fetch defaults, or
-  // an admin disabling a tier after this page already rendered) is no
-  // longer an enabled tier. Never overrides a visitor's own in-range
-  // pick -- this only fires when the current value has fallen outside
-  // enabledTiers.
+  // Corrects the pre-selected cadence once real settings land if it is no longer an enabled tier;
+  // never overrides a pick still in range.
   useEffect(() => {
     if (!enabledTiers.includes(cadence)) setCadence(defaultCadence);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cadenceTiersEnabled]);
 
-  // Picker-only state -- unused (and nothing fetched) when picker is
-  // false, so the fixed-scope caller pays nothing extra.
+  // Picker-only state; nothing is fetched when picker is false.
   const [scopeAllPartners, setScopeAllPartners] = useState(true);
   const [scopePartnerIds, setScopePartnerIds] = useState([]);
   const [partners, setPartners] = useState([]);

@@ -4,17 +4,15 @@ import { contactLevelOf, methodLabel } from "../../utils/contactMethods.js";
 import { formatDateLong, todayInputValue, toDateInputValue } from "../../utils/format.js";
 import ContactCardEditor from "./ContactCardEditor.jsx";
 
-// The contact card on a partner's page (#288): who to reach first, how they like to be reached,
-// one-tap actions, how careful to be, and when anyone last was in touch. It is the one place this
-// is shown and edited. Shown to everyone who can see the partner.
+// The contact card on a partner's page: who to reach first, how they like to be reached, one-tap
+// actions, how careful to be, and when anyone last was in touch. Shown to everyone who can see the
+// partner.
 //
-// How careful to be (the partner's contact level):
-//   normal    -- the person's details and tap actions, as usual;
-//   caution   -- the same, under a warning that carries the guidelines, and only the ways the church
-//                ticked when it limited them (so nobody texts someone who is email-only);
+// The partner's contact level:
+//   normal    -- details and tap actions as usual;
+//   caution   -- the same under a warning with the guidelines, and only the ways the church ticked;
 //   no_direct -- the person's number, email and actions are hidden, replaced by who to go through
-//                (with their own tap actions) and the guidelines, so the page can't nudge anyone
-//                into calling someone who shouldn't be called.
+//                and the guidelines, so the page can't nudge anyone into calling them.
 
 // Whole days between two yyyy-mm-dd strings, as local calendar days.
 function daysBetweenInputs(laterStr, earlierStr) {

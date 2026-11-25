@@ -2,17 +2,10 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { useSettings } from "../context/SettingsContext.jsx";
 
-// Admin-side counterpart to RequirePublicSite.jsx -- gates a page behind
-// one of this church's feature toggles instead of a session. The
-// underlying API routes 404 independently (see requireFeature.js on the
-// backend) for defense in depth; this just keeps a direct visit from
-// hitting a broken-looking page instead of a clear explanation.
-//
-// `feature` is a single key, or an array for "reachable as long as at
-// least one is on" -- same any-of semantics as the backend's own
-// requireFeature(keyOrKeys) (see middleware/requireFeature.js), used
-// here for pages like Dispatch Settings that make sense if either
-// GroupMe or Email is on, not strictly both.
+// Admin-side counterpart to RequirePublicSite.jsx: gates a page behind feature toggles. The API
+// routes 404 independently (middleware/requireFeature.js); this just shows a clear explanation
+// instead of a broken page. `feature` is a key or an array meaning "reachable if any is on" (as in
+// requireFeature(keyOrKeys)), e.g. Dispatch Settings with GroupMe or Email.
 export default function RequireAdminFeature({ feature, children }) {
   const { enabledFeatures } = useSettings();
   const enabled = Array.isArray(feature)

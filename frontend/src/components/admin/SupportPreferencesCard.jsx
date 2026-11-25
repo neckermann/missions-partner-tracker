@@ -4,10 +4,9 @@ import { fetchPartnerSupportPreferences, savePartnerSupportPreferences } from ".
 import { formatDate } from "../../utils/format.js";
 import QuickActionModal from "../shared/QuickActionModal.jsx";
 
-// A partner's support preferences (#374): which of the church's menu of ways to support a
-// partner they have chosen, their answers, and a note. One set per partner. Recorded by staff
-// or the care team after a conversation; never shown publicly. Renders nothing when the feature
-// is off, or for someone who can't reach it (a trip leader): the API answers 403/404.
+// A partner's support preferences: which of the church's menu of ways to support a partner they
+// chose, their answers, and a note. Recorded by staff or the care team; never shown publicly.
+// Renders nothing when the feature is off or the viewer can't reach it (API answers 403/404).
 
 // Groups an ordered list of options by their group name, keeping the order they arrive in.
 export function groupOptions(options) {

@@ -1,9 +1,7 @@
 import { useEffect } from "react";
 
-// Backs AdminHome.jsx's "Recently viewed" row -- a pure per-browser
-// convenience (not synced anywhere, not read back by any other page),
-// so localStorage is the right place for it: nothing breaks if it's
-// empty, cleared, or disagrees between two of an admin's own devices.
+// Backs AdminHome's "Recently viewed" row: a per-browser convenience, so localStorage is right and
+// nothing breaks if it is empty, cleared, or differs between devices.
 const STORAGE_KEY = "admin.recentlyViewed";
 const MAX_ENTRIES = 8;
 
@@ -21,8 +19,7 @@ function write(entries) {
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
   } catch {
-    // Private-window/blocked-storage -- recently-viewed is a convenience,
-    // not a feature anything depends on, so this just silently no-ops.
+    // Private-window/blocked storage: recently-viewed is a convenience, so this silently no-ops.
   }
 }
 
@@ -42,9 +39,7 @@ export function useRecordRecentlyViewed(entry) {
   }, [to, label, kind]);
 }
 
-// Call from AdminHome.jsx to render the row. Not reactive to other tabs/
-// windows changing it -- read once per Home visit is enough for what
-// this is.
+// Read once per Home visit; not reactive to other tabs.
 export function getRecentlyViewed() {
   return read();
 }
