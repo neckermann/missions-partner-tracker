@@ -442,9 +442,6 @@ export default function AdminPartners() {
             ]}
             renderActions={(row) => (
               <>
-                <Link to={row.detailLink} className="btn secondary small">
-                  Open
-                </Link>
                 {row.archived ? (
                   <>
                     {canWrite && (

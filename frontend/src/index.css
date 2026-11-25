@@ -971,6 +971,25 @@ a {
 .admin-table tbody tr:hover {
   background: var(--surface-2);
 }
+/* A row that opens its record when clicked: pointer, a link-coloured first cell that underlines on
+   hover, and a focus ring so it can be reached and opened from the keyboard. */
+.admin-table tbody tr.row-clickable {
+  cursor: pointer;
+}
+.admin-table tbody tr.row-clickable:hover {
+  background: var(--accent-soft);
+}
+.admin-table tbody tr.row-clickable td:first-child {
+  color: var(--brand-color-safe, #2a5d3c);
+}
+.admin-table tbody tr.row-clickable:hover td:first-child,
+.admin-table tbody tr.row-clickable:focus-visible td:first-child {
+  text-decoration: underline;
+}
+.admin-table tbody tr.row-clickable:focus-visible {
+  outline: 2px solid var(--brand-color-safe, #2a5d3c);
+  outline-offset: -2px;
+}
 /* No global `a { text-decoration: none }` reset exists, and .btn does not set one, so an
    <a>/<Link> styled as .btn (report "Download CSV", "+Add X" links) would get the browser's
    default underline through its white text. A <button> never shows it. */

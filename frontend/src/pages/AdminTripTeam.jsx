@@ -142,11 +142,6 @@ export default function AdminTripTeam() {
           rows={trip.participants || []}
           onRowClick={(p) => navigate(`/admin/trips/${id}/participants/${p.id}`)}
           emptyMessage="No one confirmed yet."
-          renderActions={(p) => (
-            <Link className="btn secondary small" to={`/admin/trips/${id}/participants/${p.id}`}>
-              View details
-            </Link>
-          )}
         />
         {canWrite && (
           <button

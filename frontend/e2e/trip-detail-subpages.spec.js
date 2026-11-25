@@ -57,9 +57,11 @@ test("trip detail sub-pages render without errors", async ({ page }) => {
 
   // A participant's own detail page, reached from the Team tab.
   await page.getByRole("link", { name: /^Team/ }).click();
-  const viewDetails = page.getByRole("link", { name: "View details" }).first();
-  if (await viewDetails.count()) {
-    await viewDetails.click();
+  const participantRow = page.locator("table tbody tr.row-clickable").first();
+  if (await participantRow.count()) {
+    // A clickable row opens from the keyboard too: focus it and press Enter.
+    await participantRow.focus();
+    await page.keyboard.press("Enter");
     await expect(page.getByText("Contact & access")).toBeVisible();
     await expect(page.locator("body")).not.toContainText(
       /cannot read|undefined is not|something went wrong/i
