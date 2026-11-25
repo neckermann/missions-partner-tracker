@@ -56,6 +56,9 @@ const MODELS = [
   // application row, which must already exist.
   "trip",
   "tripApplication",
+  "applicationQuestion", // -> trip (#394)
+  "tripApplicationAnswer", // -> tripApplication, applicationQuestion (#394)
+  "requirementTemplateItem", // (#394)
   "tripParticipant",
   "tripParticipantPhoto",
   "tripMeeting",

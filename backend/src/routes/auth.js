@@ -18,6 +18,7 @@ const { listTripGrants, isCareTeamEnabled } = require("../utils/guestAccess");
 const { passwordSchema } = require("../utils/password");
 const { recordAuditSafe } = require("../utils/auditLog");
 const { isTwoFactorRequired } = require("../utils/twoFactor");
+const { replaceRequirementItems } = require("../utils/tripTemplates");
 
 const router = express.Router();
 const MFA_PENDING_TTL = "5m";
@@ -122,12 +123,12 @@ router.post("/setup", async (req, res, next) => {
     await prisma.churchSettings.upsert({
       where: { id: "singleton" },
       update: { requireTwoFactor: true },
-      create: {
-        id: "singleton",
-        tripRequirementTemplate: DEFAULT_TRIP_REQUIREMENT_TEMPLATE,
-        requireTwoFactor: true,
-      },
+      create: { id: "singleton", requireTwoFactor: true },
     });
+    // #394: the starting requirement checklist is real rows; only when none exist yet.
+    if ((await prisma.requirementTemplateItem.count({ where: { scope: "template" } })) === 0) {
+      await replaceRequirementItems(prisma, "template", DEFAULT_TRIP_REQUIREMENT_TEMPLATE);
+    }
 
     // No session is handed out: with the requirement on, an account that hasn't enrolled can't
     // use one. The first admin signs in with the password they just chose and is taken straight

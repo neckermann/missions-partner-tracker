@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
+import { applicationAnswerList } from "../utils/applicationAnswers.js";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   fetchTrip,
@@ -118,11 +119,7 @@ export default function AdminTripApplicationDetail() {
     ...(tripsSettings?.tripApplicationTemplate || []),
     ...(trip.applicationQuestions || []),
   ];
-  const answers = combinedQuestions.map((q) => {
-    const raw = application.responses?.[q.id];
-    const answer = Array.isArray(raw) ? raw.join(", ") : raw;
-    return { id: q.id, label: q.label, answer: answer || "(no answer)" };
-  });
+  const answers = applicationAnswerList(combinedQuestions, application.answers);
 
   async function handleReconsider() {
     try {

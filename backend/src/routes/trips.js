@@ -25,6 +25,13 @@ const {
   isTripHistorical,
 } = require("../utils/tripEmails");
 const { APPLICATION_QUESTION_SCHEMA } = require("../utils/applicationQuestions");
+const {
+  QUESTION_ORDER,
+  ANSWERS_INCLUDE,
+  loadRequirementItems,
+  replaceQuestions,
+  copyTripQuestions,
+} = require("../utils/tripTemplates");
 const { sendStoredFile } = require("../utils/fileResponse");
 const { tripDocumentUpload } = require("../utils/upload");
 const { participantSchema, defaultParticipantGoal } = require("../utils/tripParticipantSchema");
@@ -150,6 +157,8 @@ const tripInclude = {
   // reimplementation of "is this requirement actually done" drifting out
   // of sync with it.
   requirements: { include: { requirementStatuses: true, documents: true } },
+  // #394: this trip's own application questions, in the admin's order.
+  applicationQuestions: QUESTION_ORDER,
   // Pending-only, same filter the detail route (GET /:id) already
   // applies to this same relation -- needed on the plain list route too
   // now, for its own "has a pending application" per-row badge (see
@@ -330,7 +339,7 @@ router.get("/:id", requireTripScope("id"), async (req, res, next) => {
         // `applications` key just below only ever holds *pending* rows).
         participants: {
           ...tripInclude.participants,
-          include: { application: { select: { responses: true, createdAt: true } } },
+          include: { application: { select: { answers: ANSWERS_INCLUDE, createdAt: true } } },
         },
         applications: { where: { status: "pending" } },
         // rsvps included so the admin Meetings UI can show a tally/
@@ -397,7 +406,7 @@ router.get("/:id", requireTripScope("id"), async (req, res, next) => {
 // template -- see tripRequirementTemplate's own schema comment for why.
 router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
   try {
-    const { participants, ...data } = tripSchema
+    const { participants, applicationQuestions, ...data } = tripSchema
       .refine(datesInOrder, DATE_ORDER_ISSUE)
       .refine(albumLinkValid, ALBUM_LINK_ISSUE)
       .parse(req.body);
@@ -407,14 +416,10 @@ router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
     // applying when the caller omits it -- that case must NOT get the
     // template either, same as an explicit "completed" backfill.
     if (data.status && data.status !== "completed") {
-      const settings = await prisma.churchSettings.findUnique({
-        where: { id: "singleton" },
-        select: { tripRequirementTemplate: true },
-      });
-      requirementTemplate = settings?.tripRequirementTemplate || [];
+      requirementTemplate = await loadRequirementItems("template");
     }
 
-    const created = await prisma.trip.create({
+    const made = await prisma.trip.create({
       data: {
         ...data,
         participants: participants?.length
@@ -439,6 +444,12 @@ router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
       },
       include: tripInclude,
     });
+    // #394: the trip's own application questions are rows of their own.
+    if (applicationQuestions?.length) await replaceQuestions(prisma, "trip", made.id, applicationQuestions);
+    const created = applicationQuestions?.length
+      ? await prisma.trip.findUnique({ where: { id: made.id }, include: tripInclude })
+      : made;
+
     res.status(201).json(created);
   } catch (err) {
     next(err);
@@ -451,7 +462,7 @@ router.put(
   requireTripScope("id"),
   async (req, res, next) => {
     try {
-      const { participants, ...data } = tripSchema
+      const { participants, applicationQuestions, ...data } = tripSchema
         .partial()
         .refine(datesInOrder, DATE_ORDER_ISSUE)
         .refine(albumLinkValid, ALBUM_LINK_ISSUE)
@@ -497,6 +508,9 @@ router.put(
       const updated = await prisma.$transaction(async (tx) => {
         if (participants !== undefined) {
           await tx.tripParticipant.deleteMany({ where: { tripId: req.params.id, applicationId: null } });
+        }
+        if (applicationQuestions !== undefined) {
+          await replaceQuestions(tx, "trip", req.params.id, applicationQuestions || []);
         }
         return tx.trip.update({
           where: { id: req.params.id },
@@ -698,7 +712,6 @@ router.post("/:id/clone", requireRole("admin", "editor"), async (req, res, next)
         teamSizeMax: source.teamSizeMax,
         description: source.description,
         supportRaisingGoal: source.supportRaisingGoal,
-        applicationQuestions: source.applicationQuestions,
         status: "planning",
         // label/kind/bodyText/reminderLeadDays copy forward (a repeat
         // trip almost always wants the same checklist, including the
@@ -718,7 +731,8 @@ router.post("/:id/clone", requireRole("admin", "editor"), async (req, res, next)
       },
       include: tripInclude,
     });
-    res.status(201).json(cloned);
+    await copyTripQuestions(prisma, source.id, cloned.id);
+    res.status(201).json(await prisma.trip.findUnique({ where: { id: cloned.id }, include: tripInclude }));
   } catch (err) {
     next(err);
   }
