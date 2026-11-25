@@ -11,9 +11,15 @@ const LINK_TTL_MINUTES = 15;
 // At most one emailed link per account in this window.
 const LINK_COOLDOWN_MS = 60 * 1000;
 
-// Never on a public demo (shared logins, no email), whatever a leftover value says.
+// Never on a public demo (shared logins, no email), whatever a leftover value says. The one exception
+// is the owner's own test deployment: DEMO_ALLOW_PASSWORDLESS=true lets an admin switch it on there
+// (the next reset turns it off again). Never set it on a demo the public can reach.
+function demoBlocksPasswordless() {
+  return isDemoDeployment() && process.env.DEMO_ALLOW_PASSWORDLESS !== "true";
+}
+
 async function isPasswordlessOn(db = prisma) {
-  if (isDemoDeployment()) return false;
+  if (demoBlocksPasswordless()) return false;
   const settings = await db.churchSettings.findUnique({
     where: { id: "singleton" },
     select: { requirePasswordless: true },
@@ -39,7 +45,7 @@ async function isEmailReady(db = prisma) {
 // Why it can't be turned on right now, or null when it can. `actingUserId` is the admin turning it
 // on: they need a passkey of their own, or the next sign-in locks them out.
 async function passwordlessBlocker(actingUserId, db = prisma) {
-  if (isDemoDeployment()) return "Passwordless sign-in can't be turned on for the public demo";
+  if (demoBlocksPasswordless()) return "Passwordless sign-in can't be turned on for the public demo";
   if (!(await isEmailReady(db))) {
     return "Turn on outbound email and finish setting it up first (Settings → Email): people without a passkey sign in through an emailed link";
   }
@@ -117,6 +123,7 @@ module.exports = {
   LINK_TTL_MINUTES,
   LINK_COOLDOWN_MS,
   isPasswordlessOn,
+  demoBlocksPasswordless,
   isEmailReady,
   passwordlessBlocker,
   buildSignInUrl,

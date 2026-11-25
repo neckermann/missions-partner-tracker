@@ -20,6 +20,7 @@ const { isTwoFactorRequired } = require("../utils/twoFactor");
 const { isDemoDeployment, endOtherSessions } = require("../utils/demoMode");
 const {
   isPasswordlessOn,
+  demoBlocksPasswordless,
   isEmailReady,
   redeemSignInLink,
   sendSignInLinkEmail,
@@ -312,6 +313,8 @@ router.get("/me", requireAuth, async (req, res, next) => {
         twoFactorRequired: await isTwoFactorRequired(),
         // For the Manage Users switch: is passwordless on, and can email carry a sign-in link.
         passwordlessRequired: await isPasswordlessOn(),
+        // The public demo refuses to switch passwordless sign-in on (the owner's test deployment may allow it).
+        passwordlessBlockedByDemo: demoBlocksPasswordless(),
         emailReady: await isEmailReady(),
       },
     });

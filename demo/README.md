@@ -75,6 +75,8 @@ works. Because the logins are shared, a demo never asks anyone for a second fact
 when one has been added, and adding or removing one doesn't end the sessions other visitors have
 open. My account says so. The next reset removes whatever was added.
 
+The one exception is the owner's own test deployment (the dev demo): set `DEMO_ALLOW_PASSWORDLESS=true` on its web service and an admin can switch it on there to try it (it needs an account with a passkey and working email, and the next reset turns it off again). **Never set it on a demo the public can reach**: it would end password sign-in for the shared logins.
+
 The church-wide **Passwordless sign-in** switch is still refused and ignored on a demo (it also
 needs working email, which a demo never has). It is shown in the documentation screenshots,
 captured from a fixture install, rather than on the demo itself.
