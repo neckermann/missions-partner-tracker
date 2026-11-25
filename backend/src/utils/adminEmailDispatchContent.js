@@ -71,7 +71,7 @@ function renderNewsletterBlock(blurb, children, accentColor, highlightColor) {
 function renderPartnerHtml(group, accentColor, highlightColor, tile) {
   const metaLine = [
     tile?.fieldDisplayName,
-    tile?.supportingSinceYear && `Supporting since ${tile.supportingSinceYear}`,
+    tile?.supportingSinceYear && `Partnering since ${tile.supportingSinceYear}`,
   ]
     .filter(Boolean)
     .join(" · ");
@@ -110,7 +110,7 @@ function renderPartnerText(group, tile) {
   const lines = [group.partnerName, "-".repeat(group.partnerName.length)];
   const metaLine = [
     tile?.fieldDisplayName,
-    tile?.supportingSinceYear && `Supporting since ${tile.supportingSinceYear}`,
+    tile?.supportingSinceYear && `Partnering since ${tile.supportingSinceYear}`,
   ]
     .filter(Boolean)
     .join(" · ");

@@ -3,9 +3,9 @@ import LoadMoreButton from "../LoadMoreButton.jsx";
 import { onClickUnlessSelecting } from "../../utils/clickableRow.js";
 
 // The display half of a small parent-scoped record list; each row is its own record, so
-// Edit/Delete act on one row. Pairs with usePartnerRecordCrud.jsx. `addLabel: null` hides Add.
-// `canEdit`/`canDelete` are independent (delete permission varies by resource); `canEdit` false
-// also makes rows non-clickable. `hasMore`/`remaining`/`onShowMore` (from useLoadMore.js) render a
+// clicking it opens the caller's edit popup (which carries Delete). Pairs with usePartnerRecordCrud.jsx. `addLabel: null` hides Add.
+// `canEdit` false makes rows non-clickable. Delete is not on the row: the caller's
+// QuickActionModal offers it (`onDelete`). `hasMore`/`remaining`/`onShowMore` (from useLoadMore.js) render a
 // Load More button. `bare` renders just the row list, for nesting inside a card that supplies its
 // own heading.
 export default function RecordList({
@@ -16,14 +16,12 @@ export default function RecordList({
   onAdd,
   addLabel = "+ Add",
   onEdit,
-  onDelete,
   emptyMessage = "None on file.",
   hasMore,
   remaining,
   onShowMore,
   bare = false,
   canEdit = true,
-  canDelete = true,
 }) {
   const showAdd = canEdit && addLabel;
   const rows = (
@@ -76,7 +74,7 @@ export default function RecordList({
               }}
             >
               {/* minWidth: 0 and overflowWrap let a long unbreakable value (a URL) wrap instead of
-                  pushing the Edit/Delete buttons off the screen on a phone. */}
+                  pushing the row off the screen on a phone. */}
               <div
                 style={{
                   display: "flex",
@@ -88,26 +86,6 @@ export default function RecordList({
               >
                 {renderItem(item)}
               </div>
-              {(canEdit || canDelete) && (
-                // Not interactive itself: stops clicks/keydowns on the inner buttons bubbling to the row handler.
-                // eslint-disable-next-line jsx-a11y/no-static-element-interactions
-                <div
-                  style={{ display: "flex", gap: "0.5rem", flexShrink: 0 }}
-                  onClick={(e) => e.stopPropagation()}
-                  onKeyDown={(e) => e.stopPropagation()}
-                >
-                  {canEdit && (
-                    <button type="button" className="btn secondary small" onClick={() => onEdit(item)}>
-                      Edit
-                    </button>
-                  )}
-                  {canDelete && (
-                    <button type="button" className="btn danger small" onClick={() => onDelete(item)}>
-                      Delete
-                    </button>
-                  )}
-                </div>
-              )}
             </div>
           </div>
         ))

@@ -833,13 +833,7 @@ export default function AdminPartnerDetail() {
           )}
         />
 
-        <PhotoHistorySection
-          partnerId={p.id}
-          photos={p.photos}
-          onChange={reload}
-          canEdit={canEdit}
-          canDelete={canDelete}
-        />
+        <PhotoHistorySection partnerId={p.id} photos={p.photos} onChange={reload} canEdit={canEdit} />
 
         <EditableSection
           title="Ministry Overview"
@@ -919,7 +913,7 @@ export default function AdminPartnerDetail() {
                   />
                 </label>
                 {!isGuest && (
-                  <label title="When our church began partnering with them. Only the year is shown publicly, as Supporting since.">
+                  <label title="When our church began partnering with them. Only the year is shown publicly, on the public pages.">
                     Partnering since
                     <input
                       type="date"
@@ -963,7 +957,6 @@ export default function AdminPartnerDetail() {
             <RecordList
               title="Adults"
               canEdit={canEdit}
-              canDelete={canDelete}
               items={collections.adults}
               renderItem={(a) => (
                 <>
@@ -997,12 +990,6 @@ export default function AdminPartnerDetail() {
                   birthday: toDateInputValue(a.birthday),
                 })
               }
-              onDelete={(a) =>
-                adultCrud.handleDelete(
-                  a,
-                  (item) => `Delete ${[item.firstName, item.lastName].filter(Boolean).join(" ")}?`
-                )
-              }
             />
           )}
 
@@ -1010,7 +997,6 @@ export default function AdminPartnerDetail() {
             <RecordList
               title="Children"
               canEdit={canEdit}
-              canDelete={canDelete}
               items={collections.children}
               renderItem={(c) => (
                 <>
@@ -1026,12 +1012,6 @@ export default function AdminPartnerDetail() {
                   birthday: toDateInputValue(c.birthday),
                 })
               }
-              onDelete={(c) =>
-                childCrud.handleDelete(
-                  c,
-                  (item) => `Delete ${[item.firstName, item.lastName].filter(Boolean).join(" ")}?`
-                )
-              }
             />
           )}
 
@@ -1039,7 +1019,6 @@ export default function AdminPartnerDetail() {
             <RecordList
               title="Languages Spoken"
               canEdit={canEdit}
-              canDelete={canDelete}
               items={collections.languages}
               renderItem={(l) => (
                 <>
@@ -1055,7 +1034,6 @@ export default function AdminPartnerDetail() {
               onEdit={(l) =>
                 languageCrud.openEdit(l.id, { language: l.language, proficiency: l.proficiency || "" })
               }
-              onDelete={(l) => languageCrud.handleDelete(l, (item) => `Delete ${item.language}?`)}
             />
           )}
 
@@ -1393,7 +1371,6 @@ export default function AdminPartnerDetail() {
           <RecordList
             title="Links &amp; Social Media"
             canEdit={canEdit}
-            canDelete={canDelete}
             items={collections.links}
             renderItem={(l) => (
               <Field
@@ -1413,9 +1390,6 @@ export default function AdminPartnerDetail() {
             }
             addLabel={collections.links.length >= LINK_TYPES.length ? null : "+ Add Link"}
             onEdit={(l) => linkCrud.openEdit(l.id, { type: l.type, url: l.url })}
-            onDelete={(l) =>
-              linkCrud.handleDelete(l, (item) => `Delete the ${linkTypeLabel(item.type)} link?`)
-            }
           />
         </div>
 
@@ -1442,7 +1416,6 @@ export default function AdminPartnerDetail() {
           <RecordList
             title="Church Visits"
             canEdit={canEdit}
-            canDelete={canDelete}
             items={churchVisitsLoadMore.visible}
             renderItem={(v) => (
               <>
@@ -1457,12 +1430,6 @@ export default function AdminPartnerDetail() {
                 notes: v.notes || "",
               })
             }
-            onDelete={(v) =>
-              churchVisitCrud.handleDelete(
-                v,
-                (item) => `Delete the visit on ${formatDateLong(item.visitDate)}?`
-              )
-            }
             emptyMessage="No visits on file."
             hasMore={churchVisitsLoadMore.hasMore}
             remaining={churchVisitsLoadMore.remaining}
@@ -1473,7 +1440,6 @@ export default function AdminPartnerDetail() {
             <RecordList
               title="Furlough"
               canEdit={canEdit}
-              canDelete={canDelete}
               items={furloughsLoadMore.visible}
               renderItem={(f) => (
                 <>
@@ -1493,12 +1459,6 @@ export default function AdminPartnerDetail() {
                   endDate: toDateInputValue(f.endDate),
                   notes: f.notes || "",
                 })
-              }
-              onDelete={(f) =>
-                furloughCrud.handleDelete(
-                  f,
-                  (item) => `Delete the furlough starting ${formatDateLong(item.startDate)}?`
-                )
               }
               emptyMessage="No furlough history on file."
               hasMore={furloughsLoadMore.hasMore}
@@ -1622,13 +1582,11 @@ export default function AdminPartnerDetail() {
                   <RecordList
                     bare
                     canEdit={canEdit}
-                    canDelete={canDelete}
                     items={collections.tripTypes}
                     renderItem={(t) => <Field label="Type" value={t.type} />}
                     addLabel="+ Add Type"
                     onAdd={() => tripTypeCrud.openAdd({ type: "" })}
                     onEdit={(t) => tripTypeCrud.openEdit(t.id, { type: t.type })}
-                    onDelete={(t) => tripTypeCrud.handleDelete(t, (item) => `Delete "${item.type}"?`)}
                     emptyMessage="No trip types on file."
                   />
                 </div>
@@ -1678,13 +1636,11 @@ export default function AdminPartnerDetail() {
                   <RecordList
                     bare
                     canEdit={canEdit}
-                    canDelete={canDelete}
                     items={collections.tripTypes}
                     renderItem={(t) => <Field label="Type" value={t.type} />}
                     addLabel="+ Add Type"
                     onAdd={() => tripTypeCrud.openAdd({ type: "" })}
                     onEdit={(t) => tripTypeCrud.openEdit(t.id, { type: t.type })}
-                    onDelete={(t) => tripTypeCrud.handleDelete(t, (item) => `Delete "${item.type}"?`)}
                     emptyMessage="No trip types on file."
                   />
                 </div>
@@ -2025,6 +1981,14 @@ export default function AdminPartnerDetail() {
         <QuickActionModal
           title={adultCrud.editingId ? "Edit Adult" : "Add Adult"}
           onClose={adultCrud.close}
+          onDelete={
+            canDelete && adultCrud.editingId
+              ? () =>
+                  adultCrud.deleteCurrent(
+                    (f) => `Delete ${[f.firstName, f.lastName].filter(Boolean).join(" ")}?`
+                  )
+              : undefined
+          }
           onSubmit={() =>
             adultCrud.submit({
               partnerId: p.id,
@@ -2101,6 +2065,14 @@ export default function AdminPartnerDetail() {
         <QuickActionModal
           title={childCrud.editingId ? "Edit Child" : "Add Child"}
           onClose={childCrud.close}
+          onDelete={
+            canDelete && childCrud.editingId
+              ? () =>
+                  childCrud.deleteCurrent(
+                    (f) => `Delete ${[f.firstName, f.lastName].filter(Boolean).join(" ")}?`
+                  )
+              : undefined
+          }
           onSubmit={() =>
             childCrud.submit({
               partnerId: p.id,
@@ -2142,6 +2114,11 @@ export default function AdminPartnerDetail() {
         <QuickActionModal
           title={languageCrud.editingId ? "Edit Language" : "Add Language"}
           onClose={languageCrud.close}
+          onDelete={
+            canDelete && languageCrud.editingId
+              ? () => languageCrud.deleteCurrent((f) => `Delete ${f.language}?`)
+              : undefined
+          }
           onSubmit={() =>
             languageCrud.submit({
               partnerId: p.id,
@@ -2183,6 +2160,11 @@ export default function AdminPartnerDetail() {
         <QuickActionModal
           title={tripTypeCrud.editingId ? "Edit Trip Type" : "Add Trip Type"}
           onClose={tripTypeCrud.close}
+          onDelete={
+            canDelete && tripTypeCrud.editingId
+              ? () => tripTypeCrud.deleteCurrent((f) => `Delete "${f.type}"?`)
+              : undefined
+          }
           onSubmit={() => tripTypeCrud.submit({ partnerId: p.id, type: tripTypeCrud.form.type.trim() })}
         >
           <div className="form-grid">
@@ -2203,6 +2185,11 @@ export default function AdminPartnerDetail() {
         <QuickActionModal
           title={linkCrud.editingId ? "Edit Link" : "Add Link"}
           onClose={linkCrud.close}
+          onDelete={
+            canDelete && linkCrud.editingId
+              ? () => linkCrud.deleteCurrent((f) => `Delete the ${linkTypeLabel(f.type)} link?`)
+              : undefined
+          }
           onSubmit={() =>
             linkCrud.submit({ partnerId: p.id, type: linkCrud.form.type, url: linkCrud.form.url.trim() })
           }
@@ -2240,6 +2227,14 @@ export default function AdminPartnerDetail() {
         <QuickActionModal
           title={furloughCrud.editingId ? "Edit Furlough" : "Add Furlough"}
           onClose={furloughCrud.close}
+          onDelete={
+            canDelete && furloughCrud.editingId
+              ? () =>
+                  furloughCrud.deleteCurrent(
+                    (f) => `Delete the furlough starting ${formatDateLong(f.startDate)}?`
+                  )
+              : undefined
+          }
           onSubmit={() =>
             furloughCrud.submit({
               partnerId: p.id,
@@ -2282,6 +2277,12 @@ export default function AdminPartnerDetail() {
         <QuickActionModal
           title={churchVisitCrud.editingId ? "Edit Church Visit" : "Add Church Visit"}
           onClose={churchVisitCrud.close}
+          onDelete={
+            canDelete && churchVisitCrud.editingId
+              ? () =>
+                  churchVisitCrud.deleteCurrent((f) => `Delete the visit on ${formatDateLong(f.visitDate)}?`)
+              : undefined
+          }
           onSubmit={() =>
             churchVisitCrud.submit({
               partnerId: p.id,

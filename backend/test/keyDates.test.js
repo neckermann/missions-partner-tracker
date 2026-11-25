@@ -116,8 +116,6 @@ test("a commissioning anniversary is a key date, with the years", () => {
   const out = upcomingKeyDates([p], TODAY);
   assert.deepEqual(
     out.map((i) => [i.kind, i.occasion, i.turning]),
-    [
-      ["commissioned", "Commissioned", 10],
-    ]
+    [["commissioned", "Commissioned", 10]]
   );
 });

@@ -82,8 +82,7 @@ describe("ContactLogSection (#288)", () => {
   it("anyone can log with chips; fix and delete are staff only", async () => {
     renderIt({ canFix: false });
     await screen.findByText("Phone call");
-    expect(screen.queryByRole("button", { name: "Edit" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Delete" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Phone call/ })).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "+ Log contact" }));
     const dialog = await screen.findByRole("dialog");
@@ -114,7 +113,7 @@ describe("ContactLogSection (#288)", () => {
 
   it("staff can edit, and a teammate can be picked as who", async () => {
     renderIt({ canFix: true, teammates: [{ userId: "u9", name: "Sam Okafor" }] });
-    fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
+    fireEvent.click(await screen.findByRole("button", { name: /Phone call/ }));
     const dialog = await screen.findByRole("dialog");
     fireEvent.change(within(dialog).getByLabelText("Who"), { target: { value: "u9" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
@@ -156,8 +155,9 @@ describe("ContactLogSection (#288)", () => {
     const text = container.textContent;
     expect(text.indexOf("Visited the church")).toBeLessThan(text.indexOf("Phone call"));
     expect(text.indexOf("Phone call")).toBeLessThan(text.indexOf("Newsletter filed"));
-    // Only the log's own entry can be edited or deleted.
-    expect(screen.getAllByRole("button", { name: "Edit" })).toHaveLength(1);
+    // Only the log's own entry opens for editing.
+    expect(screen.getAllByRole("button", { name: /Phone call/ })).toHaveLength(1);
+    expect(screen.queryByRole("button", { name: /Visited the church/ })).toBeNull();
   });
 
   it("still shows the log when the timeline can't be loaded", async () => {

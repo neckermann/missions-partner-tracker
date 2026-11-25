@@ -45,7 +45,7 @@ export default function PublicPartnerDetail() {
     ? [partner.orgType, partner.fieldDisplayName].filter(Boolean).join(" · ")
     : [
         partner.fieldDisplayName,
-        partner.supportingSince && `Supporting since ${formatYear(partner.supportingSince)}`,
+        partner.supportingSince && `Partnering since ${formatYear(partner.supportingSince)}`,
       ]
         .filter(Boolean)
         .join(" · ");

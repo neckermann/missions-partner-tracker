@@ -223,7 +223,7 @@ export default function AdminDispatchSettings() {
                 </label>
                 <p style={{ margin: "0.35rem 0 0", color: "var(--muted)", fontSize: "0.85rem" }}>
                   Snapshot shows each partner's photo (or a generic silhouette if they don't have one, or if
-                  they're a restricted-access partner), field, "Supporting since" year, and short overview
+                  they're a restricted-access partner), field, "Partnering since" year, and short overview
                   above their items -- for both the admin email and the public email.
                 </p>
                 <label style={{ marginTop: "1rem" }}>

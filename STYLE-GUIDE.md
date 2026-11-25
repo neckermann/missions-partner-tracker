@@ -143,12 +143,18 @@ per page) — those are gone, not alternatives.
   round-tripped to the server (confirmed, not assumed — e.g. `GET
   /groupme/groups` 400s with "Save a GroupMe access token first" until
   the token is actually persisted).
-  **Opening things from the partner page**: a scalar section
-  (`EditableSection`) is click-to-edit; a record in a collection card
-  (`PartnerSummaryCard`) is click-to-open; the card's **title** is the
-  link to the full, partner-filtered page when one exists (no separate
-  "View all" button); "+ Add" is the only button. Don't add a button
-  to open something the user can click.
+  **Opening things from the partner page**: anything that already
+  exists opens when you click it: a scalar section (`EditableSection`),
+  a row (`RecordList`), a contact-log entry, the Contact card and the
+  Care team. There is no "Edit" button beside it; the title is a
+  keyboard-reachable button for the same action. A collection card
+  (`PartnerSummaryCard`) opens each record on click and its **title**
+  links to the full, partner-filtered page when one exists (no "View
+  all" button). **Delete lives inside the edit popup**
+  (`QuickActionModal`'s `onDelete`, which confirms first), never on a
+  row. The only buttons left are for creating ("+ Add", "+ Record") and
+  for actions that aren't editing ("Send a greeting", "Log a
+  thank-you").
   **Section-level editing**: `EditableSection`
   (`frontend/src/components/admin/EditableSection.jsx`) is the save
   standard for grouped scalar fields on a detail page — explicit Edit

@@ -8,6 +8,7 @@ import {
 } from "../../api/client.js";
 import { useSettings } from "../../context/SettingsContext.jsx";
 import QuickActionModal from "../shared/QuickActionModal.jsx";
+import { onClickUnlessSelecting } from "../../utils/clickableRow.js";
 import StatusPill from "./StatusPill.jsx";
 
 // A partner's care team: one Lead plus Members, all logins. Serves both the partner page and the
@@ -58,11 +59,27 @@ export default function CareTeamPanel({ partnerId, canEdit, canInviteGuest = fal
       : [];
     return (
       <div id="section-care-team" style={{ scrollMarginTop: "1rem" }}>
+        {/* The whole line opens the editor; the "Care team:" label is the keyboard way in. */}
+        {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
         <div
+          className={canEdit && team ? "admin-section-clickable" : undefined}
           style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.5rem" }}
+          onClick={canEdit && team ? onClickUnlessSelecting(() => setEditing(true)) : undefined}
         >
           <div>
-            <span style={{ color: "var(--muted)" }}>Care team: </span>
+            {canEdit && team ? (
+              <button
+                type="button"
+                className="summary-item-link"
+                aria-label={people.length ? "Edit team" : "+ Assign team"}
+                style={{ color: "var(--muted)", textDecoration: "none" }}
+                onClick={() => setEditing(true)}
+              >
+                Care team:{" "}
+              </button>
+            ) : (
+              <span style={{ color: "var(--muted)" }}>Care team: </span>
+            )}
             {failed && <span style={{ color: "var(--danger)" }}>couldn't load</span>}
             {team && people.length === 0 && (
               <span style={{ color: "var(--muted)" }}>nobody assigned yet</span>
@@ -78,11 +95,6 @@ export default function CareTeamPanel({ partnerId, canEdit, canInviteGuest = fal
               <span style={{ color: "var(--warn)" }}> · no lead yet</span>
             )}
           </div>
-          {canEdit && team && (
-            <button type="button" className="btn secondary small" onClick={() => setEditing(true)}>
-              {people.length ? "Edit team" : "+ Assign team"}
-            </button>
-          )}
         </div>
         {team && people.length === 0 && enabledFeatures?.keyDates && (
           <div style={{ fontSize: "0.85rem", color: "var(--muted)", marginTop: "0.2rem" }}>
@@ -107,14 +119,30 @@ export default function CareTeamPanel({ partnerId, canEdit, canInviteGuest = fal
   }
 
   return (
-    <div className="admin-section" id="section-care-team" style={{ scrollMarginTop: "1rem" }}>
+    // Clicking the card opens the editor; the title button is the keyboard way in.
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
+    <div
+      className={canEdit && team ? "admin-section admin-section-clickable" : "admin-section"}
+      id="section-care-team"
+      style={{ scrollMarginTop: "1rem" }}
+      onClick={canEdit && team ? onClickUnlessSelecting(() => setEditing(true)) : undefined}
+    >
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.5rem" }}>
-        <h3 style={{ margin: 0 }}>Care team</h3>
-        {canEdit && team && (
-          <button type="button" className="btn secondary small" onClick={() => setEditing(true)}>
-            {team.lead || team.members.length ? "Edit care team" : "+ Assign care team"}
-          </button>
-        )}
+        <h3 style={{ margin: 0 }}>
+          {canEdit && team ? (
+            <button
+              type="button"
+              className="summary-item-link"
+              aria-label={team.lead || team.members.length ? "Edit care team" : "+ Assign care team"}
+              style={{ font: "inherit", color: "inherit", textDecoration: "none" }}
+              onClick={() => setEditing(true)}
+            >
+              Care team
+            </button>
+          ) : (
+            "Care team"
+          )}
+        </h3>
       </div>
       {failed && <p style={{ color: "var(--danger)" }}>Couldn't load the care team.</p>}
       {team && !team.lead && team.members.length === 0 && (

@@ -8,7 +8,7 @@ const { nextAnnual, daysBetween } = require("../reporting/definitions");
 // How far ahead a key date becomes "due": a fixed default (a card needs about a week), so bell and email agree.
 const KEY_DATE_LEAD_DAYS = 7;
 
-// "Supporting since" is a milestone: the first year, then every fifth (year-only
+// "Partnering since" is a milestone: the first year, then every fifth (year-only
 // start dates are stored as Jan 1, so yearly would always say "Jan 1").
 const isSupportMilestone = (years) => years >= 1 && (years === 1 || years % 5 === 0);
 
