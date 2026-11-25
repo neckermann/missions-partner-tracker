@@ -399,20 +399,34 @@ describe("admin reset and forced enrolment", () => {
 });
 
 describe("the public demo", () => {
-  test("can't add a passkey (its logins are shared), and the list says so", async () => {
+  test("lets a visitor add and remove a passkey, but never asks for one at sign-in", async () => {
     const user = await makeUser("demo");
-    const who = as((await login(user.email)).cookie);
     process.env.DEMO_RESET_TOKEN = "test-demo-token";
     try {
-      assert.equal((await who("/api/auth/passkeys/register/options", { method: "POST" })).status, 403);
-      assert.equal(
-        (await who("/api/auth/passkeys/register/verify", { method: "POST", body: {} })).status,
-        403
-      );
-      assert.equal((await who("/api/auth/passkeys")).body.demo, true);
+      const first = await login(user.email);
+      const who = as(first.cookie);
+      const a = newAuthenticator();
+      assert.equal((await addPasskey(who, a, "Try it")).status, 200);
+      const list = await who("/api/auth/passkeys");
+      assert.equal(list.body.demo, true);
+      assert.equal(list.body.passkeys.length, 1);
+
+      // The login is shared, so someone else signing in is not asked for the passkey...
+      const second = await login(user.email);
+      assert.equal(second.body.mfaRequired, undefined);
+      assert.ok(second.cookie.includes("="), "a normal session");
+      // ...and adding one didn't end the sessions that were already open.
+      assert.equal((await as(first.cookie)("/api/auth/me")).status, 200);
+
+      const id = list.body.passkeys[0].id;
+      const removed = await who(`/api/auth/passkeys/${id}`, {
+        method: "DELETE",
+        body: { password: PASSWORD },
+      });
+      assert.equal(removed.status, 200, JSON.stringify(removed.body));
     } finally {
       delete process.env.DEMO_RESET_TOKEN;
     }
-    assert.equal((await who("/api/auth/passkeys")).body.demo, false);
+    assert.equal((await as((await login(user.email)).cookie)("/api/auth/passkeys")).body.demo, false);
   });
 });

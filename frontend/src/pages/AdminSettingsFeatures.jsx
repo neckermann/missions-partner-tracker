@@ -34,11 +34,25 @@ function FeatureToggleRow({ feature, checked, onToggle, disabled = false, nested
   );
 }
 
-function groupSummary(features, enabledFeatures) {
-  const on = features.filter((f) => enabledFeatures[f.key] ?? f.defaultEnabled);
-  if (on.length === 0) return "All off";
-  if (on.length === features.length) return "All on";
-  return `${on.length} of ${features.length} on`;
+// What a group holds, by name, with each feature's state: so the card says what is inside it and
+// what turning something off would hide, not just "All on".
+function GroupFeatureList({ features, enabledFeatures }) {
+  return (
+    <ul className="feature-state-list">
+      {features.map((f) => {
+        const on = !!(enabledFeatures[f.key] ?? f.defaultEnabled);
+        return (
+          <li key={f.key}>
+            <span className={on ? "status-pill good" : "status-pill"}>{on ? "On" : "Off"}</span>
+            <span>
+              <strong>{f.label}</strong>
+              <span className="feature-state-desc">{f.description}</span>
+            </span>
+          </li>
+        );
+      })}
+    </ul>
+  );
 }
 
 // Each card edits only its own group's keys, but `enabledFeatures` is one
@@ -57,7 +71,12 @@ function FeatureGroupCard({ title, features, enabledFeatures, onSaveGroup, onSav
       )}
       onSave={onSaveGroup}
       onSaved={onSaved}
-      view={() => <p>{groupSummary(features, enabledFeatures)}</p>}
+      view={() => (
+        <GroupFeatureList
+          features={nestedToggle ? [...features, nestedToggle.feature] : features}
+          enabledFeatures={enabledFeatures}
+        />
+      )}
       edit={(d, set) => (
         <>
           {features.map((f) => (
