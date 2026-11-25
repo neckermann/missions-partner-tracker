@@ -22,6 +22,8 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ### Added
 
+- **Country, language and group suggestions work on phones.** The type-ahead fields use a suggestion list of their own instead of the browser's, which many phones don't show.
+- **The partner page is grouped more clearly.** **Location & Contact** holds the addresses and links; a new **Care & Follow-up** group holds Support Preferences, Surveys, the Contact Log, Church Visits and Furlough; Communication keeps prayer requests, newsletters and "last prayed for". The Support Preferences card opens when you click its line (no separate View all), and a survey's recipient list has a search and **Select all who can be emailed**.
 - **A "Getting to know you" survey template** for restarting a relationship with partners: their story and work, how they keep in touch, challenges, highlights, hopes and how we can help. Edit it freely; it is a starting point, not a fixed form.
 - **Staff-only support options.** An option can be marked **Staff only**: its answers are hidden from care team guests and can't be recorded by them (the example "what can and cannot be shared" starts this way).
 - **Contacts can name a support option.** A logged contact can say which option it was about; the label is kept if the option is later retired or deleted.
