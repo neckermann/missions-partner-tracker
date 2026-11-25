@@ -114,7 +114,9 @@ router.put("/whatsapp", ...whatsappGate, async (req, res, next) => {
         try {
           const found = await whatsappClient.findAnnouncementGroup(body.communityId);
           if (found) announcement = { id: found.id, name: found.name };
-        } catch {}
+        } catch {
+          // Not found or WhatsApp unreachable: leave the announcement group unset.
+        }
       }
     }
 
