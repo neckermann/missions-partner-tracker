@@ -69,6 +69,11 @@ module.exports = function passkeyRoutes({ completeLogin }) {
         include: { passkeys: { select: { credentialId: true, transports: true } } },
       });
       if (!user) return res.status(401).json({ error: "Invalid or expired session" });
+      // A forced-enrolment setup token is only good while the account has nothing enrolled, like
+      // /mfa/setup: once it has (or an admin has reset it) the token must not become a session (#408).
+      if (req.user.mfaSetup && user.mfaEnabled) {
+        return res.status(401).json({ error: "Invalid or expired session" });
+      }
       if (user.passkeys.length >= MAX_PASSKEYS) {
         return res.status(409).json({ error: `You can have up to ${MAX_PASSKEYS} passkeys` });
       }
@@ -113,6 +118,9 @@ module.exports = function passkeyRoutes({ completeLogin }) {
         include: { _count: { select: { passkeys: true } } },
       });
       if (!user) return res.status(401).json({ error: "Invalid or expired session" });
+      if (req.user.mfaSetup && user.mfaEnabled) {
+        return res.status(401).json({ error: "Invalid or expired session" });
+      }
       if (user._count.passkeys >= MAX_PASSKEYS) {
         return res.status(409).json({ error: `You can have up to ${MAX_PASSKEYS} passkeys` });
       }
@@ -158,7 +166,14 @@ module.exports = function passkeyRoutes({ completeLogin }) {
         where: { id: user.id },
         data: user.mfaEnabled
           ? {}
-          : { mfaEnabled: true, mfaSecret: null, mfaSetupRequired: false, mfaLastTimeStep: null },
+          : {
+              mfaEnabled: true,
+              mfaSecret: null,
+              mfaSetupRequired: false,
+              mfaLastTimeStep: null,
+              // The first factor ends sessions opened without one, as enrolling an app does (#408).
+              sessionVersion: { increment: 1 },
+            },
       });
       await recordAuditSafe(null, {
         action: "auth.passkey_added",
@@ -169,6 +184,8 @@ module.exports = function passkeyRoutes({ completeLogin }) {
       if (req.user.mfaSetup) {
         return res.json(await completeLogin(res, updated, req));
       }
+      // This tab keeps its session: its cookie is re-issued from the updated row.
+      if (!user.mfaEnabled) setSessionCookie(res, updated);
       res.json({ ok: true });
     } catch (err) {
       next(err);

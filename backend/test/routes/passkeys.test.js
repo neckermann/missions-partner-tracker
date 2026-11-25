@@ -25,10 +25,17 @@ const cookieOf = (res) =>
     .getSetCookie()
     .map((c) => c.split(";")[0])
     .join("; ");
-const as =
-  (cookie) =>
-  (path, options = {}) =>
-    anon(path, { ...options, headers: { ...(options.headers || {}), Cookie: cookie } });
+// Like a browser: keeps the latest session cookie a response sets (enrolling the first passkey
+// re-issues it, #408).
+const as = (cookie) => {
+  let current = cookie;
+  return async (path, options = {}) => {
+    const res = await anon(path, { ...options, headers: { ...(options.headers || {}), Cookie: current } });
+    const set = res.headers.getSetCookie();
+    if (set.length) current = set.map((c) => c.split(";")[0]).join("; ");
+    return res;
+  };
+};
 
 async function makeUser(tag, extra = {}) {
   const email = `route-test-passkey-${tag}@example.test`;
@@ -233,8 +240,9 @@ describe("signing in with a passkey", () => {
     const user = await makeUser("purpose");
     const a = newAuthenticator();
     const { cookie } = await login(user.email);
-    await addPasskey(as(cookie), a);
-    const reg = await as(cookie)("/api/auth/passkeys/register/options", { method: "POST" });
+    const who = as(cookie); // keeps the cookie the enrolment re-issues (#408)
+    await addPasskey(who, a);
+    const reg = await who("/api/auth/passkeys/register/options", { method: "POST" });
     const pending = (await login(user.email)).body.pendingToken;
     const res = await anon("/api/auth/passkeys/login/verify", {
       method: "POST",
@@ -347,9 +355,10 @@ describe("removing a passkey", () => {
       data: { mfaEnabled: false, mfaSecret: null },
     });
     const { cookie } = await login(pre.email);
-    await addPasskey(as(cookie), a);
+    const who = as(cookie);
+    await addPasskey(who, a);
     await prisma.user.update({ where: { id: user.id }, data: { mfaSecret: encryptField(generateSecret()) } });
-    const res = await as(cookie)("/api/auth/mfa/disable", { method: "POST", body: { password: PASSWORD } });
+    const res = await who("/api/auth/mfa/disable", { method: "POST", body: { password: PASSWORD } });
     assert.equal(res.status, 200, JSON.stringify(res.body));
     const after = await prisma.user.findUnique({ where: { id: user.id } });
     assert.equal(after.mfaEnabled, true);

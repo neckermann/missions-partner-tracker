@@ -7,6 +7,7 @@
 // reverse -- emailDispatchScheduler.js composes "run a pass, then clear" for
 // both triggers, so neither pass's file needs to call back into this one.
 const prisma = require("../prismaClient");
+const { DIGEST_ROLES } = require("./digestRoles");
 const { isFeatureEnabled } = require("./features");
 const { CHANNELS, isEligibleForChannel, needsReview, getChurchSettings } = require("./dispatchEligibility");
 const { postToGroupMe } = require("./groupmeChannel");
@@ -48,7 +49,11 @@ async function clearDispatchRecords() {
   // row depends on both its type (Rule 2) and whether anyone's
   // currently subscribed on that tier.
   const [adminTierCounts, publicTierCounts] = await Promise.all([
-    prisma.user.groupBy({ by: ["cadence"], where: { cadence: { not: null }, active: true }, _count: true }),
+    prisma.user.groupBy({
+      by: ["cadence"],
+      where: { cadence: { not: null }, active: true, role: { in: DIGEST_ROLES } },
+      _count: true,
+    }),
     prisma.publicSubscriber.groupBy({ by: ["cadence"], where: { confirmedAt: { not: null } }, _count: true }),
   ]);
   const adminCountByTier = Object.fromEntries(adminTierCounts.map((r) => [r.cadence, r._count]));
@@ -247,7 +252,8 @@ async function sendUrgentDispatch(row, { id: partnerId }) {
   if (emailOn) {
     [admins, publicSubscribers] = await Promise.all([
       prisma.user.findMany({
-        where: { active: true },
+        // Never a guest (#407): an urgent send is the whole church's content.
+        where: { active: true, role: { in: DIGEST_ROLES } },
         select: {
           id: true,
           email: true,
