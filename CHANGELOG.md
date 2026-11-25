@@ -16,16 +16,17 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ## [Unreleased]
 
-### Added
-
-- **The Contact card is where you edit how to reach a partner.** **Edit** on the card picks who to reach first (a list of the adults, or an organization's named contact) and how each person likes to be reached: a phone call, text, email, WhatsApp, Signal, Messenger or another way, shown highlighted as "Prefers Email". The card is shown even when the contact log is off.
-- **Contacting a partner has three settings, not two.** The old safe / not-safe switch is now **Normal**, **Use caution** (their details stay under a warning with your guidelines, and you can limit the ways it is ok to reach them, so only those buttons show) and **Don't contact directly** (their number, email and buttons are hidden, replaced by who to go through, with that person's call and email buttons, and the guidelines). The printed booklet withholds details for **Don't contact directly**.
-- **"Forgot your password?" on the sign-in page.** When the site can send email, anyone can ask for a link to choose a new password. The link works once and lasts an hour, a reset signs the account out everywhere else, and the reply is the same whether or not the address has an account (at most one email a minute per account). It reuses the setup-link machinery, so no database change. Not offered while email is off, on a demo, or with passwordless sign-in on.
-- **More records carry a created date ([#383](https://github.com/neckermann/missions-partner-tracker/issues/383)).** A partner's addresses and sending party, a trip's budget lines and flight segments, and application questions now record when they were added (trips and applications already did).
-
 ### Changed
 
 - **A public demo lets visitors try passkeys and an authenticator app ([#386](https://github.com/neckermann/missions-partner-tracker/issues/386)).** Adding or removing one works, but the demo never asks for a second factor at sign-in and doesn't end other visitors' sessions, so the shared logins keep working.
+
+### Added
+
+- **Visitors can choose Light or Dark on the public site** with a small switch in the header; it follows their device unless they pick one.
+- **More records carry a created date ([#383](https://github.com/neckermann/missions-partner-tracker/issues/383)).** A partner's addresses and sending party, a trip's budget lines and flight segments, and application questions now record when they were added (trips and applications already did).
+- **"Forgot your password?" on the sign-in page.** When the site can send email, anyone can ask for a link to choose a new password. The link works once and lasts an hour, a reset signs the account out everywhere else, and the reply is the same whether or not the address has an account (at most one email a minute per account). It reuses the setup-link machinery, so no database change. Not offered while email is off, on a demo, or with passwordless sign-in on.
+- **The Contact card is where you edit how to reach a partner.** **Edit** on the card picks who to reach first (a list of the adults, or an organization's named contact) and how each person likes to be reached: a phone call, text, email, WhatsApp, Signal, Messenger or another way, shown highlighted as "Prefers Email". The card is shown even when the contact log is off.
+- **Contacting a partner has three settings, not two.** The old safe / not-safe switch is now **Normal**, **Use caution** (their details stay under a warning with your guidelines, and you can limit the ways it is ok to reach them, so only those buttons show) and **Don't contact directly** (their number, email and buttons are hidden, replaced by who to go through, with that person's call and email buttons, and the guidelines). The printed booklet withholds details for **Don't contact directly**.
 
 ### Fixed
 
@@ -34,6 +35,11 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 - **Action buttons in tables no longer wrap onto two lines** and come out different sizes; Delete, Retire and the like stay the same height as their neighbours.
 - **One tab bar for Trips, a trip's own pages and Partners**, with the same look in both themes. The active Trips tab was nearly invisible in dark mode.
 - **Cards placed one after another on a page (Reports, Care Team Settings, GroupMe, WhatsApp, the top of a partner page) now have space between them.**
+- **Counts look the same everywhere.** The Trips list and the email subscriber summary now use the same count tiles as the reports.
+- **The Audit log uses the same filter bar as the other lists** (search, plus What / From / To under "+ Add filter"), and its filters stay in the address.
+- **Enabled Features lists what is in each group**, with each feature's on or off state, instead of only "All on".
+- **Log Contributions is a popup**, like other forms, with **Save** and **Save and add another** (which keeps the trip, team member, method and date for the next check).
+- **Support Preferences:** Delete is red, and every group's table lines up. **WhatsApp's warning is a proper box.**
 
 ### Upgrading
 

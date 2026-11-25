@@ -2422,7 +2422,8 @@ a {
 /* Reports: the summary tiles above a report's table. Same surface, border,
    radius and brand tokens as .admin-card so reports match the rest of the
    admin UI; nothing here hardcodes a church's colors. */
-.report-summary {
+.report-summary,
+.stat-tiles {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 0.75rem;
@@ -2432,17 +2433,20 @@ a {
      up against the button row. */
   margin: 1.25rem 0;
 }
-.report-summary-item {
+.report-summary-item,
+.stat-tile {
   background: var(--surface);
   border: 1px solid var(--border-soft);
   border-radius: var(--radius-md);
   padding: 0.7rem 0.9rem;
 }
-.report-summary-item dt {
+.report-summary-item dt,
+.stat-tile dt {
   font-size: 0.8rem;
   color: var(--muted);
 }
-.report-summary-item dd {
+.report-summary-item dd,
+.stat-tile dd {
   margin: 0.15rem 0 0;
   font-size: 1.35rem;
   font-weight: 700;
@@ -2584,4 +2588,44 @@ button.report-summary-item[aria-pressed="true"] {
 }
 .contact-notice-stop {
   border-color: var(--danger);
+/* The quieter "of 74 total" beside a tile's number. */
+.stat-tile-hint {
+  font-size: 0.85rem;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+/* Enabled Features: a group's features by name, each with its on/off state. */
+.feature-state-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.6rem;
+}
+.feature-state-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+.feature-state-list .status-pill {
+  min-width: 2.4rem;
+  text-align: center;
+  margin-top: 0.1rem;
+}
+.feature-state-desc {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+/* A warning that stands alone on a page (WhatsApp's "this isn't an official integration"), not
+   under a field: a proper box, with room around it. */
+.admin-shell > .field-warning {
+  margin: 1rem 0;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--warn);
+  border-left-width: 4px;
+  border-radius: var(--radius-md);
+  font-size: 0.9rem;
 }
