@@ -13,7 +13,7 @@ task.
 ```
 backend/
   src/routes/       one file per resource (partners, prayerRequests, settings, ...)
-  src/utils/         notification channels, encryption, email, WhatsApp/GroupMe clients
+  src/utils/         notification channels, encryption, email, WhatsApp/GroupMe clients; also guestAccess.js (what a guest may reach), auditLog.js, lastUpdated.js (read-time "last updated"), sendingChurch.js (list filter)
   prisma/            schema.prisma + one squashed baseline migration (pre-1.0, see CONTRIBUTING.md)
   test/              node:test unit tests; test/routes/ needs a real Postgres (see e2e job)
 frontend/
@@ -24,7 +24,7 @@ demo/                operational details (real secrets, Render blueprint) for th
 docs/                the published marketing/docs site only (docs/index.html) + screenshots — contributor/agent docs live at repo root, alongside this file
 ```
 
-Full data model and backend/frontend structure: [SPEC.md](SPEC.md).
+Full data model and backend/frontend structure: [SPEC.md](SPEC.md). Four pieces cut across many routes (guest and care team reach, the audit log, last-edited stamping, the sending church filter): use the existing helper for each, as described in [ARCHITECTURE.md § Cross-cutting pieces](ARCHITECTURE.md#cross-cutting-pieces-you-will-meet), rather than checking roles, stamping, or filtering by hand.
 
 ## Approval gates for autonomous action
 

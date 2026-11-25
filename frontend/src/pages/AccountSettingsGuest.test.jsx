@@ -4,10 +4,14 @@ import { render, screen } from "@testing-library/react";
 import AccountSettings from "./AccountSettings.jsx";
 import { fetchCurrentUser } from "../api/client.js";
 
-// #356: a guest gets "My account" for password and MFA only. The admin
-// digest is church-wide content, and MFA is required for the role so it
-// can be enrolled but never switched off.
+// #356: a guest gets "My account" for password and MFA only; the admin digest is church-wide
+// content. Two-factor is not specific to the role (#385): it can be switched off by the person
+// unless the church requires it of everyone, which hides the switch-off for every role.
 vi.mock("../api/client.js", () => ({
+  fetchPasskeys: vi.fn().mockResolvedValue({ passkeys: [], max: 5 }),
+  registerPasskey: vi.fn(),
+  removePasskey: vi.fn(),
+  browserSupportsWebAuthn: () => true,
   fetchCurrentUser: vi.fn(),
   changePassword: vi.fn(),
   setupMfa: vi.fn(),
@@ -21,12 +25,14 @@ vi.mock("../context/SettingsContext.jsx", () => ({
 }));
 vi.mock("../components/shared/ThemeToggle.jsx", () => ({ default: () => null }));
 
-const user = (role, mfaEnabled) => ({
+const user = (role, mfaEnabled, twoFactorRequired = false) => ({
   id: "u1",
   email: "someone@example.test",
   role,
   authProvider: "local",
   mfaEnabled,
+  authenticatorApp: mfaEnabled,
+  twoFactorRequired,
   cadence: null,
   followedPartnerIds: [],
 });
@@ -41,15 +47,25 @@ describe("AccountSettings -- guest (#356)", () => {
     expect(await screen.findByText("Change Password")).toBeInTheDocument();
     expect(screen.getByText("Two-Factor Authentication")).toBeInTheDocument();
     expect(screen.queryByText("Email Dispatch")).not.toBeInTheDocument();
-    expect(screen.getByText(/Guest accounts need an extra step/)).toBeInTheDocument();
+    expect(screen.getByText(/Add an extra step at login/)).toBeInTheDocument();
   });
 
-  it("offers no way to disable MFA once enrolled, and says why", async () => {
-    fetchCurrentUser.mockResolvedValue(user("guest", true));
+  it("lets a guest switch two-factor off like anyone else when the church doesn't require it", async () => {
+    fetchCurrentUser.mockResolvedValue(user("guest", true, false));
     render(<AccountSettings />);
 
-    expect(await screen.findByText(/required for guest accounts/)).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Disable Two-Factor/ })).not.toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /Disable Two-Factor/ })).toBeInTheDocument();
+  });
+
+  it("offers nobody a way to disable MFA once the church requires it, and says why", async () => {
+    for (const role of ["guest", "editor", "admin"]) {
+      fetchCurrentUser.mockResolvedValue(user(role, true, true));
+      const { unmount } = render(<AccountSettings />);
+
+      expect(await screen.findByText(/requires two-factor authentication for everyone/)).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /Disable Two-Factor/ })).not.toBeInTheDocument();
+      unmount();
+    }
   });
 
   it("still shows the digest section and the disable button to a full role", async () => {

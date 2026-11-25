@@ -2,6 +2,7 @@ const jwt = require("jsonwebtoken");
 const { SESSION_COOKIE_NAME } = require("../utils/jwt");
 const prisma = require("../prismaClient");
 const { actorStore, displayName } = require("../utils/actorContext");
+const { isTwoFactorRequired } = require("../utils/twoFactor");
 const {
   resolveGuestReach,
   canReadPartner,
@@ -105,10 +106,18 @@ async function requireAuth(req, res, next) {
         role: true,
         active: true,
         sessionVersion: true,
+        mfaEnabled: true,
       },
     });
     if (!user || !user.active) {
       return unauthorized(req, res, "Invalid or expired session");
+    }
+    // #385: while the church requires two-factor, a session for an account that hasn't enrolled
+    // stops working at once, including one opened before the requirement was turned on. They
+    // sign in again and are taken through enrolment (routes/auth.js POST /login). Read fresh
+    // each request, like role and active, so turning the requirement on is immediate.
+    if (!user.mfaEnabled && (await isTwoFactorRequired())) {
+      return unauthorized(req, res, "Two-factor authentication is required");
     }
     // #356: a guest's reach is exactly their active grants (TripAccess
     // today; care team seats join in #289). With none left -- every trip

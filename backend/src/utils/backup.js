@@ -56,6 +56,9 @@ const MODELS = [
   // application row, which must already exist.
   "trip",
   "tripApplication",
+  "applicationQuestion", // -> trip (#394)
+  "tripApplicationAnswer", // -> tripApplication, applicationQuestion (#394)
+  "requirementTemplateItem", // (#394)
   "tripParticipant",
   "tripParticipantPhoto",
   "tripMeeting",
@@ -104,13 +107,17 @@ const MODELS = [
 
   "user",
   "tripAccess", // -> user, trip (#356)
+  "userPasskey", // -> user (#386)
   "careTeamMember", // -> partner, user (#289)
   "contactLog", // -> partner, user (#288)
   "keyDateReminder", // -> partner, user (#291)
+  "supportOption", // standalone: the church's menu (#374)
+  "partnerSupportPreference", // -> partner, supportOption (#374)
   "auditLog", // standalone: ids and snapshots, no FKs (#341)
   "savedReport", // savedReport.ownerId -> user
   "reportSchedule", // reportSchedule.savedReportId -> savedReport
   "passwordSetupToken", // -> user
+  "signInLinkToken", // -> user (#386)
   "notificationSeen", // -> user
   "userFollowedPartner", // -> user, partner
   "publicSubscriber",

@@ -52,6 +52,7 @@ import Field from "../components/admin/Field.jsx";
 import PhotoHistorySection from "../components/admin/PhotoHistorySection.jsx";
 import CareTeamPanel from "../components/admin/CareTeamPanel.jsx";
 import ContactCard from "../components/admin/ContactCard.jsx";
+import SupportPreferencesCard from "../components/admin/SupportPreferencesCard.jsx";
 import ContactLogSection from "../components/admin/ContactLogSection.jsx";
 import PartnerSummaryCard from "../components/admin/PartnerSummaryCard.jsx";
 import RecordList from "../components/admin/RecordList.jsx";
@@ -83,6 +84,7 @@ import {
   todayInputValue,
 } from "../utils/format.js";
 import { addressByType } from "../utils/addresses.js";
+import RecordUnavailable, { loadErrorStatus } from "../components/shared/RecordUnavailable.jsx";
 import { useRecordRecentlyViewed } from "../hooks/useRecentlyViewed.js";
 import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
 import useChurchSettings from "../hooks/useChurchSettings.js";
@@ -163,6 +165,7 @@ export default function AdminPartnerDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [p, setP] = useState(null);
+  const [loadError, setLoadError] = useState(null); // 404/403 when the partner can't be shown
   const [collections, setCollections] = useState({
     prayerRequests: [],
     files: [],
@@ -359,7 +362,13 @@ export default function AdminPartnerDetail() {
     // skips support amounts, whose routes 403 for them -- and one rejected
     // request would reject the whole Promise.all in reload()).
     if (userLoading) return;
-    reload().catch(console.error);
+    setLoadError(null);
+    reload().catch((err) => {
+      // A deleted or out-of-reach partner (an old link) shows a message, not "Loading..." forever.
+      const status = loadErrorStatus(err);
+      if (status) setLoadError(status);
+      else console.error(err);
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, isGuest, userLoading]);
 
@@ -381,6 +390,16 @@ export default function AdminPartnerDetail() {
   const tripsLoadMore = useLoadMore(collections.trips, { initialCount: 3, step: 100 });
 
   if (userLoading) return <p style={{ padding: "2rem" }}>Loading...</p>;
+
+  if (loadError)
+    return (
+      <RecordUnavailable
+        status={loadError}
+        what="partner"
+        backTo="/admin/partners"
+        backLabel="Back to Partners"
+      />
+    );
 
   if (!p) return <p style={{ padding: "2rem" }}>Loading...</p>;
 
@@ -771,6 +790,10 @@ export default function AdminPartnerDetail() {
       )}
 
       {contactLogShown && <ContactCard partner={p} adults={collections.adults} entries={contactEntries} />}
+
+      {enabledFeatures.supportPreferences && enabledFeatures.careTeam && (
+        <SupportPreferencesCard partnerId={p.id} isAdmin={isAdmin} />
+      )}
 
       <div className="partner-jump-rail">
         {[
@@ -1663,7 +1686,7 @@ export default function AdminPartnerDetail() {
               title="Newsletters & Docs"
               count={collections.files.length}
               items={filesLoadMore.visible.map((f) => ({
-                text: `${f.title || f.fileName} · ${fileKindLabel(f.kind)} · ${formatDate(f.receivedDate)}`,
+                text: `${f.title || f.fileName} · ${fileKindLabel(f)} · ${formatDate(f.receivedDate)}`,
                 onClick: () => openFileDetail(f),
               }))}
               hasMore={filesLoadMore.hasMore}

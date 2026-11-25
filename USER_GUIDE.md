@@ -13,6 +13,7 @@ only)** below — see [Understanding your role](#understanding-your-role).
 
 - [Getting started](#getting-started)
 - [Managing partners & support](#managing-partners--support)
+- [Caring for partners](#caring-for-partners)
 - [Settings](#settings)
 - [Communications](#communications)
 - [Integrations](#integrations)
@@ -30,10 +31,25 @@ for why.
 ![The login page](docs/assets/screenshots/login-page.png)
 
 If your account has two-factor authentication enabled, you'll be prompted
-for a 6-digit code from your authenticator app after your password. If an
-admin has *required* MFA on your account but you haven't set it up yet,
-you'll be walked through enrollment (scan a QR code, confirm a code)
-before you can do anything else.
+for a 6-digit code from your authenticator app, or to **Use a passkey**
+(your fingerprint, face or screen lock), after your password. If
+your church requires two-factor for everyone (or an admin required it of
+your account) and you haven't set it up yet, you'll be walked through
+enrollment (add a passkey, or scan a QR code and confirm a code) before
+you can do anything else. If your church turns the requirement on while you're signed in, your
+next click takes you back to sign-in, and you set it up then.
+
+If your church has turned on **passwordless sign-in**, there is no password
+box. **Sign in with a passkey** signs you in with your fingerprint, face or
+screen lock alone (it counts as both factors). If you haven't added a passkey
+yet, **Email me a sign-in link** sends a one-time link that works once and
+expires in 15 minutes; it signs you in and then walks you through adding a
+passkey. Lost your passkey? Ask an admin to **Reset MFA** on your account;
+they'll hand you a fresh way in.
+
+![The sign-in page with passwordless sign-in on: a passkey button and an emailed link](docs/assets/screenshots/sign-in-passwordless.png)
+
+![After the emailed link: add a passkey (or use an authenticator app) to finish signing in](docs/assets/screenshots/sign-in-add-passkey.png)
 
 ### Understanding your role
 
@@ -70,8 +86,9 @@ requirements/budget/flights, and can view (but not edit) those trips'
 partner pages — nothing else in the app. **Access ends 30 days after
 each trip's end date** unless an admin sets a different date, so a
 guest doesn't keep access forever; an admin can extend it, end it
-early, or remove a trip at any time. Guests sign in with a password and
-two-factor authentication, which is always required for them. Use it
+early, or remove a trip at any time. Guests sign in with a password, and
+with two-factor authentication when the church requires it of everyone
+(see [User management](#user-management-admin-only)). Use it
 for an actual trip leader or chaperone who needs to manage their own
 trip's logistics without a full account on everything else. See
 [SPEC.md § 5.1](SPEC.md#51-guest--a-scoped-login-not-a-4th-full-role)
@@ -333,6 +350,14 @@ edit happens — each section's own **Edit** button, not a separate form
 
 ![The top of a partner detail page -- Photo History, Status & Visibility, and Ministry Overview](docs/assets/screenshots/admin-partner-detail-preview.png)
 
+#### Who last edited a record
+
+Partner, trip, trip-participant and trip-application pages show "Last edited by Dana Whitfield on 11/24/2026" under the name. A trip's page also says when it was added, on the same line ("Added 11/10/2026 · Last edited by …"), and that date never changes when the trip is edited. This is separate from the admin-only [Audit log](#audit-log-admin-only): it is kept for good, and it is stamped on the record itself, not recorded as an event.
+
+On a partner or trip that line covers the sections on its page too — a partner's family, addresses, links, visits, support and photos; a trip's team, meetings, requirements, documents and money — so it answers "when did anyone last touch this record?" even when the change was inside a section. The **Trips** list also has a sortable **Added** column, so you can find the newest trips. The **Partners** and **Trips** lists have a sortable **Last updated** column with the same date and name, so you can sort to find the records nobody has looked after in a while (blank means no signed-in person has changed it). Prayer requests, needs, newsletters and contact-log entries are not folded in; they have their own pages. A prayer request or one-time need shows its own line when you open it. None of this is shown to Guests or on the public site. The **Data completeness** report has **Last edited by** and **Last edited** columns too, so you can see which partner records nobody has touched in a while and who to ask. It is stamped on every record an admin, editor or care team member changes, and not by background jobs or a public form, so a record nobody has edited shows no line. The name is a snapshot, so it still reads after that person's account is deleted.
+
+![A partner's page with "Last edited by Alex Hartley" under the name](docs/assets/screenshots/last-edited-by.png)
+
 #### Photo history
 
 Every photo/logo ever uploaded is kept, not just the current one — the
@@ -510,7 +535,7 @@ each answering a different question:
 ![The Trips page's Existing Trips tab](docs/assets/screenshots/trip-history.png)
 
 - The **Existing Trips** tab is the filterable log of every trip — filter by status,
-  type, year, team size. It opens showing **Active (not completed)**
+  type, year, team size, and [**Sending church**](#the-partners-list) (the church that sent the trip's partner). A sortable **Last updated** column shows who last edited each trip, see [Who last edited a record](#who-last-edited-a-record). It opens showing **Active (not completed)**
   trips by default (planning, accepting applications, and closed-but-
   not-yet-happened all count as active) rather than every trip ever —
   switch the Status filter to **All statuses** or **Completed** to see
@@ -711,6 +736,25 @@ can't be used to check whether someone has a trip record at all.
 
 ![Lost-link recovery](docs/assets/screenshots/public-trip-access-recovery.png)
 
+#### Wrapping up a trip
+
+When a trip is over, **Wrap up trip** (a button beside the trip's name, for admins, editors and the trip's own leaders) walks through finishing it. It is called *wrap up*, not *close*, because the status **Closed** already means applications are closed and the team is committed, which is not the trip being over.
+
+1. **What happened.** Confirm the actual start and end dates. Finishing marks the trip **Completed**.
+2. **Debrief.** A short plain-text answer under each of four prompts: *What did the team do? What went well? What was hard? What does the partner need next?* Every prompt is optional.
+3. **Follow-up.** With the [Contact log](#contact-log) on, tick **Log a visit for this trip** to add it to the partner's contact log (topic "Trip", we reached out) with an optional follow-up date. A trip leader who has a trip grant but isn't on the partner's care team doesn't see this step, since they never reach the contact log.
+4. **Loose ends.** Links to the Requirements, Financial and Team tabs for anything still open.
+5. **Photos.** The album link, if the trip has none.
+6. **Access.** When the trip leaders' access ends: 30 days after the trip's end date unless it was given another date. To extend it or end it now, use the Team tab.
+
+![A finished trip with its Wrap up trip button](docs/assets/screenshots/trip-ready-to-wrap-up.png)
+
+![The debrief step of the Wrap up trip wizard: four optional prompts](docs/assets/screenshots/trip-wrap-up-debrief.png)
+
+The debrief then shows on the trip's **Overview** (with **Edit debrief** to change it later; the first wrap-up time is kept). Nothing is emailed. Two bell items help: **Trips ready to wrap up** (staff, and a leader for their own trip) counts trips whose end date has passed and that aren't completed, and **Trips wrapped up** tells a partner's care team for two weeks after a trip is wrapped up.
+
+![A wrapped-up trip's Overview, with its debrief](docs/assets/screenshots/trip-debrief.png)
+
 ### Newsletters & Docs
 
 One place for every file a partner sends — a newsletter update, a
@@ -789,6 +833,8 @@ the reports under it as a plain question ("What monthly support has the
 church committed, and to whom?", "Who is still missing a requirement
 before departure?"). Click a question to open that report.
 
+Reports that list partners take the same **[Sending church](#the-partners-list)** filter as the Partners list, so you can narrow any of them to the partners we sent, or to one other church. Many also show **Last edited by** and **Last edited** columns; see [Who last edited a record](#who-last-edited-a-record).
+
 ![The Reports hub, grouped by question](docs/assets/screenshots/reports-hub.png)
 
 Every report page works the same way: set its filters (each one is
@@ -827,6 +873,106 @@ re-setting every filter. An admin can turn any saved view into a
 emailed with that view's filters already applied to the recipients you
 choose, masked the same way the screen is for a restricted partner.
 
+## Caring for partners
+
+Everything for keeping in touch with partners, in one place: who looks after each partner ([Care teams](#care-teams), including the Guest role), how to log and follow up on contact ([Contact log](#contact-log)), reminders for birthdays and anniversaries ([Key-date reminders](#key-date-reminders)), and passing news on ([Passing updates on to partners](#passing-updates-on-to-partners)). Each is a feature you turn on in [Enabled Features](ADMIN_GUIDE.md#feature-toggles).
+
+### Care teams
+
+With **Care teams** turned on in [Enabled Features](ADMIN_GUIDE.md#feature-toggles), every partner can have a **care team**: one **Lead** and any number of **Members**, the people at the church who keep in touch with that partner. An admin or editor sets it from the partner's page (**Care team**, near the top) or from the **Team** tab of one of that partner's trips, and can also add a **Guest** to a partner's team while creating their account (choose the Guest role in **Add User**, then the **Care team** step; other roles don't get that step). Everyone on a team needs a login; someone who isn't on your staff can be a **Guest**. **Reports → Care team coverage** lists the partners with no team or no lead.
+
+![A partner's page with the Care team panel (a Lead and Members) beside the Contact card](docs/assets/screenshots/care-team-and-contact.png)
+
+![The Care team dialog, choosing a Lead and ticking Members](docs/assets/screenshots/assign-care-team.png)
+
+A care team member uses the same app as everyone, and for **their own partner** they can do what an editor can: edit the partner's profile, family, contact details, links and photos; add and edit prayer requests (and record answers) and one-time needs; and upload, edit and scan newsletters and documents. They can also see that partner's trips, read-only. Three things are different:
+
+- **What they enter is saved immediately, but isn't sent to the church** by email, GroupMe or WhatsApp **until an admin or editor approves it** in [Pending Dispatches](#pending-dispatches). They can't mark anything urgent or use "approve now".
+- **They can't approve or decline a one-time need** or record a decision on it. That stays with the committee or board.
+- **They never see monthly support** — its amount, how long it has run, or its history.
+
+They also can't create or delete partners, or delete records. If you're an admin or editor yourself, being on a team doesn't limit you or hold your entries; it just adds the care-team features.
+
+![Pending Dispatches, where an entry from a care team member is held for staff to approve](docs/assets/screenshots/pending-dispatches-care-team.png)
+
+A **Guest**, whether on a care team, given a trip, or both, sees one plain **Partners** list of every partner they can reach, with no tabs. Staff who are on a care team still land on All and switch to the **My partners** tab when they want it.
+
+![A care team guest's Partners page: one list of the partners they can reach](docs/assets/screenshots/care-team-member-partners.png)
+
+A **trip leader** (a Guest given a trip) has a smaller view: their trips, and those trips' partners read-only. They don't get the care-team list pages or one-time needs.
+
+![A care team member's view of their partner: they can edit what's theirs, and see no monthly support](docs/assets/screenshots/care-team-member-view.png)
+
+#### My partners
+
+**My partners** is a tab on the Partners page for anyone on a care team. It lists your partners longest-quiet first: days since the last contact, any follow-up that has come due, the next birthday or anniversary, and open prayer requests and needs. A partner counts as **quiet** after 90 days without a logged contact.
+
+![The My partners tab, listing a care team member's partners longest-quiet first](docs/assets/screenshots/assigned-to-me.png)
+
+**Partners to reach out to**, on the bell and the Home page, counts your partners that are quiet or have a follow-up due.
+
+It works with the [Contact log](#contact-log): logging a contact is what resets a partner's quiet days.
+
+### Contact log
+
+With **Contact log** turned on in [Enabled Features](ADMIN_GUIDE.md#feature-toggles), every partner page gets a **Contact** card and a **Contact Log**.
+
+- **The contact card** shows who to reach first (the adult marked **Primary contact**, or an organization's named contact), how they prefer to be reached, and one-tap **Call**, **Text**, **Email** and **WhatsApp** buttons, plus when anyone last was in touch.
+
+![A partner's Contact card, and the special communication instructions that replace the buttons when a partner isn't safe to contact](docs/assets/screenshots/contact-card-instructions.png)
+- **If a partner isn't safe to contact**, the buttons and numbers are replaced by the **special communication instructions** staff wrote (edit them under Status & Visibility). The printed booklet also leaves out their phone, email and preferred method.
+- **Log a contact** with **+ Log contact**: pick what happened (call, text, email, visit, card, video, prayed for them), who reached out, optional topics, the date, who made the contact (you, by default), an optional note and an optional **follow up by** date. Anyone who can see the partner can log one. Only an admin or editor can edit or delete an entry.
+
+![The Log a contact dialog](docs/assets/screenshots/log-a-contact.png)
+
+![A partner's Contact Log, newest first](docs/assets/screenshots/contact-log.png)
+- **A prayer request a care team member enters** also logs the contact, so it isn't typed twice.
+- **Church visits and newsletters filed** for the partner also appear in the Contact Log, among the entries and newest first, as read-only rows (a visit, "Newsletter filed"). They are read from their own records when you open the page, not copied, so editing or deleting a visit or newsletter updates the log at once. Only a logged contact can be edited or deleted here.
+- **Updates to pass on.** When a one-time need has been decided or a prayer answered and nobody has passed it on yet, the Contact Log shows an **Updates to pass on** box with a **Log a thank-you** (or **Log passing it on**) button. It opens **+ Log contact** already set to "We reached out" with the right topic ticked, so saving it clears the bell's "Updates to pass on to partners". You still choose how you got in touch.
+- **My partners** and **Partners to reach out to** (for anyone on a care team) are described under [My partners](#my-partners).
+
+The **Last heard from** report counts a logged contact, a newsletter and a church visit as hearing from a partner: a partner is only "quiet" when all of them are old. How long is "quiet" is a church setting (default 90 days; Settings → Care Teams → Timing), and the report uses it unless you type another number for a run. Trip leaders don't get the contact log.
+
+### Key-date reminders
+
+With **Key-date reminders** turned on (it needs [Care teams](#care-teams)), the people on a partner's care team are reminded about a coming **birthday** (including the children's), **wedding anniversary**, or **supported-since milestone** (the first year, then every fifth) a week ahead.
+
+- **On the bell and the Home page** as "Key dates coming up". Open it to find the partner. The **My partners** tab also flags a key date inside the window. A key date is raised **7 days ahead** by default; an admin can change that (1 to 60 days) under Settings → Care Teams → Timing.
+
+![The bell, with Key dates coming up among a care team member's alerts](docs/assets/screenshots/bell-alerts.png)
+- **By email**, one message a day, only on a day something is due, listing everything coming up for your partners (not one email per partner). It needs Email (Sending) turned on, and it's sent at 7am church time. **You can turn the email off for yourself** under **My account → Key-date email** (a Guest on a care team can too); the alert on the bell stays either way.
+
+![The grouped key-date email](docs/assets/screenshots/key-date-email.png)
+- **Who gets it:** the whole care team, lead and members. A partner with no care team goes to the **default lead** an admin picks under Settings → Care Teams; with neither, nobody hears about it. A staff default lead also sees those partners under **Partners to reach out to** (on My partners they are marked **Default lead**). A Guest default lead only gets the key-date reminders: it never widens which partners a guest can see.
+
+![Settings → Care Teams, where an admin picks the default lead](docs/assets/screenshots/care-teams-settings.png)
+- **To clear a reminder**, send the card or make the call and **log it as a contact with the topic "Key date"**. That stops the reminders for that occasion, and it counts as being in touch.
+- The app never sends the card for you, and a restricted partner appears in the email by initials only. A partner who isn't safe to contact is marked in the email so a reminder to "send a card" isn't read as "call them".
+
+### Passing updates on to partners
+
+The app never contacts a partner on its own — a person always does. If you're on a partner's [care team](#care-teams), it tells you when there's something to pass on:
+
+- **New needs and prayer requests** on your partners show on the bell (as they do for staff), so you know before the church does.
+- **Updates to pass on to partners** (bell and Home page) counts, for your partners, a one-time need the committee **decided** and a prayer request that was **answered** in the last 30 days. Open the partner to see the decision and its note, then tell them yourself.
+- **To clear one**, [log the contact](#contact-log) as something **you** sent or did (we reached out): topic **Need / support** for a decision, **Encouragement** or **Prayer** for an answered prayer — a thank-you card or call counts. An entry made because the partner reached out doesn't clear it.
+- **When a partner tells you a prayer was answered** and you mark it answered, that is logged as a contact for you automatically (it still waits for staff approval before the church is told).
+
+### Support preferences
+
+With **Support preferences** turned on in [Enabled Features](ADMIN_GUIDE.md#feature-toggles) (it needs [Care teams](#care-teams)), each partner's page gets a **Support preferences** card: the ways your church and their care team can support them, and which of them this partner has asked for.
+
+- **The menu is your church's.** An admin edits it under **Settings → Support Preferences**: options are put in groups (rename a group any time), and each is something you **offer** (tick it if wanted), a **pick one** or **pick any** question (with an optional "something else" box), or a **free-text** question. From an empty menu, **Add an example set** gives a starting list (housing, transportation, speaking about the partner, prayer, care packages, how to send gifts and so on) to edit or delete. **Retire** an option to stop offering it while keeping the answers already given, or **Delete** it to remove it and those answers.
+- **Record a partner's choices** with **+ Record preferences** (or **Edit preferences**) on their page, after a conversation: tick what they want, pick their answers, add a note. One set per partner, so a couple or family shares it. Admins, editors and a guest on that partner's care team can record it; a viewer can read it. A trip leader never sees it.
+- **Who can see it:** staff and the partner's care team only, on the partner's page. It never appears on the public site, in the booklet, or in dispatches. How a partner prefers to be contacted is the **Preferred contact** on their Contact card, not here.
+- **Reports → Support preferences** lists what each partner has chosen (sort by an option to see who wants it) or, with **Show: Partners with nothing recorded**, who still needs that conversation.
+
+![A partner's Support preferences card, grouped by kind of support](docs/assets/screenshots/support-preferences-card.png)
+
+![Settings → Support Preferences, the church's own menu](docs/assets/screenshots/support-preferences-settings.png)
+
+It records preferences; it doesn't schedule or assign anything, and the app never contacts a partner for you.
+
 ## Settings
 
 ### Church Settings (Admin only)
@@ -857,7 +1003,7 @@ needed:
   - **Highlight Color** — hover, focus, and active/selected states, e.g.
     a button on hover or the current nav item.
 
-  All three also flow into the [email digest](#digest-customization)'s
+  All three also flow into the [email digest](#email-dispatch-customization)'s
   Snapshot layout and its masthead/buttons, so the digest looks like the
   same product as the rest of the site, not a separately-styled email.
   **Reset to Default** clears all three colors and the font back to the
@@ -872,7 +1018,36 @@ needed:
 ### User management (Admin only)
 
 **Manage Users** lists everyone with access — email, role, active status,
-MFA status, last login. **+ Add User** opens its own page: email, name,
+MFA status, last login.
+
+At the top, **Two-factor sign-in** is one switch for the whole church:
+**Require it for everyone** makes every account, whatever its role,
+set up two-factor authentication. It shows how many active accounts
+haven't yet. Turning it on signs out anyone who hasn't set it up (their
+next click takes them back to sign-in, where they're walked through
+enrollment), and while it's on nobody can turn it off for themselves; if
+someone loses their authenticator, **Reset MFA** on their row sends them
+through enrollment again. It only turns on for an admin who has set up
+two-factor on their own account first, so it can't lock you out, and it
+can't be turned on for the public demo. It's off by default. Turning it
+on or off is recorded in the [Audit log](#audit-log-admin-only).
+
+Below it, **Passwordless sign-in** takes passwords away church-wide: people
+with a passkey sign in with it alone, and everyone else gets an emailed
+one-time link and is then asked to add a passkey. It shows how many active
+accounts have no passkey yet, and the turn-on button explains itself when it
+is disabled: it needs outbound email set up (the emailed links depend on it)
+and a passkey on your own account (so it can't lock you out). Turning it on
+confirms first, since it ends password sign-in for everyone; it implies the
+two-factor requirement; passwords aren't deleted, so turning it off puts
+everyone back; and outbound email can't be switched off while it is on. If
+email breaks, or someone loses their passkey, **Reset MFA** on their row
+clears it and you hand them a setup link. It can't be turned on for the
+public demo.
+
+![Manage Users with passwordless sign-in on](docs/assets/screenshots/manage-users-passwordless.png)
+
+**+ Add User** opens its own page: email, name,
 role (Admin, Editor, Viewer, or Guest — pick at least one trip for a
 Guest), then how they'll get access — **Send a welcome email** (on
 by default) emails them a one-time "Choose your password" link so you
@@ -903,18 +1078,20 @@ create their login in one step.
 ![Add User's Care team step, choosing partners for a Guest to look after](docs/assets/screenshots/add-user-care-team.png)
 
 Editing an existing user (from their row in Manage Users) lets you change
-role, deactivate, force MFA enrollment, or reset a password. **Reset MFA**
-clears a locked-out user's two-factor setup so they can log back in with
-just their password and re-enroll — for your own account, use **Disable
-Two-Factor Authentication** on [Your account settings](#your-account-settings)
-instead, which requires your current password; **Reset MFA** on your own
+role, deactivate, require two-factor for just that account, or reset a
+password. **Reset MFA** clears a locked-out user's two-factor setup so
+they can log back in and re-enroll (with just their password, or straight
+into enrollment if the church requires two-factor) — for your own account,
+use **Disable Two-Factor Authentication** on [Your account settings](#your-account-settings)
+instead (not available while the church requires it), which requires your
+current password; **Reset MFA** on your own
 row is blocked here, since skipping that password check is exactly how a
 hijacked session could silently strip your own two-factor protection.
 You can't delete your own account, and the app won't let you demote,
 deactivate, or delete the last active admin — there's always at least
 one way back in.
 
-![The Manage Users page, listing role, active status, and MFA status](docs/assets/screenshots/manage-users.png)
+![The Manage Users page: the Two-factor sign-in panel, then each account with its role, active status and MFA status](docs/assets/screenshots/manage-users.png)
 
 ### Database Backups (Admin only)
 
@@ -951,6 +1128,22 @@ what you're on before filing a bug, without needing shell access. Never
 shows a connection string or any credential.
 
 ![The top of the About App page: app, runtime, database, and deployment details](docs/assets/screenshots/system-info.png)
+
+### Audit log (Admin only)
+
+The **Audit log** is on by default (turn it off in [Enabled Features](ADMIN_GUIDE.md#feature-toggles) if you'd rather not keep it), and admins get **Settings → Audit log**: who did what, and when, for the actions that matter if you ever need to ask "who changed that?".
+
+- **What is recorded:** sign-ins (and failed ones, with the reason and where from), password and two-factor changes, accounts created, changed or deleted, a guest's trip access given, changed or removed, care team changes, every change to church settings (a feature turned on or off, an API key changed), partners and trips deleted, backups downloaded, a partner being marked restricted, and **each person's first look at a restricted partner each day**.
+- **What isn't:** routine work — a new prayer request, an edited overview, a logged contact. Those are already visible on the record itself.
+- **Secrets are never stored.** Changing an API key or token is listed as "changed"; the value is not kept anywhere in the log.
+- **Find things:** search by name, email, record or IP address; filter by what kind of event and by date; **Export CSV** downloads exactly what the filters show.
+- **Admin only.** The log names restricted partners in full (admins can already see them), so treat an export like any other file holding that data.
+- **Deleted accounts stay readable.** An entry keeps the name and email of who did it and who it was done to, so it still reads after either account is deleted, and is tagged "(deleted account)".
+- **How long it is kept:** 30, 60 or 90 days (default 90), set on the same page. Older entries are deleted each night.
+
+![The Audit log page: who did what, with filters, an export button and the retention setting](docs/assets/screenshots/audit-log.png)
+
+For who last changed one record (kept for good, and shown on the record itself), see [Who last edited a record](#who-last-edited-a-record).
 
 ## Communications
 
@@ -1076,96 +1269,6 @@ group with new and decided needs:
 
 ![The Prayer Requests group showing new and answered prayer requests](docs/assets/screenshots/whatsapp-prayer-requests-group.png)
 ![The One-Time Needs group showing new and decided one-time needs](docs/assets/screenshots/whatsapp-one-time-needs-group.png)
-
-### Care teams
-
-With **Care teams** turned on in [Enabled Features](ADMIN_GUIDE.md#feature-toggles), every partner can have a **care team**: one **Lead** and any number of **Members**, the people at the church who keep in touch with that partner. An admin or editor sets it from the partner's page (**Care team**, near the top) or from the **Team** tab of one of that partner's trips, and can also add a **Guest** to a partner's team while creating their account (choose the Guest role in **Add User**, then the **Care team** step; other roles don't get that step). Everyone on a team needs a login; someone who isn't on your staff can be a **Guest**. **Reports → Care team coverage** lists the partners with no team or no lead.
-
-![A partner's page with the Care team panel (a Lead and Members) beside the Contact card](docs/assets/screenshots/care-team-and-contact.png)
-
-![The Care team dialog, choosing a Lead and ticking Members](docs/assets/screenshots/assign-care-team.png)
-
-A care team member uses the same app as everyone, and for **their own partner** they can do what an editor can: edit the partner's profile, family, contact details, links and photos; add and edit prayer requests (and record answers) and one-time needs; and upload, edit and scan newsletters and documents. They can also see that partner's trips, read-only. Three things are different:
-
-- **What they enter is saved immediately, but isn't sent to the church** by email, GroupMe or WhatsApp **until an admin or editor approves it** in [Pending Dispatches](#pending-dispatches). They can't mark anything urgent or use "approve now".
-- **They can't approve or decline a one-time need** or record a decision on it. That stays with the committee or board.
-- **They never see monthly support** — its amount, how long it has run, or its history.
-
-They also can't create or delete partners, or delete records. If you're an admin or editor yourself, being on a team doesn't limit you or hold your entries; it just adds the care-team features.
-
-![Pending Dispatches, where an entry from a care team member is held for staff to approve](docs/assets/screenshots/pending-dispatches-care-team.png)
-
-A **Guest**, whether on a care team, given a trip, or both, sees one plain **Partners** list of every partner they can reach, with no tabs. Staff who are on a care team still land on All and switch to the **My partners** tab when they want it.
-
-![A care team guest's Partners page: one list of the partners they can reach](docs/assets/screenshots/care-team-member-partners.png)
-
-A **trip leader** (a Guest given a trip) has a smaller view: their trips, and those trips' partners read-only. They don't get the care-team list pages or one-time needs.
-
-![A care team member's view of their partner: they can edit what's theirs, and see no monthly support](docs/assets/screenshots/care-team-member-view.png)
-
-### Contact log
-
-With **Contact log** turned on in [Enabled Features](ADMIN_GUIDE.md#feature-toggles), every partner page gets a **Contact** card and a **Contact Log**.
-
-- **The contact card** shows who to reach first (the adult marked **Primary contact**, or an organization's named contact), how they prefer to be reached, and one-tap **Call**, **Text**, **Email** and **WhatsApp** buttons, plus when anyone last was in touch.
-
-![A partner's Contact card, and the special communication instructions that replace the buttons when a partner isn't safe to contact](docs/assets/screenshots/contact-card-instructions.png)
-- **If a partner isn't safe to contact**, the buttons and numbers are replaced by the **special communication instructions** staff wrote (edit them under Status & Visibility). The printed booklet also leaves out their phone, email and preferred method.
-- **Log a contact** with **+ Log contact**: pick what happened (call, text, email, visit, card, video, prayed for them), who reached out, optional topics, the date, who made the contact (you, by default), an optional note and an optional **follow up by** date. Anyone who can see the partner can log one. Only an admin or editor can edit or delete an entry.
-
-![The Log a contact dialog](docs/assets/screenshots/log-a-contact.png)
-
-![A partner's Contact Log, newest first](docs/assets/screenshots/contact-log.png)
-- **A prayer request a care team member enters** also logs the contact, so it isn't typed twice.
-- **My partners** (a tab on the Partners page, for anyone on a care team) lists your partners longest-quiet first: days since the last contact, any follow-up that has come due, the next birthday or anniversary, and open prayer requests and needs. A partner counts as **quiet** after 90 days without a logged contact.
-
-![The My partners tab, listing a care team member's partners longest-quiet first](docs/assets/screenshots/assigned-to-me.png)
-- **Partners to reach out to** on the bell and Home page counts your partners that are quiet or have a follow-up due.
-
-The **Last heard from** report counts a logged contact as hearing from a partner: a partner is only "quiet" when both the latest newsletter and the latest contact are old. Trip leaders don't get the contact log.
-
-### Key-date reminders
-
-With **Key-date reminders** turned on (it needs [Care teams](#care-teams)), the people on a partner's care team are reminded about a coming **birthday** (including the children's), **wedding anniversary**, or **supported-since milestone** (the first year, then every fifth) a week ahead.
-
-- **On the bell and the Home page** as "Key dates coming up". Open it to find the partner. The **My partners** tab also flags a key date inside the week.
-
-![The bell, with Key dates coming up among a care team member's alerts](docs/assets/screenshots/bell-alerts.png)
-- **By email**, one message a day, only on a day something is due, listing everything coming up for your partners (not one email per partner). It needs Email (Sending) turned on, and it's sent at 7am church time.
-
-![The grouped key-date email](docs/assets/screenshots/key-date-email.png)
-- **Who gets it:** the whole care team, lead and members. A partner with no care team goes to the **default lead** an admin picks under Settings → Care Teams; with neither, nobody hears about it.
-
-![Settings → Care Teams, where an admin picks the default lead](docs/assets/screenshots/care-teams-settings.png)
-- **To clear a reminder**, send the card or make the call and **log it as a contact with the topic "Key date"**. That stops the reminders for that occasion, and it counts as being in touch.
-- The app never sends the card for you, and a restricted partner appears in the email by initials only. A partner who isn't safe to contact is marked in the email so a reminder to "send a card" isn't read as "call them".
-
-### Passing updates on to partners
-
-The app never contacts a partner on its own — a person always does. If you're on a partner's [care team](#care-teams), it tells you when there's something to pass on:
-
-- **New needs and prayer requests** on your partners show on the bell (as they do for staff), so you know before the church does.
-- **Updates to pass on to partners** (bell and Home page) counts, for your partners, a one-time need the committee **decided** and a prayer request that was **answered** in the last 30 days. Open the partner to see the decision and its note, then tell them yourself.
-- **To clear one**, [log the contact](#contact-log) as something **you** sent or did (we reached out): topic **Need / support** for a decision, **Encouragement** or **Prayer** for an answered prayer — a thank-you card or call counts. An entry made because the partner reached out doesn't clear it.
-- **When a partner tells you a prayer was answered** and you mark it answered, that is logged as a contact for you automatically (it still waits for staff approval before the church is told).
-
-### Audit log (admin only)
-
-The **Audit log** is on by default (turn it off in [Enabled Features](ADMIN_GUIDE.md#feature-toggles) if you'd rather not keep it), and admins get **Settings → Audit log**: who did what, and when, for the actions that matter if you ever need to ask "who changed that?".
-
-- **What is recorded:** sign-ins (and failed ones, with the reason and where from), password and two-factor changes, accounts created, changed or deleted, a guest's trip access given, changed or removed, care team changes, every change to church settings (a feature turned on or off, an API key changed), partners and trips deleted, backups downloaded, a partner being marked restricted, and **each person's first look at a restricted partner each day**.
-- **What isn't:** routine work — a new prayer request, an edited overview, a logged contact. Those are already visible on the record itself.
-- **Secrets are never stored.** Changing an API key or token is listed as "changed"; the value is not kept anywhere in the log.
-- **Find things:** search by name, email, record or IP address; filter by what kind of event and by date; **Export CSV** downloads exactly what the filters show.
-- **Admin only.** The log names restricted partners in full (admins can already see them), so treat an export like any other file holding that data.
-- **Deleted accounts stay readable.** An entry keeps the name and email of who did it and who it was done to, so it still reads after either account is deleted, and is tagged "(deleted account)".
-- **How long it is kept:** 30, 60 or 90 days (default 90), set on the same page. Older entries are deleted each night.
-
-![The Audit log page: who did what, with filters, an export button and the retention setting](docs/assets/screenshots/audit-log.png)
-
-**Who last edited a record** is separate and kept for good. Partner, trip, trip-participant and trip-application pages show "Last edited by Dana Whitfield on 11/24/2026" under the name. On a partner or trip that line covers the sections on its page too — a partner's family, addresses, links, visits, support and photos; a trip's team, meetings, requirements, documents and money — so it answers "when did anyone last touch this record?" even when the change was inside a section. The **Partners** and **Trips** lists have a sortable **Last updated** column with the same date and name, so you can sort to find the records nobody has looked after in a while (blank means no signed-in person has changed it). Prayer requests, needs, newsletters and contact-log entries are not folded in; they have their own pages. A prayer request or one-time need shows its own line when you open it, and a prayer request or one-time need shows it when you open it (none of this is shown to Guests or on the public site). The **Data completeness** report has **Last edited by** and **Last edited** columns too, so you can see which partner records nobody has touched in a while and who to ask. It is stamped on every record an admin, editor or care team member changes, and not by background jobs or a public form, so a record nobody has edited shows no line. The name is a snapshot, so it still reads after that person's account is deleted.
-
-![A partner's page with "Last edited by Alex Hartley" under the name](docs/assets/screenshots/last-edited-by.png)
 
 ### Pending Dispatches
 
@@ -1555,11 +1658,23 @@ the Scan for requests button.
 can change your password (current password required) and enable/disable
 two-factor authentication — enabling walks you through scanning a QR code
 and confirming a code; disabling requires your current password. (A Guest
-sees just password and two-factor authentication here, and can't turn
-two-factor authentication off, since it's required for them — see
-[Understanding your role](#understanding-your-role). If a guest loses
-their authenticator app, an admin resets it from Manage Users and they set
-it up again at next sign-in.)
+sees just password and two-factor authentication here. When your church
+requires two-factor for everyone, nobody, whatever their role, can turn it
+off here, and the page says so. If you lose your authenticator app, an
+admin resets it from Manage Users and you set it up again at next
+sign-in.)
+
+**Passkeys** sit below it. A passkey is your device's fingerprint, face or
+screen lock (or a security key) used as the second step at sign-in, so there
+is no code to type. Add one on each device you use (**Add a passkey**, up to
+five, each with a name you choose): a lost phone is then one of several, not
+the only way in. It shows when each was added and last used, and **Remove**
+asks for your password. If your church requires two-factor, you can't remove
+your last way of signing in; add another first. A passkey only works on the
+address your church's site is served from. An admin's **Reset MFA** clears
+your passkeys along with your authenticator app.
+
+![My Account: two-factor enabled with passkeys, and the list of passkeys](docs/assets/screenshots/my-account-passkeys.png)
 
 If [Email (Sending)](#email-admin-only) is turned on for the church,
 there's also an **Email Dispatch** section here: a cadence (no

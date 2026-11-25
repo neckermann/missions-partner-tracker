@@ -34,8 +34,8 @@ banner** at the top of the public pages (`DemoBanner.jsx`). The guest accounts
 are defined once in `backend/src/utils/demoLogins.js`, which both the seed and
 the banner read, so the banner always shows what the seed actually created:
 
-| Login                     | Password                                             | What they see                                                                                                                                                                                                                                                                                                               |
-| ------------------------- | ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Login                          | Password                                             | What they see                                                                                                                                                                                                                                                                                                               |
+| ------------------------------ | ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `care.member@<admin's domain>` | the same as the demo admin's (`DEMO_ADMIN_PASSWORD`) | Four partners they're on the care team for: the same partner page an editor has minus monthly funding, their own prayer requests and one-time needs (no decisions), Newsletters & Docs, and a read-only view of those partners' trips. What they enter is saved but held in Pending Dispatches until the admin approves it. |
 | `trip.leader@<admin's domain>` | same                                                 | One upcoming trip they manage, plus its partner read-only. No needs, no money.                                                                                                                                                                                                                                              |
 
@@ -46,12 +46,20 @@ download, deletes, and views of a restricted partner. They sit inside the defaul
 retention window, so a reset (which reseeds them) always leaves a populated page. Real activity
 by visitors is recorded too, until the next reset.
 
-These are the **only** accounts with two-factor off (`mfaSetupRequired:
-false`): a shared, published account can't enrol an authenticator without
-locking every other visitor out. Every other guest the seed creates (for
-example the lapsed `sam.okafor@<admin's domain>`, who exists to populate the
-"Inactive accounts only" filter) keeps the normal rule -- two-factor required
--- and has a password nobody is told. **The published logins also look alike**,
+It also has **last edited by** data (`seedLastEditedDemo`): most partners, trips, prayer
+requests and needs carry a demo editor's name and a date within the last ten weeks, and about one
+in seven is left blank, so the **Last updated** column on Partners and Trips has something to sort
+and a record's "Last edited by" line something to show. The dates are relative to the reset.
+
+The demo never requires two-factor: a shared, published account can't enrol an
+authenticator without locking every other visitor out, so the church-wide
+**Two-factor sign-in** switch (Manage Users, #385) is off on a demo and the app
+refuses to turn it on while `DEMO_RESET_TOKEN` is set. Every reset sets it off in
+`reset-demo-data.js`, and the sign-in check ignores a stored `true` while
+`DEMO_RESET_TOKEN` is set, so nothing can lock visitors out. The other guests the
+seed creates (for example the lapsed `sam.okafor@<admin's domain>`, who exists
+to populate the "Inactive accounts only" filter) have a password nobody is
+told. **The published logins also look alike**,
 for simplicity: the guests' emails use the demo admin's email domain (so with
 `DEMO_ADMIN_EMAIL=demo@missionspartnertracker.com` they are
 `care.member@missionspartnertracker.com` and `trip.leader@missionspartnertracker.com`;
@@ -60,16 +68,32 @@ use `DEMO_ADMIN_PASSWORD`. Set the
 optional `DEMO_GUEST_PASSWORD` only if you want them to differ (the banner then
 shows each one's password); never reuse any of these anywhere real.
 
+## Passkeys and passwordless sign-in are off on a demo
+
+For the same reason, a demo can't use **passkeys** (#386): a passkey added to a shared login would
+make every visitor's sign-in ask for it. The server refuses to register one while
+`DEMO_RESET_TOKEN` is set, My account says passkeys are off on the demo, and the church-wide
+**Passwordless sign-in** switch is refused and ignored there too (it also needs working email,
+which a demo never has). Both are shown in the documentation screenshots, captured from a
+fixture install, rather than on the demo itself.
+
+What a visitor can try instead: the seed leaves a finished trip that hasn't been wrapped up
+("Harvest Week team"), so **Trips ready to wrap up** is on the bell and the **Wrap up trip**
+wizard can be walked end to end; the older completed trips carry debriefs; partners carry support
+preferences; the care team's contact timeline, updates to pass on and key-date alerts are
+populated; and the trip applications carry answers to the church-wide and trip questions.
+
 ## What a demo never does
 
 A demo must not send email to its seeded accounts (they are fake addresses, so
-the mail only bounces and spends the email plan). Anything that emails people
-on its own schedule stays **off** there: the reset script and the seed turn
-every feature on **except** the list in `backend/src/utils/demoMode.js`
-(today: Key-date reminders), and the daily key-date job also skips itself
-whenever `DEMO_RESET_TOKEN` is set, in case a visitor with the published admin
-login switches the flag back on. To keep another scheduled-email feature off a
-demo, add its key to that list.
+the mail only bounces and spends the email plan). Two things guarantee that. The
+reset script and the seed turn every feature on **except** the list in
+`backend/src/utils/demoMode.js`, which is where a scheduled-email feature would
+be kept off (today the list is empty). And the daily key-date job returns early
+whenever `DEMO_RESET_TOKEN` is set, so it can never email a demo's team members
+even though **Key-date reminders are on**: a visitor sees the "Key dates coming
+up" alert on the bell and Home page, but nothing is ever sent. To keep another
+scheduled-email feature off a demo, add its key to that list.
 
 ## Recovering after a migration squash
 

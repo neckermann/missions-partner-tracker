@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { login } from "./helpers.js";
+import { login, setFeatures, restoreFeatures } from "./helpers.js";
 
 // Creates its own trip rather than clicking "the first row" of the
 // Existing Trips list -- CI seeds zero trips (SEED_DEMO_EXTRAS=false),
@@ -8,12 +8,13 @@ import { login } from "./helpers.js";
 // workers, not something to depend on; same self-contained
 // beforeAll/afterAll pattern trip-team-table-modal.spec.js already uses.
 let tripId;
+let previousFeatures;
 
 test.beforeAll(async ({ browser }) => {
   const context = await browser.newContext();
   const page = await context.newPage();
   await login(page);
-  await page.request.put("/api/settings", { data: { enabledFeatures: { trips: true } } });
+  previousFeatures = await setFeatures(page.request, { trips: true });
 
   const partnersRes = await page.request.get("/api/partners?restricted=false&archived=false");
   const partners = await partnersRes.json();
@@ -36,11 +37,11 @@ test.beforeAll(async ({ browser }) => {
 });
 
 test.afterAll(async ({ browser }) => {
-  if (!tripId) return;
   const context = await browser.newContext();
   const page = await context.newPage();
   await login(page);
-  await page.request.delete(`/api/trips/${tripId}`);
+  if (tripId) await page.request.delete(`/api/trips/${tripId}`);
+  await restoreFeatures(page.request, previousFeatures);
   await context.close();
 });
 

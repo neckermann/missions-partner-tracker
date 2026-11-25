@@ -1,8 +1,10 @@
 import React, { useState } from "react";
-import { useOutletContext } from "react-router-dom";
+import { Link, useOutletContext } from "react-router-dom";
 import { updateTrip } from "../api/client.js";
 import EditableSection from "../components/admin/EditableSection.jsx";
 import ManualSendNotice from "../components/shared/ManualSendNotice.jsx";
+import { DEBRIEF_PROMPTS } from "./AdminTripWrapUp.jsx";
+import { formatDate } from "../utils/format.js";
 
 // The former "Trip setup" section of AdminTripDetail.jsx, now the
 // landing page for a trip (/admin/trips/:id index) and the first real
@@ -183,7 +185,42 @@ export default function AdminTripOverview() {
           </div>
         )}
       />
+      <TripDebrief trip={trip} canWrite={canWrite} />
     </>
+  );
+}
+
+// What the team said when the trip was wrapped up (#358): one plain-text answer under each fixed
+// prompt. Nothing is shown for a trip that has none; staff and a trip leader can open the wizard
+// again to edit it.
+function TripDebrief({ trip, canWrite }) {
+  const answers = DEBRIEF_PROMPTS.map((p) => ({
+    ...p,
+    text: trip[`debrief${p.key[0].toUpperCase()}${p.key.slice(1)}`],
+  })).filter((a) => a.text);
+  if (answers.length === 0) return null;
+  return (
+    <div className="admin-section" id="trip-debrief" style={{ marginTop: "1rem" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.5rem" }}>
+        <h3 style={{ margin: 0 }}>Debrief</h3>
+        {canWrite && (
+          <Link className="btn secondary small" to="wrap-up">
+            Edit debrief
+          </Link>
+        )}
+      </div>
+      {trip.wrappedUpAt && (
+        <p style={{ color: "var(--muted)", fontSize: "0.85rem", margin: "0.25rem 0 0" }}>
+          Wrapped up {formatDate(trip.wrappedUpAt)}
+        </p>
+      )}
+      {answers.map((a) => (
+        <div key={a.key} style={{ marginTop: "0.75rem" }}>
+          <div style={{ fontWeight: 600, fontSize: "0.9rem", color: "var(--muted)" }}>{a.label}</div>
+          <p style={{ margin: "0.15rem 0 0", whiteSpace: "pre-wrap" }}>{a.text}</p>
+        </div>
+      ))}
+    </div>
   );
 }
 

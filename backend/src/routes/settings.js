@@ -5,6 +5,9 @@ const { requireAuth, requireRole } = require("../middleware/requireAuth");
 const { matchesFileSignature } = require("../utils/fileSignature");
 const { FEATURES, FEATURE_KEYS } = require("../utils/features");
 const { encryptField } = require("../utils/crypto");
+const { isTwoFactorRequired } = require("../utils/twoFactor");
+const { isPasswordlessOn, passwordlessBlocker } = require("../utils/passwordless");
+const { isDemoDeployment } = require("../utils/demoMode");
 const { makeExtResolver, uploadFilteredBy } = require("../utils/upload");
 
 // #271 Finding: general/logo settings only now -- GroupMe, WhatsApp,
@@ -14,6 +17,8 @@ const { makeExtResolver, uploadFilteredBy } = require("../utils/upload");
 // /api/settings prefix from server.js. This file had grown to cover all
 // six sub-resources in one place -- same anti-pattern trips.js had, same
 // fix.
+const { loadChurchLists } = require("../utils/tripTemplates");
+const { KEY_DATE_LEAD_RANGE, CONTACT_STALE_RANGE } = require("../utils/careSettings");
 const router = express.Router();
 router.use(requireAuth); // everything below requires a logged-in user
 
@@ -127,6 +132,14 @@ const settingsSchema = z.object({
   // opt-out of BackupReminder.jsx, distinct from that component's own
   // dismiss-for-30-days.
   backupReminderDisabled: z.boolean().optional(),
+  // Require two-factor for every account (#385); see the field's comment in schema.prisma.
+  // Turning it on has guards in PUT / below.
+  requireTwoFactor: z.boolean().optional(),
+  requirePasswordless: z.boolean().optional(),
+  // How far ahead a key date is raised, and how long without a logged contact makes a partner
+  // "quiet" (#365); see utils/careSettings.js for the bounds.
+  keyDateLeadDays: z.number().int().min(KEY_DATE_LEAD_RANGE.min).max(KEY_DATE_LEAD_RANGE.max).optional(),
+  contactStaleDays: z.number().int().min(CONTACT_STALE_RANGE.min).max(CONTACT_STALE_RANGE.max).optional(),
   // This church's own IANA timezone -- see the field's own comment in
   // schema.prisma for why this exists and what it drives. Validated
   // against the real, current list of valid zone names (the same list
@@ -188,6 +201,12 @@ router.get("/", async (req, res, next) => {
           primaryColor: true,
           logoContentType: true,
           enabledFeatures: true,
+          // Church policy booleans, already visible to everyone as `twoFactorRequired` on
+          // /api/auth/me (#402).
+          requireTwoFactor: true,
+          requirePasswordless: true,
+          keyDateLeadDays: true,
+          contactStaleDays: true,
           extractionModel: true,
           allowRestrictedPartnerDispatch: true,
           backupReminderDisabled: true,
@@ -199,10 +218,6 @@ router.get("/", async (req, res, next) => {
           allowPrivateApplicationLinks: true,
           allowPublicSupportRaisingLinks: true,
           enableTripBudgeting: true,
-          tripApplicationTemplate: true,
-          tripQuestionLibrary: true,
-          tripRequirementTemplate: true,
-          tripRequirementLibrary: true,
           cadenceBiweeklyEnabled: true,
           cadenceMonthlyEnabled: true,
           cadenceQuarterlyEnabled: true,
@@ -236,7 +251,12 @@ router.get("/", async (req, res, next) => {
       group: FEATURES[key].group,
       section: FEATURES[key].section,
     }));
-    res.json({ ...shapeSettings(settings), featureRegistry, sentByOurChurchCount });
+    res.json({
+      ...shapeSettings(settings),
+      ...(settings ? await loadChurchLists() : {}),
+      featureRegistry,
+      sentByOurChurchCount,
+    });
   } catch (err) {
     next(err);
   }
@@ -247,6 +267,36 @@ router.get("/", async (req, res, next) => {
 router.put("/", requireRole("admin"), async (req, res, next) => {
   try {
     const { logo, ...data } = settingsSchema.partial().parse(req.body);
+    // Turning the two-factor requirement ON (#385). A save that merely resends it as already
+    // on is not a change and is left alone.
+    if (data.requireTwoFactor === true && !(await isTwoFactorRequired())) {
+      // A public demo shares its logins and can't enrol an authenticator: requiring it would
+      // lock every visitor out.
+      if (isDemoDeployment()) {
+        return res.status(400).json({ error: "Two-factor can't be required on the public demo" });
+      }
+      // The person turning it on must already have it, or the next request locks them out.
+      const me = await prisma.user.findUnique({ where: { id: req.user.id }, select: { mfaEnabled: true } });
+      if (!me?.mfaEnabled) {
+        return res.status(400).json({
+          error:
+            "Set up two-factor on your own account first (My account), so turning this on doesn't lock you out",
+        });
+      }
+    }
+    // Turning passwordless sign-in ON (#386 Layer 2): email must work (people without a passkey
+    // sign in through an emailed link) and the admin doing it must have a passkey.
+    if (data.requirePasswordless === true && !(await isPasswordlessOn())) {
+      const blocker = await passwordlessBlocker(req.user.id);
+      if (blocker) return res.status(400).json({ error: blocker });
+    }
+    // ...and while it is on, outbound email can't be switched off: nobody without a passkey could
+    // sign in, and nobody could be recovered.
+    if (data.enabledFeatures?.outboundEmail === false && (await isPasswordlessOn())) {
+      return res.status(400).json({
+        error: "Outbound email can't be turned off while passwordless sign-in is on: turn that off first",
+      });
+    }
     // `logo` isn't a real column (see schema.prisma) — the only thing the
     // frontend ever sends it as is `null`, to clear an existing logo (a
     // set goes through POST /logo below instead). Anything else about it

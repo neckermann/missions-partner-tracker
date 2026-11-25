@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
+import { applicationAnswerList } from "../utils/applicationAnswers.js";
 import { useParams, Link } from "react-router-dom";
 import {
   fetchTrip,
@@ -20,6 +21,7 @@ import LastEdited from "../components/shared/LastEdited.jsx";
 import ManualSendNotice from "../components/shared/ManualSendNotice.jsx";
 import { mapServerErrorMessage } from "../utils/friendlyError.js";
 import useCurrentUser from "../hooks/useCurrentUser.js";
+import RecordUnavailable, { loadErrorStatus } from "../components/shared/RecordUnavailable.jsx";
 import GiveGuestAccessModal from "../components/admin/GiveGuestAccessModal.jsx";
 
 function readFileAsDataUrl(file) {
@@ -46,13 +48,20 @@ function readFileAsDataUrl(file) {
 // the same explicit edit -> save/cancel boundary.
 export default function AdminTripParticipantDetail() {
   const { tripId, participantId } = useParams();
-  const { canWrite: globalCanWrite, isGuest, isAdmin, canAccessTrip } = useCurrentUser();
+  const {
+    canWrite: globalCanWrite,
+    isGuest,
+    isAdmin,
+    canAccessTrip,
+    loading: userLoading,
+  } = useCurrentUser();
   // Mirrors TripDetailLayout.jsx's own canWrite -- this page is a sibling
   // route, not nested under that layout's Outlet, so it can't inherit its
   // context and has to repeat the same scope check here.
   const canWrite = globalCanWrite || canAccessTrip(tripId);
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
   const [trip, setTrip] = useState(null);
+  const [loadError, setLoadError] = useState(null); // 404/403 when the trip can't be shown
   const [settings, setSettings] = useState(null);
   const [error, setError] = useState("");
   const [manualAccessLink, setManualAccessLink] = useState(null); // { email?, url } | null
@@ -61,14 +70,36 @@ export default function AdminTripParticipantDetail() {
   const [docRequirementChoice, setDocRequirementChoice] = useState("");
 
   const reload = useCallback(() => {
-    fetchTrip(tripId).then(setTrip).catch(console.error);
+    setLoadError(null);
+    fetchTrip(tripId)
+      .then(setTrip)
+      .catch((err) => {
+        const status = loadErrorStatus(err);
+        if (status) setLoadError(status);
+        else console.error(err);
+      });
   }, [tripId]);
 
   useEffect(() => {
     reload();
-    fetchTripsSettings().then(setSettings).catch(console.error);
   }, [reload]);
 
+  // Closed to a guest (403) and not something they edit. Wait for the user to load first, or a
+  // guest fires the request before the page knows they are one.
+  useEffect(() => {
+    if (userLoading || isGuest) return;
+    fetchTripsSettings().then(setSettings).catch(console.error);
+  }, [userLoading, isGuest]);
+
+  if (loadError)
+    return (
+      <RecordUnavailable
+        status={loadError}
+        what="participant"
+        backTo="/admin/trips"
+        backLabel="Back to Trips"
+      />
+    );
   if (!trip) return <div className="admin-shell">Loading…</div>;
 
   const participant = (trip.participants || []).find((p) => p.id === participantId);
@@ -112,11 +143,7 @@ export default function AdminTripParticipantDetail() {
     ...(trip.applicationQuestions || []),
   ];
   const applicationAnswers = participant.application
-    ? combinedQuestions.map((q) => {
-        const raw = participant.application.responses?.[q.id];
-        const answer = Array.isArray(raw) ? raw.join(", ") : raw;
-        return { id: q.id, label: q.label, answer: answer || "(no answer)" };
-      })
+    ? applicationAnswerList(combinedQuestions, participant.application.answers)
     : [];
 
   function reportError(err, fallback) {
@@ -527,7 +554,7 @@ export default function AdminTripParticipantDetail() {
         <div className="admin-section">
           <h3>Application answers</h3>
           <p style={{ fontSize: "0.8rem", color: "#888", marginTop: 0 }}>
-            Submitted {formatDate(participant.application.submittedAt)}
+            Submitted {formatDate(participant.application.createdAt)}
           </p>
           {applicationAnswers.length === 0 ? (
             <p style={{ color: "#888", fontSize: "0.85rem" }}>This trip has no application questions set.</p>

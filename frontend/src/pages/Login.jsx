@@ -6,6 +6,11 @@ import {
   startForcedMfaSetup,
   confirmForcedMfaSetup,
   fetchSetupStatus,
+  loginWithPasskey,
+  registerPasskey,
+  browserSupportsWebAuthn,
+  signInWithPasskeyOnly,
+  requestSignInLink,
 } from "../api/client.js";
 import MfaAppGuide from "../components/MfaAppGuide.jsx";
 
@@ -33,10 +38,14 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [pendingToken, setPendingToken] = useState(null);
+  const [methods, setMethods] = useState({ authenticatorApp: true, passkey: false });
   const [mfaCode, setMfaCode] = useState("");
   const [setupToken, setSetupToken] = useState(null);
   const [setupData, setSetupData] = useState(null); // { secret, qrCode }
   const [error, setError] = useState("");
+  // #386 Layer 2: the church signs in without passwords.
+  const [passwordless, setPasswordless] = useState(false);
+  const [linkSent, setLinkSent] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -56,25 +65,64 @@ export default function Login() {
     fetchSetupStatus()
       .then((status) => {
         if (status.needed) navigate("/setup", { replace: true });
+        setPasswordless(status.passwordless === true);
       })
       .catch(() => {});
   }, [navigate]);
+
+  // Arriving from the emailed sign-in link: its result (a second step, or enrolment to finish) is
+  // handled exactly as if a password had just been checked.
+  useEffect(() => {
+    const resume = location.state?.resume;
+    if (resume) applyLoginResult(resume);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function applyLoginResult(result) {
+    if (result.mfaRequired) {
+      setPendingToken(result.pendingToken);
+      setMethods(result.methods || { authenticatorApp: true, passkey: false });
+    } else if (result.mfaSetupRequired) {
+      setSetupToken(result.setupToken);
+      setSetupData(await startForcedMfaSetup(result.setupToken));
+    } else {
+      goToDestination();
+    }
+  }
 
   async function handleLocalLogin(e) {
     e.preventDefault();
     setError("");
     try {
-      const result = await login(email, password);
-      if (result.mfaRequired) {
-        setPendingToken(result.pendingToken);
-      } else if (result.mfaSetupRequired) {
-        setSetupToken(result.setupToken);
-        setSetupData(await startForcedMfaSetup(result.setupToken));
-      } else {
-        goToDestination();
-      }
+      await applyLoginResult(await login(email, password));
     } catch (err) {
       setError(err.response?.data?.error || "Login failed");
+    }
+  }
+
+  async function handlePasskeyOnly() {
+    setError("");
+    try {
+      await signInWithPasskeyOnly();
+      goToDestination();
+    } catch (err) {
+      setError(
+        err.response?.data?.error ||
+          (err.name === "NotAllowedError"
+            ? "That was cancelled. Try again when you're ready."
+            : "That passkey didn't work. Try again, or use an emailed link.")
+      );
+    }
+  }
+
+  async function handleEmailLink(e) {
+    e.preventDefault();
+    setError("");
+    try {
+      await requestSignInLink(email);
+      setLinkSent(true);
+    } catch (err) {
+      setError(err.response?.data?.error || "Couldn't send a link. Try again in a moment.");
     }
   }
 
@@ -86,6 +134,29 @@ export default function Login() {
       goToDestination();
     } catch (err) {
       setError(err.response?.data?.error || "Invalid code");
+    }
+  }
+
+  // #386: the second step with a passkey, or finishing forced enrolment with one.
+  async function handlePasskeySignIn() {
+    setError("");
+    try {
+      await loginWithPasskey(pendingToken);
+      goToDestination();
+    } catch (err) {
+      setError(err.response?.data?.error || "That passkey didn't work. Try again, or use another method.");
+    }
+  }
+
+  async function handlePasskeyEnrol() {
+    setError("");
+    try {
+      await registerPasskey("", setupToken);
+      goToDestination();
+    } catch (err) {
+      setError(
+        err.response?.data?.error || "Couldn't add a passkey. Try again, or use an authenticator app."
+      );
     }
   }
 
@@ -108,6 +179,17 @@ export default function Login() {
           An administrator requires two-factor authentication on this account. Follow the steps below to
           finish signing in.
         </p>
+        {browserSupportsWebAuthn() && (
+          <div style={{ marginBottom: "1rem" }}>
+            <p style={{ color: "#555" }}>
+              The simplest way is a passkey: your fingerprint, face or screen lock on this device.
+            </p>
+            <button type="button" className="btn" onClick={handlePasskeyEnrol}>
+              Use a passkey
+            </button>
+            <p style={{ color: "#555", marginTop: "1rem" }}>Or use an authenticator app:</p>
+          </div>
+        )}
         <MfaAppGuide />
         {setupData && (
           <form
@@ -142,40 +224,118 @@ export default function Login() {
   }
 
   if (pendingToken) {
+    const canUsePasskey = methods.passkey && browserSupportsWebAuthn();
+    const backToLogin = (
+      <button
+        type="button"
+        className="btn secondary"
+        onClick={() => {
+          setPendingToken(null);
+          setMfaCode("");
+          setError("");
+        }}
+      >
+        Back to login
+      </button>
+    );
     return (
       <div className="admin-shell" style={{ maxWidth: 400 }}>
         <h2>Two-Factor Verification</h2>
-        <p style={{ color: "#555" }}>Enter the 6-digit code from your authenticator app.</p>
-        <form onSubmit={handleMfaSubmit} style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-          <label>
-            Code
-            <input
-              type="text"
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              maxLength={6}
-              value={mfaCode}
-              onChange={(e) => setMfaCode(e.target.value)}
-              autoFocus
-              required
-            />
-          </label>
-          {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
-          <button type="submit" className="btn">
-            Verify
-          </button>
-          <button
-            type="button"
-            className="btn secondary"
-            onClick={() => {
-              setPendingToken(null);
-              setMfaCode("");
-              setError("");
-            }}
+        {canUsePasskey && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginBottom: "1rem" }}>
+            <p style={{ color: "#555" }}>Use the passkey on this device or a security key.</p>
+            <button type="button" className="btn" onClick={handlePasskeySignIn}>
+              Use a passkey
+            </button>
+            {methods.authenticatorApp && <p style={{ color: "#555" }}>Or enter a code instead:</p>}
+          </div>
+        )}
+        {methods.passkey && !canUsePasskey && !methods.authenticatorApp && (
+          <p style={{ color: "#555" }}>
+            This browser can't use passkeys. Try another browser or device, or ask an admin to reset your
+            two-factor.
+          </p>
+        )}
+        {methods.authenticatorApp && (
+          <>
+            {!canUsePasskey && (
+              <p style={{ color: "#555" }}>Enter the 6-digit code from your authenticator app.</p>
+            )}
+            <form
+              onSubmit={handleMfaSubmit}
+              style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}
+            >
+              <label>
+                Code
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={6}
+                  value={mfaCode}
+                  onChange={(e) => setMfaCode(e.target.value)}
+                  autoFocus={!canUsePasskey}
+                  required
+                />
+              </label>
+              {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
+              <button type="submit" className="btn">
+                Verify
+              </button>
+              {backToLogin}
+            </form>
+          </>
+        )}
+        {!methods.authenticatorApp && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+            {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
+            {backToLogin}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  if (passwordless) {
+    return (
+      <div className="admin-shell" style={{ maxWidth: 400 }}>
+        <h2>Team Login</h2>
+        {typeof location.state?.notice === "string" && (
+          <p role="status" style={{ color: "#555" }}>
+            {location.state.notice}
+          </p>
+        )}
+        {browserSupportsWebAuthn() && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginBottom: "1.5rem" }}>
+            <p style={{ color: "#555" }}>
+              Use the passkey on this device (fingerprint, face or screen lock).
+            </p>
+            <button type="button" className="btn" onClick={handlePasskeyOnly}>
+              Sign in with a passkey
+            </button>
+          </div>
+        )}
+        {linkSent ? (
+          <p role="status">
+            If that email has an account, a sign-in link is on its way. It works once and expires in 15
+            minutes.
+          </p>
+        ) : (
+          <form
+            onSubmit={handleEmailLink}
+            style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}
           >
-            Back to login
-          </button>
-        </form>
+            <p style={{ color: "#555" }}>No passkey yet? We'll email you a link to sign in.</p>
+            <label>
+              Email
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            </label>
+            <button type="submit" className="btn secondary">
+              Email me a sign-in link
+            </button>
+          </form>
+        )}
+        {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
       </div>
     );
   }
@@ -183,6 +343,11 @@ export default function Login() {
   return (
     <div className="admin-shell" style={{ maxWidth: 400 }}>
       <h2>Team Login</h2>
+      {typeof location.state?.notice === "string" && (
+        <p role="status" style={{ color: "#555" }}>
+          {location.state.notice}
+        </p>
+      )}
 
       <form onSubmit={handleLocalLogin} style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
         <label>

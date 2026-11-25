@@ -4,6 +4,7 @@ const prisma = require("../prismaClient");
 const { requireAuth, requireRole } = require("../middleware/requireAuth");
 const { requireFeature } = require("../middleware/requireFeature");
 const { APPLICATION_QUESTION_SCHEMA, REQUIREMENT_TEMPLATE_SCHEMA } = require("../utils/applicationQuestions");
+const { loadChurchLists, replaceQuestions, replaceRequirementItems } = require("../utils/tripTemplates");
 
 // #271 Finding: split out of the former settings.js -- see
 // settingsGroupMe.js's own header comment for the full reasoning.
@@ -25,10 +26,6 @@ const tripsSettingsSelect = {
   allowPrivateApplicationLinks: true,
   allowPublicSupportRaisingLinks: true,
   enableTripBudgeting: true,
-  tripApplicationTemplate: true,
-  tripQuestionLibrary: true,
-  tripRequirementTemplate: true,
-  tripRequirementLibrary: true,
 };
 
 const tripsSettingsSchema = z.object({
@@ -73,8 +70,9 @@ router.get(
         where: { id: "singleton" },
         select: tripsSettingsSelect,
       });
-      res.json(
-        settings || {
+      const lists = await loadChurchLists();
+      res.json({
+        ...(settings || {
           onlineGivingUrl: null,
           onlineGivingInstructions: null,
           collectDonorContactInfo: false,
@@ -83,12 +81,9 @@ router.get(
           allowPrivateApplicationLinks: false,
           allowPublicSupportRaisingLinks: false,
           enableTripBudgeting: false,
-          tripApplicationTemplate: [],
-          tripQuestionLibrary: [],
-          tripRequirementTemplate: [],
-          tripRequirementLibrary: [],
-        }
-      );
+        }),
+        ...lists,
+      });
     } catch (err) {
       next(err);
     }
@@ -97,14 +92,28 @@ router.get(
 
 router.put("/trips", requireFeature("trips"), requireRole("admin"), async (req, res, next) => {
   try {
-    const data = tripsSettingsSchema.parse(req.body);
-    const updated = await prisma.churchSettings.upsert({
-      where: { id: "singleton" },
-      create: { id: "singleton", ...data, updatedById: req.user.id },
-      update: { ...data, updatedById: req.user.id },
-      select: tripsSettingsSelect,
+    const {
+      tripApplicationTemplate,
+      tripQuestionLibrary,
+      tripRequirementTemplate,
+      tripRequirementLibrary,
+      ...data
+    } = tripsSettingsSchema.parse(req.body);
+    // #394: the four lists are real rows; each one sent replaces that list whole, in its order.
+    const updated = await prisma.$transaction(async (tx) => {
+      const row = await tx.churchSettings.upsert({
+        where: { id: "singleton" },
+        create: { id: "singleton", ...data, updatedById: req.user.id },
+        update: { ...data, updatedById: req.user.id },
+        select: tripsSettingsSelect,
+      });
+      if (tripApplicationTemplate) await replaceQuestions(tx, "template", null, tripApplicationTemplate);
+      if (tripQuestionLibrary) await replaceQuestions(tx, "library", null, tripQuestionLibrary);
+      if (tripRequirementTemplate) await replaceRequirementItems(tx, "template", tripRequirementTemplate);
+      if (tripRequirementLibrary) await replaceRequirementItems(tx, "library", tripRequirementLibrary);
+      return row;
     });
-    res.json(updated);
+    res.json({ ...updated, ...(await loadChurchLists()) });
   } catch (err) {
     next(err);
   }

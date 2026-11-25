@@ -19,7 +19,6 @@ async function getSettings() {
       collectEmergencyContact: true,
       allowPublicSupportRaisingLinks: true,
       allowPrivateApplicationLinks: true,
-      tripApplicationTemplate: true,
       restrictedPartnerInitialsEnabled: true,
     },
   });

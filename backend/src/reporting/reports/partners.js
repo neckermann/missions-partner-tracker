@@ -1,6 +1,8 @@
 // Partner relationships and coverage: key dates, languages, where we serve,
 // roster, and how recently we've heard from each partner.
 const { z } = require("zod");
+const { describeAnswer } = require("../../utils/supportOptions");
+const { careTimings } = require("../../utils/careSettings");
 const {
   optionalDay,
   flag,
@@ -288,7 +290,11 @@ const lastHeardFrom = {
   question: "Which partners have gone quiet?",
   params: z.object({
     asOf: optionalDay,
-    staleDays: positiveInt(90, 3650),
+    // Blank means the church's own quiet threshold (Settings -> Care Teams, default 90).
+    staleDays: z.preprocess(
+      (v) => (v === "" || v === null ? undefined : v),
+      z.coerce.number().int().min(1).max(3650).optional()
+    ),
     onlyStale: flag(true),
     kind: oneOf(KIND_VALUES, "all"),
     sendingChurch: sendingChurchParam,
@@ -296,7 +302,7 @@ const lastHeardFrom = {
   }),
   fields: [
     { name: "asOf", label: "As of", type: "date" },
-    { name: "staleDays", label: "Quiet for at least (days)", type: "number" },
+    { name: "staleDays", label: "Quiet for at least (days; blank = your church's setting)", type: "number" },
     { name: "onlyStale", label: "Only quiet partners", type: "checkbox" },
     kindField,
     archivedField,
@@ -314,13 +320,15 @@ const lastHeardFrom = {
   ],
   // #288: when the contact log is on, a logged contact counts as hearing
   // from (or being in touch with) a partner just as a newsletter does -- a
-  // partner is only "quiet" when BOTH are old. Settings are read here, the
-  // report's own fetch, because the hub gives fetch/compute no feature state.
+  // partner is only "quiet" when BOTH are old. A church visit counts as well (#364): hearing
+  // from a partner in person is hearing from them. Settings are read here, the report's own
+  // fetch, because the hub gives fetch/compute no feature state.
   fetch: async (params, { prisma }) => {
     const settings = await prisma.churchSettings.findUnique({
       where: { id: "singleton" },
-      select: { enabledFeatures: true },
+      select: { enabledFeatures: true, contactStaleDays: true },
     });
+    const defaultStaleDays = (await careTimings(prisma)).contactStaleDays;
     const contactLogOn = isFeatureEnabled(settings?.enabledFeatures, "contactLog");
     const partners = await prisma.partner.findMany({
       where: baseWhere(params),
@@ -335,10 +343,11 @@ const lastHeardFrom = {
         ...(contactLogOn ? { contactLogs: { select: { contactDate: true } } } : {}),
       },
     });
-    return { partners, contactLogOn };
+    return { partners, contactLogOn, defaultStaleDays };
   },
-  compute({ partners, contactLogOn }, params, { today }) {
+  compute({ partners, contactLogOn, defaultStaleDays }, params, { today }) {
     const asOf = params.asOf || today;
+    const staleDays = params.staleDays ?? defaultStaleDays ?? 90;
     const latest = (list, key) => list.reduce((m, x) => (!m || x[key] > m ? x[key] : m), null);
     const rows = [];
     for (const p of partners) {
@@ -346,12 +355,15 @@ const lastHeardFrom = {
       const days = newsletter ? daysBetween(asOf, newsletter) : null;
       const contact = contactLogOn ? latest(p.contactLogs || [], "contactDate") : null;
       const contactDays = contact ? daysBetween(asOf, contact) : null;
-      // Days since the most recent of the two; null when neither exists.
-      const quietDays = [days, contactDays]
+      const visit = latest(p.churchVisits, "visitDate");
+      // A visit in the future isn't something we have "heard"; only visits up to the as-of day.
+      const visitDays = visit && visit <= asOf ? daysBetween(asOf, visit) : null;
+      // Days since the most recent of the three; null when none exists.
+      const quietDays = [days, contactDays, visitDays]
         .filter((d) => d !== null)
         .reduce((m, d) => Math.min(m, d), Infinity);
       const quiet = quietDays === Infinity ? null : quietDays;
-      const stale = quiet === null || quiet >= params.staleDays;
+      const stale = quiet === null || quiet >= staleDays;
       if (params.onlyStale && !stale) continue;
       rows.push({
         partnerName: p.displayName,
@@ -376,14 +388,14 @@ const lastHeardFrom = {
       summary: [
         {
           label: "Quiet partners",
-          value: rows.filter((r) => r._quietDays === null || r._quietDays >= params.staleDays).length,
+          value: rows.filter((r) => r._quietDays === null || r._quietDays >= staleDays).length,
         },
         { label: "Never sent a newsletter", value: rows.filter((r) => r.newsletterDays === null).length },
       ],
       notes: [
         contactLogOn
-          ? "'Quiet' is measured from the most recent of a newsletter file or a logged contact."
-          : "'Quiet' is measured by the most recent newsletter file on record.",
+          ? "'Quiet' is measured from the most recent of a newsletter file, a logged contact or a church visit."
+          : "'Quiet' is measured from the most recent of a newsletter file or a church visit.",
       ],
     };
   },
@@ -454,6 +466,118 @@ const careTeamCoverage = {
   },
 };
 
+// #374: what partners have asked the church and their care team for. One row per partner and
+// chosen option, so sorting or filtering by an option answers "which partners want X"; or the
+// partners with nothing recorded, so the care team knows who still needs that conversation.
+// A partner's answers can be sensitive, so a restricted partner's are masked like its other
+// sensitive fields.
+const supportPreferences = {
+  id: "support-preferences",
+  group: "people",
+  label: "Support preferences",
+  question: "What has each partner asked us for, and who has no preferences recorded yet?",
+  requiresFeature: "supportPreferences",
+  params: z.object({
+    show: oneOf(["recorded", "none"], "recorded"),
+    kind: oneOf(KIND_VALUES, "all"),
+    sendingChurch: sendingChurchParam,
+    includeArchived: flag(false),
+  }),
+  fields: [
+    {
+      name: "show",
+      label: "Show",
+      type: "select",
+      options: [
+        { value: "recorded", label: "What partners have chosen" },
+        { value: "none", label: "Partners with nothing recorded" },
+      ],
+    },
+    kindField,
+    archivedField,
+  ],
+  columns: [
+    { key: "partnerName", label: "Partner" },
+    { key: "group", label: "Group" },
+    { key: "option", label: "Option", sensitive: true },
+    { key: "answer", label: "Answer", sensitive: true },
+    { key: "note", label: "Note", sensitive: true },
+  ],
+  fetch: (params, { prisma }) =>
+    prisma.partner.findMany({
+      where: baseWhere(params),
+      select: {
+        displayName: true,
+        isRestricted: true,
+        supportPreferences: {
+          select: {
+            selected: true,
+            choice: true,
+            choices: true,
+            other: true,
+            text: true,
+            note: true,
+            option: { select: { group: true, label: true, kind: true, sortOrder: true } },
+          },
+        },
+      },
+    }),
+  compute(partners, params) {
+    const rows = [];
+    for (const p of partners) {
+      const chosen = p.supportPreferences.filter((r) => r.selected || r.note);
+      if (params.show === "none") {
+        if (chosen.length === 0)
+          rows.push({
+            partnerName: p.displayName,
+            group: "",
+            option: "",
+            answer: "",
+            note: "",
+            _restricted: p.isRestricted,
+          });
+        continue;
+      }
+      for (const r of chosen) {
+        rows.push({
+          partnerName: p.displayName,
+          group: r.option.group,
+          option: r.option.label,
+          answer: describeAnswer(r.option, r),
+          note: r.note || "",
+          _restricted: p.isRestricted,
+          _order: r.option.sortOrder,
+        });
+      }
+    }
+    rows.sort(
+      (a, b) =>
+        a.partnerName.localeCompare(b.partnerName) ||
+        a.group.localeCompare(b.group) ||
+        (a._order ?? 0) - (b._order ?? 0)
+    );
+    return {
+      rows: rows.map(({ _order, ...row }) => row),
+      summary:
+        params.show === "none"
+          ? [{ label: "Partners with nothing recorded", value: rows.length }]
+          : [
+              { label: "Partners with preferences", value: new Set(rows.map((r) => r.partnerName)).size },
+              { label: "Choices recorded", value: rows.length },
+            ],
+      notes: ["Retired options keep their answers and are still listed."],
+    };
+  },
+};
+
 module.exports = {
-  reports: [keyDates, languageCoverage, whereWeServe, partnerRoster, lastHeardFrom, careTeamCoverage],
+  reports: [
+    keyDates,
+    languageCoverage,
+    whereWeServe,
+    partnerRoster,
+    lastHeardFrom,
+    careTeamCoverage,
+    supportPreferences,
+  ],
 };

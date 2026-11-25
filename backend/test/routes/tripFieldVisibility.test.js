@@ -45,7 +45,7 @@ function fieldsNeedingVisibility(modelName, schemaLines) {
     // here would silently also exempt a genuinely meaningful date field
     // like dateOfBirth, which is exactly the kind of gap this test
     // exists to catch, not create.
-    if (/At$/.test(f.name)) return false; // submittedAt, reviewedAt
+    if (/At$/.test(f.name)) return false; // createdAt, reviewedAt
     const declarationLine = schemaLines.find((line) => new RegExp(`^\\s*${f.name}\\s`).test(line));
     if (declarationLine && declarationLine.includes(OPT_OUT_MARKER)) return false;
     return true;

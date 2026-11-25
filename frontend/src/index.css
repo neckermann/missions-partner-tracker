@@ -185,6 +185,16 @@ a {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  /* The title block and the nav links wrap onto separate lines on a phone instead of the
+     nav running off the right edge. */
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+}
+.app-header-nav {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
 }
 .app-header h1 {
   font-size: 1.15rem;
@@ -287,6 +297,11 @@ a {
   align-items: center;
   justify-content: center;
 }
+/* Phone-only: opens and closes the menu (#384). Hidden beside the page, where the collapse
+   button does the equivalent job. */
+.admin-sidebar-menu-btn {
+  display: none;
+}
 .admin-sidebar-collapse-btn:hover,
 .admin-sidebar-bell-btn:hover {
   background: rgba(255, 255, 255, 0.22);
@@ -319,8 +334,10 @@ a {
   border-radius: var(--radius-sm, 6px);
   box-shadow: var(--shadow);
   padding: 0.5rem;
-  min-width: 320px;
-  max-width: 400px;
+  /* Never wider than the screen: on a phone 320px would not fit beside the 8px edge gap
+     AdminSidebar.jsx keeps (BELL_EDGE). */
+  min-width: min(320px, calc(100vw - 16px));
+  max-width: min(400px, calc(100vw - 16px));
   z-index: 50;
 }
 .admin-sidebar-bell-item {
@@ -459,11 +476,55 @@ a {
     flex-direction: column;
     align-items: stretch;
   }
+  /* A slim bar (church name, bell, Menu) that stays at the top; the menu opens beneath it and
+     closes after a page is chosen, so a page's own heading is on the first screen (#384). */
   .admin-sidebar {
     width: 100%;
     height: auto;
-    overflow-y: visible;
-    position: static;
+    max-height: 100vh;
+    overflow-y: auto;
+    position: sticky;
+    top: 0;
+    z-index: 60;
+    padding: 0.6rem 1rem;
+  }
+  .admin-sidebar-title {
+    margin: 0;
+    align-items: center;
+  }
+  .admin-sidebar-collapse-btn {
+    display: none;
+  }
+  .admin-sidebar-menu-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    border: none;
+    background: rgba(255, 255, 255, 0.12);
+    color: white;
+    border-radius: var(--radius-sm);
+    min-height: 36px;
+    padding: 0 0.7rem;
+    font-size: 0.9rem;
+    cursor: pointer;
+  }
+  .admin-sidebar-bell-btn {
+    width: 36px;
+    height: 36px;
+    font-size: 1rem;
+  }
+  .admin-sidebar-menu {
+    display: none;
+    padding-top: 1rem;
+  }
+  .admin-sidebar.menu-open .admin-sidebar-menu {
+    display: block;
+  }
+  .admin-sidebar-nav a,
+  .admin-sidebar-nav button,
+  .admin-sidebar-footer a,
+  .admin-sidebar-footer button {
+    min-height: 40px;
   }
 }
 

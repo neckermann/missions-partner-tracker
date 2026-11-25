@@ -1,17 +1,18 @@
 {
   "name": "missions-partner-tracker-frontend",
   "private": true,
-  "version": "0.7.0",
+  "version": "0.1.0-beta.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test:e2e": "playwright test",
+    "test:e2e": "playwright test --project=parallel && playwright test --project=features --workers=1",
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@simplewebauthn/browser": "^14.0.0",
     "axios": "^1.21.0",
     "leaflet": "^1.9.4",
     "react": "^19.2.8",

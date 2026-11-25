@@ -1,4 +1,5 @@
 import axios from "axios";
+import { startRegistration, startAuthentication, browserSupportsWebAuthn } from "@simplewebauthn/browser";
 
 // The backend serves this frontend directly (see backend/src/server.js),
 // so "/api" always resolves same-origin — in local dev, Vite's proxy
@@ -7,6 +8,25 @@ import axios from "axios";
 export const api = axios.create({
   baseURL: "/api",
 });
+
+// A session that stops working while someone is using the admin app -- it expired, or the church
+// turned on the two-factor requirement (#385) and this account has not enrolled -- sends them to
+// sign in again. Without this every open page just shows load errors until they happen to reload.
+// Only for a 401 on an admin page and not for the sign-in calls themselves (/auth/*: a wrong
+// password is also a 401, and the admin shell checks /auth/me on its own).
+export function signInAgainIfSessionEnded(error, { pathname, search }, redirect) {
+  const url = error?.config?.url || "";
+  if (error?.response?.status === 401 && pathname.startsWith("/admin") && !url.startsWith("/auth/")) {
+    redirect(`/login?next=${encodeURIComponent(pathname + search)}`);
+  }
+}
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    signInAgainIfSessionEnded(error, window.location, (to) => window.location.assign(to));
+    return Promise.reject(error);
+  }
+);
 
 // No token to attach here — the session lives in an httpOnly cookie
 // (set by the backend on login; see backend/src/utils/jwt.js), which the
@@ -506,6 +526,17 @@ export async function fetchContactLog(params = {}) {
   const { data } = await api.get("/contact-log", { params });
   return data;
 }
+// Church visits and newsletters filed, read-only, to show alongside the log's own entries (#364).
+export async function fetchContactTimeline(partnerId) {
+  const { data } = await api.get("/contact-log/timeline", { params: { partnerId } });
+  return data.events;
+}
+// What is still waiting to be passed on for a partner (a decided need, an answered prayer), so
+// the page can offer a one-tap "log a thank-you" (#364).
+export async function fetchContactUpdates(partnerId) {
+  const { data } = await api.get("/contact-log/updates", { params: { partnerId } });
+  return data.updates;
+}
 export async function createContactLogEntry(payload) {
   const { data } = await api.post("/contact-log", payload);
   return data;
@@ -637,6 +668,13 @@ export async function fetchTrips(params = {}) {
 
 export async function createTrip(payload) {
   const { data } = await api.post("/trips", payload);
+  return data;
+}
+
+// Finish a trip in one step (#358): the actual dates, a short debrief, the album link, and an
+// optional contact for the partner. Marks the trip completed.
+export async function wrapUpTrip(id, payload) {
+  const { data } = await api.post(`/trips/${id}/wrap-up`, payload);
   return data;
 }
 
@@ -937,7 +975,7 @@ export async function extractFromPartnerFile(id) {
 
 export async function fetchSetupStatus() {
   const { data } = await api.get("/auth/setup-status");
-  return data; // { needed: boolean }
+  return data; // { needed: boolean, passwordless: boolean }
 }
 
 export async function completeSetup(email, password) {
@@ -1004,6 +1042,68 @@ export async function confirmForcedMfaSetup(setupToken, token) {
   return data;
 }
 
+// #386: passkeys. The server hands out WebAuthn options plus a signed challenge token; the browser
+// answers them (`@simplewebauthn/browser`) and the answer goes back with that token.
+export async function fetchPasskeys() {
+  const { data } = await api.get("/auth/passkeys");
+  return data; // { passkeys: [{ id, label, createdAt, lastUsedAt }], max }
+}
+
+// `setupToken` is given while a person is being taken through forced enrolment (no session yet);
+// otherwise the session cookie does it.
+export async function registerPasskey(label, setupToken) {
+  const config = setupToken ? { headers: { Authorization: `Bearer ${setupToken}` } } : undefined;
+  const { data: begin } = await api.post("/auth/passkeys/register/options", {}, config);
+  const response = await startRegistration({ optionsJSON: begin.options });
+  const { data } = await api.post(
+    "/auth/passkeys/register/verify",
+    { challengeToken: begin.challengeToken, response, label },
+    config
+  );
+  return data;
+}
+
+export async function removePasskey(id, password) {
+  const { data } = await api.delete(`/auth/passkeys/${id}`, { data: { password } });
+  return data;
+}
+
+export async function loginWithPasskey(pendingToken) {
+  const { data: begin } = await api.post("/auth/passkeys/login/options", { pendingToken });
+  const response = await startAuthentication({ optionsJSON: begin.options });
+  const { data } = await api.post("/auth/passkeys/login/verify", {
+    pendingToken,
+    challengeToken: begin.challengeToken,
+    response,
+  });
+  return data;
+}
+
+// #386 Layer 2: passwordless sign-in. A passkey alone (the browser offers the ones it holds for this
+// site), or an emailed one-time link for someone who hasn't added one yet.
+export async function signInWithPasskeyOnly() {
+  const { data: begin } = await api.post("/auth/passkeys/passwordless/options");
+  const response = await startAuthentication({ optionsJSON: begin.options });
+  const { data } = await api.post("/auth/passkeys/passwordless/verify", {
+    challengeToken: begin.challengeToken,
+    response,
+  });
+  return data;
+}
+
+export async function requestSignInLink(email) {
+  const { data } = await api.post("/auth/passwordless/email-link", { email });
+  return data;
+}
+
+// Same shapes as a password sign-in: a session, a second step, or enrolment to finish.
+export async function redeemSignInLink(token) {
+  const { data } = await api.post("/auth/passwordless/link/redeem", { token });
+  return data;
+}
+
+export { browserSupportsWebAuthn };
+
 export async function logout() {
   // The session is an httpOnly cookie — client-side JS can't clear it
   // itself, so this has to be a real request; the backend clears it via
@@ -1028,6 +1128,11 @@ export async function changePassword(currentPassword, newPassword) {
 // Self-service cadence + scope for the admin digest email -- same
 // self-service-from-Account-Settings pattern as the MFA enroll/disable
 // calls above.
+// Turn the daily key-date email off or on for yourself (#365); the bell alert is unaffected.
+export async function setKeyDateEmailOptOut(optOut) {
+  const { data } = await api.put("/auth/key-date-email", { optOut });
+  return data.user;
+}
 export async function updateNotifyByEmail({ cadence, allPartners, partnerIds }) {
   const { data } = await api.put("/auth/dispatch-by-email", { cadence, allPartners, partnerIds });
   return data.user;
@@ -1133,6 +1238,47 @@ export async function setDefaultCareLead(userId) {
 }
 export async function fetchCareTeamCandidates() {
   const { data } = await api.get("/care-team/candidates");
+  return data;
+}
+
+// --- Support preferences (#374). Gated by supportPreferences + careTeam (404 when off). ---
+// The church's menu (admin): { id, group, label, kind, choices[], allowOther, sortOrder, active,
+// answerCount }.
+export async function fetchSupportOptions() {
+  const { data } = await api.get("/support-preferences/options");
+  return data;
+}
+export async function createSupportOption(option) {
+  const { data } = await api.post("/support-preferences/options", option);
+  return data;
+}
+export async function updateSupportOption(id, patch) {
+  const { data } = await api.put(`/support-preferences/options/${id}`, patch);
+  return data;
+}
+export async function deleteSupportOption(id) {
+  await api.delete(`/support-preferences/options/${id}`);
+}
+export async function renameSupportGroup(from, to) {
+  const { data } = await api.post("/support-preferences/options/rename-group", { from, to });
+  return data;
+}
+export async function addSupportExampleSet() {
+  const { data } = await api.post("/support-preferences/options/example-set");
+  return data;
+}
+export async function fetchSupportKinds() {
+  const { data } = await api.get("/support-preferences/kinds");
+  return data.kinds;
+}
+// A partner's choices: { options: [menu], preferences: [{ optionId, selected, choice, choices,
+// other, text, note, lastEditedByName, lastEditedAt }], canEdit }.
+export async function fetchPartnerSupportPreferences(partnerId) {
+  const { data } = await api.get(`/support-preferences/partner/${partnerId}`);
+  return data;
+}
+export async function savePartnerSupportPreferences(partnerId, preferences) {
+  const { data } = await api.put(`/support-preferences/partner/${partnerId}`, { preferences });
   return data;
 }
 

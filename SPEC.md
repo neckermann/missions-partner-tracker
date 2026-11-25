@@ -101,7 +101,10 @@ name), `TripAccess` (a guest login's grant on one trip, §5.1) and
 `CareTeamMember` (a login's seat on one partner's care team — at most one
 lead per partner, enforced by a hand-added partial unique index as well as
 in `routes/careTeams.js`; §5.1) and `ContactLog` (one touchpoint with a partner,
-§5.3) and `KeyDateReminder` (one key-date email sent to one person, §5.4).
+§5.3) and `KeyDateReminder` (one key-date email sent to one person, §5.4) and
+`SupportOption` (one entry in the church's editable menu of ways to support a partner) and
+`PartnerSupportPreference` (one partner's response to one option — real columns:
+`selected`, `choice`, `choices`, `other`, `text`, `note` — §5.7).
 
 **WhatsApp dispatch** adds `WhatsAppAuthEntry` (the encrypted linked-
 session store — see §6.2a).
@@ -473,9 +476,40 @@ than by omission"). Roles exist to gate **writes**, not visibility:
   request re-reads the user row from the DB (not just the JWT claims) so
   a deactivation/role-demotion takes effect on the user's very next
   request, not at token expiry.
+- **Passkeys (#386)**: a second factor next to TOTP, via `@simplewebauthn/server`. `UserPasskey`
+  holds only public material (credential id, public key as base64url, signature counter,
+  transports, a label), up to 5 per user. `User.mfaEnabled` stays the single "second factor
+  enrolled" flag, so sign-in, the church-wide requirement and `requireAuth` are unchanged;
+  `User.mfaSecret` says whether an authenticator app is also set. The relying-party id is the host
+  of `APP_BASE_URL` (falling back to the request host). Challenges are not stored: each is carried
+  in a 5-minute signed token bound to its purpose and user and accepted once (in-memory spent
+  list). Routes under `/api/auth/passkeys`: `register/options|verify` (a session, or the forced
+  enrolment setup token, which then also signs the person in), list, `DELETE /:id` (password
+  required; refused for the last factor while two-factor is required), and `login/options|verify`
+  (second step after the password, using the pending token). Login returns `methods`
+  `{authenticatorApp, passkey}`. Admin MFA reset deletes passkeys.
+- **Passwordless (#386 Layer 2)**: `ChurchSettings.requirePasswordless`, church-wide, off by
+  default, never on a demo. Turning it on (`PUT /api/settings`) needs outbound email ready (feature
+  on, Postmark token and From address set, `APP_BASE_URL`) and the acting admin to hold a passkey;
+  while on, outbound email can't be switched off. `isTwoFactorRequired()` is true while it is on, so
+  an account with no factor is sent to enrolment. `POST /api/auth/login` refuses (403,
+  `passwordless: true`). A passkey signs in alone: `/api/auth/passkeys/passwordless/options|verify`
+  use discoverable credentials and user verification, with no email asked for (nothing
+  enumerable). An account with no passkey asks `POST /api/auth/passwordless/email-link` (one
+  reply for every address; only a passkey-less active local account is sent a link) and the link
+  (`SignInLinkToken`, SHA-256 hash stored, 15 minutes, single-use via a conditional update) is spent
+  at `POST /api/auth/passwordless/link/redeem`, which continues exactly as after a password
+  (`afterFirstFactor`: a TOTP code, enrolment, or the session). A person with a passkey gets no
+  link: a lost passkey is recovered by an admin (Reset MFA). Welcome emails send a sign-in link
+  instead of a setup link while it is on.
 - **MFA**: self-service TOTP, opt-in per user; an admin can force
-  enrollment (`mfaSetupRequired`) without knowing the secret. Replay
-  protection via `mfaLastTimeStep`. SSO was removed in 3.1.0 — auto-
+  enrollment (`mfaSetupRequired`) of one account without knowing the
+  secret, or require it of every account with the church-wide
+  `ChurchSettings.requireTwoFactor` (#385): login sends an unenrolled
+  account to enrolment (no session), `requireAuth` ends a session for an
+  unenrolled account on the next request, the self-service disable is
+  refused, and the setting can only be turned on by an enrolled admin and
+  never on a demo deployment. Replay protection via `mfaLastTimeStep`. SSO was removed in 3.1.0 — auto-
   provisioning handed an account to anyone at the configured identity
   provider, which in a "any account reads everything" app was judged too
   wide; `authProvider` stays on the schema so `local`-only password auth
@@ -520,12 +554,13 @@ the "Inactive accounts only" filter lists just those so an admin can reach
 out and clean up. Grant changes are recorded in the audit log (§5.6): who granted,
 extended or removed access, and the deactivation that follows.
 
-**MFA is required for a guest** (`mfaSetupRequired` is forced on at
-creation and role change, and again by an admin MFA reset). A guest can
-change their own password and enrol MFA from "My account" (reversing
-#329 Finding 2, which had made them fully admin-managed), but cannot
-disable it. "My account" shows a guest password and MFA only — never the
-admin digest subscription.
+**No two-factor rule is specific to a guest** (#385; before it, guests were
+forced to enrol in four separate places). A guest is held to the church-wide
+requirement exactly like every other role (§5, MFA). A guest can change their
+own password and enrol MFA from "My account" (reversing #329 Finding 2, which
+had made them fully admin-managed), and can switch it off only while the
+church doesn't require it of everyone. "My account" shows a guest password and
+MFA only — never the admin digest subscription.
 
 | Can read | Can write |
 |---|---|
@@ -681,8 +716,10 @@ grant alone) never reaches it — the same line as one-time needs
 Everyone's contact counts toward the quiet clock. An entry is never held for
 review (it isn't dispatched anywhere).
 
-**Quiet and follow-ups.** `CONTACT_STALE_DAYS` (90, the report's default too)
-is the one number for "quiet": no logged contact for that long, or never. A
+**Quiet and follow-ups.** `ChurchSettings.contactStaleDays` (default 90, 7 to 365,
+set under Settings → Care Teams; `utils/careSettings.js` `careTimings` reads it)
+is the one number for "quiet" (the *Last heard from* report defaults to it too,
+and counts a church visit as hearing from a partner): no logged contact for that long, or never. A
 follow-up date is answered by any later-entered contact dated on or after the
 one that set it; unanswered and past, it is *due*. `utils/contactLogQueries.js`
 `loadAssignedPartners` is the single read model behind the **My partners**
@@ -715,8 +752,8 @@ recipients come from; the email also needs `outboundEmail`). A reminder is
 raised for a birthday (adults and children), the wedding anniversary, and a
 **supported-since milestone** (the first year, then every fifth — year-only
 start dates are stored as Jan 1, so a yearly nudge would only ever say Jan 1)
-coming up within `KEY_DATE_LEAD_DAYS` (7, a fixed default, not a setting, so
-the bell and the email always agree). `utils/keyDates.js` is the pure rule and
+coming up within `ChurchSettings.keyDateLeadDays` (default 7, 1 to 60, read through
+`careTimings`, so the bell and the email always agree). `utils/keyDates.js` is the pure rule and
 reuses `reporting/definitions.js` `nextAnnual` (the *Families & key dates*
 report's date math: Feb 29 lands on Feb 28, and the age or years turning come
 with it).
@@ -724,7 +761,11 @@ with it).
 **Who.** The partner's whole care team (lead + members, active logins); if it
 has none, the church's **default lead** (`ChurchSettings.defaultCareLeadUserId`,
 set at `PUT /api/care-team/default-lead`, admin only, cleared if that login is
-deleted); if neither, nobody. `utils/keyDateQueries.js` `loadOpenKeyDates` is
+deleted); if neither, nobody. The default lead is also the fallback for *Partners to
+reach out to* (`loadAssignedPartners` adds partners with no care team, marked
+`viaDefaultLead`), for a staff default lead only: a guest's reach never widens. A
+person can opt out of the daily email alone (`User.keyDateEmailOptOut`,
+`PUT /api/auth/key-date-email`); the bell is unaffected. `utils/keyDateQueries.js` `loadOpenKeyDates` is
 the one read model: it counts nothing while `keyDates` or `careTeam` is off,
 skips archived partners, and drops anything *handled*.
 
@@ -858,6 +899,43 @@ request and one-time need detail dialogs (not to guests), as **Last edited by /
 Last edited** columns in the Data completeness report only
 (`reporting/reports/care.js`; reports are not open to guests; the prayer request
 and one-time need reports stay compact because their dialogs carry it), and **never on the public site** (tested). A new model opts in by declaring the three columns.
+
+### 5.7 Support preferences (#374)
+
+Behind the `supportPreferences` feature (off by default; needs `careTeam`). The church's
+menu is **data, not code**: `SupportOption` rows (`group` is plain text so it can be renamed,
+`kind` is `offer` | `single` | `multiple` | `text`, `choices` a `String[]`, `allowOther`,
+`sortOrder`, `active`), edited by an admin, so a fork never changes application code to change the
+list; `utils/supportOptions.js` holds only the kinds, the answer rules and an example set
+(`addExampleOptions`, which refuses a non-empty menu). A partner's response is one
+`PartnerSupportPreference` row per option, in **real columns** (`selected`, `choice`, `choices`
+`String[]`, `other`, `text`, `note`), not a JSON blob, so a report can filter on them;
+`normalizeResponse` validates an answer against its option and returns the columns (or "empty",
+which deletes the row). One set per partner.
+
+An option is **retired** (`active: false`) rather than deleted so answers survive; a retired
+option is still shown to a partner that answered it and can't be newly answered. Its `kind` can't
+change once answered. Deleting an option cascades to its answers. Access is the contact log's:
+`readableNeedPartnerIds` (staff everywhere; a guest only on partners they hold a care team seat
+on; a trip leader none), and a viewer reads but doesn't write. Nothing here is public, in the
+booklet or in a dispatch. Both tables are in `backup.js`'s `MODELS`; the *Support preferences*
+report (`reporting/reports/partners.js`) lists responses per partner and option, or the
+partners with none recorded, masking a restricted partner's answers like its other sensitive fields.
+
+### 5.8 Wrapping up a trip (#358)
+
+`POST /api/trips/:id/wrap-up` (admin, editor, or a guest for a trip they hold a grant on:
+`requireTripScope`, the same reach as editing the trip) finishes a trip in one step: it sets
+`status` to `completed`, records `wrappedUpAt` (kept on a later run, so editing the debrief doesn't
+move it), may correct `startDate`/`endDate` and the album link, and stores the debrief in four plain
+text columns (`debriefWhatWeDid`, `debriefWentWell`, `debriefWasHard`, `debriefPartnerNeeds`, all
+optional, an empty answer stored as null). With `followUp.logContact`, the contact log on, a partner
+on the trip, and a caller who may use the log for that partner (`readableNeedPartnerIds`: staff, or a
+guest on its care team; never a trip leader with only a trip grant), it also adds a `ContactLog` entry
+(visit, outbound, topic `trip`) with the optional follow-up date; the response says whether it did.
+Nothing is emailed. Ending leader access stays with the existing grant routes (the wizard links to the
+Team tab). Two bell categories read it: `tripsReadyToWrapUp` (trip-scoped: end date passed, not
+completed) and `tripsWrappedUp` (the partner's care team, for 14 days).
 
 ## 6. The dispatch system (#202 redesign + WhatsApp)
 

@@ -55,7 +55,7 @@ This repo doesn't run a live deployment itself — it's the open-source
 upstream that your church's own fork deploys from (see
 [Upgrading a fork](#upgrading-a-fork) for how your copy keeps getting
 updates later). The deployment itself goes through
-[Render](https://render.com), via [`render.yaml`](../render.yaml) at the
+[Render](https://render.com), via [`render.yaml`](render.yaml) at the
 repo root — a Blueprint that provisions the web service and Postgres
 database (which also holds every uploaded photo, newsletter, and
 document — see [File storage](#file-storage) below, nothing extra to
@@ -95,6 +95,11 @@ provision) in one step:
    account, right in the browser. No shell access, no
    `DATABASE_URL`/`createAdmin.js` needed — the point of a one-click
    deploy is defeated if the very first login still requires a terminal.
+   A new install **requires two-factor from the start** (see
+   [Authentication setup](#authentication-setup)), so after creating the
+   account you sign in once and set up an authenticator app on your phone
+   (scan a QR code, confirm a code). You can turn the requirement off later
+   in Manage Users, but it's on by default.
 
 Costs about $13/mo on Render's cheapest paid tiers — free tier exists
 but isn't viable for anything long-lived (the web service sleeps after
@@ -211,8 +216,9 @@ prayer digest nested under Email (Sending) since it depends on it), and
 | GroupMe dispatch | **Off** | Queues new prayer requests, one-time needs, and newsletters — plus a prayer request's recorded answer and a one-time need's funding decision — for GroupMe, sent out to their own configured Topics on the schedule configured at Settings → Dispatch Settings, or via manual send from Pending Dispatches. Configured entirely in the UI (Settings → GroupMe) with the admin's own personal access token, not a bot — GroupMe's Bots API has no awareness of Topics. Off by default since it's the one feature here that posts to a third-party service on its own, not just on request. See [USER_GUIDE.md § GroupMe dispatch](USER_GUIDE.md#groupme-dispatch-admin-only). |
 | WhatsApp dispatch | **Off** | The same three dispatch types as GroupMe, posted to their own groups inside one WhatsApp community, on the same daily schedule and content-type mutes as GroupMe (a church can run either or both). Configured entirely in the UI (Settings → WhatsApp): link a **dedicated** phone number by scanning a QR code, pick the community, then a group per dispatch type. Off by default because it's an **unofficial** connection — see [Dispatch: WhatsApp](#dispatch-whatsapp) below before turning it on. See [USER_GUIDE.md § WhatsApp dispatch](USER_GUIDE.md#whatsapp-dispatch-admin-only). |
 | Care teams | **Off** | Give each partner a care team: one Lead plus Members, all logins, who keep in touch with them. A care team member can do what an editor can for their own partner, except that **what they enter is held in Pending Dispatches for you to approve before it's sent anywhere**, they can't record a decision on a one-time need, and they never see monthly support. A Guest can be given a partner this way instead of a trip. See [USER_GUIDE.md § Care teams](USER_GUIDE.md#care-teams). Turning it off hides all of it and ignores the seats for access; nothing is deleted. Adds a *Care team coverage* report. |
-| Key-date reminders | **Off** | Reminds each partner's care team about coming birthdays (including children), wedding anniversaries and supported-since milestones (the first year, then every fifth), a week ahead: on the bell and in **one grouped email a day**, sent at 7am church time only on days something is due. Needs **Care teams**; the email also needs **Email (Sending)** and is sent by the worker. A partner with no care team goes to the **default lead** (Settings → Care Teams); logging a contact with the topic "Key date" clears a reminder. Restricted partners are named by initials only. |
-| Audit log | **On** | Records who did what and when for sensitive actions (sign-ins and failed sign-ins, role and access changes, settings changes, deletes, backups, restricted-partner changes and views) and adds an admin-only **Settings → Audit log** page with filters and CSV export. Entries are kept for 30, 60 or 90 days (default 90) and pruned nightly by the worker, even if the feature is later turned off. Secrets are never stored. It is on by default because it records nothing before it is on; sign-in entries include the IP address (personal data), so a church that doesn't want that can turn it off here. See [USER_GUIDE.md § Audit log](USER_GUIDE.md#activity-log-admin-only). |
+| Key-date reminders | **Off** | Reminds each partner's care team about coming birthdays (including children), wedding anniversaries and supported-since milestones (the first year, then every fifth), a week ahead by default (Settings → Care Teams → Timing sets 1 to 60 days, and how many days without contact make a partner "quiet", 7 to 365): on the bell and in **one grouped email a day**, sent at 7am church time only on days something is due. Needs **Care teams**; the email also needs **Email (Sending)** and is sent by the worker. A partner with no care team goes to the **default lead** (Settings → Care Teams), who also sees those partners under "Partners to reach out to" (staff only; a Guest default lead only gets the key-date reminders). Anyone can turn off their own daily email under My account → Key-date email; the bell alert stays. A public demo keeps this on for the bell but never sends the email; logging a contact with the topic "Key date" clears a reminder. Restricted partners are named by initials only. |
+| Support preferences | **Off** | A menu of ways your church and a partner's care team can support them (housing while they are home, airport pick-up, prayer, care packages and so on), which you edit under Settings → Support Preferences, and each partner's choices from it, shown as a card on their page and recorded by staff or their care team. Needs Care teams. Never shown publicly, in the booklet or in dispatches; a trip leader doesn't see it. Adds a "Support preferences" report. |
+| Audit log | **On** | Records who did what and when for sensitive actions (sign-ins and failed sign-ins, role and access changes, settings changes, deletes, backups, restricted-partner changes and views) and adds an admin-only **Settings → Audit log** page with filters and CSV export. Entries are kept for 30, 60 or 90 days (default 90) and pruned nightly by the worker, even if the feature is later turned off. Secrets are never stored. It is on by default because it records nothing before it is on; sign-in entries include the IP address (personal data), so a church that doesn't want that can turn it off here. See [USER_GUIDE.md § Audit log](USER_GUIDE.md#audit-log-admin-only). |
 | Contact log | **Off** | Record every call, text, email, visit or card with a partner, show a contact card (primary contact, preferred method, one-tap call/text/email/WhatsApp) on each partner page, and flag partners nobody has been in touch with for 90 days. Adds an **My partners** tab for care team members, a "Partners to reach out to" alert, and feeds the Last heard from report. A partner marked not safe to contact shows staff's special instructions instead of the buttons, and is left out of the printed booklet's contact details. Entries are internal only. |
 | Joshua Project stats | **Off** | Shows country-level unreached-people-group statistics on a partner's page (public and admin). Requires an API key, set at Settings → Integrations, under Joshua Project ([free key](https://joshuaproject.net/api/request)). The Country Code (FIPS) field on Serving Location only appears once this is on — turning it on after partners already exist means going back into each one's Serving Location to enter the code manually or re-trigger the auto-lookup (see [USER_GUIDE.md § Editing a partner](USER_GUIDE.md#editing-a-partner)). |
 | AI Features | **Off** | Adds a "Scan for requests" button on each newsletter/document that's PDF, JPEG, PNG, or `.eml` (Word/Excel aren't supported). Sends that one file to Claude (Anthropic's API) to look for prayer requests and one-time financial needs, then shows them for review — nothing is added until you explicitly accept a suggestion. Requires an API key, set at Settings → Integrations, under AI Features ([get one at console.anthropic.com](https://console.anthropic.com/settings/keys), pay-per-scan, a few cents/month at typical volume). Off by default even once the key is configured, since it's the one feature here that sends data to a third party. |
@@ -245,7 +251,25 @@ settings category later is a new entry in `buildSiteAdminLinks()`
 
 ## Authentication setup
 
-Accounts are email and password, optionally with TOTP two-factor. There is
+Accounts are email and password, optionally with two-factor: an authenticator
+app (TOTP) or **passkeys** (#386; each person can add up to five). A passkey is
+tied to the site's address, so set `APP_BASE_URL` to the address people use (its
+host name is the passkey's identity) and keep it stable; if the church moves to
+a new domain, existing passkeys stop working and people add them again (an
+authenticator app is unaffected). **Reset MFA** on a user clears their app and
+passkeys.
+
+**Passwordless sign-in** (#386, Settings → Manage Users) is an optional
+church-wide switch for churches that have outbound email working: nobody signs
+in with a password; a person with a passkey signs in with it alone, and anyone
+without one gets a one-time emailed link (valid 15 minutes) and is then taken
+through adding a passkey. It needs working outbound email and a passkey on the
+admin turning it on, implies the two-factor requirement, is refused on a demo,
+and stops outbound email being turned off while it is on. There is no automatic
+fallback to passwords: if email breaks, an admin recovers each person with
+Reset MFA and a setup link. Passwords are kept, so turning it off restores
+password sign-in. A church without email stays on password plus two-factor, or
+passkeys as a second factor, indefinitely. There is
 nothing to configure beyond your first admin account, created at `/setup`
 on a fresh deploy or with `createAdmin.js` — see
 [Getting your church running](#getting-your-church-running-render) above.
@@ -267,13 +291,22 @@ A few things worth knowing operationally:
   stored integration credential (Postmark, GroupMe, Joshua Project,
   WhatsApp) in the database — see
   [Rotating FIELD_ENCRYPTION_KEY](#rotating-field_encryption_key) below.
-- MFA (TOTP) is opt-in and self-service for the 3 full roles, or an
-  admin can force it on a specific account. A Guest account always has
-  MFA required: it's turned on when the account is created (or an
-  existing account becomes a guest), the guest enrols from My Account
-  and can change their own password there, but cannot switch MFA off. If
-  a guest loses their authenticator, Manage Users' MFA reset clears it
-  and they enrol again at next sign-in. See
+- MFA (TOTP) is opt-in and self-service for every role, and an admin can
+  force it on a specific account. **One church-wide switch** requires it
+  of everyone instead: **Settings → Manage Users → Two-factor sign-in →
+  Require it for everyone**. While it's on, an account that hasn't set it
+  up is sent to enrolment at sign-in and gets no session until it does;
+  a session already open when you turn it on stops working at the next
+  request (the person signs in again and enrols); and nobody can switch
+  it off for themselves. Before turning it on, make sure the admins have
+  enrolled: the switch only works for an admin who has set up two-factor
+  on their own account, and it shows how many active accounts haven't
+  yet. If someone loses their authenticator, Manage Users' **Reset MFA**
+  clears it and they enrol again at next sign-in. It is on by default for
+  a new install (the first-run setup turns it on), off on an install that
+  predates it, can't be turned on for the public demo, and changes to it are in the
+  [Audit log](USER_GUIDE.md#audit-log-admin-only). No role is special:
+  a Guest is treated like everyone else. See
   [USER_GUIDE.md § Your account settings](USER_GUIDE.md#your-account-settings)
   for the user-facing flow.
 
@@ -445,7 +478,9 @@ provider:
 4. Visit your new site and go to `/setup` to create your first admin
    account right in the browser — or, if you'd rather do it from a
    shell with `DATABASE_URL` set, `node prisma/createAdmin.js
-   you@yourchurch.org "SomeStrongPassword!"` does the same thing.
+   you@yourchurch.org "SomeStrongPassword!"` does the same thing. (Only
+   `/setup` turns the church-wide two-factor requirement on for a new
+   install and walks you through enrolling; `createAdmin.js` leaves it off.)
 5. Use HTTPS everywhere in production — required for the session
    cookie's `Secure` flag to actually work, and just generally expected
    for a site handling admin logins.
@@ -551,12 +586,24 @@ migration or a new required env var.
 **Authentication is the confidentiality boundary. Roles only govern
 writes.**
 
-Any account that can log in can read every partner's full record: exact
+Any **admin, editor or viewer** account that can log in can read every partner's full record: exact
 addresses and GPS coordinates, family members' contact details and
 birthdays, emergency contacts, uploaded documents, and the real name and
 photograph of partners marked restricted-access. `viewer` restricts what
 someone can *change*, not what they can see. There is no reduced read view
-for lower roles, and adding one is a deliberate non-goal.
+for those lower roles, and adding one is a deliberate non-goal.
+
+**The one exception is the Guest role**, which is the way to give someone
+limited access without an account that can see everything. A guest can reach
+only what they are granted: the trips an admin gives them (a trip leader),
+and/or the partners whose [care team](USER_GUIDE.md#care-teams) they are on,
+plus those trips' partners. Everything else, including the rest of the
+partner list, is out of reach, and the server enforces that on every
+request, not just in the menus. A guest signs in under the same rules as
+everyone else (see [Authentication setup](#authentication-setup)), their
+access can expire, and changes to it are recorded in the
+[audit log](USER_GUIDE.md#audit-log-admin-only). Use a guest, not an editor,
+for anyone who only needs one trip or a few partners.
 
 The consequence worth internalising: **controlling who gets an account is
 the entire security model.** There is no second line of defence behind the
@@ -567,16 +614,18 @@ login. In practice that means:
 - Deactivate promptly when someone leaves. Deactivating or deleting takes
   effect on their next request — sessions are re-checked against the
   database rather than trusted for their full lifetime.
-- Require two-factor for accounts that can write. A password alone is one
-  phishing email away from everything above.
+- Require two-factor, for everyone, with the church-wide switch in
+  Manage Users (see [Authentication setup](#authentication-setup)). A
+  password alone is one phishing email away from everything above.
 - Anyone who only needs what's public should use the public site, which
   runs every record through a masking serializer that hides restricted
   partners' names, photos and precise locations. They don't need an
   account at all.
 
-If you need staff who can see *some* partners but not others, this app
-can't express that, and pretending otherwise with roles would be worse
-than saying so plainly. The Pending Dispatches page's own held-row
+If you need *staff* (admins, editors, viewers) who can see some partners but
+not others, this app can't express that, and pretending otherwise with
+roles would be worse than saying so plainly. A Guest is the supported way to
+limit someone to particular trips or partners. The Pending Dispatches page's own held-row
 text (see [§ Restricted-partner dispatch
 review](#restricted-partner-dispatch-review)) follows this same
 rule — it's not role-gated, since `GET /api/prayer-requests` and `GET
@@ -735,7 +784,7 @@ directly against the code, not assumed:
 | You want... | You need | Notes |
 |---|---|---|
 | Prayer request / one-time need / newsletter digests (admin or public) | **Sending** | Also needs Public directory for the public digest specifically. |
-| New-user welcome emails, "resend my setup link" | **Sending** | Off (or unconfigured): the admin gets a manual link to copy/send themselves instead of a failed send. |
+| New-user welcome emails, "resend my setup link" | **Sending** | Off (or unconfigured): the admin gets a manual link to copy/send themselves instead of a failed send. On the expired-link page a person asking for a new link is told that this site can't send email and to ask their church administrator (the same message for every address, so it reveals nothing about accounts); the admin then uses **Send setup link** on their row in Manage Users. |
 | Trip participant access links (self-service or admin resend) | **Sending** | Same manual-link fallback when off. |
 | Trip meeting invites, reschedules, day-before reminders | **Sending** | RSVP itself (see below) needs no email at all once the participant has the link. |
 | Trip meeting **RSVP tracking** (yes/no/maybe) | **Sending only** | Deliberately link-based, not reply-based — a participant clicks one of three token-verified links in their invite email; nothing needs to come back in. **Receiving is not required for this**, by design (see `TripMeetingRsvp` in `schema.prisma`). |
@@ -1069,6 +1118,9 @@ exchange for restricted partners' events reaching every channel like
 anyone else's.
 
 ### Trips
+
+*Wrapping a trip up:* a trip is finished with **Wrap up trip** on its page (a guided step: the actual dates, a short debrief, an optional contact-log visit for the partner, loose ends, the photo album and when leader access ends), not by editing its status to Completed, though that still works. The debrief is stored on the trip, and the bell shows **Trips ready to wrap up** once an end date has passed. See [USER_GUIDE.md § Wrapping up a trip](USER_GUIDE.md#wrapping-up-a-trip).
+
 
 Trips tracks a mission trip's full lifecycle — recruiting, team,
 meetings, documents, budget, support raising — not just a historical

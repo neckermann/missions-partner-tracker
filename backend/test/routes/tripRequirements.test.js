@@ -18,6 +18,7 @@ const { test, describe, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 require("dotenv").config({ quiet: true });
 const prisma = require("../../src/prismaClient");
+const { loadRequirementItems, replaceRequirementItems } = require("../../src/utils/tripTemplates");
 const {
   client,
   stopServer,
@@ -688,7 +689,7 @@ describe("Trips: minors-only requirements (#278)", () => {
   });
 
   test("the due-date reminder scheduler never reminds an adult about a minors-only requirement", async () => {
-    const { trip, requirement } = await createTripWithRequirement("document", {
+    const { trip } = await createTripWithRequirement("document", {
       dueAt: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
       reminderLeadDays: 5,
     });
@@ -718,19 +719,11 @@ describe("Trips: minors-only requirements (#278)", () => {
   });
 
   test("the church-wide requirement template carries minorsOnly onto a newly-created trip", async () => {
-    const original = await prisma.churchSettings.findUnique({
-      where: { id: "singleton" },
-      select: { tripRequirementTemplate: true },
-    });
+    const original = await loadRequirementItems("template");
     try {
-      await prisma.churchSettings.update({
-        where: { id: "singleton" },
-        data: {
-          tripRequirementTemplate: [
-            { id: "t1", label: "Minor Travel Release", kind: "task", minorsOnly: true },
-          ],
-        },
-      });
+      await replaceRequirementItems(prisma, "template", [
+        { id: "t1", label: "Minor Travel Release", kind: "task", minorsOnly: true },
+      ]);
       const partner = await createPartner();
       const trip = await admin("/api/trips", {
         method: "POST",
@@ -739,10 +732,7 @@ describe("Trips: minors-only requirements (#278)", () => {
       assert.equal(trip.status, 201);
       assert.equal(trip.body.requirements[0].minorsOnly, true);
     } finally {
-      await prisma.churchSettings.update({
-        where: { id: "singleton" },
-        data: { tripRequirementTemplate: original?.tripRequirementTemplate ?? [] },
-      });
+      await replaceRequirementItems(prisma, "template", original);
     }
   });
 });

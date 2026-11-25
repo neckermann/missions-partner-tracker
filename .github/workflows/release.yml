@@ -1,0 +1,52 @@
+name: Release
+
+# Cuts the git tag and GitHub Release for the version in backend/package.json whenever main
+# changes, so the tag step can't be skipped (v0.6.0 and v0.7.0 shipped to production without
+# one -- see issue #378). A merge into main is a release (CONTRIBUTING.md § Branches and
+# releasing); the version bump itself still happens in the dev -> main PR.
+#
+#   - No release for this version yet: creates tag vX.Y.Z at the merge commit and a GitHub
+#     Release with generated notes. A version with a hyphen (0.1.0-beta.2) is marked
+#     pre-release, so GitHub's "latest release" -- what the in-app update banner compares
+#     against -- stays on the last stable release; a plain version is marked latest.
+#   - Release already exists: does nothing except warn, because a push to main that didn't
+#     change the version is not a new release (the usual cause is a forgotten bump).
+#
+# A tag pushed by this workflow's own token does not start other workflows, so
+# release-version-check.yml (which watches tags pushed by hand) doesn't run for it; the check
+# below that backend/ and frontend/ agree does the same job here.
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Create the tag and release if this version has none
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="$(node -p "require('./backend/package.json').version")"
+          frontend_version="$(node -p "require('./frontend/package.json').version")"
+          tag="v${version}"
+          if [ "$version" != "$frontend_version" ]; then
+            echo "::error::backend/package.json ($version) and frontend/package.json ($frontend_version) disagree. Bump both in the release PR."
+            exit 1
+          fi
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "::warning::Release $tag already exists, so this push to main is not a new release. If it should be one, bump the version in backend/package.json and frontend/package.json."
+            exit 0
+          fi
+          if [[ "$version" == *-* ]]; then
+            flag="--prerelease"
+          else
+            flag="--latest"
+          fi
+          gh release create "$tag" --target "$GITHUB_SHA" --title "$tag" --generate-notes "$flag"
+          echo "Created release $tag ($flag)."

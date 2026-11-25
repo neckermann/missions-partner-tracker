@@ -7,6 +7,20 @@ import { defineConfig, devices } from "@playwright/test";
 // webServer option can express cleanly here).
 const baseURL = process.env.E2E_BASE_URL || "http://localhost:4000";
 
+// Specs that change feature flags or trip settings (see the projects below).
+const FEATURE_SPECS = [
+  "guest-access",
+  "inbound-email-queue",
+  "mobile-public-nav",
+  "pending-dispatches",
+  "public-subscribe",
+  "public-trip-application",
+  "support-preferences",
+  "trip-detail-subpages",
+  "trip-team-table-modal",
+  "two-factor-requirement",
+].map((name) => new RegExp(`${name}\\.spec\\.js$`));
+
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
@@ -30,9 +44,24 @@ export default defineConfig({
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
   },
+  // Two projects over the same browser, run one after the other (npm run test:e2e):
+  //
+  // "parallel" is everything that only reads the church's feature flags, on the workers
+  // above. "features" is the specs that CHANGE them (ChurchSettings.enabledFeatures is one
+  // shared JSON column, replaced whole by PUT /api/settings, so two specs changing it at once
+  // lose each other's updates, and any spec reading a flag mid-change sees it flip). Those run
+  // with one worker, after the rest, so a flag is only ever changed while nothing else runs.
+  // Playwright has no per-project worker count, hence `--workers=1` on that run (package.json).
+  // A spec that starts changing flags belongs in FEATURE_SPECS.
   projects: [
     {
-      name: "chromium",
+      name: "parallel",
+      testIgnore: FEATURE_SPECS,
+      use: { ...devices["Desktop Chrome"] },
+    },
+    {
+      name: "features",
+      testMatch: FEATURE_SPECS,
       use: { ...devices["Desktop Chrome"] },
     },
   ],

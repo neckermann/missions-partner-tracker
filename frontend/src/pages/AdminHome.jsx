@@ -19,6 +19,8 @@ const CATEGORY_GROUP = {
   tripsDepartingSoonIncomplete: "Trips",
   overdueTripRequirements: "Trips",
   tripApplicationsPending: "Trips",
+  tripsReadyToWrapUp: "Trips",
+  tripsWrappedUp: "Trips",
   newPrayerRequests: "Partner Care",
   newOneTimeNeeds: "Partner Care",
   adminMfaDisabled: "System",

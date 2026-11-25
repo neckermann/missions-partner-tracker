@@ -101,7 +101,7 @@ It prints the `DATABASE_URL` to put in `backend/.env`. Then:
 ```bash
 cd backend  && npm run test:routes                    # route tests
 cd backend  && NODE_ENV=test node src/server.js       # serve, in one terminal
-cd frontend && npx playwright test                    # e2e, in another
+cd frontend && npm run test:e2e                       # e2e, in another
 npm run test:db down                                  # delete it and its data
 ```
 
@@ -130,6 +130,14 @@ the Vite dev server, since these tests exercise the whole app the way a
 real deployment does. If you're adding a new page or admin flow, adding
 e2e coverage for it is welcome, but not required for every PR — use your
 judgment on what's worth the added CI time.
+
+**A spec that changes feature flags or trip settings** (`ChurchSettings.enabledFeatures`
+is one shared column, and `PUT /api/settings` replaces it whole) must go in
+`FEATURE_SPECS` in `frontend/playwright.config.js` and use `setFeatures` /
+`restoreFeatures` from `e2e/helpers.js`, which merge and put back what they changed.
+Those specs run in their own project with one worker, after the rest; two at once
+lose each other's updates. That is why `npm run test:e2e` runs two commands, and why
+a bare `npx playwright test` is not the same thing.
 
 ## Local development data
 
@@ -200,6 +208,29 @@ the Zod validation in the relevant route, and the admin form together —
 grep for an existing similar field (e.g. `tripSeasonNotes`) to see the
 full path a field takes from database to admin UI to public display.
 
+Two rules for new models and lists (see
+[ARCHITECTURE.md § Cross-cutting pieces](ARCHITECTURE.md#cross-cutting-pieces-you-will-meet)):
+
+- **A new editable model needs the three `lastEditedById`,
+  `lastEditedByName` and `lastEditedAt` columns.** The Prisma extension
+  stamps them for you on every write in a signed-in request; without the
+  columns the record never shows "Last edited by".
+- **Use real columns, not `Json`, for anything with a fixed shape (#394).**
+  A list of plain strings is a `String[]` column; an ordered list of
+  structured items an admin edits (questions, checklist entries) is a child
+  table with a `position` column, and the API can still send and receive it
+  as an ordered array (see `backend/src/utils/tripTemplates.js`). `Json` is
+  acceptable only when the shape genuinely varies per record, it is read and
+  written whole, and nothing filters, sorts or reports on what is inside it:
+  `AuditLog.details`, `SavedReport.params`, `NotifiableEvent.payload`, and
+  `ChurchSettings.enabledFeatures` (so a fork adds a feature flag without a
+  migration). Say why in a comment on the column. Don't store JSON or
+  comma-separated values in a `String` column either.
+- **A new list about partners, or about things that belong to a partner,
+  takes the `sendingChurch` filter** (`withSendingChurch` in
+  `backend/src/utils/sendingChurch.js`, and the shared `FilterBar` field),
+  so "filter by church" works the same on every page.
+
 ## Database migrations
 
 Update `schema.prisma` first, then run
@@ -227,7 +258,7 @@ git push origin dev
 # bump backend/package.json + frontend/package.json to the release version
 gh pr create --base main --head dev    # CI runs here
 # four checks go green, then merge -> Render deploys
-# then: git tag vX.Y.Z && git push origin vX.Y.Z && gh release create vX.Y.Z --generate-notes
+# merging creates the tag and GitHub Release by itself (.github/workflows/release.yml)
 ```
 
 The version bump happens **in the `dev` → `main` PR itself**, not as a
@@ -248,6 +279,38 @@ pushing and waiting for a run that isn't coming. That single trigger is
 deliberate: see the comment at the top of
 [`.github/workflows/ci.yml`](.github/workflows/ci.yml) for why pushes to
 `dev` and `main` used to run too, and what each of those was duplicating.
+
+### Versioning (the pre-1.0 beta track)
+
+Until 1.0 the project is on a **beta track**, so the number moves in small
+steps and means something:
+
+- **`0.MINOR.PATCH`, with betas written `0.MINOR.0-beta.N`.** The version
+  restarted at `0.1.0-beta.1` in November 2026; the numbers in the
+  CHANGELOG's *Earlier releases* section (0.2.0 to 0.7.0) are history, not
+  part of this sequence.
+- **A new beta** (`0.1.0-beta.2`, `beta.3`, …) is a deliberate cut of `dev`
+  into `main` while the batch of work isn't ready for forks. Cut one when you
+  want production (the demo) updated, not on every merge.
+- **A minor release** (`0.1.0`) is a batch that is ready for forks: drop the
+  `-beta.N`. The next batch starts at `0.2.0-beta.1`.
+- **A patch** (`0.1.1`) is a fix after a stable release.
+- **`1.0.0` is a decision, not a counter.** It is the point where the
+  pre-1.0 migration squash ends and an upgrade never needs a database reset
+  (see [SPEC.md § 8.3](SPEC.md#83-migration-strategy-pre-10)). Until then a
+  release that changes the baseline says so under *Upgrading* in the
+  CHANGELOG.
+- **Order** follows SemVer: `0.1.0-beta.2 < 0.1.0-beta.10 < 0.1.0 < 0.1.1 <
+  0.2.0-beta.1`. `versionCheck.js` implements it, so an instance running a
+  beta is told to update once its final release is out, and not before.
+
+Tagging is automatic. When `main` changes,
+[`.github/workflows/release.yml`](.github/workflows/release.yml) reads the
+version from `backend/package.json` and, if there is no release for it yet,
+creates the tag and the GitHub Release (generated notes). A beta is marked
+**pre-release**, so GitHub's "latest release", which the in-app update banner
+compares against, stays on the last stable one. If the version didn't change
+it only warns, since that push wasn't a new release.
 
 ### Feature branches for larger work
 
@@ -473,9 +536,9 @@ algorithm specifically so these `#anchor` fragments resolve the same
 way there as they do on GitHub's own rendered view of the `.md` file —
 see that script's own comment). **Renaming, removing, or demoting a
 linked heading changes its anchor and silently breaks every link
-below** — grep for the anchor text (not just the heading text) before
-touching one of these sections, since nothing else catches this at
-build time.
+below** — run `npm run check:docs` after touching one of these
+sections: it checks every link of this kind in the app's source, plus
+every internal link and `#anchor` in the markdown, and CI runs it too.
 
 Current links, by anchor:
 

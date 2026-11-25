@@ -9,6 +9,7 @@ import PublicTripApplication from "./pages/PublicTripApplication.jsx";
 import PublicTripParticipant from "./pages/PublicTripParticipant.jsx";
 import PublicTripAccessRecovery from "./pages/PublicTripAccessRecovery.jsx";
 import Login from "./pages/Login.jsx";
+import SignInLink from "./pages/SignInLink.jsx";
 import Setup from "./pages/Setup.jsx";
 import SetPassword from "./pages/SetPassword.jsx";
 import RequireAdminAuth from "./components/RequireAdminAuth.jsx";
@@ -70,6 +71,8 @@ const AdminTripParticipantDetail = lazy(() => import("./pages/AdminTripParticipa
 const AdminTripApplicationDetail = lazy(() => import("./pages/AdminTripApplicationDetail.jsx"));
 const AdminSettingsTrips = lazy(() => import("./pages/AdminSettingsTrips.jsx"));
 const AdminSettingsCareTeam = lazy(() => import("./pages/AdminSettingsCareTeam.jsx"));
+const AdminTripWrapUp = lazy(() => import("./pages/AdminTripWrapUp.jsx"));
+const AdminSettingsSupportPreferences = lazy(() => import("./pages/AdminSettingsSupportPreferences.jsx"));
 const AdminSettingsAudit = lazy(() => import("./pages/AdminSettingsAudit.jsx"));
 const AdminPartnerFiles = lazy(() => import("./pages/AdminPartnerFiles.jsx"));
 
@@ -145,6 +148,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
               <Route path="/my-trip" element={<PublicTripParticipant />} />
               <Route path="/trip-access-recovery" element={<PublicTripAccessRecovery />} />
               <Route path="/login" element={<Login />} />
+              <Route path="/login/link" element={<SignInLink />} />
               <Route path="/setup" element={<Setup />} />
               <Route path="/set-password" element={<SetPassword />} />
 
@@ -254,6 +258,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                   <Route path="requirements" element={<AdminTripRequirements />} />
                   <Route path="financial" element={<AdminTripFinancial />} />
                   <Route path="flights" element={<AdminTripFlights />} />
+                  <Route path="wrap-up" element={<AdminTripWrapUp />} />
                 </Route>
                 <Route
                   path="trips/:tripId/participants/:participantId"
@@ -338,6 +343,14 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                     element={
                       <RequireAdminFeature feature="careTeam">
                         <AdminSettingsCareTeam />
+                      </RequireAdminFeature>
+                    }
+                  />
+                  <Route
+                    path="support-preferences"
+                    element={
+                      <RequireAdminFeature feature="supportPreferences">
+                        <AdminSettingsSupportPreferences />
                       </RequireAdminFeature>
                     }
                   />

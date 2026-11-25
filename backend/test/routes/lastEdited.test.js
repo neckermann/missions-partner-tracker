@@ -20,7 +20,6 @@ let admin;
 let adminRow;
 let originalFeatures;
 const extraUsers = [];
-const cleanupTrips = [];
 
 describe("last edited by", () => {
   before(async () => {
@@ -247,6 +246,29 @@ describe("last edited by", () => {
     });
     const none = (await admin("/api/partners")).body.find((p) => p.id === untouched.id);
     assert.equal(none.lastUpdatedAt, null);
+  });
+
+  test("a trip carries the date it was added (#383), which editing it does not change", async () => {
+    const before = Date.now();
+    const trip = await admin("/api/trips", {
+      method: "POST",
+      body: { name: `${FIXTURE_TAG} Trip added date`, status: "planning" },
+    });
+    assert.equal(trip.status, 201, JSON.stringify(trip.body));
+    const added = new Date(trip.body.createdAt).getTime();
+    assert.ok(added >= before - 5000 && added <= Date.now() + 5000, "added about now");
+
+    await new Promise((r) => setTimeout(r, 1100));
+    const edit = await admin(`/api/trips/${trip.body.id}`, {
+      method: "PUT",
+      body: { description: "Edited after it was added" },
+    });
+    assert.equal(edit.status, 200, JSON.stringify(edit.body));
+    const detail = await admin(`/api/trips/${trip.body.id}`);
+    assert.equal(new Date(detail.body.createdAt).getTime(), added, "editing leaves the added date alone");
+    assert.ok(new Date(detail.body.lastEditedAt).getTime() > added, "while the last-edited date moves");
+    const listed = (await admin("/api/trips")).body.find((t) => t.id === trip.body.id);
+    assert.equal(new Date(listed.createdAt).getTime(), added, "the list carries it too");
   });
 
   test("a trip's last updated covers its meetings, and a guest's lists carry no editor names", async () => {

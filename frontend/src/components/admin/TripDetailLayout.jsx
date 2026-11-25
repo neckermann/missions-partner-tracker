@@ -5,6 +5,7 @@ import useConfirmDialog from "../../hooks/useConfirmDialog.jsx";
 import TripStatusBadge from "./TripStatusBadge.jsx";
 import Breadcrumb from "../shared/Breadcrumb.jsx";
 import LastEdited from "../shared/LastEdited.jsx";
+import RecordUnavailable, { loadErrorStatus } from "../shared/RecordUnavailable.jsx";
 import { useRecordRecentlyViewed } from "../../hooks/useRecentlyViewed.js";
 import useCurrentUser from "../../hooks/useCurrentUser.js";
 
@@ -23,7 +24,13 @@ export default function TripDetailLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
-  const { canWrite: globalCanWrite, isAdmin, isGuest, canAccessTrip } = useCurrentUser();
+  const {
+    canWrite: globalCanWrite,
+    isAdmin,
+    isGuest,
+    canAccessTrip,
+    loading: userLoading,
+  } = useCurrentUser();
   // A guest's global canWrite is false (role is neither admin nor
   // editor) -- but on a trip they hold a grant for they have editor-equivalent
   // write access (the backend's own requireTripScope already enforces
@@ -35,23 +42,36 @@ export default function TripDetailLayout() {
   const [questionLibrary, setQuestionLibrary] = useState([]);
   const [requirementLibrary, setRequirementLibrary] = useState([]);
   const [applicationTemplate, setApplicationTemplate] = useState([]);
-  const [enableTripBudgeting, setEnableTripBudgeting] = useState(false);
+
+  const [loadError, setLoadError] = useState(null); // 404/403 when the trip can't be shown
 
   const reload = useCallback(() => {
-    fetchTrip(id).then(setTrip).catch(console.error);
+    setLoadError(null);
+    fetchTrip(id)
+      .then(setTrip)
+      .catch((err) => {
+        const status = loadErrorStatus(err);
+        if (status) setLoadError(status);
+        else console.error(err);
+      });
     fetchTripApplications(id).then(setApplications).catch(console.error);
   }, [id]);
 
+  // Trip settings (libraries, application template) are closed to a guest (403), and a guest
+  // doesn't edit them, so only staff fetch them. Whether budgeting is on comes with the trip
+  // itself (below), so the Financial tab shows for a guest too.
+  // Wait for the user to load first: until it has, isGuest is false for everyone, and a guest
+  // would fire (and be refused) the request before the page knows they are one.
   useEffect(() => {
+    if (userLoading || isGuest) return;
     fetchTripsSettings()
       .then((s) => {
         setQuestionLibrary(s.tripQuestionLibrary || []);
         setRequirementLibrary(s.tripRequirementLibrary || []);
         setApplicationTemplate(s.tripApplicationTemplate || []);
-        setEnableTripBudgeting(!!s.enableTripBudgeting);
       })
       .catch(console.error);
-  }, []);
+  }, [userLoading, isGuest]);
 
   useEffect(() => {
     reload();
@@ -65,9 +85,14 @@ export default function TripDetailLayout() {
     }
   );
 
+  if (loadError)
+    return (
+      <RecordUnavailable status={loadError} what="trip" backTo="/admin/trips" backLabel="Back to Trips" />
+    );
   if (!trip) return <div className="admin-shell">Loading…</div>;
 
   const pendingCount = applications.filter((a) => a.status === "pending").length;
+  const enableTripBudgeting = !!trip.enableTripBudgeting;
   const tabs = [
     { to: "", label: "Overview", end: true },
     { to: "team", label: pendingCount > 0 ? `Team (${pendingCount})` : "Team" },
@@ -111,6 +136,12 @@ export default function TripDetailLayout() {
       <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginTop: "0.5rem" }}>
         <h2 style={{ margin: 0 }}>{trip.name || trip.type || "Trip"}</h2>
         <TripStatusBadge status={trip.status} />
+        {/* #358: finishing a trip is its own guided step; a finished one is edited from its debrief. */}
+        {canWrite && trip.status !== "completed" && (
+          <Link className="btn small" to="wrap-up" style={{ marginLeft: "auto" }}>
+            Wrap up trip
+          </Link>
+        )}
         {trip.partner?.isRestricted && (
           <span
             style={{
@@ -136,7 +167,12 @@ export default function TripDetailLayout() {
         )}
       </p>
       {!isGuest && (
-        <LastEdited name={trip.lastEditedByName} at={trip.lastEditedAt} style={{ margin: "0.15rem 0 0" }} />
+        <LastEdited
+          name={trip.lastEditedByName}
+          at={trip.lastEditedAt}
+          createdAt={trip.createdAt}
+          style={{ margin: "0.15rem 0 0" }}
+        />
       )}
 
       <div

@@ -30,11 +30,16 @@ function write(entries) {
 //   useRecordRecentlyViewed(p && { to: `/admin/partners/${p.id}`, label: p.displayName, kind: "Partner" })
 // Pass a falsy value (record not loaded yet) and it's a no-op.
 export function useRecordRecentlyViewed(entry) {
+  // The three fields it records, not the entry object: callers build a new object every
+  // render, which would otherwise rewrite the list on every render.
+  const to = entry?.to;
+  const label = entry?.label;
+  const kind = entry?.kind;
   useEffect(() => {
-    if (!entry?.to) return;
-    const existing = read().filter((e) => e.to !== entry.to);
-    write([{ ...entry, viewedAt: Date.now() }, ...existing].slice(0, MAX_ENTRIES));
-  }, [entry?.to, entry?.label, entry?.kind]);
+    if (!to) return;
+    const existing = read().filter((e) => e.to !== to);
+    write([{ to, label, kind, viewedAt: Date.now() }, ...existing].slice(0, MAX_ENTRIES));
+  }, [to, label, kind]);
 }
 
 // Call from AdminHome.jsx to render the row. Not reactive to other tabs/

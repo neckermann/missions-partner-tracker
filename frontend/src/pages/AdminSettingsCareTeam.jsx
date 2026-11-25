@@ -1,5 +1,11 @@
 import React, { useEffect, useState } from "react";
-import { fetchDefaultCareLead, setDefaultCareLead, fetchCareTeamCandidates } from "../api/client.js";
+import {
+  fetchDefaultCareLead,
+  setDefaultCareLead,
+  fetchCareTeamCandidates,
+  fetchChurchSettings,
+  updateChurchSettings,
+} from "../api/client.js";
 import { useSettings } from "../context/SettingsContext.jsx";
 import SettingsPageHeader from "../components/admin/SettingsPageHeader.jsx";
 import EditableSection from "../components/admin/EditableSection.jsx";
@@ -13,6 +19,8 @@ export default function AdminSettingsCareTeam() {
   const { enabledFeatures } = useSettings();
   const [lead, setLead] = useState(undefined); // undefined = loading, null = none
   const [candidates, setCandidates] = useState([]);
+  // How far ahead a key date is raised, and how long without contact makes a partner quiet (#365).
+  const [timings, setTimings] = useState(null); // { keyDateLeadDays, contactStaleDays }
   const [loadError, setLoadError] = useState("");
 
   const reload = () =>
@@ -20,8 +28,16 @@ export default function AdminSettingsCareTeam() {
       .then(setLead)
       .catch(() => setLoadError("Couldn't load the care team settings."));
 
+  const reloadTimings = () =>
+    fetchChurchSettings()
+      .then((s) =>
+        setTimings({ keyDateLeadDays: s?.keyDateLeadDays ?? 7, contactStaleDays: s?.contactStaleDays ?? 90 })
+      )
+      .catch(() => setTimings({ keyDateLeadDays: 7, contactStaleDays: 90 }));
+
   useEffect(() => {
     reload();
+    reloadTimings();
     fetchCareTeamCandidates().then(setCandidates).catch(console.error);
   }, []);
 
@@ -58,8 +74,10 @@ export default function AdminSettingsCareTeam() {
                 showEmpty
               />
               <p style={{ color: "#555", marginTop: "0.5rem" }}>
-                When a partner has no care team, their reminders go to the default lead instead of nobody.
-                Once a partner has a care team, the default lead is no longer told about them.
+                When a partner has no care team, their reminders and their &ldquo;Partners to reach out
+                to&rdquo; go to the default lead instead of nobody. Once a partner has a care team, the
+                default lead is no longer told about them. (A Guest default lead only gets the key-date
+                reminders: it never widens which partners a guest can see.)
               </p>
             </>
           )}
@@ -75,6 +93,69 @@ export default function AdminSettingsCareTeam() {
                 ))}
               </select>
             </label>
+          )}
+        />
+      </div>
+
+      <div className="admin-section-group">
+        <h2 className="admin-group-heading">Timing</h2>
+        <EditableSection
+          title="Timing"
+          canEdit
+          value={{
+            keyDateLeadDays: String(timings?.keyDateLeadDays ?? 7),
+            contactStaleDays: String(timings?.contactStaleDays ?? 90),
+          }}
+          onSave={(draft) =>
+            updateChurchSettings({
+              keyDateLeadDays: Number(draft.keyDateLeadDays),
+              contactStaleDays: Number(draft.contactStaleDays),
+            })
+          }
+          onSaved={reloadTimings}
+          view={() => (
+            <>
+              <Field
+                label="Key dates are raised"
+                value={timings ? `${timings.keyDateLeadDays} days ahead` : "Loading…"}
+                showEmpty
+              />
+              <Field
+                label="A partner is quiet after"
+                value={timings ? `${timings.contactStaleDays} days without contact` : "Loading…"}
+                showEmpty
+              />
+              <p style={{ color: "#555", marginTop: "0.5rem" }}>
+                The same numbers are used on the bell, in the daily email, on My partners and as the default
+                in the Last heard from report. The email is still sent at 7am church time.
+              </p>
+            </>
+          )}
+          edit={(d, set) => (
+            <>
+              <label>
+                Raise a key date this many days ahead (1 to 60)
+                <input
+                  type="number"
+                  min={1}
+                  max={60}
+                  value={d.keyDateLeadDays}
+                  onChange={(e) => set("keyDateLeadDays", e.target.value)}
+                  required
+                />
+              </label>
+              <label>
+                Call a partner quiet after this many days without a logged contact (7 to 365)
+                <input
+                  type="number"
+                  min={7}
+                  max={365}
+                  value={d.contactStaleDays}
+                  onChange={(e) => set("contactStaleDays", e.target.value)}
+                  required
+                />
+              </label>
+            </>
           )}
         />
       </div>

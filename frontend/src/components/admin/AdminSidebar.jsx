@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useLayoutEffect } from "react";
 import { Link, NavLink as RouterNavLink, useLocation, useNavigate } from "react-router-dom";
 import { logout } from "../../api/client.js";
 import { useSettings } from "../../context/SettingsContext.jsx";
@@ -22,6 +22,7 @@ const NAV_BADGE_CATEGORIES = {
     "tripsDepartingSoonIncomplete",
     "overdueTripRequirements",
     "tripApplicationsPending",
+    "tripsReadyToWrapUp",
   ],
 };
 
@@ -32,11 +33,15 @@ function badgeText(count) {
   return count > 99 ? "99+" : String(count);
 }
 
+// Smallest gap kept between the bell dropdown and the screen edge, in px.
+const BELL_EDGE = 8;
+
 function NotificationBell({ categories, totalUnread, markSeen }) {
   const [open, setOpen] = useState(false);
   const [coords, setCoords] = useState(null);
   const ref = useRef(null);
   const btnRef = useRef(null);
+  const dropdownRef = useRef(null);
 
   useEffect(() => {
     function onClickOutside(e) {
@@ -45,6 +50,33 @@ function NotificationBell({ categories, totalUnread, markSeen }) {
     document.addEventListener("mousedown", onClickOutside);
     return () => document.removeEventListener("mousedown", onClickOutside);
   }, [open]);
+
+  // The dropdown is position: fixed, so it stays put while the page scrolls under it and
+  // while the window resizes; the bell moves, the dropdown doesn't. Close it instead of
+  // leaving it floating away from its button.
+  useEffect(() => {
+    if (!open) return undefined;
+    function close(e) {
+      if (e.type === "scroll" && e.target instanceof Node && dropdownRef.current?.contains(e.target)) return;
+      setOpen(false);
+    }
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
+    return () => {
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("resize", close);
+    };
+  }, [open]);
+
+  // Keep the dropdown fully on screen. Its left edge starts at the bell's, which on a phone
+  // (where the sidebar stacks above the page and the bell sits near the right) would put
+  // most of it past the screen edge. Measure it once rendered and pull it back in.
+  useLayoutEffect(() => {
+    if (!open || !coords || !dropdownRef.current) return;
+    const width = dropdownRef.current.getBoundingClientRect().width;
+    const left = Math.max(BELL_EDGE, Math.min(coords.left, window.innerWidth - width - BELL_EDGE));
+    if (left !== coords.left) setCoords((c) => ({ ...c, left }));
+  }, [open, coords]);
 
   const withCount = categories.filter((c) => c.count > 0);
 
@@ -85,6 +117,7 @@ function NotificationBell({ categories, totalUnread, markSeen }) {
       </button>
       {open && coords && (
         <div
+          ref={dropdownRef}
           className="admin-sidebar-bell-dropdown"
           role="menu"
           style={{ top: coords.top, left: coords.left }}
@@ -164,6 +197,12 @@ function buildSiteAdminLinks(enabledFeatures) {
     { to: "/admin/settings/features", label: "Enabled Features", icon: "🧩" },
     enabledFeatures.trips && { to: "/admin/settings/trips", label: "Trips", icon: "✈️" },
     enabledFeatures.careTeam && { to: "/admin/settings/care-team", label: "Care Teams", icon: "🤝" },
+    enabledFeatures.supportPreferences &&
+      enabledFeatures.careTeam && {
+        to: "/admin/settings/support-preferences",
+        label: "Support Preferences",
+        icon: "💛",
+      },
     (enabledFeatures.outboundEmail || enabledFeatures.inboundEmail) && {
       to: "/admin/settings/email",
       label: "Email",
@@ -186,6 +225,25 @@ function buildSiteAdminLinks(enabledFeatures) {
 }
 
 const SIDEBAR_COLLAPSED_KEY = "admin.sidebarCollapsed";
+
+// The width at which the sidebar stops sitting beside the page and becomes a slim bar on top of
+// it (keep in step with the @media (max-width: 800px) rules in index.css).
+const PHONE_QUERY = "(max-width: 800px)";
+
+function usePhoneWidth() {
+  const [phone, setPhone] = useState(() =>
+    typeof window !== "undefined" && window.matchMedia ? window.matchMedia(PHONE_QUERY).matches : false
+  );
+  useEffect(() => {
+    if (!window.matchMedia) return undefined;
+    const query = window.matchMedia(PHONE_QUERY);
+    const onChange = () => setPhone(query.matches);
+    onChange();
+    query.addEventListener("change", onChange);
+    return () => query.removeEventListener("change", onChange);
+  }, []);
+  return phone;
+}
 
 function readSidebarCollapsed() {
   try {
@@ -240,9 +298,18 @@ export default function AdminSidebar() {
   const { loading: userLoading, isAdmin, isGuest, careTeamSeats } = useCurrentUser();
   const { categories, totalUnread, markSeen } = useNotifications();
   const categoryByKey = new Map(categories.map((c) => [c.key, c]));
-  const [collapsed, setCollapsed] = useState(readSidebarCollapsed);
+  const [collapsedPref, setCollapsed] = useState(readSidebarCollapsed);
+  // On a phone the menu starts closed behind a Menu button, so the page a person opened is on the
+  // first screen (#384), and closes again after they choose a page. The desktop collapse
+  // preference (icons only) means nothing there: the menu is either open with labels or closed.
+  const phone = usePhoneWidth();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const collapsed = collapsedPref && !phone;
   const navigate = useNavigate();
   const location = useLocation();
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [location.pathname]);
   const { churchName, partnerTermPlural, usePartnerTermInAdmin, enabledFeatures } = useSettings();
   const title = churchName ? `${churchName} Admin` : "Missions Team Admin";
 
@@ -303,7 +370,11 @@ export default function AdminSidebar() {
   );
 
   return (
-    <aside className={collapsed ? "admin-sidebar no-print collapsed" : "admin-sidebar no-print"}>
+    <aside
+      className={
+        "admin-sidebar no-print" + (collapsed ? " collapsed" : "") + (phone && menuOpen ? " menu-open" : "")
+      }
+    >
       <div className="admin-sidebar-title">
         <h1
           className="admin-sidebar-title-text"
@@ -316,6 +387,15 @@ export default function AdminSidebar() {
           <NotificationBell categories={categories} totalUnread={totalUnread} markSeen={markSeen} />
           <button
             type="button"
+            className="admin-sidebar-menu-btn"
+            onClick={() => setMenuOpen((v) => !v)}
+            aria-expanded={menuOpen}
+            aria-controls="admin-sidebar-menu"
+          >
+            <span aria-hidden="true">{menuOpen ? "✕" : "☰"}</span> Menu
+          </button>
+          <button
+            type="button"
             className="admin-sidebar-collapse-btn"
             onClick={toggleCollapsed}
             title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
@@ -324,46 +404,48 @@ export default function AdminSidebar() {
           </button>
         </span>
       </div>
-      <nav className="admin-sidebar-nav">
-        {navItems.map(({ key, ...item }) => (
-          <SidebarLink key={key} {...item} />
-        ))}
-        {isAdmin && !isGuest && (
-          <>
-            <RouterNavLink
-              to="/admin/settings"
-              title="Settings"
-              className={inSiteAdmin ? "active" : undefined}
-            >
-              <span aria-hidden="true">⚙️</span>
-              <span className="sb-label">Settings</span>
-            </RouterNavLink>
-            {inSiteAdmin && (
-              <div className="admin-sidebar-subnav">
-                {siteAdminLinks.map((link) => (
-                  <SidebarLink key={link.to} {...link} />
-                ))}
-              </div>
-            )}
-          </>
-        )}
-      </nav>
-      <div className="admin-sidebar-footer">
-        {publicLinkNode}
-        <SidebarLink to="/admin/account" label="My Account" icon="🙋" />
-        <button
-          type="button"
-          title="Log out"
-          onClick={async () => {
-            await logout();
-            navigate("/login");
-          }}
-        >
-          <span aria-hidden="true">🚪</span>
-          <span className="sb-label">Log out</span>
-        </button>
-        <div className="admin-sidebar-theme-toggle">
-          <ThemeToggle compact />
+      <div id="admin-sidebar-menu" className="admin-sidebar-menu">
+        <nav className="admin-sidebar-nav">
+          {navItems.map(({ key, ...item }) => (
+            <SidebarLink key={key} {...item} />
+          ))}
+          {isAdmin && !isGuest && (
+            <>
+              <RouterNavLink
+                to="/admin/settings"
+                title="Settings"
+                className={inSiteAdmin ? "active" : undefined}
+              >
+                <span aria-hidden="true">⚙️</span>
+                <span className="sb-label">Settings</span>
+              </RouterNavLink>
+              {inSiteAdmin && (
+                <div className="admin-sidebar-subnav">
+                  {siteAdminLinks.map((link) => (
+                    <SidebarLink key={link.to} {...link} />
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </nav>
+        <div className="admin-sidebar-footer">
+          {publicLinkNode}
+          <SidebarLink to="/admin/account" label="My Account" icon="🙋" />
+          <button
+            type="button"
+            title="Log out"
+            onClick={async () => {
+              await logout();
+              navigate("/login");
+            }}
+          >
+            <span aria-hidden="true">🚪</span>
+            <span className="sb-label">Log out</span>
+          </button>
+          <div className="admin-sidebar-theme-toggle">
+            <ThemeToggle compact />
+          </div>
         </div>
       </div>
     </aside>

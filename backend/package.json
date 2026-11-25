@@ -1,6 +1,6 @@
 {
   "name": "missions-partner-tracker-backend",
-  "version": "0.7.0",
+  "version": "0.1.0-beta.1",
   "private": true,
   "type": "commonjs",
   "scripts": {
@@ -26,6 +26,7 @@
     "@anthropic-ai/sdk": "^1.12.0",
     "@prisma/adapter-pg": "^7.10.1",
     "@prisma/client": "^7.10.1",
+    "@simplewebauthn/server": "^14.1.0",
     "baileys": "7.0.0-rc14",
     "baileys-antiban": "4.10.0",
     "bcryptjs": "^3.0.3",

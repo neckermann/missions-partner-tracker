@@ -30,6 +30,7 @@ const tripTypeRoutes = require("./routes/tripTypes");
 const tripRoutes = require("./routes/trips");
 const careTeamRoutes = require("./routes/careTeams");
 const auditRoutes = require("./routes/audit");
+const supportPreferencesRoutes = require("./routes/supportPreferences");
 const contactLogRoutes = require("./routes/contactLog");
 const tripMeetingRoutes = require("./routes/tripMeetings");
 const tripRequirementRoutes = require("./routes/tripRequirements");
@@ -207,6 +208,25 @@ app.use(
 const sensitiveAuthLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10 });
 app.use("/api/auth/mfa/verify-setup", sensitiveAuthLimiter);
 app.use("/api/auth/mfa/disable", sensitiveAuthLimiter);
+// #386: passkey sign-in is a guess against a pending token; removing one checks the password.
+// #386 Layer 2: the emailed-link request sends mail and the redeem step guesses a 256-bit token;
+// both tight, like the password-reset request above.
+app.use(
+  "/api/auth/passwordless",
+  rateLimit({ windowMs: 15 * 60 * 1000, max: process.env.NODE_ENV === "test" ? 1000 : 10 })
+);
+app.use(
+  "/api/auth/passkeys/passwordless",
+  rateLimit({ windowMs: 15 * 60 * 1000, max: process.env.NODE_ENV === "test" ? 1000 : 30 })
+);
+app.use(
+  "/api/auth/passkeys/login",
+  rateLimit({ windowMs: 15 * 60 * 1000, max: process.env.NODE_ENV === "test" ? 1000 : 20 })
+);
+app.use(
+  "/api/auth/passkeys/register",
+  rateLimit({ windowMs: 15 * 60 * 1000, max: process.env.NODE_ENV === "test" ? 1000 : 20 })
+);
 app.use("/api/auth/change-password", sensitiveAuthLimiter);
 
 // The public site's own pages (directory, map, tour) legitimately fire many
@@ -263,6 +283,7 @@ app.use("/api/trips", tripRoutes); // protected (admin) — session required
 app.use("/api/care-team", careTeamRoutes); // protected; flag-gated (careTeam) -- see that file's own comment
 app.use("/api/audit", auditRoutes); // protected (admin); flag-gated (auditTrail) -- the audit log (#341)
 app.use("/api/contact-log", contactLogRoutes); // protected; flag-gated (contactLog) -- see that file's own comment
+app.use("/api/support-preferences", supportPreferencesRoutes); // protected; flag-gated (supportPreferences + careTeam) -- see that file's own comment
 // #271 Finding 1: three sibling sub-resource routers, same prefix as
 // tripRoutes above (not a separate API surface) -- split out of a
 // single oversized trips.js. Each still gates independently

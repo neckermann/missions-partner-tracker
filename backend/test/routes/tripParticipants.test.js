@@ -50,7 +50,6 @@ global.fetch = (url, options) => {
 };
 
 let admin;
-let anon;
 let originalEnabledFeatures;
 
 async function setFeatures(patch) {
@@ -72,7 +71,7 @@ async function setTripsSettings(patch) {
 
 before(async () => {
   await ensureTestUsers();
-  [admin, anon] = await Promise.all([client("admin"), client(null)]);
+  admin = await client("admin");
   await removeFixturePartners();
 
   const settings = await prisma.churchSettings.findUnique({
@@ -159,10 +158,10 @@ describe("Trips: adding a participant late catches up on existing meetings", () 
         cancelledAt: new Date(),
       },
     });
-    const future1 = await prisma.tripMeeting.create({
+    await prisma.tripMeeting.create({
       data: { tripId: trip.body.id, startAt: "2026-12-11T19:00:00.000Z", agenda: "Packing list" },
     });
-    const future2 = await prisma.tripMeeting.create({
+    await prisma.tripMeeting.create({
       data: { tripId: trip.body.id, startAt: "2026-12-12T19:00:00.000Z", agenda: "Team send-off" },
     });
 

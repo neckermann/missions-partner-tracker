@@ -16,6 +16,7 @@ const {
 } = require("../src/utils/silhouette");
 const { generateShareToken } = require("../src/utils/tripAccessToken");
 const { demoDisabledFeatureFlags } = require("../src/utils/demoMode");
+const { replaceQuestions, replaceRequirementItems, answerRows } = require("../src/utils/tripTemplates");
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
 
@@ -460,6 +461,144 @@ const PASSPORT_OPTIONS = [
   "No, I do not have a passport, but there is enough time to get one before the deadline",
   "No, and there is not enough time to get one before the deadline",
 ];
+
+// #394: application questions are real rows. The seed writes them as lists (the same shape the
+// API takes) and answers as { questionId: answer }, then these helpers turn both into rows.
+const SEED_TEMPLATE_QUESTIONS = [
+  {
+    id: "tmpl2",
+    type: "select",
+    label: "Are you willing to raise the funds needed for this trip and meet payment deadlines?",
+    required: true,
+    options: ["Yes", "No"],
+  },
+  {
+    id: "tmpl3",
+    type: "select",
+    label:
+      "Do you agree to follow the team's code of conduct during the trip? If accepted, you will be required to sign a full copy of the code of conduct.",
+    required: true,
+    options: ["Yes", "No"],
+  },
+  // tmpl6/7/8 promoted from the library (were lib1/2/3) -- the user
+  // asked for these three specifically to be live on every
+  // application by default for the demo, not just available as an
+  // opt-in pick. Moved, not duplicated: a question that's already
+  // live in the template has no remaining reason to also sit in the
+  // picker-only library (same reasoning that already applies to
+  // every other template question -- nothing lives in both lists).
+  {
+    id: "tmpl6",
+    type: "textarea",
+    label: "Tell us about your faith journey and how you came to follow Jesus.",
+    required: false,
+  },
+  {
+    id: "tmpl7",
+    type: "textarea",
+    label: "What are your expectations for this trip?",
+    required: false,
+  },
+  {
+    id: "tmpl8",
+    type: "text",
+    label: "Health insurance company and policy/group number",
+    required: false,
+  },
+];
+const SEED_LIBRARY_QUESTIONS = [
+  {
+    id: "lib4",
+    type: "select",
+    label: "Do you have a valid passport, or could you get one before the trip departs?",
+    required: true,
+    options: PASSPORT_OPTIONS,
+  },
+  {
+    id: "lib5",
+    type: "select",
+    label: "Are you comfortable with texting as a way for the team to reach you?",
+    required: false,
+    options: ["Yes", "No"],
+  },
+  { id: "lib6", type: "text", label: "Occupation", required: false },
+  {
+    id: "lib7",
+    type: "select",
+    label: "Marital status",
+    required: false,
+    options: ["Single", "Married"],
+  },
+];
+const SEED_OPEN_TRIP_QUESTIONS = [
+  { id: "q1", label: "Do you have any dietary restrictions?", required: false },
+  {
+    id: "q3",
+    type: "select",
+    label: "Do you have a valid passport?",
+    required: true,
+    options: PASSPORT_OPTIONS,
+  },
+  // checkboxes (multi-select, array response) wasn't exercised
+  // anywhere in this seed otherwise -- every other question here or
+  // in the template/library is text/textarea/select/date.
+  {
+    id: "q4",
+    type: "checkboxes",
+    label: "Which skills could you contribute to this trip? (check all that apply)",
+    required: false,
+    options: [
+      "Construction",
+      "Medical/Nursing",
+      "Teaching/Children's ministry",
+      "Translation",
+      "Cooking/Hospitality",
+      "Worship/Music",
+    ],
+  },
+];
+const SEED_RESTRICTED_TRIP_QUESTIONS = [
+  {
+    id: "q1",
+    type: "select",
+    label: "Do you have a valid passport?",
+    required: true,
+    options: PASSPORT_OPTIONS,
+  },
+];
+
+// The seed's readable ids ("tmpl2", "q1") become real ids on save; this keeps the way back.
+async function seedQuestionList(scope, tripId, items) {
+  const saved = await replaceQuestions(prisma, scope, tripId, items);
+  return { saved, ids: new Map(items.map((q, n) => [q.id, saved[n].id])) };
+}
+
+// Answers given in the seed's literals, held until their application exists (keyed by email).
+const SEED_RESPONSES = new Map();
+function stripResponses(data) {
+  if (data.responses) {
+    SEED_RESPONSES.set(data.email, data.responses);
+    delete data.responses;
+  }
+  for (const app of data.applications?.create || []) stripResponses(app);
+  return data;
+}
+async function attachSeedAnswers(tripId, sets) {
+  const ids = new Map(sets.flatMap((set) => [...set.ids]));
+  const questions = sets.flatMap((set) => set.saved);
+  const apps = await prisma.tripApplication.findMany({
+    where: { tripId },
+    select: { id: true, email: true },
+  });
+  for (const app of apps) {
+    const responses = SEED_RESPONSES.get(app.email);
+    if (!responses) continue;
+    const remapped = Object.fromEntries(Object.entries(responses).map(([k, v]) => [ids.get(k) ?? k, v]));
+    await prisma.tripApplicationAnswer.createMany({
+      data: answerRows(questions, remapped).map((row) => ({ ...row, applicationId: app.id })),
+    });
+  }
+}
 
 const TRIP_TYPES = [
   "Construction",
@@ -1375,8 +1514,15 @@ async function seedTripsDemo() {
   soloDepart.setHours(6, 40, 0, 0);
   const soloArrive = new Date(soloDepart.getTime() + 19 * 60 * 60 * 1000);
 
+  const templateSet = await seedQuestionList("template", null, SEED_TEMPLATE_QUESTIONS);
+  await seedQuestionList("library", null, SEED_LIBRARY_QUESTIONS);
+  // Same default checklist every brand-new fork gets (see DEFAULT_TRIP_REQUIREMENT_TEMPLATE's own
+  // comment) -- dev-demo isn't special-cased relative to a real new install here.
+  await replaceRequirementItems(prisma, "template", DEFAULT_TRIP_REQUIREMENT_TEMPLATE);
+  await replaceRequirementItems(prisma, "library", []);
+
   const openTrip = await prisma.trip.create({
-    data: {
+    data: stripResponses({
       partnerId: openPartner.id,
       name: `${openPartner.displayName.split(" ")[0]}'s Summer Team`,
       status: "accepting_applications",
@@ -1392,33 +1538,6 @@ async function seedTripsDemo() {
       // the church-wide tripApplicationTemplate seeded below, which is
       // exactly the case that layering exists for: a question every trip
       // asks lives in the template once, not retyped per trip.
-      applicationQuestions: [
-        { id: "q1", label: "Do you have any dietary restrictions?", required: false },
-        {
-          id: "q3",
-          type: "select",
-          label: "Do you have a valid passport?",
-          required: true,
-          options: PASSPORT_OPTIONS,
-        },
-        // checkboxes (multi-select, array response) wasn't exercised
-        // anywhere in this seed otherwise -- every other question here or
-        // in the template/library is text/textarea/select/date.
-        {
-          id: "q4",
-          type: "checkboxes",
-          label: "Which skills could you contribute to this trip? (check all that apply)",
-          required: false,
-          options: [
-            "Construction",
-            "Medical/Nursing",
-            "Teaching/Children's ministry",
-            "Translation",
-            "Cooking/Hospitality",
-            "Worship/Music",
-          ],
-        },
-      ],
       applications: {
         create: [
           {
@@ -1531,8 +1650,9 @@ async function seedTripsDemo() {
           { label: "Attended orientation call", kind: "task" },
         ],
       },
-    },
+    }),
   });
+  const openTripSet = await seedQuestionList("trip", openTrip.id, SEED_OPEN_TRIP_QUESTIONS);
   const priya = await prisma.tripParticipant.create({
     data: {
       trip: { connect: { id: openTrip.id } },
@@ -1668,7 +1788,7 @@ async function seedTripsDemo() {
   // exactly what PUT /api/trips/applications/:id's approval branch does
   // on a real approval, not a shortcut shape.
   const amaraApplication = await prisma.tripApplication.create({
-    data: {
+    data: stripResponses({
       tripId: openTrip.id,
       firstName: "Amara",
       lastName: "Chukwu",
@@ -1698,8 +1818,9 @@ async function seedTripsDemo() {
         q3: "Yes",
         q4: ["Medical/Nursing"],
       },
-    },
+    }),
   });
+  await attachSeedAnswers(openTrip.id, [templateSet, openTripSet]);
   const amara = await prisma.tripParticipant.create({
     data: {
       tripId: openTrip.id,
@@ -2128,15 +2249,6 @@ async function seedTripsDemo() {
         teamSizeMin: 3,
         teamSizeMax: 6,
         supportRaisingGoal: 1200,
-        applicationQuestions: [
-          {
-            id: "q1",
-            type: "select",
-            label: "Do you have a valid passport?",
-            required: true,
-            options: PASSPORT_OPTIONS,
-          },
-        ],
         requirements: {
           create: [
             {
@@ -2148,6 +2260,7 @@ async function seedTripsDemo() {
         },
       },
     });
+    const restrictedSet = await seedQuestionList("trip", restrictedTrip.id, SEED_RESTRICTED_TRIP_QUESTIONS);
 
     // Zero participants/applications here otherwise -- the masked (not
     // excluded) private-link/support-raising code paths this trip's
@@ -2155,7 +2268,7 @@ async function seedTripsDemo() {
     // real to click through. Approved via a real application, same
     // field-copy shape as the open trip's Amara.
     const restrictedApplication = await prisma.tripApplication.create({
-      data: {
+      data: stripResponses({
         tripId: restrictedTrip.id,
         firstName: "Hannah",
         lastName: "Weiss",
@@ -2165,8 +2278,9 @@ async function seedTripsDemo() {
         reviewedAt: dateBetween(1, 0),
         reviewedById: admin?.id || null,
         responses: { q1: "Yes" },
-      },
+      }),
     });
+    await attachSeedAnswers(restrictedTrip.id, [templateSet, restrictedSet]);
     await prisma.tripParticipant.create({
       data: {
         tripId: restrictedTrip.id,
@@ -2577,6 +2691,11 @@ async function seedTripsDemo() {
         trips: true,
         careTeam: true,
         contactLog: true,
+        // #365: key-date reminders are on for a demo so the bell shows them; their email is blocked
+        // on any demo by the scheduler (see utils/demoMode.js).
+        keyDates: true,
+        // #374: support preferences, with an example menu and some recorded choices (seedSupportPreferencesDemo).
+        supportPreferences: true,
         // The audit log is on for a demo, with example entries (seedAuditLogDemo).
         auditTrail: true,
         // Off on a demo: it would email the fake seeded accounts. See
@@ -2639,77 +2758,6 @@ async function seedTripsDemo() {
       // ChurchSettings.collectEmergencyContact shipped a real structured
       // name/phone/email block on the application form itself -- same
       // reasoning as tmpl4 (mailing address) being dropped just above.
-      tripApplicationTemplate: [
-        {
-          id: "tmpl2",
-          type: "select",
-          label: "Are you willing to raise the funds needed for this trip and meet payment deadlines?",
-          required: true,
-          options: ["Yes", "No"],
-        },
-        {
-          id: "tmpl3",
-          type: "select",
-          label:
-            "Do you agree to follow the team's code of conduct during the trip? If accepted, you will be required to sign a full copy of the code of conduct.",
-          required: true,
-          options: ["Yes", "No"],
-        },
-        // tmpl6/7/8 promoted from the library (were lib1/2/3) -- the user
-        // asked for these three specifically to be live on every
-        // application by default for the demo, not just available as an
-        // opt-in pick. Moved, not duplicated: a question that's already
-        // live in the template has no remaining reason to also sit in the
-        // picker-only library (same reasoning that already applies to
-        // every other template question -- nothing lives in both lists).
-        {
-          id: "tmpl6",
-          type: "textarea",
-          label: "Tell us about your faith journey and how you came to follow Jesus.",
-          required: false,
-        },
-        {
-          id: "tmpl7",
-          type: "textarea",
-          label: "What are your expectations for this trip?",
-          required: false,
-        },
-        {
-          id: "tmpl8",
-          type: "text",
-          label: "Health insurance company and policy/group number",
-          required: false,
-        },
-      ],
-      tripQuestionLibrary: [
-        {
-          id: "lib4",
-          type: "select",
-          label: "Do you have a valid passport, or could you get one before the trip departs?",
-          required: true,
-          options: PASSPORT_OPTIONS,
-        },
-        {
-          id: "lib5",
-          type: "select",
-          label: "Are you comfortable with texting as a way for the team to reach you?",
-          required: false,
-          options: ["Yes", "No"],
-        },
-        { id: "lib6", type: "text", label: "Occupation", required: false },
-        {
-          id: "lib7",
-          type: "select",
-          label: "Marital status",
-          required: false,
-          options: ["Single", "Married"],
-        },
-      ],
-      // Same default template/library every brand-new fork gets (see
-      // DEFAULT_TRIP_REQUIREMENT_TEMPLATE's own comment) -- dev-demo isn't
-      // special-cased relative to a real new install here.
-      tripRequirementTemplate: DEFAULT_TRIP_REQUIREMENT_TEMPLATE,
-      tripRequirementLibrary: [],
     },
   });
 }
@@ -3189,6 +3237,215 @@ async function seedKeyDatesDemo() {
     await prisma.churchSettings.update({
       where: { id: "singleton" },
       data: { defaultCareLeadUserId: editor.id },
+    });
+  }
+}
+
+// #341: "Last edited by" for the demo. Nothing in the seed is a signed-in person's edit, so
+// every seeded record has no editor, and the Partners and Trips "Last updated" column and the
+// "Last edited by" lines would all be blank until a visitor changed something. Stamp most
+// partners, trips, prayer requests and needs with one of the demo's staff and a date spread
+// over the last ten weeks, so the column has something to sort and the lines something to
+// show, and leave about one in seven blank, as a real install has ("blank means no signed-in
+// person has changed it"). The care team member is the editor on some prayer requests and
+// needs, since care team members can edit those. Deterministic by creation order.
+async function seedLastEditedDemo() {
+  console.log("Stamping last-edited-by on the demo records...");
+  const staff = await prisma.user.findMany({
+    where: { active: true, role: { in: ["admin", "editor"] } },
+    orderBy: { createdAt: "asc" },
+  });
+  if (!staff.length) return;
+  const careMember = await prisma.user.findUnique({ where: { email: demoCareMemberEmail() } });
+  const nameOf = (u) => [u.firstName, u.lastName].filter(Boolean).join(" ") || u.email;
+  const stampFor = (i, editors) => {
+    if (i % 7 === 6) return null; // never edited by a signed-in person
+    const u = editors[i % editors.length];
+    const d = new Date();
+    d.setDate(d.getDate() - ((i * 5) % 70) - (i % 3));
+    d.setHours(8 + ((i * 3) % 10), (i * 11) % 60, 0, 0);
+    return { lastEditedById: u.id, lastEditedByName: nameOf(u), lastEditedAt: d };
+  };
+  // Give each trip an "Added" date (#383): some weeks before it starts, never in the future,
+  // in start-date order so the result is stable. (Every trip would otherwise be added "now",
+  // the moment the seed ran.)
+  const trips = await prisma.trip.findMany({
+    orderBy: [{ startDate: "asc" }, { id: "asc" }],
+    select: { id: true, startDate: true },
+  });
+  for (const [i, trip] of trips.entries()) {
+    const start = (trip.startDate ?? new Date()).getTime();
+    const added = new Date(Math.min(start - (45 + ((i * 11) % 75)) * 86400000, Date.now() - 86400000));
+    added.setHours(9 + (i % 8), (i * 17) % 60, 0, 0);
+    await prisma.trip.update({ where: { id: trip.id }, data: { createdAt: added } });
+  }
+  const orderFor = () => [{ createdAt: "asc" }, { id: "asc" }];
+  let stamped = 0;
+  for (const [model, editors] of [
+    ["partner", staff],
+    ["trip", staff],
+    ["prayerRequest", careMember ? [...staff, careMember] : staff],
+    ["supportNeed", careMember ? [...staff, careMember] : staff],
+  ]) {
+    const rows = await prisma[model].findMany({ orderBy: orderFor(), select: { id: true } });
+    for (const [i, row] of rows.entries()) {
+      const data = stampFor(i, editors);
+      if (!data) continue;
+      await prisma[model].update({ where: { id: row.id }, data });
+      stamped += 1;
+    }
+  }
+  console.log(`  stamped ${stamped} records`);
+}
+
+// ---------------------------------------------------------------------
+// Support preferences demo (#374): the example menu, and a handful of partners that have
+// chosen from it, so the card and the report have something to show. Deterministic (by
+// partner order); roughly a third of the partners with a care team have nothing recorded, so
+// "partners with nothing recorded" has rows too. Demo extras only; runs after the care teams.
+// ---------------------------------------------------------------------
+async function seedSupportPreferencesDemo() {
+  console.log("Seeding support preferences...");
+  const { addExampleOptions } = require("../src/utils/supportOptions");
+  await addExampleOptions(prisma);
+  const options = await prisma.supportOption.findMany({
+    where: { active: true },
+    orderBy: [{ group: "asc" }, { sortOrder: "asc" }],
+  });
+  if (!options.length) return;
+  const editor = await prisma.user.findFirst({
+    where: { active: true, role: { in: ["admin", "editor"] } },
+    orderBy: { createdAt: "asc" },
+  });
+  const stamp = editor
+    ? {
+        lastEditedById: editor.id,
+        lastEditedByName: [editor.firstName, editor.lastName].filter(Boolean).join(" ") || editor.email,
+      }
+    : {};
+
+  const partners = await prisma.partner.findMany({
+    where: { archived: false, careTeam: { some: {} } },
+    orderBy: [{ displayName: "asc" }, { id: "asc" }],
+    select: { id: true },
+  });
+  let recorded = 0;
+  for (const [i, partner] of partners.entries()) {
+    if (i % 3 === 2) continue; // nothing recorded yet
+    const rows = [];
+    for (const [j, option] of options.entries()) {
+      const pick = (i * 7 + j * 3) % 5; // spreads which options each partner chose
+      if (option.kind === "offer") {
+        if (pick < 2) {
+          rows.push({
+            optionId: option.id,
+            selected: true,
+            ...(pick === 0 && j % 4 === 0 ? { note: "Mentioned this on our last call." } : {}),
+          });
+        }
+      } else if (option.kind === "single" && option.choices.length) {
+        rows.push({
+          optionId: option.id,
+          selected: true,
+          choice: option.choices[(i + j) % option.choices.length],
+        });
+      } else if (option.kind === "multiple" && option.choices.length) {
+        rows.push({
+          optionId: option.id,
+          selected: true,
+          choices: option.choices.slice(0, 1 + ((i + j) % 2)),
+        });
+      } else if (option.kind === "text" && i % 2 === 0) {
+        rows.push({
+          optionId: option.id,
+          selected: true,
+          text: "Prayer needs can be shared with the care team, but nothing public.",
+        });
+      }
+    }
+    if (!rows.length) continue;
+    await prisma.partnerSupportPreference.createMany({
+      data: rows.map((r) => ({
+        partnerId: partner.id,
+        ...r,
+        ...stamp,
+        ...(editor ? { lastEditedAt: new Date(Date.now() - ((i % 40) + 1) * 86400000) } : {}),
+      })),
+      skipDuplicates: true,
+    });
+    recorded += 1;
+  }
+  console.log(`  recorded support preferences for ${recorded} partners`);
+}
+
+// ---------------------------------------------------------------------
+// Trip debriefs demo (#358): a few completed trips with a wrap-up debrief, so the Debrief section
+// on a trip's Overview has something to show. The most recent ones were wrapped up in the last
+// two weeks, so the care team's "Trips wrapped up" bell item has something to say too. Demo
+// extras only; deterministic (by end date, newest first).
+// ---------------------------------------------------------------------
+async function seedTripDebriefsDemo() {
+  console.log("Seeding trip debriefs...");
+  const trips = await prisma.trip.findMany({
+    where: { status: "completed", partnerId: { not: null }, endDate: { not: null } },
+    orderBy: [{ endDate: "desc" }, { id: "asc" }],
+    take: 6,
+    select: { id: true, endDate: true },
+  });
+  const debriefs = [
+    {
+      debriefWhatWeDid: "Ran a week of children's programs and helped repaint the community hall.",
+      debriefWentWell:
+        "The team worked well together and the local volunteers joined in on the last two days.",
+      debriefWasHard: "Heat, and a day lost to a transport strike.",
+      debriefPartnerNeeds: "Another team in the spring, and help buying paint for the second building.",
+    },
+    {
+      debriefWhatWeDid: "Medical clinic and home visits in three villages.",
+      debriefWentWell: "Over two hundred people seen, and the local nurses took part throughout.",
+      debriefWasHard: "Running short of some medicines by midweek.",
+      debriefPartnerNeeds:
+        "A supply of basic medicines, and a follow-up visit for the families we couldn't reach.",
+    },
+    {
+      debriefWhatWeDid: "Built a roof frame for the new school classroom.",
+      debriefWentWell: "Finished a day early.",
+      debriefWasHard: "",
+      debriefPartnerNeeds: "Funds for roofing sheets.",
+    },
+  ];
+  for (const [i, trip] of trips.entries()) {
+    // Wrapped up some days ago (never before the trip ended), so the newest are inside the
+    // two-week window the care team's bell item looks at.
+    const wrapped = new Date(
+      Math.max(trip.endDate.getTime() + 86400000, Date.now() - (i * 4 + 1) * 86400000)
+    );
+    await prisma.trip.update({
+      where: { id: trip.id },
+      data: { ...debriefs[i % debriefs.length], wrappedUpAt: wrapped },
+    });
+  }
+
+  // One trip that has finished but isn't wrapped up, so the "Trips ready to wrap up" bell item has
+  // something to show and a visitor can walk the Wrap up trip wizard themselves (#358).
+  const host = await prisma.trip.findFirst({
+    where: { partnerId: { not: null }, status: "completed" },
+    orderBy: { id: "asc" },
+    select: { partnerId: true, partner: { select: { displayName: true } } },
+  });
+  if (host?.partnerId) {
+    const day = 86400000;
+    await prisma.trip.create({
+      data: {
+        partnerId: host.partnerId,
+        name: `${host.partner.displayName.split(" ")[0]}'s Harvest Week team`,
+        status: "closed",
+        type: "Construction",
+        description: "A short team that has just come home. Try Wrap up trip on it.",
+        startDate: new Date(Date.now() - 12 * day),
+        endDate: new Date(Date.now() - 4 * day),
+        teamSizeMax: 6,
+      },
     });
   }
 }
@@ -3835,8 +4092,11 @@ async function main() {
     await seedCareTeamsDemo();
     await seedContactLogDemo();
     await seedKeyDatesDemo();
+    await seedSupportPreferencesDemo();
+    await seedTripDebriefsDemo();
     await seedPartnerUpdatesDemo();
     await seedAuditLogDemo();
+    await seedLastEditedDemo();
   }
 
   const finalMissionaries = await prisma.partner.count({ where: { kind: "missionary" } });

@@ -64,7 +64,8 @@ database, not just the demo's).
 
 **Bump the version first, in this same PR** — `backend/package.json`
 and `frontend/package.json` to the version this release will be
-tagged as. Not a follow-up step: `versionCheck.js` compares
+tagged as (`0.1.0-beta.2` for another beta, `0.1.0` for the stable release; see
+[CONTRIBUTING.md § Versioning](CONTRIBUTING.md#versioning-the-pre-10-beta-track)). Not a follow-up step: `versionCheck.js` compares
 `backend/package.json`'s version against this repo's latest GitHub
 Release tag to show admins an "update available" banner, so a merge
 that skips the bump makes that banner wrong the moment it deploys.
@@ -89,23 +90,26 @@ Merging the PR deploys automatically — Render's production
 Same migration-squash caveat as step 2 applies here, against the
 production database — see [demo/README.md](demo/README.md).
 
-**Right after merging, cut the matching git tag and GitHub Release**
-(`vX.Y.Z`, matching the version just bumped to in step 3):
+**The tag and GitHub Release are created for you.** When the merge lands,
+`.github/workflows/release.yml` reads the version from `backend/package.json`
+and creates tag `vX.Y.Z` and the GitHub Release (a version with a hyphen,
+like `0.1.0-beta.2`, is marked pre-release). Check that it ran, in the repo's
+Actions tab. It was added because `v0.6.0` and `v0.7.0` shipped without a tag
+when this was a manual step (issue #378).
+
+If it didn't run, or you need to cut one by hand, the equivalent is:
 
 ```bash
 git switch main && git pull
 git tag vX.Y.Z
 git push origin vX.Y.Z
-gh release create vX.Y.Z --generate-notes
+gh release create vX.Y.Z --generate-notes   # add --prerelease for a beta
 ```
 
-`.github/workflows/release-version-check.yml` runs on every tag push
-and fails loudly (no way to block the push itself, since the tag
-already exists by the time CI sees it) if the tag's version doesn't
-match `backend/package.json` at that commit — the enforcement exists
-because this was skipped for both `v1.0.0` and `v1.1.0` and nothing
-caught it (see
-[issue #277](https://github.com/neckermann/missions-partner-tracker/issues/277)).
+`.github/workflows/release-version-check.yml` runs on every tag pushed by
+hand and fails loudly if the tag's version doesn't match
+`backend/package.json` at that commit. (It can't block the push, since the
+tag already exists by the time CI sees it.)
 
 ### Rollback
 

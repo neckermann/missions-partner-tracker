@@ -6,7 +6,12 @@ import {
   verifyMfaSetup,
   disableMfa,
   updateNotifyByEmail,
+  setKeyDateEmailOptOut,
   fetchPartners,
+  fetchPasskeys,
+  registerPasskey,
+  removePasskey,
+  browserSupportsWebAuthn,
 } from "../api/client.js";
 import { passwordsMatch } from "../utils/password.js";
 import { useSettings } from "../context/SettingsContext.jsx";
@@ -100,11 +105,18 @@ export default function AccountSettings() {
       )}
 
       {user?.authProvider === "local" && <MfaSection user={user} onChange={reloadUser} />}
+      {user?.authProvider === "local" && <PasskeysSection onChange={reloadUser} />}
       {/* A guest sees password and MFA only (#356). The admin digest is
           church-wide content, not something a scoped login subscribes to. */}
       {user && !isGuest && enabledFeatures.outboundEmail && (
         <EmailDispatchSection user={user} onChange={reloadUser} />
       )}
+      {/* Everyone on a care team may get the daily key-date email, a guest included (#365). */}
+      {user &&
+        enabledFeatures.careTeam &&
+        enabledFeatures.keyDates &&
+        enabledFeatures.outboundEmail &&
+        user.careTeamSeats?.length > 0 && <KeyDateEmailSection user={user} onChange={reloadUser} />}
 
       <div className="admin-section">
         <h3>Appearance</h3>
@@ -115,6 +127,42 @@ export default function AccountSettings() {
         <ThemeToggle />
       </div>
     </div>
+  );
+}
+
+// The daily key-date email (#365): one message on a day a birthday, anniversary or milestone is due
+// for a partner you look after. Turning it off here stops the email only; the bell alert stays.
+function KeyDateEmailSection({ user, onChange }) {
+  const optedOut = user.keyDateEmailOptOut === true;
+  return (
+    <EditableSection
+      title="Key-date email"
+      value={{ optOut: optedOut }}
+      onSave={async (draft) => {
+        await setKeyDateEmailOptOut(draft.optOut);
+        await onChange();
+      }}
+      view={(v) => (
+        <p style={{ color: "var(--muted)" }}>
+          {v.optOut
+            ? "Off. You won't get the daily email about coming birthdays and anniversaries for your partners."
+            : "On. You get one email on a day a birthday, anniversary or milestone is coming up for a partner you look after."}{" "}
+          The alert on the bell stays either way.
+        </p>
+      )}
+      edit={(draft, set) => (
+        <div className="admin-checkbox-row">
+          <label>
+            <input
+              type="checkbox"
+              checked={!draft.optOut}
+              onChange={(e) => set("optOut", !e.target.checked)}
+            />
+            Email me about coming birthdays and anniversaries for my partners
+          </label>
+        </div>
+      )}
+    />
   );
 }
 
@@ -264,8 +312,175 @@ function EmailDispatchSection({ user, onChange }) {
 // step, or disabled with a start button) that doesn't reduce to a single
 // view/edit toggle. Keeps its own try/catch-per-action error handling,
 // which already shows a plain-language message per action.
+// #386: passkeys, the other second factor. Listed with when each was added and last used, added
+// from this device (the browser asks for the fingerprint or screen lock), removed with the password.
+function PasskeysSection({ onChange }) {
+  const [list, setList] = useState(null); // { passkeys, max }
+  const [label, setLabel] = useState("");
+  const [removing, setRemoving] = useState(null); // a passkey id
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const supported = browserSupportsWebAuthn();
+
+  const load = () =>
+    fetchPasskeys()
+      .then(setList)
+      .catch(() => setList({ passkeys: [], max: 5 }));
+  useEffect(() => {
+    load();
+  }, []);
+
+  async function handleAdd(e) {
+    e.preventDefault();
+    setError("");
+    setSuccess("");
+    setBusy(true);
+    try {
+      await registerPasskey(label.trim());
+      setLabel("");
+      setSuccess("Passkey added.");
+      await load();
+      await onChange();
+    } catch (err) {
+      // The person closing the browser's prompt is not an error worth shouting about.
+      setError(
+        err.response?.data?.error ||
+          (err.name === "NotAllowedError"
+            ? "That was cancelled. Try again when you're ready."
+            : "Couldn't add a passkey on this device.")
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleRemove(e) {
+    e.preventDefault();
+    setError("");
+    setSuccess("");
+    setBusy(true);
+    try {
+      await removePasskey(removing, password);
+      setRemoving(null);
+      setPassword("");
+      setSuccess("Passkey removed.");
+      await load();
+      await onChange();
+    } catch (err) {
+      setError(err.response?.data?.error || "Couldn't remove it");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!list) return null;
+  const full = list.passkeys.length >= list.max;
+  return (
+    <div className="admin-section">
+      <h3>Passkeys</h3>
+      <p style={{ color: "var(--muted)" }}>
+        A passkey is your fingerprint, face or screen lock (or a security key) used as the second step at
+        login. Add one on each device you use, so losing one never locks you out.
+      </p>
+      {error && <p style={{ color: "var(--danger)" }}>{error}</p>}
+      {success && <p style={{ color: "var(--brand-color-safe, #2a5d3c)" }}>{success}</p>}
+
+      {list.passkeys.length > 0 && (
+        <ul
+          style={{ listStyle: "none", padding: 0, display: "flex", flexDirection: "column", gap: "0.5rem" }}
+        >
+          {list.passkeys.map((p) => (
+            <li key={p.id}>
+              <strong>{p.label}</strong>
+              <span style={{ color: "var(--muted)" }}>
+                {" "}
+                · added {new Date(p.createdAt).toLocaleDateString()}
+                {p.lastUsedAt
+                  ? `, last used ${new Date(p.lastUsedAt).toLocaleDateString()}`
+                  : ", not used yet"}
+              </span>{" "}
+              <button type="button" className="btn secondary" onClick={() => setRemoving(p.id)}>
+                Remove
+              </button>
+              {removing === p.id && (
+                <form
+                  onSubmit={handleRemove}
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "0.5rem",
+                    maxWidth: 320,
+                    margin: "0.5rem 0",
+                  }}
+                >
+                  <label>
+                    Current Password
+                    <input
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                    />
+                  </label>
+                  <div style={{ display: "flex", gap: "0.5rem" }}>
+                    <button type="submit" className="btn danger" disabled={busy}>
+                      Remove passkey
+                    </button>
+                    <button
+                      type="button"
+                      className="btn secondary"
+                      onClick={() => {
+                        setRemoving(null);
+                        setPassword("");
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {list.demo ? (
+        <p style={{ color: "var(--muted)" }}>
+          Passkeys are turned off on the public demo, because its logins are shared.
+        </p>
+      ) : !supported ? (
+        <p style={{ color: "var(--muted)" }}>This browser can't create passkeys.</p>
+      ) : full ? (
+        <p style={{ color: "var(--muted)" }}>You have the most passkeys allowed ({list.max}).</p>
+      ) : (
+        <form
+          onSubmit={handleAdd}
+          style={{ display: "flex", flexDirection: "column", gap: "0.75rem", maxWidth: 320 }}
+        >
+          <label>
+            Name (optional)
+            <input
+              type="text"
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+              maxLength={60}
+              placeholder="e.g. My phone"
+            />
+          </label>
+          <div>
+            <button type="submit" className="btn" disabled={busy}>
+              {busy ? "Waiting for your device..." : "Add a passkey"}
+            </button>
+          </div>
+        </form>
+      )}
+    </div>
+  );
+}
+
 function MfaSection({ user, onChange }) {
-  const isGuest = user.role === "guest";
   const [setupData, setSetupData] = useState(null); // { secret, qrCode }
   const [code, setCode] = useState("");
   const [disablePassword, setDisablePassword] = useState("");
@@ -326,7 +541,16 @@ function MfaSection({ user, onChange }) {
       {error && <p style={{ color: "var(--danger)" }}>{error}</p>}
       {success && <p style={{ color: "var(--brand-color-safe, #2a5d3c)" }}>{success}</p>}
 
-      {user.mfaEnabled ? (
+      {user.mfaEnabled && !user.authenticatorApp ? (
+        <>
+          <p>
+            <span className="status-pill good">Enabled with passkeys</span>
+          </p>
+          <p style={{ color: "var(--muted)" }}>
+            Your passkeys are your second step at login. Manage them below.
+          </p>
+        </>
+      ) : user.mfaEnabled ? (
         <>
           <p>
             <span className="status-pill good">Enabled</span>
@@ -334,10 +558,10 @@ function MfaSection({ user, onChange }) {
           <p style={{ color: "var(--muted)" }}>
             Your account requires a code from your authenticator app at login.
           </p>
-          {isGuest ? (
+          {user.twoFactorRequired && !user.passkeyCount ? (
             <p style={{ color: "var(--muted)" }}>
-              Two-factor authentication is required for guest accounts, so it can't be turned off here. If you
-              lose your authenticator app, ask an admin to reset it.
+              Your church requires two-factor authentication for everyone, so it can't be turned off here. If
+              you lose your authenticator app, ask an admin to reset it.
             </p>
           ) : (
             <form
@@ -355,7 +579,11 @@ function MfaSection({ user, onChange }) {
               </label>
               <div>
                 <button type="submit" className="btn danger" disabled={busy}>
-                  {busy ? "Disabling..." : "Disable Two-Factor Authentication"}
+                  {busy
+                    ? "Disabling..."
+                    : user.passkeyCount
+                      ? "Stop using the authenticator app"
+                      : "Disable Two-Factor Authentication"}
                 </button>
               </div>
             </form>
@@ -410,9 +638,7 @@ function MfaSection({ user, onChange }) {
             <span className="status-pill">Disabled</span>
           </p>
           <p style={{ color: "var(--muted)" }}>
-            {isGuest
-              ? "Guest accounts need an extra step at login. Set it up with an authenticator app on your phone."
-              : "Add an extra step at login using an authenticator app on your phone."}
+            Add an extra step at login using an authenticator app on your phone.
           </p>
           <button className="btn" onClick={handleStartSetup} disabled={busy}>
             {busy ? "Starting..." : "Enable Two-Factor Authentication"}

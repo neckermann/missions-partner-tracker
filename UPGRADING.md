@@ -23,6 +23,22 @@ instance is running behind the latest release — you don't have to
 remember to check GitHub. See `backend/src/utils/versionCheck.js` if
 you're curious how that works.
 
+## What a new release can switch on
+
+Some releases add a feature that is **on by default** after you upgrade. Check
+[CHANGELOG.md](CHANGELOG.md) under *Upgrading* for each release; the ones to
+know about:
+
+- **The audit log** is on by default. It records who did what (sign-ins and
+  failed sign-ins with the IP address they came from, role and access
+  changes, settings changes, restricted-partner views), kept for 30, 60 or
+  90 days (default 90), and the worker prunes older entries every night. Turn
+  it off under Settings → Enabled Features if you would rather not keep it.
+  See [USER_GUIDE.md § Audit log](USER_GUIDE.md#audit-log-admin-only).
+- **The church-wide two-factor requirement** is off on an install that
+  predates it, and on for a brand-new install. See
+  [ADMIN_GUIDE.md § Authentication setup](ADMIN_GUIDE.md#authentication-setup).
+
 ## The easy way: GitHub's "Sync fork" button
 
 If you haven't directly edited application code, this is the whole

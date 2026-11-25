@@ -105,24 +105,30 @@ const usersAccess = {
     { key: "lastLogin", label: "Last sign-in", type: "date" },
     { key: "expires", label: "Access expires", type: "date" },
   ],
-  fetch: (params, { prisma }) =>
-    prisma.user.findMany({
-      where: params.includeInactive ? {} : { active: true },
-      select: {
-        firstName: true,
-        lastName: true,
-        email: true,
-        role: true,
-        active: true,
-        lastLoginAt: true,
-        mfaEnabled: true,
-        mfaSetupRequired: true,
-        passwordHash: true,
-        // A guest's access comes from its grants (#356), so "expires" and
-        // "Expired" are worked out from those, not from a column on User.
-        tripAccess: { select: GRANT_SELECT },
-      },
-    }),
+  fetch: async (params, { prisma }) => {
+    const [users, settings] = await Promise.all([
+      prisma.user.findMany({
+        where: params.includeInactive ? {} : { active: true },
+        select: {
+          firstName: true,
+          lastName: true,
+          email: true,
+          role: true,
+          active: true,
+          lastLoginAt: true,
+          mfaEnabled: true,
+          mfaSetupRequired: true,
+          passwordHash: true,
+          // A guest's access comes from its grants (#356), so "expires" and
+          // "Expired" are worked out from those, not from a column on User.
+          tripAccess: { select: GRANT_SELECT },
+        },
+      }),
+      prisma.churchSettings.findUnique({ where: { id: "singleton" }, select: { requireTwoFactor: true } }),
+    ]);
+    // The church-wide requirement (#385) applies to every account.
+    return users.map((u) => ({ ...u, twoFactorRequired: settings?.requireTwoFactor === true }));
+  },
   compute(users) {
     const rows = users.map((u) => {
       const grants = u.role === "guest" ? summarizeGrants(u.tripAccess) : [];
@@ -146,7 +152,7 @@ const usersAccess = {
               : !u.passwordHash
                 ? "Awaiting setup"
                 : "Active",
-        mfa: u.mfaEnabled ? "On" : u.mfaSetupRequired ? "Required, not set up" : "Off",
+        mfa: u.mfaEnabled ? "On" : u.mfaSetupRequired || u.twoFactorRequired ? "Required, not set up" : "Off",
         lastLogin: ymd(u.lastLoginAt),
         expires: ymd(expiry),
       };

@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
+import { applicationAnswerList } from "../utils/applicationAnswers.js";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   fetchTrip,
@@ -8,6 +9,7 @@ import {
 } from "../api/client.js";
 import { useSettings } from "../context/SettingsContext.jsx";
 import useCurrentUser from "../hooks/useCurrentUser.js";
+import RecordUnavailable, { loadErrorStatus } from "../components/shared/RecordUnavailable.jsx";
 import Breadcrumb from "../components/shared/Breadcrumb.jsx";
 import LastEdited from "../components/shared/LastEdited.jsx";
 import Wizard from "../components/shared/Wizard.jsx";
@@ -37,13 +39,14 @@ export default function AdminTripApplicationDetail() {
   const { tripId, applicationId } = useParams();
   const navigate = useNavigate();
   const settings = useSettings();
-  const { canWrite: globalCanWrite, isGuest, canAccessTrip } = useCurrentUser();
+  const { canWrite: globalCanWrite, isGuest, canAccessTrip, loading: userLoading } = useCurrentUser();
   // Mirrors AdminTripParticipantDetail.jsx's own canWrite -- this page is a
   // sibling route, not nested under TripDetailLayout's Outlet, so it can't
   // inherit its context and has to repeat the same scope check here.
   const canWrite = globalCanWrite || canAccessTrip(tripId);
 
   const [trip, setTrip] = useState(null);
+  const [loadError, setLoadError] = useState(null); // 404/403 when the trip can't be shown
   const [applications, setApplications] = useState([]);
   const [tripsSettings, setTripsSettings] = useState(null);
   const [error, setError] = useState("");
@@ -56,10 +59,23 @@ export default function AdminTripApplicationDetail() {
   const [result, setResult] = useState(null); // { kind, name?, email?, url?, participantId? } | null
 
   const reload = useCallback(() => {
-    fetchTrip(tripId).then(setTrip).catch(console.error);
+    setLoadError(null);
+    fetchTrip(tripId)
+      .then(setTrip)
+      .catch((err) => {
+        const status = loadErrorStatus(err);
+        if (status) setLoadError(status);
+        else console.error(err);
+      });
     fetchTripApplications(tripId).then(setApplications).catch(console.error);
-    fetchTripsSettings().then(setTripsSettings).catch(console.error);
   }, [tripId]);
+
+  // Closed to a guest (403) and not something they edit. Wait for the user to load first, or a
+  // guest fires the request before the page knows they are one.
+  useEffect(() => {
+    if (userLoading || isGuest) return;
+    fetchTripsSettings().then(setTripsSettings).catch(console.error);
+  }, [userLoading, isGuest]);
 
   useEffect(() => {
     reload();
@@ -69,6 +85,15 @@ export default function AdminTripApplicationDetail() {
     navigate(`/admin/trips/${tripId}/team`);
   }
 
+  if (loadError)
+    return (
+      <RecordUnavailable
+        status={loadError}
+        what="application"
+        backTo="/admin/trips"
+        backLabel="Back to Trips"
+      />
+    );
   if (!trip) return <div className="admin-shell">Loading…</div>;
 
   const application = applications.find((a) => a.id === applicationId);
@@ -94,11 +119,7 @@ export default function AdminTripApplicationDetail() {
     ...(tripsSettings?.tripApplicationTemplate || []),
     ...(trip.applicationQuestions || []),
   ];
-  const answers = combinedQuestions.map((q) => {
-    const raw = application.responses?.[q.id];
-    const answer = Array.isArray(raw) ? raw.join(", ") : raw;
-    return { id: q.id, label: q.label, answer: answer || "(no answer)" };
-  });
+  const answers = applicationAnswerList(combinedQuestions, application.answers);
 
   async function handleReconsider() {
     try {

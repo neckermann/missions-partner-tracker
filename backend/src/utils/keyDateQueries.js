@@ -9,7 +9,8 @@
 const prisma = require("../prismaClient");
 const { isFeatureEnabled } = require("./features");
 const { toUtcDay, DAY_MS } = require("../reporting/definitions");
-const { KEY_DATE_LEAD_DAYS, upcomingKeyDates, isHandled } = require("./keyDates");
+const { upcomingKeyDates, isHandled } = require("./keyDates");
+const { careTimings } = require("./careSettings");
 
 async function keyDatesSettings() {
   const settings = await prisma.churchSettings.findUnique({
@@ -19,7 +20,8 @@ async function keyDatesSettings() {
   const enabled =
     isFeatureEnabled(settings?.enabledFeatures, "keyDates") &&
     isFeatureEnabled(settings?.enabledFeatures, "careTeam");
-  return { enabled, defaultLeadId: settings?.defaultCareLeadUserId || null };
+  const { keyDateLeadDays } = await careTimings();
+  return { enabled, defaultLeadId: settings?.defaultCareLeadUserId || null, keyDateLeadDays };
 }
 
 // Every open key date in the window, each with the people it goes to.
@@ -27,7 +29,7 @@ async function keyDatesSettings() {
 //   item: { partnerId, partner:{...}, kind, subjectId, who, occasion, date,
 //           daysUntil, turning, recipientIds:[userId] }
 async function loadOpenKeyDates(today = new Date()) {
-  const { enabled, defaultLeadId } = await keyDatesSettings();
+  const { enabled, defaultLeadId, keyDateLeadDays } = await keyDatesSettings();
   if (!enabled) return [];
   const day = toUtcDay(today);
 
@@ -46,15 +48,15 @@ async function loadOpenKeyDates(today = new Date()) {
       children: { select: { id: true, firstName: true, lastName: true, birthday: true } },
     },
   });
-  const items = upcomingKeyDates(partners, day, KEY_DATE_LEAD_DAYS);
+  const items = upcomingKeyDates(partners, day, keyDateLeadDays);
   if (items.length === 0) return [];
 
   const partnerIds = [...new Set(items.map((i) => i.partnerId))];
   const byId = new Map(partners.map((p) => [p.id, p]));
 
   // Handled by a "key date" contact log entry within the window of the date.
-  const from = new Date(day.getTime() - KEY_DATE_LEAD_DAYS * DAY_MS);
-  const to = new Date(day.getTime() + (2 * KEY_DATE_LEAD_DAYS + 1) * DAY_MS);
+  const from = new Date(day.getTime() - keyDateLeadDays * DAY_MS);
+  const to = new Date(day.getTime() + (2 * keyDateLeadDays + 1) * DAY_MS);
   const logs = await prisma.contactLog.findMany({
     where: { partnerId: { in: partnerIds }, topics: { has: "keydate" }, contactDate: { gte: from, lte: to } },
     select: { partnerId: true, topics: true, contactDate: true },

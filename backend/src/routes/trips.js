@@ -25,10 +25,19 @@ const {
   isTripHistorical,
 } = require("../utils/tripEmails");
 const { APPLICATION_QUESTION_SCHEMA } = require("../utils/applicationQuestions");
+const {
+  QUESTION_ORDER,
+  ANSWERS_INCLUDE,
+  loadRequirementItems,
+  replaceQuestions,
+  copyTripQuestions,
+} = require("../utils/tripTemplates");
 const { sendStoredFile } = require("../utils/fileResponse");
 const { tripDocumentUpload } = require("../utils/upload");
 const { participantSchema, defaultParticipantGoal } = require("../utils/tripParticipantSchema");
 const { SOON_DAYS, isRequirementFulfilledForParticipant } = require("../notifications/categories");
+const { isContactLogEnabled } = require("../utils/contactLogQueries");
+const { readableNeedPartnerIds } = require("../utils/guestAccess");
 
 // Lookups for routes addressed by a child record's own id, not the trip's
 // -- requireTripScope needs the owning trip id before it can check it
@@ -148,12 +157,14 @@ const tripInclude = {
   // reimplementation of "is this requirement actually done" drifting out
   // of sync with it.
   requirements: { include: { requirementStatuses: true, documents: true } },
+  // #394: this trip's own application questions, in the admin's order.
+  applicationQuestions: QUESTION_ORDER,
   // Pending-only, same filter the detail route (GET /:id) already
   // applies to this same relation -- needed on the plain list route too
   // now, for its own "has a pending application" per-row badge (see
   // annotateTripFlags below). An approved/declined application has
   // nothing left to flag.
-  applications: { where: { status: "pending" }, select: { id: true, tripId: true, submittedAt: true } },
+  applications: { where: { status: "pending" }, select: { id: true, tripId: true, createdAt: true } },
   // Added when AdminTripDashboard.jsx (issue #259) folded into
   // AdminTrips.jsx -- that page's own "Raised" column needed this same
   // amount-only projection, previously fetched only by the now-removed
@@ -328,7 +339,7 @@ router.get("/:id", requireTripScope("id"), async (req, res, next) => {
         // `applications` key just below only ever holds *pending* rows).
         participants: {
           ...tripInclude.participants,
-          include: { application: { select: { responses: true, submittedAt: true } } },
+          include: { application: { select: { answers: ANSWERS_INCLUDE, createdAt: true } } },
         },
         applications: { where: { status: "pending" } },
         // rsvps included so the admin Meetings UI can show a tally/
@@ -373,6 +384,13 @@ router.get("/:id", requireTripScope("id"), async (req, res, next) => {
       trip.lastEditedAt = shown.at;
       trip.lastEditedByName = shown.name;
     }
+    // The one trip setting a guest's page needs (it shows the Financial tab). They can't read
+    // GET /api/settings/trips (giving instructions, templates, libraries), so it rides here.
+    const tripSettings = await prisma.churchSettings.findUnique({
+      where: { id: "singleton" },
+      select: { enableTripBudgeting: true },
+    });
+    trip.enableTripBudgeting = tripSettings?.enableTripBudgeting === true;
     res.json(trip);
   } catch (err) {
     next(err);
@@ -388,7 +406,7 @@ router.get("/:id", requireTripScope("id"), async (req, res, next) => {
 // template -- see tripRequirementTemplate's own schema comment for why.
 router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
   try {
-    const { participants, ...data } = tripSchema
+    const { participants, applicationQuestions, ...data } = tripSchema
       .refine(datesInOrder, DATE_ORDER_ISSUE)
       .refine(albumLinkValid, ALBUM_LINK_ISSUE)
       .parse(req.body);
@@ -398,14 +416,10 @@ router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
     // applying when the caller omits it -- that case must NOT get the
     // template either, same as an explicit "completed" backfill.
     if (data.status && data.status !== "completed") {
-      const settings = await prisma.churchSettings.findUnique({
-        where: { id: "singleton" },
-        select: { tripRequirementTemplate: true },
-      });
-      requirementTemplate = settings?.tripRequirementTemplate || [];
+      requirementTemplate = await loadRequirementItems("template");
     }
 
-    const created = await prisma.trip.create({
+    const made = await prisma.trip.create({
       data: {
         ...data,
         participants: participants?.length
@@ -430,6 +444,12 @@ router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
       },
       include: tripInclude,
     });
+    // #394: the trip's own application questions are rows of their own.
+    if (applicationQuestions?.length) await replaceQuestions(prisma, "trip", made.id, applicationQuestions);
+    const created = applicationQuestions?.length
+      ? await prisma.trip.findUnique({ where: { id: made.id }, include: tripInclude })
+      : made;
+
     res.status(201).json(created);
   } catch (err) {
     next(err);
@@ -442,7 +462,7 @@ router.put(
   requireTripScope("id"),
   async (req, res, next) => {
     try {
-      const { participants, ...data } = tripSchema
+      const { participants, applicationQuestions, ...data } = tripSchema
         .partial()
         .refine(datesInOrder, DATE_ORDER_ISSUE)
         .refine(albumLinkValid, ALBUM_LINK_ISSUE)
@@ -488,6 +508,9 @@ router.put(
       const updated = await prisma.$transaction(async (tx) => {
         if (participants !== undefined) {
           await tx.tripParticipant.deleteMany({ where: { tripId: req.params.id, applicationId: null } });
+        }
+        if (applicationQuestions !== undefined) {
+          await replaceQuestions(tx, "trip", req.params.id, applicationQuestions || []);
         }
         return tx.trip.update({
           where: { id: req.params.id },
@@ -539,6 +562,113 @@ router.put(
   }
 );
 
+// The Wrap up trip wizard (#358): finishes a trip in one step -- the actual dates, a short debrief
+// (a plain-text answer under each fixed prompt, all optional), the album link, and, when the
+// contact log is on and the person may use it, a contact for the partner with an optional
+// follow-up date -- and sets the trip to "completed". Open to admin, editor and a trip leader for
+// their own trip (requireTripScope), the same reach as editing the trip. Nothing is emailed: the
+// trip is over. Running it again just edits the debrief; the first wrap-up time is kept.
+const wrapUpText = z.string().trim().max(5000).optional().nullable();
+const wrapUpSchema = z
+  .object({
+    startDate: z.coerce.date().optional().nullable(),
+    endDate: z.coerce.date().optional().nullable(),
+    debrief: z
+      .object({
+        whatWeDid: wrapUpText,
+        wentWell: wrapUpText,
+        wasHard: wrapUpText,
+        partnerNeeds: wrapUpText,
+      })
+      .optional(),
+    albumProvider: z.enum(["google_photos", "icloud", "other"]).optional().nullable(),
+    albumUrl: z.string().optional().nullable(),
+    followUp: z
+      .object({
+        logContact: z.boolean(),
+        followUpDate: z.coerce.date().optional().nullable(),
+      })
+      .optional(),
+  })
+  .refine(datesInOrder, DATE_ORDER_ISSUE)
+  .refine(albumLinkValid, ALBUM_LINK_ISSUE);
+
+const DEBRIEF_COLUMNS = {
+  whatWeDid: "debriefWhatWeDid",
+  wentWell: "debriefWentWell",
+  wasHard: "debriefWasHard",
+  partnerNeeds: "debriefPartnerNeeds",
+};
+
+router.post(
+  "/:id/wrap-up",
+  requireRole("admin", "editor", "guest"),
+  requireTripScope("id"),
+  async (req, res, next) => {
+    try {
+      const body = wrapUpSchema.parse(req.body);
+      const existing = await prisma.trip.findUnique({ where: { id: req.params.id } });
+      if (!existing) return res.status(404).json({ error: "Not found" });
+
+      const startDate = body.startDate !== undefined ? body.startDate : existing.startDate;
+      const endDate = body.endDate !== undefined ? body.endDate : existing.endDate;
+      if (startDate && endDate && endDate < startDate) {
+        return res.status(400).json({ error: "endDate cannot be before startDate" });
+      }
+
+      const debrief = {};
+      for (const [key, column] of Object.entries(DEBRIEF_COLUMNS)) {
+        if (body.debrief && body.debrief[key] !== undefined) debrief[column] = body.debrief[key] || null;
+      }
+
+      // The partner contact: only when asked for, the contact log is on, this trip has a partner,
+      // and the person may use the log for that partner (staff, or a guest on its care team; a
+      // trip leader with a trip grant alone never reaches the contact log).
+      let contactLogged = false;
+      const reach = readableNeedPartnerIds(req.user);
+      const mayLog = existing.partnerId && (reach === null || reach.includes(existing.partnerId));
+      const wantsContact = body.followUp?.logContact === true;
+
+      const updated = await prisma.$transaction(async (tx) => {
+        const trip = await tx.trip.update({
+          where: { id: existing.id },
+          data: {
+            status: "completed",
+            wrappedUpAt: existing.wrappedUpAt ?? new Date(),
+            ...(body.startDate !== undefined ? { startDate: body.startDate } : {}),
+            ...(body.endDate !== undefined ? { endDate: body.endDate } : {}),
+            ...(body.albumProvider !== undefined ? { albumProvider: body.albumProvider } : {}),
+            ...(body.albumUrl !== undefined ? { albumUrl: body.albumUrl } : {}),
+            ...debrief,
+          },
+          include: tripInclude,
+        });
+        if (wantsContact && mayLog && (await isContactLogEnabled())) {
+          const day = endDate ? new Date(endDate) : new Date();
+          await tx.contactLog.create({
+            data: {
+              partnerId: existing.partnerId,
+              contactType: "visit",
+              direction: "outbound",
+              topics: ["trip"],
+              contactDate: new Date(Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate())),
+              notes: `Trip wrapped up${existing.name ? `: ${existing.name}` : ""}.`,
+              followUpDate: body.followUp.followUpDate || null,
+              contactedById: req.user.id,
+              createdById: req.user.id,
+            },
+          });
+          contactLogged = true;
+        }
+        return trip;
+      });
+      res.json({ trip: updated, contactLogged });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
 router.delete("/:id", requireRole("admin"), async (req, res, next) => {
   try {
     const existing = await prisma.trip.findUnique({
@@ -582,7 +712,6 @@ router.post("/:id/clone", requireRole("admin", "editor"), async (req, res, next)
         teamSizeMax: source.teamSizeMax,
         description: source.description,
         supportRaisingGoal: source.supportRaisingGoal,
-        applicationQuestions: source.applicationQuestions,
         status: "planning",
         // label/kind/bodyText/reminderLeadDays copy forward (a repeat
         // trip almost always wants the same checklist, including the
@@ -602,7 +731,8 @@ router.post("/:id/clone", requireRole("admin", "editor"), async (req, res, next)
       },
       include: tripInclude,
     });
-    res.status(201).json(cloned);
+    await copyTripQuestions(prisma, source.id, cloned.id);
+    res.status(201).json(await prisma.trip.findUnique({ where: { id: cloned.id }, include: tripInclude }));
   } catch (err) {
     next(err);
   }

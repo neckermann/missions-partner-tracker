@@ -3,7 +3,13 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, within, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import AdminSettingsCareTeam from "./AdminSettingsCareTeam.jsx";
-import { fetchDefaultCareLead, setDefaultCareLead, fetchCareTeamCandidates } from "../api/client.js";
+import {
+  fetchDefaultCareLead,
+  setDefaultCareLead,
+  fetchCareTeamCandidates,
+  fetchChurchSettings,
+  updateChurchSettings,
+} from "../api/client.js";
 
 // #291: the default lead -- who key-date reminders go to for a partner with
 // no care team. Admin only (the route is admin-gated).
@@ -11,6 +17,8 @@ vi.mock("../api/client.js", () => ({
   fetchDefaultCareLead: vi.fn(),
   setDefaultCareLead: vi.fn(),
   fetchCareTeamCandidates: vi.fn(),
+  fetchChurchSettings: vi.fn(),
+  updateChurchSettings: vi.fn(),
 }));
 let features = { careTeam: true, keyDates: true, outboundEmail: true };
 vi.mock("../context/SettingsContext.jsx", () => ({
@@ -35,6 +43,8 @@ beforeEach(() => {
   fetchDefaultCareLead.mockResolvedValue(null);
   setDefaultCareLead.mockResolvedValue({ userId: "u1", name: "Ann Lead" });
   fetchCareTeamCandidates.mockResolvedValue(candidates);
+  fetchChurchSettings.mockResolvedValue({ keyDateLeadDays: 7, contactStaleDays: 90 });
+  updateChurchSettings.mockResolvedValue({});
 });
 
 describe("AdminSettingsCareTeam (#291)", () => {
@@ -78,5 +88,24 @@ describe("AdminSettingsCareTeam (#291)", () => {
     features = { careTeam: true, keyDates: false };
     renderIt();
     expect((await screen.findAllByText(/Key-date reminders/)).length).toBeGreaterThan(0);
+  });
+
+  it("shows the key-date lead time and the quiet threshold, from the church's settings (#365)", async () => {
+    fetchChurchSettings.mockResolvedValue({ keyDateLeadDays: 10, contactStaleDays: 45 });
+    renderIt();
+    expect(await screen.findByText("10 days ahead")).toBeTruthy();
+    expect(screen.getByText("45 days without contact")).toBeTruthy();
+  });
+
+  it("saves new timings as numbers", async () => {
+    renderIt();
+    fireEvent.click(await screen.findByRole("button", { name: /timing/i }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.change(within(dialog).getByLabelText(/Raise a key date/), { target: { value: "14" } });
+    fireEvent.change(within(dialog).getByLabelText(/Call a partner quiet/), { target: { value: "60" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    await waitFor(() =>
+      expect(updateChurchSettings).toHaveBeenCalledWith({ keyDateLeadDays: 14, contactStaleDays: 60 })
+    );
   });
 });

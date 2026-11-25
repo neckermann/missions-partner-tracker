@@ -104,4 +104,10 @@ describe("GET /api/settings -- field exposure (#327 Finding 9)", () => {
     assert.ok("featureRegistry" in res.body);
     assert.ok("sentByOurChurchCount" in res.body);
   });
+
+  test("returns the two sign-in policy switches as booleans (#402)", async () => {
+    const res = await editor("/api/settings");
+    assert.equal(typeof res.body.requireTwoFactor, "boolean");
+    assert.equal(typeof res.body.requirePasswordless, "boolean");
+  });
 });

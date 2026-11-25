@@ -33,9 +33,14 @@
 const prisma = require("../prismaClient");
 const { needsReview } = require("../utils/dispatchEligibility");
 const { isCareTeamEnabled } = require("../utils/guestAccess");
-const { isContactLogEnabled, loadAssignedPartners } = require("../utils/contactLogQueries");
+const { isFeatureEnabled } = require("../utils/features");
+const {
+  isContactLogEnabled,
+  loadAssignedPartners,
+  loadUpdatesToPassOn,
+} = require("../utils/contactLogQueries");
 const { loadOpenKeyDatesFor } = require("../utils/keyDateQueries");
-const { KEY_DATE_LEAD_DAYS } = require("../utils/keyDates");
+const { careTimings } = require("../utils/careSettings");
 
 const SOON_DAYS = 30;
 const BACKUP_REMIND_AGAIN_AFTER_MS = 30 * 24 * 60 * 60 * 1000;
@@ -57,7 +62,7 @@ async function getSeenAt(userId, category) {
 }
 
 // #288: partners on this login's care team that nobody has been in touch with
-// for CONTACT_STALE_DAYS, or whose follow-up date has come. Counted live from
+// for the church's quiet threshold (default 90 days), or whose follow-up date has come. Counted live from
 // the same read model as the My partners tab, so the two always agree.
 // Counts nothing while either feature is off. `latest` is when the most
 // recent partner became overdue, so the bell only lights up for NEW ones.
@@ -83,8 +88,9 @@ async function keyDatesComing({ userId }) {
   if (!userId) return { count: 0, latest: null };
   const items = await loadOpenKeyDatesFor(userId);
   if (items.length === 0) return { count: 0, latest: null };
+  const { keyDateLeadDays } = await careTimings();
   const latest = items.reduce((m, i) => {
-    const due = new Date(new Date(`${i.date}T00:00:00Z`).getTime() - KEY_DATE_LEAD_DAYS * 86400000);
+    const due = new Date(new Date(`${i.date}T00:00:00Z`).getTime() - keyDateLeadDays * 86400000);
     return !m || due > m ? due : m;
   }, null);
   // One partner: go straight to it; several: the list of my partners.
@@ -143,6 +149,48 @@ async function tripsDepartingSoon(_opts, scopeTripIds) {
   // in trips.js).
   const linkTo = rows.length === 1 ? `/admin/trips/${rows[0].id}` : undefined;
   return { count: rows.length, latest: latestOf(rows, (r) => r.startDate), linkTo };
+}
+
+// #358: a trip whose end date has passed and that hasn't been wrapped up (marked completed). For a
+// trip leader it is their own trip (scopeTripIds); linked straight to the trip when there is one.
+async function tripsReadyToWrapUp(_opts, scopeTripIds) {
+  const now = new Date();
+  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const rows = await prisma.trip.findMany({
+    where: {
+      status: { not: "completed" },
+      endDate: { lt: today },
+      ...(scopeTripIds ? { id: { in: scopeTripIds } } : {}),
+    },
+    select: { id: true, endDate: true },
+  });
+  const linkTo = rows.length === 1 ? `/admin/trips/${rows[0].id}` : undefined;
+  return { count: rows.length, latest: latestOf(rows, (r) => r.endDate), linkTo };
+}
+
+// #358: a trip wrapped up in the last two weeks, for the partner's care team: the debrief is the
+// most useful thing to read before the next contact. Counts nothing while trips or care teams are
+// off, and only the partners this login holds a seat on.
+const WRAPPED_UP_WINDOW_DAYS = 14;
+async function tripsWrappedUp({ userId }) {
+  if (!userId || !(await isCareTeamEnabled())) return { count: 0, latest: null };
+  const settings = await prisma.churchSettings.findUnique({
+    where: { id: "singleton" },
+    select: { enabledFeatures: true },
+  });
+  if (!isFeatureEnabled(settings?.enabledFeatures, "trips")) return { count: 0, latest: null };
+  const seats = await prisma.careTeamMember.findMany({
+    where: { userId, partner: { archived: false } },
+    select: { partnerId: true },
+  });
+  if (seats.length === 0) return { count: 0, latest: null };
+  const since = new Date(Date.now() - WRAPPED_UP_WINDOW_DAYS * 86400000);
+  const rows = await prisma.trip.findMany({
+    where: { partnerId: { in: seats.map((s) => s.partnerId) }, wrappedUpAt: { gte: since } },
+    select: { id: true, wrappedUpAt: true },
+  });
+  const linkTo = rows.length === 1 ? `/admin/trips/${rows[0].id}` : undefined;
+  return { count: rows.length, latest: latestOf(rows, (r) => r.wrappedUpAt), linkTo };
 }
 
 // A requirement is fulfilled the same way tripReminderScheduler.js already
@@ -210,11 +258,11 @@ async function overdueTripRequirements(_opts, scopeTripIds) {
 async function tripApplicationsPending(_opts, scopeTripIds) {
   const rows = await prisma.tripApplication.findMany({
     where: { status: "pending", ...(scopeTripIds ? { tripId: { in: scopeTripIds } } : {}) },
-    select: { tripId: true, submittedAt: true },
+    select: { tripId: true, createdAt: true },
   });
   const distinctTripIds = new Set(rows.map((r) => r.tripId));
   const linkTo = distinctTripIds.size === 1 ? `/admin/trips/${rows[0].tripId}/team` : undefined;
-  return { count: rows.length, latest: latestOf(rows, (r) => r.submittedAt), linkTo };
+  return { count: rows.length, latest: latestOf(rows, (r) => r.createdAt), linkTo };
 }
 
 // Per-user count: "how many of these has this teammate not looked at yet,"
@@ -254,8 +302,6 @@ async function newOneTimeNeeds({ userId }, _scopeTripIds, scopePartnerIds) {
 // makes is inbound -- the partner told us -- so it doesn't clear its own
 // prompt.) Live, so it needs the contact log to be able to clear; counts
 // nothing while contactLog or careTeam is off.
-const UPDATE_WINDOW_DAYS = 30;
-
 async function updatesToPassOn({ userId }) {
   if (!userId || !(await isContactLogEnabled()) || !(await isCareTeamEnabled())) {
     return { count: 0, latest: null };
@@ -267,36 +313,7 @@ async function updatesToPassOn({ userId }) {
   const partnerIds = seats.map((s) => s.partnerId);
   if (partnerIds.length === 0) return { count: 0, latest: null };
 
-  const today = new Date();
-  const since = new Date(
-    Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()) - UPDATE_WINDOW_DAYS * 86400000
-  );
-  const [needs, prayers, logs] = await Promise.all([
-    prisma.supportNeed.findMany({
-      where: { partnerId: { in: partnerIds }, approvedDate: { gte: since } },
-      select: { partnerId: true, approvedDate: true },
-    }),
-    prisma.prayerRequest.findMany({
-      where: { partnerId: { in: partnerIds }, status: "answered", dateAnswered: { gte: since } },
-      select: { partnerId: true, dateAnswered: true },
-    }),
-    prisma.contactLog.findMany({
-      where: { partnerId: { in: partnerIds }, direction: "outbound", contactDate: { gte: since } },
-      select: { partnerId: true, contactDate: true, topics: true },
-    }),
-  ]);
-  const relayed = (partnerId, date, topics) =>
-    logs.some(
-      (l) => l.partnerId === partnerId && l.contactDate >= date && l.topics.some((t) => topics.includes(t))
-    );
-  const open = [
-    ...needs
-      .filter((n) => !relayed(n.partnerId, n.approvedDate, ["need"]))
-      .map((n) => ({ partnerId: n.partnerId, date: n.approvedDate })),
-    ...prayers
-      .filter((p) => !relayed(p.partnerId, p.dateAnswered, ["encouragement", "prayer"]))
-      .map((p) => ({ partnerId: p.partnerId, date: p.dateAnswered })),
-  ];
+  const open = await loadUpdatesToPassOn(partnerIds);
   if (open.length === 0) return { count: 0, latest: null };
   const distinct = [...new Set(open.map((o) => o.partnerId))];
   return {
@@ -422,6 +439,27 @@ const CATEGORIES = [
     perUser: false,
     tripScoped: true,
     resolve: tripsDepartingSoon,
+  },
+  {
+    key: "tripsReadyToWrapUp",
+    label: "Trips ready to wrap up",
+    icon: "🏁",
+    linkTo: "/admin/trips",
+    adminOnly: false,
+    perUser: false,
+    tripScoped: true,
+    resolve: tripsReadyToWrapUp,
+  },
+  {
+    key: "tripsWrappedUp",
+    label: "Trips wrapped up",
+    icon: "📝",
+    linkTo: "/admin/trips",
+    adminOnly: false,
+    perUser: false,
+    tripScoped: false,
+    guestVisible: true,
+    resolve: tripsWrappedUp,
   },
   {
     key: "tripsDepartingSoonIncomplete",

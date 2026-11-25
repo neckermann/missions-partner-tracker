@@ -284,6 +284,11 @@ async function resetDemoData() {
     // actually see the restricted-partner review workflow in Pending
     // Dispatches instead of that content being silently unrecorded.
     allowRestrictedPartnerDispatch: true,
+    // A demo's seeded and shared accounts have no authenticator, and visitors
+    // must be able to sign in with just a password. Switched off on every
+    // reset so a requirement turned on by a first-run /setup (#385) can't
+    // outlive it; isTwoFactorRequired() also ignores the setting on a demo.
+    requireTwoFactor: false,
   };
 
   await prisma.churchSettings.upsert({
