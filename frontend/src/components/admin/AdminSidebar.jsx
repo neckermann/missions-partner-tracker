@@ -188,6 +188,8 @@ function buildSiteAdminLinks(enabledFeatures) {
         label: "Support Preferences",
         icon: "💛",
       },
+    enabledFeatures.surveys &&
+      enabledFeatures.careTeam && { to: "/admin/settings/surveys", label: "Surveys", icon: "📝" },
     (enabledFeatures.outboundEmail || enabledFeatures.inboundEmail) && {
       to: "/admin/settings/email",
       label: "Email",

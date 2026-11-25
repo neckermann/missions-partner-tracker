@@ -54,6 +54,7 @@ import CareTeamPanel from "../components/admin/CareTeamPanel.jsx";
 import { contactLevelOf } from "../utils/contactMethods.js";
 import ContactCard from "../components/admin/ContactCard.jsx";
 import SupportPreferencesCard from "../components/admin/SupportPreferencesCard.jsx";
+import SurveysCard from "../components/admin/SurveysCard.jsx";
 import ContactLogSection from "../components/admin/ContactLogSection.jsx";
 import PartnerSummaryCard from "../components/admin/PartnerSummaryCard.jsx";
 import RecordList from "../components/admin/RecordList.jsx";
@@ -1372,6 +1373,8 @@ export default function AdminPartnerDetail() {
           {enabledFeatures.supportPreferences && enabledFeatures.careTeam && (
             <SupportPreferencesCard partnerId={p.id} isAdmin={isAdmin} />
           )}
+
+          {enabledFeatures.surveys && enabledFeatures.careTeam && <SurveysCard partnerId={p.id} />}
         </div>
 
         {((!isGuest && enabledFeatures.monthlySupport) ||

@@ -16,6 +16,7 @@ const FEATURE_SPECS = [
   "public-subscribe",
   "public-trip-application",
   "support-preferences",
+  "surveys",
   "trip-detail-subpages",
   "trip-team-table-modal",
   "two-factor-requirement",
