@@ -4,6 +4,7 @@
 // "unscoped" variant for "scoped" to contrast against, so the name
 // stopped meaning anything distinguishing.
 const prisma = require("../prismaClient");
+const { DIGEST_ROLES } = require("./digestRoles");
 const { isFeatureEnabled } = require("./features");
 const { sendEmailBatch } = require("./email");
 const { buildBlurb } = require("./dispatchBlurbs");
@@ -176,7 +177,8 @@ async function sendDigestTier(tier, settings) {
   // happens here, before normalization, not inside sendToRecipients.
   const [admins, publicSubscribers] = await Promise.all([
     prisma.user.findMany({
-      where: { cadence: tier, active: true },
+      // Never a guest (#407): the digest is the whole church's content, not a scoped login's.
+      where: { cadence: tier, active: true, role: { in: DIGEST_ROLES } },
       select: {
         id: true,
         email: true,

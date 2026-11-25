@@ -27,10 +27,17 @@ const cookieOf = (res) =>
     .getSetCookie()
     .map((c) => c.split(";")[0])
     .join("; ");
-const as =
-  (cookie) =>
-  (path, options = {}) =>
-    anon(path, { ...options, headers: { ...(options.headers || {}), Cookie: cookie } });
+// Like a browser: keeps the latest session cookie a response sets (enrolling the first passkey
+// re-issues it, #408).
+const as = (cookie) => {
+  let current = cookie;
+  return async (path, options = {}) => {
+    const res = await anon(path, { ...options, headers: { ...(options.headers || {}), Cookie: current } });
+    const set = res.headers.getSetCookie();
+    if (set.length) current = set.map((c) => c.split(";")[0]).join("; ");
+    return res;
+  };
+};
 const newAuthenticator = () => createAuthenticator({ rpID: RP_ID, origin: SITE });
 
 async function makeUser(tag, extra = {}) {
@@ -66,8 +73,10 @@ async function userWithPasskey(tag, extra = {}) {
   const user = await makeUser(tag, extra);
   const a = newAuthenticator();
   const cookie = await loginCookie(user.email);
-  assert.equal((await addPasskey(as(cookie), a)).status, 200);
-  return { user, a, cookie };
+  const enrolled = await addPasskey(as(cookie), a);
+  assert.equal(enrolled.status, 200);
+  // Enrolling the first passkey re-issues the session cookie (#408).
+  return { user, a, cookie: cookieOf(enrolled) };
 }
 async function passkeySignIn(a, assertOptions = {}) {
   const opts = await anon("/api/auth/passkeys/passwordless/options", { method: "POST" });

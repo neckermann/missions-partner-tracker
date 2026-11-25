@@ -228,6 +228,10 @@ app.use(
   rateLimit({ windowMs: 15 * 60 * 1000, max: process.env.NODE_ENV === "test" ? 1000 : 20 })
 );
 app.use("/api/auth/change-password", sensitiveAuthLimiter);
+// Removing a passkey asks for the account password, so it is a password guess too (#408).
+app.use("/api/auth/passkeys", (req, res, next) =>
+  req.method === "DELETE" ? sensitiveAuthLimiter(req, res, next) : next()
+);
 
 // The public site's own pages (directory, map, tour) legitimately fire many
 // requests per visitor, so this is deliberately generous — it's here to
