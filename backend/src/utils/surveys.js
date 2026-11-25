@@ -9,6 +9,7 @@ const KINDS = [
   { value: "multiple", label: "Pick any" },
   { value: "text", label: "Free text" },
   { value: "yesno", label: "Yes / No" },
+  { value: "photo", label: "Photo" },
 ];
 const KIND_VALUES = KINDS.map((k) => k.value);
 const CHOICE_KINDS = ["single", "multiple"];

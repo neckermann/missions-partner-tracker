@@ -98,6 +98,8 @@ model Partner {
   supportPreferences       PartnerSupportPreference[]
   surveyInvites            SurveyInvite[]
   surveyResponses          SurveyResponse[]
+  surveyProposals          SurveyProposal[]
+  surveyUploads            SurveyUpload[]
   keyDateReminders         KeyDateReminder[]
   publicSubscriberPartners PublicSubscriberPartner[]
   adults                   Adult[]
@@ -1816,14 +1818,17 @@ model Survey {
   questions SurveyQuestion[]
   invites   SurveyInvite[]
   responses SurveyResponse[]
+  proposals SurveyProposal[]
 
   lastEditedById   String?
   lastEditedByName String?
   lastEditedAt     DateTime?
 }
 
-// `kind`: "single" | "multiple" (pick from `choices`, optionally with an "other" box), "text" or
-// "yesno". Deleting a question keeps its answers readable: each answer carries the label as it
+// `kind`: "single" | "multiple" (pick from `choices`, optionally with an "other" box), "text",
+// "yesno" or "photo". `field` links the question to a part of the partner's record (see
+// utils/surveyFields.js): an answer that differs from what is on file becomes a proposed change
+// for staff to approve, never an automatic edit. Deleting a question keeps its answers readable: each answer carries the label as it
 // was worded when given.
 model SurveyQuestion {
   id         String   @id @default(uuid())
@@ -1835,10 +1840,13 @@ model SurveyQuestion {
   choices    String[]
   allowOther Boolean  @default(false)
   required   Boolean  @default(false)
+  field      String?
 
   createdAt DateTime @default(now())
 
-  answers SurveyAnswer[]
+  answers   SurveyAnswer[]
+  proposals SurveyProposal[]
+  uploads   SurveyUpload[]
 
   @@index([surveyId, position])
 }
@@ -1879,7 +1887,9 @@ model SurveyResponse {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  answers SurveyAnswer[]
+  answers   SurveyAnswer[]
+  proposals SurveyProposal[]
+  uploads   SurveyUpload[]
 
   lastEditedById   String?
   lastEditedByName String?
@@ -1905,5 +1915,59 @@ model SurveyAnswer {
   values     String[]
   other      String?
 
+  @@index([responseId])
+}
+
+// A photo a partner sent through their survey link, held until staff approve it (then it becomes
+// a Photo on the partner) or reject it (then it is deleted). Images only; the type and signature
+// are checked on the way in.
+model SurveyUpload {
+  id          String          @id @default(uuid())
+  responseId  String
+  response    SurveyResponse  @relation(fields: [responseId], references: [id], onDelete: Cascade)
+  partnerId   String
+  partner     Partner         @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  questionId  String?
+  question    SurveyQuestion? @relation(fields: [questionId], references: [id], onDelete: SetNull)
+  contentType String
+  fileSize    Int
+  bytes       Bytes
+  createdAt   DateTime        @default(now())
+
+  proposals SurveyProposal[]
+
+  @@index([responseId])
+}
+
+// One change a survey answer suggests to a partner's record, waiting for a person: `field` is the
+// key in utils/surveyFields.js, `currentValue` what was on file when it was proposed and
+// `proposedValue` what they answered (both as text). "pending" until staff approve (optionally
+// editing the value first, kept in `appliedValue`) or reject it. A photo proposal points at its
+// SurveyUpload instead of carrying a value.
+model SurveyProposal {
+  id            String          @id @default(uuid())
+  surveyId      String
+  survey        Survey          @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  responseId    String
+  response      SurveyResponse  @relation(fields: [responseId], references: [id], onDelete: Cascade)
+  partnerId     String
+  partner       Partner         @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  questionId    String?
+  question      SurveyQuestion? @relation(fields: [questionId], references: [id], onDelete: SetNull)
+  field         String
+  fieldLabel    String
+  currentValue  String?         @db.Text
+  proposedValue String?         @db.Text
+  uploadId      String?
+  upload        SurveyUpload?   @relation(fields: [uploadId], references: [id], onDelete: SetNull)
+  status        String          @default("pending") // "pending" | "approved" | "rejected"
+  appliedValue  String?         @db.Text
+  decidedAt     DateTime?
+  decidedById   String?
+  decidedByName String?
+  createdAt     DateTime        @default(now())
+
+  @@index([status, createdAt])
+  @@index([partnerId])
   @@index([responseId])
 }
