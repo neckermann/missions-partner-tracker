@@ -344,6 +344,7 @@ router.get("/:id/recipients", manage, async (req, res, next) => {
           state: response?.submittedAt ? "answered" : invite?.sentAt ? "invited" : "not invited",
           sentAt: invite?.sentAt || null,
           canEmail: !blocked && Boolean(email),
+          canLink: !blocked,
           blockedReason: blocked || (email ? null : "no email on file"),
         };
       }),
@@ -450,6 +451,52 @@ router.post("/:id/send", manage, async (req, res, next) => {
       `${survey.title}: ${sent} sent`
     );
     res.json({ sent, skipped });
+  } catch (err) {
+    next(err);
+  }
+});
+
+const linkSchema = z.object({ partnerId: z.string().min(1) });
+
+// POST /api/surveys/:id/link -- a personal link for one partner, handed back to the person asking
+// instead of emailed: to text or read out, to try the survey yourself, or on a demo that never emails.
+// Like a send, it replaces the partner's earlier link, and a partner the app may not contact directly
+// gets none. Nothing is sent, so it needs neither Email (Sending) nor a real address.
+router.post("/:id/link", manage, async (req, res, next) => {
+  try {
+    const { partnerId } = linkSchema.parse(req.body);
+    const survey = await prisma.survey.findUnique({ where: { id: req.params.id } });
+    if (!survey) return res.status(404).json({ error: "Not found" });
+    if (survey.status !== "open") return res.status(400).json({ error: "Open the survey before sharing it" });
+    if (!buildSurveyUrl("probe")) {
+      return res.status(400).json({ error: "APP_BASE_URL isn't set, so a link can't be built" });
+    }
+    const partner = await prisma.partner.findFirst({ where: { id: partnerId, archived: false } });
+    if (!partner) return res.status(404).json({ error: "Partner not found" });
+    const blocked = emailBlockReason(partner);
+    if (blocked) return res.status(400).json({ error: `No link for this partner (${blocked})` });
+    const answered = await prisma.surveyResponse.findFirst({
+      where: { surveyId: survey.id, partnerId, submittedAt: { not: null } },
+      select: { id: true },
+    });
+    if (answered) return res.status(400).json({ error: "This partner has already answered" });
+    const sentBy = [req.user.firstName, req.user.lastName].filter(Boolean).join(" ") || req.user.email;
+    const { token, tokenHash, expiresAt } = newInviteToken();
+    await prisma.surveyInvite.upsert({
+      where: { surveyId_partnerId: { surveyId: survey.id, partnerId } },
+      create: {
+        surveyId: survey.id,
+        partnerId,
+        tokenHash,
+        expiresAt,
+        sentAt: new Date(),
+        sentById: req.user.id,
+        sentByName: sentBy,
+      },
+      update: { tokenHash, expiresAt, sentAt: new Date(), sentById: req.user.id, sentByName: sentBy },
+    });
+    await audit(req, "made a survey link", `${survey.title}: ${partner.displayName}`);
+    res.json({ url: buildSurveyUrl(token), expiresAt });
   } catch (err) {
     next(err);
   }
