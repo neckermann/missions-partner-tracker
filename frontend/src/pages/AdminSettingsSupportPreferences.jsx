@@ -151,6 +151,7 @@ export default function AdminSettingsSupportPreferences() {
                     <td>
                       {o.label}
                       {!o.active && <span style={{ color: "var(--muted)" }}> · retired</span>}
+                      {o.staffOnly && <span style={{ color: "var(--muted)" }}> · staff only</span>}
                       {o.choices.length > 0 && (
                         <div style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
                           {o.choices.join(" · ")}
@@ -206,6 +207,7 @@ function OptionModal({ option, kinds, groupNames, onClose, onSaved }) {
     kind: option.kind ?? "offer",
     choicesText: (option.choices ?? []).join("\n"),
     allowOther: option.allowOther ?? false,
+    staffOnly: option.staffOnly ?? false,
   });
   const set = (patch) => setForm((f) => ({ ...f, ...patch }));
   const isChoice = form.kind === "single" || form.kind === "multiple";
@@ -222,6 +224,7 @@ function OptionModal({ option, kinds, groupNames, onClose, onSaved }) {
             .filter(Boolean)
         : [],
       allowOther: isChoice ? form.allowOther : false,
+      staffOnly: form.staffOnly,
     };
     if (isNew) await createSupportOption(body);
     else await updateSupportOption(option.id, body);
@@ -293,6 +296,15 @@ function OptionModal({ option, kinds, groupNames, onClose, onSaved }) {
           </label>
         </>
       )}
+      <label style={{ flexDirection: "row", gap: "0.6rem", alignItems: "center", fontWeight: "normal" }}>
+        <input
+          type="checkbox"
+          style={{ width: "auto" }}
+          checked={form.staffOnly}
+          onChange={(e) => set({ staffOnly: e.target.checked })}
+        />
+        Staff only: hide this option and its answers from care team guests
+      </label>
     </QuickActionModal>
   );
 }

@@ -958,11 +958,13 @@ The **Last heard from** report counts a logged contact, a newsletter, a prayer r
 
 ### Key-date reminders
 
-With **Key-date reminders** turned on (it needs [Care teams](#care-teams)), the people on a partner's care team are reminded about a coming **birthday** (including the children's), **wedding anniversary**, or **supported-since milestone** (the first year, then every fifth) a week ahead.
+With **Key-date reminders** turned on (it needs [Care teams](#care-teams)), the people on a partner's care team are reminded about a coming **birthday** (including the children's), **wedding anniversary**, or **supported-since milestone** (the first year, then every fifth), or the anniversary of when the church **adopted** them or they were **commissioned** (record both on the partner's page under **Our History With Them**), a week ahead.
 
 - **On the bell and the Home page** as "Key dates coming up". Open it to find the partner. The **My partners** tab also flags a key date inside the window. A key date is raised **7 days ahead** by default; an admin can change that (1 to 60 days) under Settings → Care Teams → Timing.
 
 ![The bell, with Key dates coming up among a care team member's alerts](docs/assets/screenshots/bell-alerts.png)
+
+- **Send a greeting.** On the **My partners** tab, a key date inside the window has a **Send greeting** button where we may email them (not for a restricted partner, one marked not to be contacted directly, or one whose allowed ways exclude email, and not when there is no address). It opens a prefilled draft in your own mail program, so you read and send it yourself; the app never sends it. Afterwards it asks whether to log it, and saying yes records an email with the **Key date** topic, which clears the reminder.
 
 - **By email**, one message a day, only on a day something is due, listing everything coming up for your partners (not one email per partner). It needs Email (Sending) turned on, and it's sent at 7am church time. **You can turn the email off for yourself** under **My account → Key-date email** (a Guest on a care team can too); the alert on the bell stays either way.
 
@@ -990,6 +992,8 @@ With **Support preferences** turned on in [Enabled Features](ADMIN_GUIDE.md#feat
 
 - **The menu is your church's.** An admin edits it under **Settings → Support Preferences**: options are put in groups (rename a group any time), and each is something you **offer** (tick it if wanted), a **pick one** or **pick any** question (with an optional "something else" box), or a **free-text** question. From an empty menu, **Add an example set** gives a starting list (housing, transportation, speaking about the partner, prayer, care packages, how to send gifts and so on) to edit or delete. **Retire** an option to stop offering it while keeping the answers already given, or **Delete** it to remove it and those answers. **Print menu** (top right of that page) opens a clean copy with the church's name and logo, boxes to tick and lines to write on, for a conversation with a partner; retired options are left out, and it stores nothing.
 - **Record a partner's choices** with **+ Record** (or **Edit**) on their page, after a conversation: tick what they want, pick their answers, add a note. One set per partner, so a couple or family shares it. Admins, editors and a guest on that partner's care team can record it; a viewer can read it. A trip leader never sees it.
+- **Staff-only options.** An admin can tick **Staff only** on an option (Settings → Support Preferences) so its answers are hidden from care team members and shown only to staff; the example "What can and cannot be shared with others?" starts that way.
+- **Tag a contact with an option.** When you log a contact, **Which support option was this about?** links it to an option, and the log shows "re: Airport pick-up". The label is kept even if the option is later retired or deleted.
 - **Who can see it:** staff and the partner's care team only, on the partner's page. It never appears on the public site, in the booklet, or in dispatches. How a partner prefers to be contacted is the **Preferred contact** on their Contact card, not here.
 - **Reports → Support preferences** lists what each partner has chosen (sort by an option to see who wants it) or, with **Show: Partners with nothing recorded**, who still needs that conversation.
 
@@ -1030,6 +1034,7 @@ With **Partner surveys** turned on in [Enabled Features](ADMIN_GUIDE.md#feature-
 
 A question can be linked to a part of the partner's record: in the survey builder, pick **Suggest a change to their record** on a text or pick-one question, or use a **Photo** question. The Annual update template is already linked for the phone number, email, preferred contact method, emergency contact and photo.
 
+- **Decided together.** Changes are grouped by partner, with **Approve all** and **Reject all** for the group. A new answer from a partner also appears on the bell as **New survey answers** (for staff and for the care team on their own partners); the **Survey updates to review** item is shown only to admins and editors, who can act on it.
 - **Nothing changes by itself.** When a partner's answer differs from what is on file, it appears on **Survey Updates** (sidebar, with a count, and on the bell) showing what is on file now next to what they answered. A photo shows as a thumbnail.
 - **Approve** applies it to their record, exactly as if you had edited it on their page ("last edited by" and the audit log record you). **Edit** lets you correct the value first (for example to fix a phone number's format) and then approves it. **Reject** leaves the record alone, and a rejected photo is deleted.
 - A photo a partner sends is held until you approve it, then becomes their current photo; the earlier one stays in their photo history.

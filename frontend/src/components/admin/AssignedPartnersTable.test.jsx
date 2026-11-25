@@ -1,14 +1,14 @@
 import React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import AssignedPartnersTable from "./AssignedPartnersTable.jsx";
-import { fetchAssignedPartners } from "../../api/client.js";
+import { fetchAssignedPartners, createContactLogEntry } from "../../api/client.js";
 
-vi.mock("../../api/client.js", () => ({ fetchAssignedPartners: vi.fn() }));
+vi.mock("../../api/client.js", () => ({ fetchAssignedPartners: vi.fn(), createContactLogEntry: vi.fn() }));
 let features = { prayerRequests: true, oneTimeNeeds: false };
 vi.mock("../../context/SettingsContext.jsx", () => ({
-  useSettings: () => ({ enabledFeatures: features }),
+  useSettings: () => ({ enabledFeatures: features, churchName: "Hillside" }),
 }));
 
 const rows = [
@@ -102,5 +102,51 @@ describe("AssignedPartnersTable: key-date flag (#291)", () => {
     renderIt();
     await waitFor(() => expect(screen.getAllByText("The Reeds").length).toBe(2));
     expect(screen.queryByText("Soon")).toBeNull();
+  });
+
+  it("offers a greeting draft only where we may email, and logs it as a Key date contact once sent", async () => {
+    features = { ...features, contactLog: true, keyDates: true };
+    fetchAssignedPartners.mockResolvedValue([
+      {
+        ...rows[0],
+        nextKeyDate: { ...rows[0].nextKeyDate, daysUntil: 3 },
+        greetingEmail: "dana@example.org",
+      },
+      {
+        ...rows[1],
+        nextKeyDate: { date: "2026-11-28", daysUntil: 3, occasion: "Birthday", who: "Sam" },
+        greetingEmail: null,
+      },
+    ]);
+    createContactLogEntry.mockResolvedValue({});
+    const hrefSet = vi.fn();
+    const original = window.location;
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: {
+        ...original,
+        set href(v) {
+          hrefSet(v);
+        },
+      },
+    });
+    renderIt();
+    const buttons = await screen.findAllByRole("button", { name: "Send greeting" });
+    expect(buttons).toHaveLength(1);
+    fireEvent.click(buttons[0]);
+    expect(hrefSet).toHaveBeenCalledWith(
+      expect.stringMatching(/^mailto:dana@example\.org\?subject=Happy%20birthday/)
+    );
+    fireEvent.click(await screen.findByRole("button", { name: "Yes, log it" }));
+    await waitFor(() => expect(createContactLogEntry).toHaveBeenCalled());
+    expect(createContactLogEntry).toHaveBeenCalledWith(
+      expect.objectContaining({
+        partnerId: "p1",
+        contactType: "email",
+        direction: "outbound",
+        topics: ["keydate"],
+      })
+    );
+    Object.defineProperty(window, "location", { configurable: true, value: original });
   });
 });

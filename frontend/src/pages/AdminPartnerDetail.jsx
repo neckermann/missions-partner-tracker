@@ -878,6 +878,41 @@ export default function AdminPartnerDetail() {
           )}
         />
 
+        <EditableSection
+          title="Our History With Them"
+          canEdit={canEdit}
+          onSaved={reload}
+          onSave={(d) =>
+            save({ adoptedAt: dateOrNull(d.adoptedAt), commissionedAt: dateOrNull(d.commissionedAt) })
+          }
+          value={{
+            adoptedAt: toDateInputValue(p.adoptedAt),
+            commissionedAt: toDateInputValue(p.commissionedAt),
+          }}
+          view={(v) => (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "1.5rem" }}>
+              <Field label="Adopted by our church" value={formatDateLong(v.adoptedAt)} showEmpty />
+              <Field label="Commissioned" value={formatDateLong(v.commissionedAt)} showEmpty />
+            </div>
+          )}
+          edit={(d, set) => (
+            <div className="form-grid">
+              <label title="When our church adopted them. The anniversary is a key date for their care team.">
+                Adopted by our church
+                <input type="date" value={d.adoptedAt} onChange={(e) => set("adoptedAt", e.target.value)} />
+              </label>
+              <label title="When they were commissioned. The anniversary is a key date for their care team.">
+                Commissioned
+                <input
+                  type="date"
+                  value={d.commissionedAt}
+                  onChange={(e) => set("commissionedAt", e.target.value)}
+                />
+              </label>
+            </div>
+          )}
+        />
+
         <div className="admin-section-group" id="section-family">
           <h2 className="admin-group-heading">Family &amp; Personal</h2>
 

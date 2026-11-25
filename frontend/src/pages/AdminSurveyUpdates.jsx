@@ -59,6 +59,38 @@ export default function AdminSurveyUpdates() {
   }
 
   const pendingTab = tab === "pending";
+
+  // Pending changes grouped by partner, so one partner's answers are decided together.
+  const groups = [];
+  for (const u of rows || []) {
+    let g = groups.find((x) => x.partnerId === u.partnerId);
+    if (!g) groups.push((g = { partnerId: u.partnerId, partnerName: u.partnerName, items: [] }));
+    g.items.push(u);
+  }
+
+  // Applies a decision to every change in a group, stopping at the first that can't be applied so
+  // the person sees why (the rest stay waiting).
+  async function decideAll(group, decision) {
+    if (decision === "reject") {
+      const ok = await confirmDialog({
+        title: `Reject all ${group.items.length} changes?`,
+        body: <p>{group.partnerName}&apos;s record stays as it is, and any photo is deleted.</p>,
+        confirmLabel: "Reject all",
+        danger: true,
+      });
+      if (!ok) return;
+    }
+    setError("");
+    try {
+      for (const u of group.items) {
+        if (decision === "approve") await approveSurveyUpdate(u.id);
+        else await rejectSurveyUpdate(u.id);
+      }
+    } catch (err) {
+      setError(err.response?.data?.error || "Something went wrong. The rest are still waiting.");
+    }
+    await reload();
+  }
   return (
     <div className="admin-shell">
       <PageHeader
@@ -79,10 +111,93 @@ export default function AdminSurveyUpdates() {
           {error}
         </p>
       )}
-      {rows && (
+      {rows && pendingTab && groups.length === 0 && (
+        <p style={{ color: "var(--muted)" }}>Nothing to review right now.</p>
+      )}
+      {rows &&
+        pendingTab &&
+        groups.map((g) => (
+          <div key={g.partnerId} className="admin-section" style={{ marginBottom: "1rem" }}>
+            <div
+              style={{ display: "flex", justifyContent: "space-between", gap: "0.5rem", flexWrap: "wrap" }}
+            >
+              <h3 style={{ margin: 0 }}>
+                <Link to={`/admin/partners/${g.partnerId}`}>{g.partnerName}</Link>
+                <span style={{ color: "var(--muted)", fontWeight: "normal", fontSize: "0.9rem" }}>
+                  {" "}
+                  · {g.items[0].surveyTitle}
+                </span>
+              </h3>
+              {g.items.length > 1 && (
+                <div style={{ display: "flex", gap: "0.5rem" }}>
+                  <button type="button" className="btn small" onClick={() => decideAll(g, "approve")}>
+                    Approve all {g.items.length}
+                  </button>
+                  <button type="button" className="btn danger small" onClick={() => decideAll(g, "reject")}>
+                    Reject all
+                  </button>
+                </div>
+              )}
+            </div>
+            <table className="admin-table" style={{ marginTop: "0.5rem" }}>
+              <thead>
+                <tr>
+                  <th>Change</th>
+                  <th>Now</th>
+                  <th>Suggested</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {g.items.map((u) => (
+                  <tr key={u.id}>
+                    <td>{u.fieldLabel}</td>
+                    <td>{u.photoUploadId || u.field === "photo" ? "" : u.currentValue || "—"}</td>
+                    <td>
+                      {u.photoUploadId ? (
+                        <img
+                          src={`/api/survey-updates/photo/${u.photoUploadId}`}
+                          alt={`Sent by ${u.partnerName}`}
+                          style={{ maxWidth: 120, maxHeight: 120, borderRadius: 6 }}
+                        />
+                      ) : (
+                        u.proposedValue
+                      )}
+                    </td>
+                    <td style={{ whiteSpace: "nowrap" }}>
+                      <button
+                        type="button"
+                        className="btn small"
+                        onClick={() => act(() => approveSurveyUpdate(u.id))}
+                      >
+                        Approve
+                      </button>{" "}
+                      {!u.photoUploadId && u.field !== "photo" && (
+                        <button
+                          type="button"
+                          className="btn secondary small"
+                          onClick={() => {
+                            setValue(u.proposedValue || "");
+                            setEditing(u);
+                          }}
+                        >
+                          Edit
+                        </button>
+                      )}{" "}
+                      <button type="button" className="btn danger small" onClick={() => reject(u)}>
+                        Reject
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ))}
+      {rows && !pendingTab && (
         <Table
           rows={rows}
-          emptyMessage={pendingTab ? "Nothing to review right now." : "Nothing decided yet."}
+          emptyMessage="Nothing decided yet."
           columns={[
             {
               key: "partnerName",
@@ -92,65 +207,18 @@ export default function AdminSurveyUpdates() {
             },
             { key: "fieldLabel", label: "Change" },
             {
-              key: "current",
-              label: "Now",
-              render: (u) => (u.photoUploadId || u.field === "photo" ? "" : u.currentValue || "—"),
-            },
-            {
               key: "proposed",
-              label: pendingTab ? "Suggested" : "Result",
+              label: "Result",
               render: (u) =>
-                u.photoUploadId ? (
-                  <img
-                    src={`/api/survey-updates/photo/${u.photoUploadId}`}
-                    alt={`Sent by ${u.partnerName}`}
-                    style={{ maxWidth: 120, maxHeight: 120, borderRadius: 6 }}
-                  />
-                ) : pendingTab ? (
-                  u.proposedValue
-                ) : (
-                  `${u.status === "approved" ? "Applied" : "Rejected"}${u.appliedValue ? `: ${u.appliedValue}` : ""}`
-                ),
+                `${u.status === "approved" ? "Applied" : "Rejected"}${u.appliedValue ? `: ${u.appliedValue}` : ""}`,
             },
             { key: "surveyTitle", label: "From" },
-            pendingTab
-              ? { key: "createdAt", label: "Sent", type: "date" }
-              : {
-                  key: "decidedBy",
-                  label: "Decided",
-                  render: (u) => `${u.decidedByName || ""} ${formatDate(u.decidedAt)}`,
-                },
+            {
+              key: "decidedBy",
+              label: "Decided",
+              render: (u) => `${u.decidedByName || ""} ${formatDate(u.decidedAt)}`,
+            },
           ]}
-          renderActions={
-            pendingTab
-              ? (u) => (
-                  <>
-                    <button
-                      type="button"
-                      className="btn small"
-                      onClick={() => act(() => approveSurveyUpdate(u.id))}
-                    >
-                      Approve
-                    </button>
-                    {!u.photoUploadId && u.field !== "photo" && (
-                      <button
-                        type="button"
-                        className="btn secondary small"
-                        onClick={() => {
-                          setValue(u.proposedValue || "");
-                          setEditing(u);
-                        }}
-                      >
-                        Edit
-                      </button>
-                    )}
-                    <button type="button" className="btn danger small" onClick={() => reject(u)}>
-                      Reject
-                    </button>
-                  </>
-                )
-              : undefined
-          }
         />
       )}
       {editing && (

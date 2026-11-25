@@ -424,6 +424,8 @@ function ExistingTripsTab() {
         onRowClick={(trip) =>
           trip.status === "completed" ? openTripDetail(trip) : navigate(`/admin/trips/${trip.id}`)
         }
+        // A trip with a page opens it; a completed one opens its history dialog instead.
+        rowHref={(trip) => (trip.status === "completed" ? null : `/admin/trips/${trip.id}`)}
         emptyMessage="No trips match these filters."
         columns={[
           {
@@ -432,9 +434,7 @@ function ExistingTripsTab() {
             stopRowClick: true,
             render: (trip) => (
               <>
-                <Link to={trip.entityLink} style={{ fontWeight: 600 }}>
-                  {trip.entityName}
-                </Link>
+                <span style={{ fontWeight: 600 }}>{trip.entityName}</span>
                 {trip.partner?.isRestricted && (
                   <div style={{ fontSize: "0.7rem", color: "var(--warn)", fontWeight: 700 }}>
                     Restricted partner

@@ -91,6 +91,7 @@ const EXAMPLE_OPTIONS = [
     group: "Communication and encouragement",
     label: "What can and cannot be shared with others?",
     kind: "text",
+    staffOnly: true,
   },
 
   { group: "Prayer", label: "Individual prayer" },
@@ -121,6 +122,7 @@ async function addExampleOptions(db = prisma) {
       kind: o.kind || "offer",
       choices: o.choices || [],
       allowOther: o.allowOther || false,
+      staffOnly: o.staffOnly === true,
       sortOrder: n,
     };
   });

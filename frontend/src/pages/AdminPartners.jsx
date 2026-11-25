@@ -357,6 +357,7 @@ export default function AdminPartners() {
             rows={partnersLoadMore.visible}
             rowKey={(row) => `${row.type}-${row.id}`}
             onRowClick={(row) => navigate(row.detailLink)}
+            rowHref={(row) => row.detailLink}
             emptyMessage={loading ? "Loading…" : "No partners match these filters."}
             columns={[
               {
