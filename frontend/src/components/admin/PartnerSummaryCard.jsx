@@ -6,7 +6,7 @@ import LoadMoreButton from "../LoadMoreButton.jsx";
 // own admin page: "View all" links there pre-filtered (omitted without `viewAllTo`), and `actions`
 // open the real add/edit forms in a QuickActionModal. `items` lists a few recent entries instead
 // of the one-line `summary`; each is a string or `{ text, onClick }`. `hasMore`/`remaining`/
-// `onShowMore` (from useLoadMore.js) render Load More under `items`.
+// `onShowMore` (from useLoadMore.js) render Load More under `items`. `empty` replaces "None on file."
 export default function PartnerSummaryCard({
   icon,
   title,
@@ -18,6 +18,7 @@ export default function PartnerSummaryCard({
   onShowMore,
   viewAllTo,
   actions,
+  empty = "None on file.",
 }) {
   return (
     <div className="admin-section partner-summary-card">
@@ -38,7 +39,7 @@ export default function PartnerSummaryCard({
           )}
         </div>
       </div>
-      {count === 0 && <p style={{ margin: "0.5rem 0 0", color: "var(--muted)" }}>None on file.</p>}
+      {count === 0 && <p style={{ margin: "0.5rem 0 0", color: "var(--muted)" }}>{empty}</p>}
       {count > 0 && summary && <p style={{ margin: "0.5rem 0 0", color: "var(--muted)" }}>{summary}</p>}
       {count > 0 && items?.length > 0 && (
         <ul style={{ margin: "0.5rem 0 0", paddingLeft: "1.25rem", color: "var(--muted)" }}>

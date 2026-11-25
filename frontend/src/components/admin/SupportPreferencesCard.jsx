@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { fetchPartnerSupportPreferences, savePartnerSupportPreferences } from "../../api/client.js";
 import { formatDate } from "../../utils/format.js";
 import Modal from "../Modal.jsx";
+import PartnerSummaryCard from "./PartnerSummaryCard.jsx";
 import QuickActionModal from "../shared/QuickActionModal.jsx";
 
 // A partner's support preferences: which of the church's menu of ways to support a partner they
@@ -74,59 +75,46 @@ export default function SupportPreferencesCard({ partnerId, isAdmin = false }) {
   const groups = groupOptions(answered);
   const hasMenu = (data?.options || []).some((o) => o.active);
 
-  const card = (
-    <div className="admin-section" id="section-support-preferences" style={{ scrollMarginTop: "1rem" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.5rem" }}>
-        <h3 style={{ margin: 0 }}>Support preferences</h3>
-        {data?.canEdit && hasMenu && (
-          <button type="button" className="btn secondary small" onClick={() => setEditing(true)}>
-            {answered.length ? "Edit preferences" : "+ Record preferences"}
-          </button>
+  const actions = [];
+  if (data?.canEdit && hasMenu) {
+    actions.push({
+      label: answered.length ? "Edit" : "+ Record",
+      onClick: () => setEditing(true),
+    });
+  }
+  if (answered.length > 0) actions.push({ label: "View all →", onClick: () => setViewing(true) });
+
+  let empty =
+    "Nothing recorded yet. After a conversation, record how this partner would like to be supported.";
+  if (failed) empty = "Couldn't load the support preferences.";
+  else if (data && !hasMenu) {
+    empty = (
+      <>
+        No support options have been set up yet.
+        {isAdmin && (
+          <>
+            {" "}
+            <Link to="/admin/settings/support-preferences">Set up the menu</Link>
+          </>
         )}
-      </div>
-      {failed && <p style={{ color: "var(--danger)" }}>Couldn&apos;t load the support preferences.</p>}
-      {data && !hasMenu && (
-        <p style={{ margin: "0.5rem 0 0", color: "var(--muted)" }}>
-          No support options have been set up yet.
-          {isAdmin && (
-            <>
-              {" "}
-              <Link to="/admin/settings/support-preferences">Set up the menu</Link>
-            </>
-          )}
-        </p>
-      )}
-      {data && hasMenu && answered.length === 0 && (
-        <p style={{ margin: "0.5rem 0 0", color: "var(--muted)" }}>
-          Nothing recorded yet. After a conversation, record how this partner would like to be supported.
-        </p>
-      )}
-      {answered.length > 0 && (
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            gap: "0.75rem",
-            marginTop: "0.5rem",
-          }}
-        >
-          <span style={{ color: "var(--muted)" }}>
-            {answered.length} {answered.length === 1 ? "preference" : "preferences"} recorded
-            {` · ${groups.map((g) => g.name).join(", ")}`}
-          </span>
-          <button type="button" className="btn secondary small" onClick={() => setViewing(true)}>
-            See full details
-          </button>
-        </div>
-      )}
-      {data && answered.length > 0 && (
-        <p style={{ color: "var(--muted)", fontSize: "0.85rem", margin: "0.75rem 0 0" }}>
-          {lastEditedLine(data.preferences)}
-        </p>
-      )}
+      </>
+    );
+  }
+
+  const card = (
+    <div id="section-support-preferences" style={{ scrollMarginTop: "1rem" }}>
+      <PartnerSummaryCard
+        icon="🤝"
+        title="Support Preferences"
+        count={answered.length}
+        summary={`${answered.length} ${answered.length === 1 ? "preference" : "preferences"} recorded · ${groups
+          .map((g) => g.name)
+          .join(", ")}`}
+        actions={actions}
+        empty={empty}
+      />
       {viewing && (
-        <Modal title="Support preferences" onClose={() => setViewing(false)} maxWidth="640px">
+        <Modal title="Support Preferences" onClose={() => setViewing(false)} maxWidth="640px">
           {groups.map((g) => (
             <div key={g.name} style={{ marginTop: "0.75rem" }}>
               <div style={{ fontWeight: 600, fontSize: "0.9rem", color: "var(--muted)" }}>{g.name}</div>
@@ -220,7 +208,7 @@ function EditSupportPreferencesModal({ partnerId, options, preferences, onClose,
   }
 
   return (
-    <QuickActionModal title="Support preferences" onClose={onClose} onSubmit={handleSubmit} maxWidth="640px">
+    <QuickActionModal title="Support Preferences" onClose={onClose} onSubmit={handleSubmit} maxWidth="640px">
       <p style={{ marginTop: 0, color: "var(--muted)", fontSize: "0.9rem" }}>
         Record what this partner has asked for. Only the care team and staff can see this.
       </p>

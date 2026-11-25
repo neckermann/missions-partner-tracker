@@ -64,14 +64,14 @@ test.describe("Support preferences", () => {
   test("staff record a partner's choices on their page, and they show on the card", async () => {
     await admin.goto(`/admin/partners/${partner.id}`);
     const card = admin.locator("#section-support-preferences");
-    await expect(card.getByRole("heading", { name: "Support preferences" })).toBeVisible();
-    await card.getByRole("button", { name: /Record preferences|Edit preferences/ }).click();
+    await expect(card.getByRole("heading", { name: "Support Preferences" })).toBeVisible();
+    await card.getByRole("button", { name: /^(\+ Record|Edit)$/ }).click();
     await admin.getByLabel(label, { exact: true }).check();
     await admin.getByLabel(`Note for ${label}`).fill(note);
     await admin.getByRole("button", { name: "Save" }).click();
     await expect(card.getByText(/preferences? recorded/)).toBeVisible();
-    await card.getByRole("button", { name: "See full details" }).click();
-    const details = admin.getByRole("dialog", { name: "Support preferences" });
+    await card.getByRole("button", { name: "View all →" }).click();
+    const details = admin.getByRole("dialog", { name: "Support Preferences" });
     await expect(details.getByText(note)).toBeVisible();
     await expect(details.locator("ul li", { hasText: label })).toBeVisible();
   });
