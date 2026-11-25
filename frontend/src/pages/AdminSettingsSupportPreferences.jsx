@@ -9,6 +9,7 @@ import {
 } from "../api/client.js";
 import { Link } from "react-router-dom";
 import TemplatePackButtons from "../components/admin/TemplatePackButtons.jsx";
+import SuggestInput from "../components/SuggestInput.jsx";
 import SettingsPageHeader from "../components/admin/SettingsPageHeader.jsx";
 import QuickActionModal from "../components/shared/QuickActionModal.jsx";
 import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
@@ -244,17 +245,7 @@ function OptionModal({ option, kinds, groupNames, onClose, onSaved }) {
     >
       <label>
         Group
-        <input
-          list="support-group-names"
-          value={form.group}
-          onChange={(e) => set({ group: e.target.value })}
-          required
-        />
-        <datalist id="support-group-names">
-          {groupNames.map((n) => (
-            <option key={n} value={n} />
-          ))}
-        </datalist>
+        <SuggestInput value={form.group} onChange={(v) => set({ group: v })} options={groupNames} required />
       </label>
       <label>
         What it says

@@ -22,14 +22,7 @@
         {
           "kind": "single",
           "label": "How can we best communicate with you, and receive updates from you?",
-          "choices": [
-            "call",
-            "text",
-            "email",
-            "whatsapp",
-            "signal",
-            "messenger"
-          ],
+          "choices": ["call", "text", "email", "whatsapp", "signal", "messenger"],
           "field": "contactMethod"
         },
         {

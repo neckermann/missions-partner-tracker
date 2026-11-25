@@ -5,15 +5,11 @@ const WORDS = {
   Birthday: { subject: "Happy birthday", line: "Wishing you a very happy birthday" },
   Anniversary: { subject: "Happy anniversary", line: "Happy anniversary" },
   "Wedding anniversary": { subject: "Happy anniversary", line: "Happy anniversary" },
-  "Adopted by our church": {
-    subject: "Thinking of you",
-    line: "Today marks another year since we adopted you as one of our partners, and we are grateful for you",
-  },
   Commissioned: {
     subject: "Remembering your commissioning",
     line: "Today marks another year since you were commissioned, and we are thankful for your work",
   },
-  "Supported since": {
+  "Partnering since": {
     subject: "Thank you for the partnership",
     line: "Today marks another year of partnering together, and we are thankful for you",
   },

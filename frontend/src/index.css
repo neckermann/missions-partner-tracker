@@ -2615,3 +2615,36 @@ button.report-summary-item[aria-pressed="true"] {
   gap: 0.4rem;
   flex-wrap: wrap;
 }
+
+/* SuggestInput: the suggestion list under a text field (a datalist replacement that works on phones). */
+.suggest-list {
+  position: absolute;
+  z-index: 20;
+  left: 0;
+  right: 0;
+  margin: 2px 0 0;
+  padding: 0.25rem 0;
+  list-style: none;
+  max-height: 14rem;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+}
+.suggest-option {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.55rem 0.75rem;
+  background: none;
+  border: none;
+  color: var(--text);
+  font: inherit;
+  font-weight: normal;
+  cursor: pointer;
+}
+.suggest-option:hover,
+.suggest-option.active {
+  background: var(--accent-soft);
+}

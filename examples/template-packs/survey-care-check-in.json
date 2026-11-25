@@ -12,12 +12,7 @@
         {
           "kind": "single",
           "label": "How are you doing overall?",
-          "choices": [
-            "Doing well",
-            "Managing",
-            "Struggling",
-            "Need help soon"
-          ],
+          "choices": ["Doing well", "Managing", "Struggling", "Need help soon"],
           "required": true
         },
         {

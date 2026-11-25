@@ -84,7 +84,7 @@ describe("SupportPreferencesCard", () => {
     expect(await screen.findByText("Support Preferences")).toBeInTheDocument();
     expect(screen.getByText(/2 preferences recorded/)).toBeInTheDocument();
     expect(screen.queryByText("Early flights")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "View all →" }));
+    fireEvent.click(screen.getByRole("button", { name: /preferences recorded/ }));
     expect(await screen.findByRole("dialog")).toBeInTheDocument();
     expect(screen.getByText("Logistics", { selector: "div" })).toBeInTheDocument();
     expect(screen.getByText(/Airport pick-up/)).toBeInTheDocument();

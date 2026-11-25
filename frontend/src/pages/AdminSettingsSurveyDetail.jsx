@@ -58,6 +58,7 @@ export default function AdminSettingsSurveyDetail() {
   const [recipients, setRecipients] = useState([]);
   const [fields, setFields] = useState([]);
   const [chosen, setChosen] = useState(new Set());
+  const [search, setSearch] = useState("");
   const [results, setResults] = useState({ responses: [] });
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -197,6 +198,9 @@ export default function AdminSettingsSurveyDetail() {
     );
   }
 
+  const shown = recipients.filter(
+    (r) => !search.trim() || r.name.toLowerCase().includes(search.trim().toLowerCase())
+  );
   const answered = recipients.filter((r) => r.state === "answered").length;
   const invited = recipients.filter((r) => r.state !== "not invited").length;
   const isOpen = survey.status === "open";
@@ -468,12 +472,34 @@ export default function AdminSettingsSurveyDetail() {
                 >
                   Select those still waiting
                 </button>
+                <button
+                  type="button"
+                  className="btn secondary small"
+                  onClick={() =>
+                    setChosen(
+                      new Set(
+                        shown.filter((r) => r.canEmail && r.state !== "answered").map((r) => r.partnerId)
+                      )
+                    )
+                  }
+                >
+                  Select all {search ? "shown" : "who can be emailed"}
+                </button>
                 <button type="button" className="btn secondary small" onClick={() => setChosen(new Set())}>
                   Clear
                 </button>
               </div>
+              <input
+                type="search"
+                aria-label="Find a partner"
+                placeholder="Find a partner…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                style={{ marginBottom: "0.5rem" }}
+              />
               <div className="survey-recipients">
-                {recipients.map((r) => (
+                {shown.length === 0 && <p style={{ color: "var(--muted)", margin: 0 }}>No partners match.</p>}
+                {shown.map((r) => (
                   <label key={r.partnerId} style={choiceRowStyle}>
                     <input
                       style={choiceInputStyle}

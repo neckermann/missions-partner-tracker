@@ -13,6 +13,7 @@ import QuickActionModal from "../shared/QuickActionModal.jsx";
 import useConfirmDialog from "../../hooks/useConfirmDialog.jsx";
 import ConfirmMessageBody from "../ConfirmMessageBody.jsx";
 import { useSettings } from "../../context/SettingsContext.jsx";
+import { onClickUnlessSelecting } from "../../utils/clickableRow.js";
 import { formatDateLong, toDateInputValue, todayInputValue } from "../../utils/format.js";
 
 // The partner's contact log, newest first. Anyone who can see the partner can log an entry; only
@@ -86,7 +87,7 @@ export default function ContactLogSection({
   }, [partnerId]);
 
   // A decided need or answered prayer still waiting to be passed on; refreshed when the log changes
-  // since logging the thank-you clears it.
+  // since logging that you told them clears it.
   const [updates, setUpdates] = useState([]);
   useEffect(() => {
     fetchContactUpdates(partnerId)
@@ -165,9 +166,10 @@ export default function ContactLogSection({
       confirmLabel: "Delete",
       danger: true,
     });
-    if (!ok) return;
+    if (!ok) return false;
     await deleteContactLogEntry(entry.id);
     onChanged();
+    return true;
   }
 
   const toggleTopic = (value) =>
@@ -182,7 +184,26 @@ export default function ContactLogSection({
   ];
 
   const renderEntry = (e) => (
-    <div key={e.id} className="repeatable-row" style={{ marginTop: "0.75rem" }}>
+    // A fixable entry is itself the click target (opens the edit popup, which carries Delete).
+
+    <div
+      key={e.id}
+      className={canFix ? "repeatable-row repeatable-row-clickable" : "repeatable-row"}
+      style={{ marginTop: "0.75rem" }}
+      role={canFix ? "button" : undefined}
+      tabIndex={canFix ? 0 : undefined}
+      onClick={canFix ? onClickUnlessSelecting(() => openEdit(e)) : undefined}
+      onKeyDown={
+        canFix
+          ? (ev) => {
+              if (ev.key === "Enter" || ev.key === " ") {
+                ev.preventDefault();
+                openEdit(e);
+              }
+            }
+          : undefined
+      }
+    >
       <div style={{ display: "flex", justifyContent: "space-between", gap: "0.75rem", flexWrap: "wrap" }}>
         <div>
           <strong>{label(options?.types, e.contactType)}</strong>
@@ -196,16 +217,6 @@ export default function ContactLogSection({
             {e.supportOptionLabel && <> · re: {e.supportOptionLabel}</>}
           </div>
         </div>
-        {canFix && (
-          <div style={{ display: "flex", gap: "0.4rem" }}>
-            <button type="button" className="btn secondary small" onClick={() => openEdit(e)}>
-              Edit
-            </button>
-            <button type="button" className="btn secondary small" onClick={() => handleDelete(e)}>
-              Delete
-            </button>
-          </div>
-        )}
       </div>
       {e.notes && <p style={{ margin: "0.4rem 0 0", whiteSpace: "pre-wrap" }}>{e.notes}</p>}
       {e.followUpDate && (
@@ -256,7 +267,9 @@ export default function ContactLogSection({
                 style={{
                   display: "flex",
                   justifyContent: "space-between",
-                  gap: "0.75rem",
+                  alignItems: "flex-start",
+                  flexWrap: "wrap",
+                  gap: "0.5rem 0.75rem",
                   padding: "0.2rem 0",
                 }}
               >
@@ -265,8 +278,13 @@ export default function ContactLogSection({
                   {formatDateLong(u.date)}
                   ): {u.label}
                 </span>
-                <button type="button" className="btn secondary small" onClick={() => openThankYou(u)}>
-                  {u.kind === "need" ? "Log passing it on" : "Log a thank-you"}
+                <button
+                  type="button"
+                  className="btn secondary small"
+                  style={{ whiteSpace: "nowrap" }}
+                  onClick={() => openThankYou(u)}
+                >
+                  Log that I told them
                 </button>
               </li>
             ))}
@@ -305,6 +323,11 @@ export default function ContactLogSection({
         <QuickActionModal
           title={editingId ? "Edit contact" : "Log a contact"}
           onClose={close}
+          onDelete={
+            editingId && canFix
+              ? () => handleDelete(entries.find((x) => x.id === editingId) || { id: editingId })
+              : undefined
+          }
           onSubmit={submit}
         >
           <fieldset style={{ border: 0, padding: 0, margin: "0 0 0.75rem" }}>

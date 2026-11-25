@@ -96,11 +96,7 @@
         "group": "Gifts",
         "label": "How should special financial gifts be sent?",
         "kind": "single",
-        "choices": [
-          "Bank transfer",
-          "A transfer app",
-          "Through an organization"
-        ],
+        "choices": ["Bank transfer", "A transfer app", "Through an organization"],
         "allowOther": true
       }
     ]

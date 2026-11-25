@@ -3,7 +3,9 @@ import Modal from "../Modal.jsx";
 
 // Common chrome for quick add/update actions from a Partner Detail summary card: error display,
 // "Saved ✓" confirmation, submit-button states. `onSubmit` does the API call (and may show further
-// confirmations, e.g. useUrgentApprovalGate); nothing resource-specific lives here.
+// confirmations, e.g. useUrgentApprovalGate); nothing resource-specific lives here. `onDelete` (an
+// existing record only) adds a Delete button: it does its own confirmation and resolves true once the
+// record is gone, which closes the popup.
 export default function QuickActionModal({
   title,
   onClose,
@@ -12,6 +14,7 @@ export default function QuickActionModal({
   submitLabel = "Save",
   submitDisabled = false,
   maxWidth,
+  onDelete,
 }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -37,6 +40,18 @@ export default function QuickActionModal({
     }
   }
 
+  async function handleDelete() {
+    setError("");
+    setSaving(true);
+    try {
+      if ((await onDelete()) === true) onClose();
+    } catch (err) {
+      setError(err.response?.data?.error || err.message || "Something went wrong");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <Modal title={title} onClose={onClose} maxWidth={maxWidth}>
       <form onSubmit={handleSubmit}>
@@ -45,10 +60,20 @@ export default function QuickActionModal({
         {justSaved && !error && (
           <p style={{ color: "var(--brand-color-safe, #2a5d3c)", marginTop: "0.75rem" }}>Saved ✓</p>
         )}
-        <div style={{ marginTop: "1rem" }}>
+        <div style={{ marginTop: "1rem", display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
           <button type="submit" className="btn" disabled={saving || justSaved || submitDisabled}>
             {saving ? "Saving…" : justSaved ? "Saved ✓" : submitLabel}
           </button>
+          {onDelete && (
+            <button
+              type="button"
+              className="btn danger"
+              disabled={saving || justSaved}
+              onClick={handleDelete}
+            >
+              Delete
+            </button>
+          )}
         </div>
       </form>
     </Modal>

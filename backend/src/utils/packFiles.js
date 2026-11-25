@@ -7,7 +7,11 @@ const { parsePack } = require("./templatePacks");
 
 const DIR = path.join(__dirname, "..", "..", "..", "examples", "template-packs");
 
-const listPackFiles = () => fs.readdirSync(DIR).filter((f) => f.endsWith(".json")).sort();
+const listPackFiles = () =>
+  fs
+    .readdirSync(DIR)
+    .filter((f) => f.endsWith(".json"))
+    .sort();
 
 function readPackFile(name) {
   const file = name.endsWith(".json") ? name : `${name}.json`;

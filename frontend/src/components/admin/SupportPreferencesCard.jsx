@@ -82,7 +82,6 @@ export default function SupportPreferencesCard({ partnerId, isAdmin = false }) {
       onClick: () => setEditing(true),
     });
   }
-  if (answered.length > 0) actions.push({ label: "View all →", onClick: () => setViewing(true) });
 
   let empty =
     "Nothing recorded yet. After a conversation, record how this partner would like to be supported.";
@@ -107,9 +106,14 @@ export default function SupportPreferencesCard({ partnerId, isAdmin = false }) {
         icon="🤝"
         title="Support Preferences"
         count={answered.length}
-        summary={`${answered.length} ${answered.length === 1 ? "preference" : "preferences"} recorded · ${groups
-          .map((g) => g.name)
-          .join(", ")}`}
+        items={[
+          {
+            text: `${answered.length} ${answered.length === 1 ? "preference" : "preferences"} recorded · ${groups
+              .map((g) => g.name)
+              .join(", ")}`,
+            onClick: () => setViewing(true),
+          },
+        ]}
         actions={actions}
         empty={empty}
       />

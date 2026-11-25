@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import LoadMoreButton from "../LoadMoreButton.jsx";
 
 // A lightweight stand-in for an embedded CRUD widget on Partner Detail, for a collection with its
-// own admin page: "View all" links there pre-filtered (omitted without `viewAllTo`), and `actions`
+// own admin page: the title links there pre-filtered (a plain title without `viewAllTo`), and `actions`
 // open the real add/edit forms in a QuickActionModal. `items` lists a few recent entries instead
 // of the one-line `summary`; each is a string or `{ text, onClick }`. `hasMore`/`remaining`/
 // `onShowMore` (from useLoadMore.js) render Load More under `items`. `empty` replaces "None on file."
@@ -24,7 +24,14 @@ export default function PartnerSummaryCard({
     <div className="admin-section partner-summary-card">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.5rem" }}>
         <h3 style={{ margin: 0 }}>
-          <span aria-hidden="true">{icon}</span> {title}
+          <span aria-hidden="true">{icon}</span>{" "}
+          {viewAllTo ? (
+            <Link to={viewAllTo} className="summary-item-link" title={`See all ${title.toLowerCase()}`}>
+              {title} →
+            </Link>
+          ) : (
+            title
+          )}
         </h3>
         <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", justifyContent: "flex-end" }}>
           {actions?.map((action) => (
@@ -32,11 +39,6 @@ export default function PartnerSummaryCard({
               {action.label}
             </button>
           ))}
-          {viewAllTo && (
-            <Link to={viewAllTo} className="btn secondary small">
-              View all →
-            </Link>
-          )}
         </div>
       </div>
       {count === 0 && <p style={{ margin: "0.5rem 0 0", color: "var(--muted)" }}>{empty}</p>}

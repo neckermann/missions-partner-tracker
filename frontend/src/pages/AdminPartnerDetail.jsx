@@ -54,6 +54,7 @@ import CareTeamPanel from "../components/admin/CareTeamPanel.jsx";
 import { contactLevelOf } from "../utils/contactMethods.js";
 import ContactCard from "../components/admin/ContactCard.jsx";
 import SupportPreferencesCard from "../components/admin/SupportPreferencesCard.jsx";
+import SuggestInput from "../components/SuggestInput.jsx";
 import SurveysCard from "../components/admin/SurveysCard.jsx";
 import ContactLogSection from "../components/admin/ContactLogSection.jsx";
 import PartnerSummaryCard from "../components/admin/PartnerSummaryCard.jsx";
@@ -766,7 +767,8 @@ export default function AdminPartnerDetail() {
         {[
           { label: "Overview", href: "#section-overview" },
           !isOrg && { label: "Family & Personal", href: "#section-family" },
-          { label: "Contact & Care", href: "#section-location" },
+          { label: "Location & Contact", href: "#section-location" },
+          { label: "Care", href: "#section-care" },
           ((!isGuest && enabledFeatures.monthlySupport) ||
             (enabledFeatures.oneTimeNeeds && (!isGuest || isOnCareTeamFor(id)))) && {
             label: isGuest ? "One-Time Needs" : "Financial",
@@ -831,13 +833,7 @@ export default function AdminPartnerDetail() {
           )}
         />
 
-        <PhotoHistorySection
-          partnerId={p.id}
-          photos={p.photos}
-          onChange={reload}
-          canEdit={canEdit}
-          canDelete={canDelete}
-        />
+        <PhotoHistorySection partnerId={p.id} photos={p.photos} onChange={reload} canEdit={canEdit} />
 
         <EditableSection
           title="Ministry Overview"
@@ -883,33 +879,51 @@ export default function AdminPartnerDetail() {
           canEdit={canEdit}
           onSaved={reload}
           onSave={(d) =>
-            save({ adoptedAt: dateOrNull(d.adoptedAt), commissionedAt: dateOrNull(d.commissionedAt) })
+            save({
+              commissionedAt: dateOrNull(d.commissionedAt),
+              // Partnering since is financial history: a guest never sees (or sends) it.
+              ...(isGuest ? {} : { supportingSince: dateOrNull(d.supportingSince) }),
+            })
           }
           value={{
-            adoptedAt: toDateInputValue(p.adoptedAt),
             commissionedAt: toDateInputValue(p.commissionedAt),
+            supportingSince: toDateInputValue(p.supportingSince),
           }}
           view={(v) => (
             <div style={{ display: "flex", flexWrap: "wrap", gap: "1.5rem" }}>
-              <Field label="Adopted by our church" value={formatDateLong(v.adoptedAt)} showEmpty />
               <Field label="Commissioned" value={formatDateLong(v.commissionedAt)} showEmpty />
+              {!isGuest && (
+                <Field label="Partnering since" value={formatDateLong(v.supportingSince)} showEmpty />
+              )}
             </div>
           )}
           edit={(d, set) => (
-            <div className="form-grid">
-              <label title="When our church adopted them. The anniversary is a key date for their care team.">
-                Adopted by our church
-                <input type="date" value={d.adoptedAt} onChange={(e) => set("adoptedAt", e.target.value)} />
-              </label>
-              <label title="When they were commissioned. The anniversary is a key date for their care team.">
-                Commissioned
-                <input
-                  type="date"
-                  value={d.commissionedAt}
-                  onChange={(e) => set("commissionedAt", e.target.value)}
-                />
-              </label>
-            </div>
+            <>
+              <p style={{ color: "var(--muted)", marginTop: 0 }}>
+                They may have been commissioned long before our church began to walk with them, so these are
+                two separate dates. Each anniversary is a key date for their care team.
+              </p>
+              <div className="form-grid">
+                <label title="When they were commissioned: possibly before we knew them.">
+                  Commissioned
+                  <input
+                    type="date"
+                    value={d.commissionedAt}
+                    onChange={(e) => set("commissionedAt", e.target.value)}
+                  />
+                </label>
+                {!isGuest && (
+                  <label title="When our church began partnering with them. Only the year is shown publicly, on the public pages.">
+                    Partnering since
+                    <input
+                      type="date"
+                      value={d.supportingSince}
+                      onChange={(e) => set("supportingSince", e.target.value)}
+                    />
+                  </label>
+                )}
+              </div>
+            </>
           )}
         />
 
@@ -943,7 +957,6 @@ export default function AdminPartnerDetail() {
             <RecordList
               title="Adults"
               canEdit={canEdit}
-              canDelete={canDelete}
               items={collections.adults}
               renderItem={(a) => (
                 <>
@@ -977,12 +990,6 @@ export default function AdminPartnerDetail() {
                   birthday: toDateInputValue(a.birthday),
                 })
               }
-              onDelete={(a) =>
-                adultCrud.handleDelete(
-                  a,
-                  (item) => `Delete ${[item.firstName, item.lastName].filter(Boolean).join(" ")}?`
-                )
-              }
             />
           )}
 
@@ -990,7 +997,6 @@ export default function AdminPartnerDetail() {
             <RecordList
               title="Children"
               canEdit={canEdit}
-              canDelete={canDelete}
               items={collections.children}
               renderItem={(c) => (
                 <>
@@ -1006,12 +1012,6 @@ export default function AdminPartnerDetail() {
                   birthday: toDateInputValue(c.birthday),
                 })
               }
-              onDelete={(c) =>
-                childCrud.handleDelete(
-                  c,
-                  (item) => `Delete ${[item.firstName, item.lastName].filter(Boolean).join(" ")}?`
-                )
-              }
             />
           )}
 
@@ -1019,7 +1019,6 @@ export default function AdminPartnerDetail() {
             <RecordList
               title="Languages Spoken"
               canEdit={canEdit}
-              canDelete={canDelete}
               items={collections.languages}
               renderItem={(l) => (
                 <>
@@ -1035,7 +1034,6 @@ export default function AdminPartnerDetail() {
               onEdit={(l) =>
                 languageCrud.openEdit(l.id, { language: l.language, proficiency: l.proficiency || "" })
               }
-              onDelete={(l) => languageCrud.handleDelete(l, (item) => `Delete ${item.language}?`)}
             />
           )}
 
@@ -1084,7 +1082,7 @@ export default function AdminPartnerDetail() {
         </div>
 
         <div className="admin-section-group" id="section-location">
-          <h2 className="admin-group-heading">Contact &amp; Care</h2>
+          <h2 className="admin-group-heading">Location &amp; Contact</h2>
 
           <EditableSection
             title="Serving Location"
@@ -1141,7 +1139,6 @@ export default function AdminPartnerDetail() {
                   )}
                 </div>
                 <AddressFields
-                  idPrefix="physical"
                   value={d.address}
                   onChange={(addr) => {
                     set("address", addr);
@@ -1242,12 +1239,7 @@ export default function AdminPartnerDetail() {
                   )}
                 </div>
                 <div style={{ marginTop: "1rem" }}>
-                  <AddressFields
-                    idPrefix="mailing"
-                    value={d.address}
-                    onChange={(addr) => set("address", addr)}
-                    showMailFlags
-                  />
+                  <AddressFields value={d.address} onChange={(addr) => set("address", addr)} showMailFlags />
                 </div>
               </>
             )}
@@ -1368,7 +1360,6 @@ export default function AdminPartnerDetail() {
                     </div>
                     <h4 style={{ marginTop: "1rem" }}>Mailing Address</h4>
                     <AddressFields
-                      idPrefix={key}
                       value={d.mailingAddress}
                       onChange={(addr) => set("mailingAddress", addr)}
                     />
@@ -1380,7 +1371,6 @@ export default function AdminPartnerDetail() {
           <RecordList
             title="Links &amp; Social Media"
             canEdit={canEdit}
-            canDelete={canDelete}
             items={collections.links}
             renderItem={(l) => (
               <Field
@@ -1400,46 +1390,88 @@ export default function AdminPartnerDetail() {
             }
             addLabel={collections.links.length >= LINK_TYPES.length ? null : "+ Add Link"}
             onEdit={(l) => linkCrud.openEdit(l.id, { type: l.type, url: l.url })}
-            onDelete={(l) =>
-              linkCrud.handleDelete(l, (item) => `Delete the ${linkTypeLabel(item.type)} link?`)
-            }
           />
+        </div>
+
+        <div className="admin-section-group" id="section-care">
+          <h2 className="admin-group-heading">Care &amp; Follow-up</h2>
 
           {enabledFeatures.supportPreferences && enabledFeatures.careTeam && (
             <SupportPreferencesCard partnerId={p.id} isAdmin={isAdmin} />
           )}
 
           {enabledFeatures.surveys && enabledFeatures.careTeam && <SurveysCard partnerId={p.id} />}
+
+          {contactLogShown && (
+            <ContactLogSection
+              partnerId={p.id}
+              entries={contactEntries}
+              onChanged={reloadContactLog}
+              canFix={canWrite}
+              currentUserId={user?.id}
+              teammates={teammates}
+            />
+          )}
+
+          <RecordList
+            title="Church Visits"
+            canEdit={canEdit}
+            items={churchVisitsLoadMore.visible}
+            renderItem={(v) => (
+              <>
+                <Field label="Visit Date" value={formatDateLong(v.visitDate)} showEmpty />
+                <Field label="Notes" value={v.notes} />
+              </>
+            )}
+            onAdd={() => churchVisitCrud.openAdd({ visitDate: "", notes: "" })}
+            onEdit={(v) =>
+              churchVisitCrud.openEdit(v.id, {
+                visitDate: toDateInputValue(v.visitDate),
+                notes: v.notes || "",
+              })
+            }
+            emptyMessage="No visits on file."
+            hasMore={churchVisitsLoadMore.hasMore}
+            remaining={churchVisitsLoadMore.remaining}
+            onShowMore={churchVisitsLoadMore.showMore}
+          />
+
+          {!isOrg && (
+            <RecordList
+              title="Furlough"
+              canEdit={canEdit}
+              items={furloughsLoadMore.visible}
+              renderItem={(f) => (
+                <>
+                  <Field label="Start Date" value={formatDateLong(f.startDate)} showEmpty />
+                  <Field
+                    label="End Date"
+                    value={f.endDate ? formatDateLong(f.endDate) : "Ongoing"}
+                    showEmpty
+                  />
+                  <Field label="Notes" value={f.notes} />
+                </>
+              )}
+              onAdd={() => furloughCrud.openAdd({ startDate: "", endDate: "", notes: "" })}
+              onEdit={(f) =>
+                furloughCrud.openEdit(f.id, {
+                  startDate: toDateInputValue(f.startDate),
+                  endDate: toDateInputValue(f.endDate),
+                  notes: f.notes || "",
+                })
+              }
+              emptyMessage="No furlough history on file."
+              hasMore={furloughsLoadMore.hasMore}
+              remaining={furloughsLoadMore.remaining}
+              onShowMore={furloughsLoadMore.showMore}
+            />
+          )}
         </div>
 
         {((!isGuest && enabledFeatures.monthlySupport) ||
           (enabledFeatures.oneTimeNeeds && (!isGuest || isOnCareTeamFor(id)))) && (
           <div className="admin-section-group" id="section-financial">
             <h2 className="admin-group-heading">{isGuest ? "One-Time Needs" : "Financial"}</h2>
-
-            {/* Monthly support, and how long we've given it, are never shown to a guest. */}
-            {!isGuest && (
-              <EditableSection
-                title="Supporting Since"
-                canEdit={canEdit}
-                onSaved={reload}
-                onSave={(d) => save({ supportingSince: dateOrNull(d.supportingSince) })}
-                value={{ supportingSince: toDateInputValue(p.supportingSince) }}
-                view={(v) => (
-                  <Field label="Supporting Since" value={formatDateLong(v.supportingSince)} showEmpty />
-                )}
-                edit={(d, set) => (
-                  <label>
-                    Supporting Since
-                    <input
-                      type="date"
-                      value={d.supportingSince}
-                      onChange={(e) => set("supportingSince", e.target.value)}
-                    />
-                  </label>
-                )}
-              />
-            )}
 
             {enabledFeatures.monthlySupport && !isGuest && (
               <PartnerSummaryCard
@@ -1550,13 +1582,11 @@ export default function AdminPartnerDetail() {
                   <RecordList
                     bare
                     canEdit={canEdit}
-                    canDelete={canDelete}
                     items={collections.tripTypes}
                     renderItem={(t) => <Field label="Type" value={t.type} />}
                     addLabel="+ Add Type"
                     onAdd={() => tripTypeCrud.openAdd({ type: "" })}
                     onEdit={(t) => tripTypeCrud.openEdit(t.id, { type: t.type })}
-                    onDelete={(t) => tripTypeCrud.handleDelete(t, (item) => `Delete "${item.type}"?`)}
                     emptyMessage="No trip types on file."
                   />
                 </div>
@@ -1606,13 +1636,11 @@ export default function AdminPartnerDetail() {
                   <RecordList
                     bare
                     canEdit={canEdit}
-                    canDelete={canDelete}
                     items={collections.tripTypes}
                     renderItem={(t) => <Field label="Type" value={t.type} />}
                     addLabel="+ Add Type"
                     onAdd={() => tripTypeCrud.openAdd({ type: "" })}
                     onEdit={(t) => tripTypeCrud.openEdit(t.id, { type: t.type })}
-                    onDelete={(t) => tripTypeCrud.handleDelete(t, (item) => `Delete "${item.type}"?`)}
                     emptyMessage="No trip types on file."
                   />
                 </div>
@@ -1707,85 +1735,6 @@ export default function AdminPartnerDetail() {
                   </button>
                 ) : null
               }
-            />
-          )}
-
-          {contactLogShown && (
-            <ContactLogSection
-              partnerId={p.id}
-              entries={contactEntries}
-              onChanged={reloadContactLog}
-              canFix={canWrite}
-              currentUserId={user?.id}
-              teammates={teammates}
-            />
-          )}
-
-          <RecordList
-            title="Church Visits"
-            canEdit={canEdit}
-            canDelete={canDelete}
-            items={churchVisitsLoadMore.visible}
-            renderItem={(v) => (
-              <>
-                <Field label="Visit Date" value={formatDateLong(v.visitDate)} showEmpty />
-                <Field label="Notes" value={v.notes} />
-              </>
-            )}
-            onAdd={() => churchVisitCrud.openAdd({ visitDate: "", notes: "" })}
-            onEdit={(v) =>
-              churchVisitCrud.openEdit(v.id, {
-                visitDate: toDateInputValue(v.visitDate),
-                notes: v.notes || "",
-              })
-            }
-            onDelete={(v) =>
-              churchVisitCrud.handleDelete(
-                v,
-                (item) => `Delete the visit on ${formatDateLong(item.visitDate)}?`
-              )
-            }
-            emptyMessage="No visits on file."
-            hasMore={churchVisitsLoadMore.hasMore}
-            remaining={churchVisitsLoadMore.remaining}
-            onShowMore={churchVisitsLoadMore.showMore}
-          />
-
-          {!isOrg && (
-            <RecordList
-              title="Furlough"
-              canEdit={canEdit}
-              canDelete={canDelete}
-              items={furloughsLoadMore.visible}
-              renderItem={(f) => (
-                <>
-                  <Field label="Start Date" value={formatDateLong(f.startDate)} showEmpty />
-                  <Field
-                    label="End Date"
-                    value={f.endDate ? formatDateLong(f.endDate) : "Ongoing"}
-                    showEmpty
-                  />
-                  <Field label="Notes" value={f.notes} />
-                </>
-              )}
-              onAdd={() => furloughCrud.openAdd({ startDate: "", endDate: "", notes: "" })}
-              onEdit={(f) =>
-                furloughCrud.openEdit(f.id, {
-                  startDate: toDateInputValue(f.startDate),
-                  endDate: toDateInputValue(f.endDate),
-                  notes: f.notes || "",
-                })
-              }
-              onDelete={(f) =>
-                furloughCrud.handleDelete(
-                  f,
-                  (item) => `Delete the furlough starting ${formatDateLong(item.startDate)}?`
-                )
-              }
-              emptyMessage="No furlough history on file."
-              hasMore={furloughsLoadMore.hasMore}
-              remaining={furloughsLoadMore.remaining}
-              onShowMore={furloughsLoadMore.showMore}
             />
           )}
         </div>
@@ -2032,6 +1981,14 @@ export default function AdminPartnerDetail() {
         <QuickActionModal
           title={adultCrud.editingId ? "Edit Adult" : "Add Adult"}
           onClose={adultCrud.close}
+          onDelete={
+            canDelete && adultCrud.editingId
+              ? () =>
+                  adultCrud.deleteCurrent(
+                    (f) => `Delete ${[f.firstName, f.lastName].filter(Boolean).join(" ")}?`
+                  )
+              : undefined
+          }
           onSubmit={() =>
             adultCrud.submit({
               partnerId: p.id,
@@ -2108,6 +2065,14 @@ export default function AdminPartnerDetail() {
         <QuickActionModal
           title={childCrud.editingId ? "Edit Child" : "Add Child"}
           onClose={childCrud.close}
+          onDelete={
+            canDelete && childCrud.editingId
+              ? () =>
+                  childCrud.deleteCurrent(
+                    (f) => `Delete ${[f.firstName, f.lastName].filter(Boolean).join(" ")}?`
+                  )
+              : undefined
+          }
           onSubmit={() =>
             childCrud.submit({
               partnerId: p.id,
@@ -2149,6 +2114,11 @@ export default function AdminPartnerDetail() {
         <QuickActionModal
           title={languageCrud.editingId ? "Edit Language" : "Add Language"}
           onClose={languageCrud.close}
+          onDelete={
+            canDelete && languageCrud.editingId
+              ? () => languageCrud.deleteCurrent((f) => `Delete ${f.language}?`)
+              : undefined
+          }
           onSubmit={() =>
             languageCrud.submit({
               partnerId: p.id,
@@ -2160,19 +2130,13 @@ export default function AdminPartnerDetail() {
           <div className="form-grid">
             <label>
               Language
-              <input
+              <SuggestInput
                 value={languageCrud.form.language}
-                onChange={(e) => languageCrud.setForm((f) => ({ ...f, language: e.target.value }))}
-                list="partner-language-names"
+                onChange={(v) => languageCrud.setForm((f) => ({ ...f, language: v }))}
+                options={LANGUAGE_NAMES}
                 placeholder="Start typing a language..."
                 required
               />
-              {/* A datalist, not a hard <select>, as with AddressFields.jsx's Country field. */}
-              <datalist id="partner-language-names">
-                {LANGUAGE_NAMES.map((name) => (
-                  <option key={name} value={name} />
-                ))}
-              </datalist>
             </label>
             <label>
               Proficiency (ILR scale)
@@ -2196,6 +2160,11 @@ export default function AdminPartnerDetail() {
         <QuickActionModal
           title={tripTypeCrud.editingId ? "Edit Trip Type" : "Add Trip Type"}
           onClose={tripTypeCrud.close}
+          onDelete={
+            canDelete && tripTypeCrud.editingId
+              ? () => tripTypeCrud.deleteCurrent((f) => `Delete "${f.type}"?`)
+              : undefined
+          }
           onSubmit={() => tripTypeCrud.submit({ partnerId: p.id, type: tripTypeCrud.form.type.trim() })}
         >
           <div className="form-grid">
@@ -2216,6 +2185,11 @@ export default function AdminPartnerDetail() {
         <QuickActionModal
           title={linkCrud.editingId ? "Edit Link" : "Add Link"}
           onClose={linkCrud.close}
+          onDelete={
+            canDelete && linkCrud.editingId
+              ? () => linkCrud.deleteCurrent((f) => `Delete the ${linkTypeLabel(f.type)} link?`)
+              : undefined
+          }
           onSubmit={() =>
             linkCrud.submit({ partnerId: p.id, type: linkCrud.form.type, url: linkCrud.form.url.trim() })
           }
@@ -2253,6 +2227,14 @@ export default function AdminPartnerDetail() {
         <QuickActionModal
           title={furloughCrud.editingId ? "Edit Furlough" : "Add Furlough"}
           onClose={furloughCrud.close}
+          onDelete={
+            canDelete && furloughCrud.editingId
+              ? () =>
+                  furloughCrud.deleteCurrent(
+                    (f) => `Delete the furlough starting ${formatDateLong(f.startDate)}?`
+                  )
+              : undefined
+          }
           onSubmit={() =>
             furloughCrud.submit({
               partnerId: p.id,
@@ -2295,6 +2277,12 @@ export default function AdminPartnerDetail() {
         <QuickActionModal
           title={churchVisitCrud.editingId ? "Edit Church Visit" : "Add Church Visit"}
           onClose={churchVisitCrud.close}
+          onDelete={
+            canDelete && churchVisitCrud.editingId
+              ? () =>
+                  churchVisitCrud.deleteCurrent((f) => `Delete the visit on ${formatDateLong(f.visitDate)}?`)
+              : undefined
+          }
           onSubmit={() =>
             churchVisitCrud.submit({
               partnerId: p.id,

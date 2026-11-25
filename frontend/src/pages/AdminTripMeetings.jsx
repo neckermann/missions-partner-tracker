@@ -167,13 +167,15 @@ export default function AdminTripMeetings() {
       confirmLabel: "Delete",
       danger: true,
     });
-    if (!confirmed) return;
+    if (!confirmed) return false;
     try {
       await deleteTripMeeting(m.id);
       reload();
       setError("");
+      return true;
     } catch (err) {
       reportError(err, "Couldn't delete this meeting.");
+      return false;
     }
   }
 
@@ -190,12 +192,10 @@ export default function AdminTripMeetings() {
         title="Meetings"
         items={trip.meetings || []}
         canEdit={canWrite}
-        canDelete={canWrite}
         emptyMessage="No meetings scheduled yet."
         addLabel="Schedule meeting"
         onAdd={openAdd}
         onEdit={openEdit}
-        onDelete={handleDeleteMeeting}
         renderItem={(m) => {
           const rsvps = m.rsvps || [];
           const tally = { yes: 0, no: 0, maybe: 0 };
@@ -234,6 +234,7 @@ export default function AdminTripMeetings() {
               setManualEmailRecipients(null);
             }}
             onSubmit={submitModal}
+            onDelete={modalMeeting.id != null ? () => handleDeleteMeeting(modalMeeting) : undefined}
             submitLabel={modalMeeting.id == null ? "Schedule meeting" : "Save"}
           >
             <MeetingFields form={modalMeeting.form} setForm={setModalForm} />

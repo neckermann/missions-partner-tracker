@@ -10,19 +10,13 @@
         "label": "Are you willing to raise the funds needed for this trip and meet payment deadlines?",
         "type": "select",
         "required": true,
-        "options": [
-          "Yes",
-          "No"
-        ]
+        "options": ["Yes", "No"]
       },
       {
         "label": "Do you agree to follow the team's code of conduct during the trip? If accepted, you will be required to sign a full copy of the code of conduct.",
         "type": "select",
         "required": true,
-        "options": [
-          "Yes",
-          "No"
-        ]
+        "options": ["Yes", "No"]
       },
       {
         "label": "Tell us about your faith journey and how you came to follow Jesus.",
@@ -55,10 +49,7 @@
         "label": "Are you comfortable with texting as a way for the team to reach you?",
         "type": "select",
         "required": false,
-        "options": [
-          "Yes",
-          "No"
-        ]
+        "options": ["Yes", "No"]
       },
       {
         "label": "Occupation",
@@ -69,10 +60,7 @@
         "label": "Marital status",
         "type": "select",
         "required": false,
-        "options": [
-          "Single",
-          "Married"
-        ]
+        "options": ["Single", "Married"]
       }
     ]
   }
