@@ -18,6 +18,7 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ### Added
 
+- **"Forgot your password?" on the sign-in page.** When the site can send email, anyone can ask for a link to choose a new password. The link works once and lasts an hour, a reset signs the account out everywhere else, and the reply is the same whether or not the address has an account (at most one email a minute per account). It reuses the setup-link machinery, so no database change. Not offered while email is off, on a demo, or with passwordless sign-in on.
 - **More records carry a created date ([#383](https://github.com/neckermann/missions-partner-tracker/issues/383)).** A partner's addresses and sending party, a trip's budget lines and flight segments, and application questions now record when they were added (trips and applications already did).
 
 ### Changed

@@ -12,6 +12,7 @@ import Login from "./pages/Login.jsx";
 import SignInLink from "./pages/SignInLink.jsx";
 import Setup from "./pages/Setup.jsx";
 import SetPassword from "./pages/SetPassword.jsx";
+import ForgotPassword from "./pages/ForgotPassword.jsx";
 import RequireAdminAuth from "./components/RequireAdminAuth.jsx";
 import RequirePublicSite from "./components/RequirePublicSite.jsx";
 import RequireAdminFeature from "./components/RequireAdminFeature.jsx";
@@ -151,6 +152,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
               <Route path="/login/link" element={<SignInLink />} />
               <Route path="/setup" element={<Setup />} />
               <Route path="/set-password" element={<SetPassword />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
 
               {/* Admin (protected) — one shared sidebar layout for every
               sub-route below, including detail/edit forms. Role-specific

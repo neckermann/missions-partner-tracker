@@ -975,7 +975,7 @@ export async function extractFromPartnerFile(id) {
 
 export async function fetchSetupStatus() {
   const { data } = await api.get("/auth/setup-status");
-  return data; // { needed: boolean, passwordless: boolean }
+  return data; // { needed, passwordless, passwordReset: booleans }
 }
 
 export async function completeSetup(email, password) {
