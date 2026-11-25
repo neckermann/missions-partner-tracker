@@ -101,7 +101,7 @@ function MissionaryPopup({ m }) {
           )}
           <h3 className="popup-name">{m.displayName}</h3>
           <p className="popup-meta">
-            {[m.fieldDisplayName, m.supportingSince && `Supporting since ${formatYear(m.supportingSince)}`]
+            {[m.fieldDisplayName, m.supportingSince && `Partnering since ${formatYear(m.supportingSince)}`]
               .filter(Boolean)
               .join(" · ")}
           </p>

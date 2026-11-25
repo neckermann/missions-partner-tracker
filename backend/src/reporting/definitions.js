@@ -207,7 +207,7 @@ const COMPLETENESS_CHECKS = [
   },
   { key: "language", label: "Language", test: (p) => (p.languages || []).length > 0 },
   { key: "photo", label: "Photo", test: (p) => (p.photos || []).length > 0 },
-  { key: "supportingSince", label: "Supporting since", test: (p) => !!p.supportingSince },
+  { key: "supportingSince", label: "Partnering since", test: (p) => !!p.supportingSince },
 ];
 
 // { missing: [labels], filled, total, percent }

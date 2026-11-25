@@ -3709,7 +3709,6 @@ async function main() {
         supportingSince: new Date(year, 0, 1),
         anniversary: isFamily ? dateBetween(35, 5) : null,
         // Relationship dates (annual key dates), recorded for about half.
-        adoptedAt: chance(0.5) ? dateBetween(8, 1) : null,
         commissionedAt: chance(0.5) ? dateBetween(15, 2) : null,
         // Not every partner has this recorded; leave a fraction "Never".
         lastPrayedWithCongregationAt: chance(0.6) ? dateBetween(1, 0) : null,

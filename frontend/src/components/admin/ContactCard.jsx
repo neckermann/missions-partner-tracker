@@ -3,6 +3,7 @@ import { contactActions, primaryContactOf } from "../../utils/contactActions.js"
 import { contactLevelOf, methodLabel } from "../../utils/contactMethods.js";
 import { formatDateLong, todayInputValue, toDateInputValue } from "../../utils/format.js";
 import ContactCardEditor from "./ContactCardEditor.jsx";
+import { onClickUnlessSelecting } from "../../utils/clickableRow.js";
 
 // The contact card on a partner's page: who to reach first, how they like to be reached, one-tap
 // actions, how careful to be, and when anyone last was in touch. Shown to everyone who can see the
@@ -77,16 +78,39 @@ export default function ContactCard({
   const preferred = person?.method ? methodLabel(person.method, person.methodNote) : "";
 
   return (
-    <div className="admin-section" id="contact-card" aria-label="Contact card">
+    // Clicking the empty parts of the card opens the editor, like every other card. The links and buttons
+    // inside it (call, email, the care team) keep their own click; the title button is the keyboard way in.
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
+    <div
+      className={canEdit ? "admin-section admin-section-clickable" : "admin-section"}
+      id="contact-card"
+      aria-label="Contact card"
+      onClick={
+        canEdit
+          ? onClickUnlessSelecting((e) => {
+              if (!e.target.closest("a, button, input, select, textarea, label, [role='button']"))
+                setEditing(true);
+            })
+          : undefined
+      }
+    >
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "1rem" }}>
         <h3 style={{ margin: 0, border: 0, padding: 0 }}>
-          <span aria-hidden="true">📇 </span>Contact
+          <span aria-hidden="true">📇 </span>
+          {canEdit ? (
+            <button
+              type="button"
+              className="summary-item-link"
+              aria-label="Edit contact"
+              onClick={() => setEditing(true)}
+              style={{ font: "inherit", color: "inherit", textDecoration: "none" }}
+            >
+              Contact
+            </button>
+          ) : (
+            "Contact"
+          )}
         </h3>
-        {canEdit && (
-          <button type="button" className="btn secondary small" onClick={() => setEditing(true)}>
-            Edit
-          </button>
-        )}
       </div>
 
       {careTeam && <div className="contact-care-team">{careTeam}</div>}

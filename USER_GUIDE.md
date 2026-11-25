@@ -198,7 +198,7 @@ partner, with how many, matched without regard to capitalisation. Guests don't s
 filled in later from the record itself, plus a couple of fields that are
 usually already known the moment you're adding someone and don't need
 their own detail-page trip: Display Name (required), Country,
-Field/Region Display Name, a Short Overview, **Supporting Since**, a
+Field/Region Display Name, a Short Overview, **Partnering Since**, a
 **Contacting them** choice (Normal, Use caution, or Don't contact directly;
 the details go on their Contact card), and three checkboxes — **Show on
 public site** (`isPublic`), **Restricted-access
@@ -211,7 +211,7 @@ location, family, trip history, and the rest — gets filled in section by
 section. See [Editing a partner](#editing-a-partner) below. Hover any
 field's label for a tip on what it means and how it's used.
 
-![The New Partner form, with Supporting Since and Contacting them alongside the basics](docs/assets/screenshots/new-partner-form.png)
+![The New Partner form, with Partnering Since and Contacting them alongside the basics](docs/assets/screenshots/new-partner-form.png)
 
 #### Creating an organization
 
@@ -258,7 +258,7 @@ not just what topic they fall under:
     child (Name, Birthday).
   - **Languages Spoken** — a free-text tag list.
   - **Emergency Contact** — Name, Phone, Email.
-- **Contact & Care**:
+- **Location & Contact**:
   - **Serving Location** — Field/Region Display Name (shown publicly
     even for a restricted partner, so keep it broad — "East Africa," not
     a city, or it undoes the restriction above), a full address (country
@@ -306,8 +306,12 @@ not just what topic they fall under:
     auto-fill checkbox.
   - **Links & Social Media** — Website, Support Link, Newsletter Signup,
     Facebook, Twitter, Instagram, LinkedIn.
+- **Care & Follow-up**: **Support Preferences**, **Surveys**, the
+  **Contact Log**, **Church Visits** and **Furlough** (each appears when
+  its feature is on). The jump bar reads Overview, Family & Personal,
+  Location & Contact, Care, Financial, Mission Trips, Communication.
 - **Financial**:
-  - **Supporting Since** — a single date.
+  - **Partnering Since** — a single date.
   - **Financial Support** — repeatable Monthly Amount / Effective Date /
     Notes rows. The most recent effective date is what counts as the
     current amount everywhere else in the app. Never shown publicly.
@@ -958,7 +962,7 @@ The **Last heard from** report counts a logged contact, a newsletter, a prayer r
 
 ### Key-date reminders
 
-With **Key-date reminders** turned on (it needs [Care teams](#care-teams)), the people on a partner's care team are reminded about a coming **birthday** (including the children's), **wedding anniversary**, or **supported-since milestone** (the first year, then every fifth), or the anniversary of when the church **adopted** them or they were **commissioned** (record both on the partner's page under **Our History With Them**), a week ahead.
+With **Key-date reminders** turned on (it needs [Care teams](#care-teams)), the people on a partner's care team are reminded about a coming **birthday** (including the children's), **wedding anniversary**, or **partnering-since milestone** (the first year, then every fifth), or the anniversary of when they were **commissioned** (record both on the partner's page under **Our History With Them**; they can differ, since someone may have been commissioned long before we knew them), a week ahead.
 
 - **On the bell and the Home page** as "Key dates coming up". Open it to find the partner. The **My partners** tab also flags a key date inside the window. A key date is raised **7 days ahead** by default; an admin can change that (1 to 60 days) under Settings → Care Teams → Timing.
 
@@ -988,7 +992,7 @@ The app never contacts a partner on its own — a person always does. If you're 
 
 ### Support preferences
 
-With **Support preferences** turned on in [Enabled Features](ADMIN_GUIDE.md#feature-toggles) (it needs [Care teams](#care-teams)), each partner's page gets a **Support preferences** card, at the bottom of the **Contact & Care** section (jump bar): the ways your church and their care team can support them, and which of them this partner has asked for. The card stays compact (how many are recorded, and which groups); **View all →** opens everything, with their notes.
+With **Support preferences** turned on in [Enabled Features](ADMIN_GUIDE.md#feature-toggles) (it needs [Care teams](#care-teams)), each partner's page gets a **Support preferences** card, in the **Care & Follow-up** section (jump bar: **Care**): the ways your church and their care team can support them, and which of them this partner has asked for. The card stays compact (how many are recorded, and which groups); click that line to open everything, with their notes.
 
 - **The menu is your church's.** An admin edits it under **Settings → Support Preferences**: options are put in groups (rename a group any time), and each is something you **offer** (tick it if wanted), a **pick one** or **pick any** question (with an optional "something else" box), or a **free-text** question. From an empty menu, **Add an example set** gives a starting list (housing, transportation, speaking about the partner, prayer, care packages, how to send gifts and so on) to edit or delete. **Retire** an option to stop offering it while keeping the answers already given, or **Delete** it to remove it and those answers. **Print menu** (top right of that page) opens a clean copy with the church's name and logo, boxes to tick and lines to write on, for a conversation with a partner; retired options are left out, and it stores nothing.
 - **Record a partner's choices** with **+ Record** (or **Edit**) on their page, after a conversation: tick what they want, pick their answers, add a note. One set per partner, so a couple or family shares it. Admins, editors and a guest on that partner's care team can record it; a viewer can read it. A trip leader never sees it.
@@ -997,7 +1001,7 @@ With **Support preferences** turned on in [Enabled Features](ADMIN_GUIDE.md#feat
 - **Who can see it:** staff and the partner's care team only, on the partner's page. It never appears on the public site, in the booklet, or in dispatches. How a partner prefers to be contacted is the **Preferred contact** on their Contact card, not here.
 - **Reports → Support preferences** lists what each partner has chosen (sort by an option to see who wants it) or, with **Show: Partners with nothing recorded**, who still needs that conversation.
 
-![A partner's Support preferences card, compact, with Edit and View all buttons](docs/assets/screenshots/support-preferences-card.png)
+![A partner's Support preferences card, compact; click the line to see everything](docs/assets/screenshots/support-preferences-card.png)
 
 ![The full details popup, grouped by kind of support](docs/assets/screenshots/support-preferences-details.png)
 
@@ -1010,9 +1014,9 @@ With **Support preferences** turned on in [Enabled Features](ADMIN_GUIDE.md#feat
 With **Partner surveys** turned on in [Enabled Features](ADMIN_GUIDE.md#feature-toggles) (it needs [Care teams](#care-teams)), admins and editors can ask partners a few questions and keep the answers with the partner.
 
 - **Build a survey** under **Settings → Surveys → + New survey**: a title, an introduction, and questions (free text, yes/no, pick one, pick any; mark any as required). **Open survey** when it is ready; **Close survey** when you are done.
-- **Send it.** On the survey's page, **Send** lists every active partner. Tick who should get a personal link (or **Select everyone not yet sent**), then **Send to N**. A person always starts the send, and **Send as a reminder** follows up the ones still waiting. Partners the app may not email (restricted, marked not to be contacted directly, or no address on file) can't be ticked: fill the survey in for them instead. Sending a link again replaces the earlier one.
+- **Send it.** On the survey's page, **Send** lists every active partner. Tick who should get a personal link, use the shortcuts (**Select everyone not yet sent**, **Select those still waiting**, **Select all who can be emailed**) or **Find a partner…** to narrow the list, then **Send to N**. A person always starts the send, and **Send as a reminder** follows up the ones still waiting. Partners the app may not email (restricted, marked not to be contacted directly, or no address on file) can't be ticked: fill the survey in for them instead. Sending a link again replaces the earlier one.
 - **The partner's side.** The email has one button. Their page needs no login, works on a phone, lets them save and finish later, and lets them change their answers until the survey closes.
-- **Fill it in for them.** On the partner's page, the **Surveys** card (in **Contact & Care**) lists each open survey and where it stands. Click one to **Fill in** after a conversation; it records who entered it. Staff and the partner's care team can do this, and a viewer can read.
+- **Fill it in for them.** On the partner's page, the **Surveys** card (in **Care & Follow-up**) lists each open survey and where it stands. Click one to **Fill in** after a conversation; it records who entered it. Staff and the partner's care team can do this, and a viewer can read.
 - **See the answers** on the survey's page under **Answers**, or on the partner's card. **Reopen** lets a partner change a submitted response. **Reports → Survey responses** lists who is waiting, who answered, and who has not been sent a survey.
 - **Who can see it:** staff and the partner's care team only. It never appears on the public site, in the booklet, or in dispatches.
 

@@ -118,13 +118,15 @@ export default function AdminTripRequirements() {
       confirmLabel: "Remove",
       danger: true,
     });
-    if (!confirmed) return;
+    if (!confirmed) return false;
     try {
       await deleteTripRequirement(r.id);
       reload();
       setError("");
+      return true;
     } catch (err) {
       reportError(err, "Couldn't remove this requirement.");
+      return false;
     }
   }
 
@@ -211,10 +213,8 @@ export default function AdminTripRequirements() {
           bare
           items={trip.requirements || []}
           canEdit={canWrite}
-          canDelete={canWrite}
           onAdd={openAddRequirement}
           onEdit={openEditRequirement}
-          onDelete={handleDeleteRequirement}
           emptyMessage="No requirements yet."
           renderItem={(r) => {
             const overdue = r.dueAt && new Date(r.dueAt) < new Date();
@@ -300,6 +300,7 @@ export default function AdminTripRequirements() {
             setManualEmailRecipients(null);
           }}
           onSubmit={submitReqModal}
+          onDelete={reqModal.id != null ? () => handleDeleteRequirement(reqModal) : undefined}
         >
           {manualEmailRecipients?.length > 0 && <ManualSendNotice recipients={manualEmailRecipients} />}
           {reqModal.id == null ? (

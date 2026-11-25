@@ -39,7 +39,6 @@ async function loadAssignedPartners(userId, today = new Date()) {
     isRestricted: true,
     createdAt: true,
     anniversary: true,
-    adoptedAt: true,
     commissionedAt: true,
     contactLevel: true,
     contactChannels: true,
@@ -100,7 +99,6 @@ async function loadAssignedPartners(userId, today = new Date()) {
     p.adults.forEach((a) => consider(a.birthday, "Birthday", a.firstName || ""));
     p.children.forEach((c) => consider(c.birthday, "Birthday", c.firstName || ""));
     consider(p.anniversary, "Anniversary", "");
-    consider(p.adoptedAt, "Adopted by our church", "");
     consider(p.commissionedAt, "Commissioned", "");
 
     // When this partner became overdue: when the quiet clock ran out (from the last

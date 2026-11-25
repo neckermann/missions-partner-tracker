@@ -80,13 +80,15 @@ export default function AdminTripFinancial() {
       confirmLabel: "Remove",
       danger: true,
     });
-    if (!confirmed) return;
+    if (!confirmed) return false;
     try {
       await deleteTripBudgetLine(b.id);
       reload();
       setError("");
+      return true;
     } catch (err) {
       reportError(err, "Couldn't remove this budget line.");
+      return false;
     }
   }
 
@@ -111,11 +113,9 @@ export default function AdminTripFinancial() {
           bare
           items={trip.budgetLines || []}
           canEdit={canWrite}
-          canDelete={canWrite}
           addLabel="+ Add budget line"
           onAdd={openAddLine}
           onEdit={openEditLine}
-          onDelete={handleDeleteBudgetLine}
           emptyMessage="No budget lines yet."
           renderItem={(b) => (
             <>
@@ -227,6 +227,7 @@ export default function AdminTripFinancial() {
           title={lineModal.id == null ? "Add Budget Line" : "Edit Budget Line"}
           onClose={() => setLineModal(null)}
           onSubmit={submitLineModal}
+          onDelete={lineModal.id != null ? () => handleDeleteBudgetLine(lineModal) : undefined}
         >
           <div className="form-grid">
             <label>

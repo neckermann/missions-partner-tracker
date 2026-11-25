@@ -116,7 +116,7 @@ describe("ContactCard (#288)", () => {
 
   it("has no Edit button unless the person can edit", () => {
     render(<ContactCard partner={base} adults={adults} entries={[]} />);
-    expect(screen.queryByRole("button", { name: "Edit" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Edit contact" })).toBeNull();
   });
 });
 
@@ -134,7 +134,7 @@ describe("ContactCard editing", () => {
         {...props}
       />
     );
-    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    fireEvent.click(screen.getByRole("button", { name: "Edit contact" }));
     return onChanged;
   };
 

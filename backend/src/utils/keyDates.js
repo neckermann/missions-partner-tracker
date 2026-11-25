@@ -8,7 +8,7 @@ const { nextAnnual, daysBetween } = require("../reporting/definitions");
 // How far ahead a key date becomes "due": a fixed default (a card needs about a week), so bell and email agree.
 const KEY_DATE_LEAD_DAYS = 7;
 
-// "Supporting since" is a milestone: the first year, then every fifth (year-only
+// "Partnering since" is a milestone: the first year, then every fifth (year-only
 // start dates are stored as Jan 1, so yearly would always say "Jan 1").
 const isSupportMilestone = (years) => years >= 1 && (years === 1 || years % 5 === 0);
 
@@ -16,7 +16,7 @@ const ymd = (d) => d.toISOString().slice(0, 10);
 const fullName = (p) => [p.firstName, p.lastName].filter(Boolean).join(" ");
 
 // partners: [{ id, displayName, adults:[{id,firstName,lastName,birthday}],
-//   children:[...], anniversary, supportingSince, adoptedAt, commissionedAt }]. Everything within
+//   children:[...], anniversary, supportingSince, commissionedAt }]. Everything within
 // `leadDays` of `today` (inclusive of today), soonest first.
 function upcomingKeyDates(partners, today, leadDays = KEY_DATE_LEAD_DAYS) {
   const out = [];
@@ -48,11 +48,10 @@ function upcomingKeyDates(partners, today, leadDays = KEY_DATE_LEAD_DAYS) {
       add(p, c.birthday, { kind: "childBirthday", subjectId: c.id, who: fullName(c), occasion: "Birthday" })
     );
     add(p, p.anniversary, { kind: "anniversary", occasion: "Wedding anniversary" });
-    add(p, p.adoptedAt, { kind: "adopted", occasion: "Adopted by our church" });
     add(p, p.commissionedAt, { kind: "commissioned", occasion: "Commissioned" });
     add(p, p.supportingSince, {
       kind: "supportingSince",
-      occasion: "Supported since",
+      occasion: "Partnering since",
       keep: isSupportMilestone,
     });
   }

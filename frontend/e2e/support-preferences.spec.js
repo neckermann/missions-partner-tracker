@@ -70,7 +70,7 @@ test.describe("Support preferences", () => {
     await admin.getByLabel(`Note for ${label}`).fill(note);
     await admin.getByRole("button", { name: "Save" }).click();
     await expect(card.getByText(/preferences? recorded/)).toBeVisible();
-    await card.getByRole("button", { name: "View all →" }).click();
+    await card.getByRole("button", { name: /preferences? recorded/ }).click();
     const details = admin.getByRole("dialog", { name: "Support Preferences" });
     await expect(details.getByText(note)).toBeVisible();
     await expect(details.locator("ul li", { hasText: label })).toBeVisible();

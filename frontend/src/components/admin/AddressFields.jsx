@@ -1,4 +1,5 @@
 import React from "react";
+import SuggestInput from "../SuggestInput.jsx";
 import { COUNTRY_CONTINENTS } from "../../utils/countryContinents.js";
 
 const COUNTRY_NAMES = Object.keys(COUNTRY_CONTINENTS).sort();
@@ -10,13 +11,7 @@ export function roundGps(n) {
   return Math.round(Number(n) * 1e5) / 1e5;
 }
 
-export default function AddressFields({
-  value,
-  onChange,
-  showMailFlags = false,
-  showGps = false,
-  idPrefix = "address",
-}) {
+export default function AddressFields({ value, onChange, showMailFlags = false, showGps = false }) {
   function update(field, val) {
     onChange({ ...value, [field]: val });
   }
@@ -53,21 +48,15 @@ export default function AddressFields({
       </label>
       <label>
         Country
-        <input
+        {/* A suggestion list, not a hard <select> -- it suggests the ~250 names this app otherwise
+            recognizes (continent filters, map centroids), but still accepts free text for a
+            name/spelling it doesn't know. Not a <datalist>: those don't work on many phones. */}
+        <SuggestInput
           value={value.country || ""}
-          onChange={(e) => update("country", e.target.value)}
-          list={`${idPrefix}-country-list`}
+          onChange={(v) => update("country", v)}
+          options={COUNTRY_NAMES}
           placeholder="Start typing a country..."
         />
-        {/* A datalist, not a hard <select> -- it suggests the ~250 names this
-            app otherwise recognizes (continent filters, map centroids), but
-            still accepts free text for a name/spelling it doesn't know
-            rather than blocking entry. */}
-        <datalist id={`${idPrefix}-country-list`}>
-          {COUNTRY_NAMES.map((name) => (
-            <option key={name} value={name} />
-          ))}
-        </datalist>
       </label>
       {showGps && (
         <>

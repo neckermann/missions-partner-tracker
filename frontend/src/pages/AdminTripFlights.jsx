@@ -133,13 +133,15 @@ export default function AdminTripFlights() {
       confirmLabel: "Remove",
       danger: true,
     });
-    if (!confirmed) return;
+    if (!confirmed) return false;
     try {
       await deleteTripFlightSegment(seg.id);
       reload();
       setError("");
+      return true;
     } catch (err) {
       reportError(err, "Couldn't remove this flight segment.");
+      return false;
     }
   }
 
@@ -162,11 +164,9 @@ export default function AdminTripFlights() {
         bare
         items={trip.flightSegments || []}
         canEdit={canWrite}
-        canDelete={canWrite}
         addLabel="+ Add flight segment"
         onAdd={openAdd}
         onEdit={openEdit}
-        onDelete={handleDeleteFlightSegment}
         emptyMessage="No flight segments yet."
         renderItem={(seg) => (
           <>
@@ -209,6 +209,7 @@ export default function AdminTripFlights() {
           title={segModal.id == null ? "Add Flight Segment" : "Edit Flight Segment"}
           onClose={() => setSegModal(null)}
           onSubmit={submitSegModal}
+          onDelete={segModal.id != null ? () => handleDeleteFlightSegment(segModal) : undefined}
         >
           <FlightFields form={segModal.form} setForm={setSegModalForm} participants={participants} />
         </QuickActionModal>

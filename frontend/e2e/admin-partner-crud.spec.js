@@ -25,7 +25,7 @@ test.describe("Admin partner CRUD", () => {
 
     // Country datalist + FIPS auto-fill (utils/countryFipsCodes.js): the create form derives the
     // code from a recognized country name.
-    await page.locator('input[list="new-partner-country-list"]').fill("Philippines");
+    await page.getByPlaceholder("Start typing a country...").fill("Philippines");
 
     // New Partner is a 3-step Wizard (Basics / Details / Visibility & status); neither later step
     // has anything required here.
@@ -77,7 +77,7 @@ test.describe("Admin partner CRUD", () => {
     await page.goto("/admin/partners/new?kind=organization");
     const uniqueName = `E2E Test Org ${Date.now()}`;
     await page.getByLabel("Organization Name").fill(uniqueName);
-    await page.locator('input[list="new-partner-country-list"]').fill("Bolivia");
+    await page.getByPlaceholder("Start typing a country...").fill("Bolivia");
 
     await page.click('button:has-text("Next")');
     await page.click('button:has-text("Next")');

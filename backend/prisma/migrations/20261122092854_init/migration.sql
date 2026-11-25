@@ -16,7 +16,6 @@ CREATE TABLE "Partner" (
     "overviewShort" TEXT,
     "focusArea" TEXT,
     "supportingSince" DATE,
-    "adoptedAt" DATE,
     "commissionedAt" DATE,
     "lastPrayedWithCongregationAt" DATE,
     "contactLevel" TEXT NOT NULL DEFAULT 'normal',
