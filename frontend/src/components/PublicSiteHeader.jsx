@@ -1,6 +1,7 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useSettings } from "../context/SettingsContext.jsx";
+import ThemeToggle from "./shared/ThemeToggle.jsx";
 
 // Shared across all 4 public-site pages (PublicDirectory, PublicMap,
 // PublicPartnerDetail, PublicSubscribe) -- previously each had its own
@@ -40,6 +41,8 @@ export default function PublicSiteHeader({ title, subtitle, children }) {
           </Link>
         ))}
         {children}
+        {/* Visitors follow their device's setting unless they pick Light or Dark here. */}
+        <ThemeToggle compact />
       </div>
     </header>
   );

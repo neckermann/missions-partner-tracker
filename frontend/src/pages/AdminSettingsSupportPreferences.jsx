@@ -120,7 +120,14 @@ export default function AdminSettingsSupportPreferences() {
             </button>
           </div>
           <div className="admin-section" style={{ overflowX: "auto" }}>
-            <table className="admin-table">
+            {/* Fixed columns, so every group's table lines up with the others. */}
+            <table className="admin-table" style={{ tableLayout: "fixed" }}>
+              <colgroup>
+                <col />
+                <col style={{ width: "28%" }} />
+                <col style={{ width: "5.5rem" }} />
+                <col style={{ width: "13.5rem" }} />
+              </colgroup>
               <thead>
                 <tr>
                   <th>Option</th>
@@ -155,7 +162,7 @@ export default function AdminSettingsSupportPreferences() {
                       >
                         {o.active ? "Retire" : "Restore"}
                       </button>{" "}
-                      <button type="button" className="btn secondary small" onClick={() => remove(o)}>
+                      <button type="button" className="btn danger small" onClick={() => remove(o)}>
                         Delete
                       </button>
                     </td>
