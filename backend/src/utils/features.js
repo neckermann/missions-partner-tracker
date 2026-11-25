@@ -163,11 +163,11 @@ const FEATURES = {
     group: "admin",
   },
   // Church-built surveys a partner answers through a personal link (or staff fill in for them).
-  // Needs Care teams; the emailed links also need Email (Sending). Off by default.
+  // The emailed links need Email (Sending). Off by default.
   surveys: {
     label: "Partner surveys",
     description:
-      "Build short surveys (a check-in, an annual update, a poll) and send each partner a personal link to answer, or fill one in for them after a conversation. Answers show on the partner's page for staff and their care team only, never publicly, in the booklet or in dispatches. A person starts every send; the app never emails a partner on its own. Needs Care teams; sending the links also needs Email (Sending).",
+      "Build short surveys (a check-in, an annual update, a poll) and send each partner a personal link to answer, or fill one in for them after a conversation. Answers show on the partner's page for staff (and their care team, when Care teams is on) only, never publicly, in the booklet or in dispatches. A person starts every send; the app never emails a partner on its own. Sending the links needs Email (Sending).",
     defaultEnabled: false,
     group: "admin",
   },

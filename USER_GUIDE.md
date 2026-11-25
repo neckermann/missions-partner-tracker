@@ -1013,7 +1013,7 @@ With **Support preferences** turned on in [Enabled Features](ADMIN_GUIDE.md#feat
 
 ### Partner surveys
 
-With **Partner surveys** turned on in [Enabled Features](ADMIN_GUIDE.md#feature-toggles) (it needs [Care teams](#care-teams)), admins and editors can ask partners a few questions and keep the answers with the partner.
+With **Partner surveys** turned on in [Enabled Features](ADMIN_GUIDE.md#feature-toggles) (it works with or without [Care teams](#care-teams)), admins and editors can ask partners a few questions and keep the answers with the partner.
 
 - **Build a survey** under **Settings → Surveys → + New survey**: a title, an introduction, and questions (free text, yes/no, pick one, pick any; mark any as required). **Open survey** when it is ready; **Close survey** when you are done.
 - **Send it.** On the survey's page, **Send** lists every active partner. Tick who should get a personal link, use the shortcuts (**Select everyone not yet sent**, **Select those still waiting**, **Select all who can be emailed**) or **Find a partner…** to narrow the list, then **Send to N**. A person always starts the send, and **Send as a reminder** follows up the ones still waiting. Partners the app may not email (restricted, marked not to be contacted directly, or no address on file) can't be ticked: fill the survey in for them instead. Sending a link again replaces the earlier one.

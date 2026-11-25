@@ -10,11 +10,10 @@ const { describeSupportValue, FIELD: SUPPORT_FIELD } = require("../utils/surveyS
 // #419: the changes survey answers suggest to a partner's record. A person approves (optionally
 // editing the value first) or rejects each one; approving writes through the same columns the
 // partner page edits, as the approver, so "last edited by" and the audit log credit them. Nothing
-// is applied automatically. Gated by `surveys` + `careTeam`; admins and editors only.
+// is applied automatically. Gated by `surveys`; admins and editors only.
 const router = express.Router();
 router.use(requireAuth);
 router.use(requireFeature("surveys"));
-router.use(requireFeature("careTeam"));
 router.use(requireRole("admin", "editor"));
 
 const nameOf = (u) => [u.firstName, u.lastName].filter(Boolean).join(" ") || u.email;

@@ -933,7 +933,7 @@ partners with none recorded, masking a restricted partner's answers like its oth
 
 ### 5.9 Partner surveys (#419)
 
-Behind the `surveys` feature (off by default; needs `careTeam`; sending links also needs outbound
+Behind the `surveys` feature (off by default; sending links also needs outbound
 email). A church builds surveys as **data**: `Survey` (title, intro, `status` draft | open | closed,
 optional `closesAt`) with ordered `SurveyQuestion` rows (`kind` single | multiple | text | yesno,
 `choices`, `allowOther`, `required`). A person sends each chosen partner a personal link
@@ -963,7 +963,7 @@ not been sent a survey.
 emergency contact, a one-line overview, and `photo`; never visibility, restricted status, location, contact level or
 names). When a response is submitted, `proposeFromResponse` (`utils/surveyProposals.js`) replaces the response's pending
 `SurveyProposal` rows with one per linked answer that differs from the record (a photo always proposes). It writes
-nothing to the record. `routes/surveyUpdates.js` (admin/editor, behind `surveys` + `careTeam`) lists them; **approve**
+nothing to the record. `routes/surveyUpdates.js` (admin/editor, behind `surveys`) lists them; **approve**
 validates the value (or an edited one) and writes it through the same columns the partner page edits, inside the
 approver's request so last-edited-by and the audit log (`survey.update_approved`) credit them; **reject** leaves the
 record alone. A decided value for the same question and response is not proposed again. A partner's photo arrives at
@@ -982,7 +982,7 @@ packs**: JSON envelopes `{ format: "missions-partner-tracker-pack", version: 1, 
 data }` (`utils/templatePacks.js`). Each `kind` (`survey`, `supportMenu`, `applicationQuestions`,
 `tripRequirements`, `dispatchWording`) has a strict zod schema for `data`, a preview summary, an `apply`
 and an `exportData`. `routes/templatePacks.js` (admin only; 1 MB body limit) offers `POST /preview`,
-`POST /import` and `GET /export/:kind`; each kind needs the feature it belongs to (surveys + careTeam,
+`POST /import` and `GET /export/:kind`; each kind needs the feature it belongs to (surveys,
 supportPreferences + careTeam, trips; wording needs none). Import is **additive**: existing options,
 questions and requirements are never deleted, a duplicate (same group+label, or label) is skipped so a
 re-import adds nothing, and a survey arrives as a draft. The exception is `dispatchWording`, which replaces the

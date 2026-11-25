@@ -13,7 +13,6 @@ const { loadMenuForPartner } = require("../utils/surveySupport");
 // (unknown, expired, closed) answers the same way so a guess learns nothing.
 const router = express.Router();
 router.use(requireFeature("surveys"));
-router.use(requireFeature("careTeam"));
 router.use(rateLimit({ windowMs: 15 * 60 * 1000, max: process.env.NODE_ENV === "test" ? 1000 : 120 }));
 
 const NOT_AVAILABLE = {
@@ -115,7 +114,6 @@ router.post("/:token/submit", (req, res, next) => save(req, res, next, true));
 // approve it before it touches the partner's record.
 const uploadRouter = express.Router();
 uploadRouter.use(requireFeature("surveys"));
-uploadRouter.use(requireFeature("careTeam"));
 uploadRouter.use(rateLimit({ windowMs: 15 * 60 * 1000, max: process.env.NODE_ENV === "test" ? 1000 : 20 }));
 uploadRouter.post("/:token/:questionId", async (req, res, next) => {
   try {

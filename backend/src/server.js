@@ -205,10 +205,10 @@ app.use("/api/trips", tripRoutes); // protected (admin) — session required
 app.use("/api/care-team", careTeamRoutes); // protected; flag-gated (careTeam) -- see that file's own comment
 app.use("/api/audit", auditRoutes); // protected (admin); flag-gated (auditTrail)
 app.use("/api/contact-log", contactLogRoutes); // protected; flag-gated (contactLog) -- see that file's own comment
-app.use("/api/surveys", surveyRoutes); // protected; flag-gated (surveys + careTeam) -- see that file's own comment
+app.use("/api/surveys", surveyRoutes); // protected; flag-gated (surveys) -- see that file's own comment
 app.use("/api/public/survey-uploads", publicSurveyRoutes.uploadRouter); // no login: the link token is the credential
 app.use("/api/template-packs", templatePackRoutes); // protected; admin only; each kind needs its own feature
-app.use("/api/survey-updates", surveyUpdateRoutes); // protected; flag-gated (surveys + careTeam), admin/editor
+app.use("/api/survey-updates", surveyUpdateRoutes); // protected; flag-gated (surveys), admin/editor
 app.use("/api/public/surveys", publicSurveyRoutes); // no login: the personal link token is the credential
 app.use("/api/support-preferences", supportPreferencesRoutes); // protected; flag-gated (supportPreferences + careTeam) -- see that file's own comment
 // Sibling sub-resource routers under the same prefix; each gates itself, so mount order doesn't matter.

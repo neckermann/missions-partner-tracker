@@ -75,8 +75,11 @@ describe("surveys", () => {
     assert.equal((await anon("/api/public/surveys/" + "x".repeat(40))).status, 404);
     await setFeatures({ surveys: true });
     assert.equal((await admin("/api/surveys")).status, 200);
+    // Surveys don't depend on Care teams: they keep working with it off.
     await setFeatures({ careTeam: false });
-    assert.equal((await admin("/api/surveys")).status, 404);
+    assert.equal((await admin("/api/surveys")).status, 200);
+    assert.equal((await admin("/api/survey-updates")).status, 200);
+    assert.equal((await anon("/api/public/surveys/" + "x".repeat(40))).status, 404); // unknown token, not "feature off"
     await setFeatures({ careTeam: true });
   });
 
