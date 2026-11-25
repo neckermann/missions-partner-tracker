@@ -23,6 +23,7 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ### Added
 
+- **The demo shows the support-menu survey.** It seeds **How can we support you?** as an open survey with one partner's picks waiting on Survey Updates, and the admin guide gets a table of what each optional feature needs and what is lost when it is off.
 - **Partners can answer the support menu themselves.** A **Support preferences** survey question shows your support menu (without staff-only or retired options) to the partner, on their link or when staff fill the survey in for them. Their picks wait on Survey Updates as one line per option that differs from what is on file; approving fills in just those options and keeps any staff note. Includes an example pack, **How can we support you?**.
 - **A survey can ask for a mailing address.** A **Mailing address** question shows street, city, region, postal code and country boxes, and can be linked to the partner's record like a phone number: the answer waits on Survey Updates (you can edit the boxes before approving) and, once approved, becomes their mailing address.
 - **Get a survey link without emailing it.** Each partner row in a survey's Send section has a **Get link** button that makes their personal link (replacing any earlier one) and shows it to copy or open, so you can text it to them, try the survey yourself, or test on a demo that never emails. Restricted and no-direct-contact partners get none.
