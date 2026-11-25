@@ -1026,7 +1026,7 @@ With **Partner surveys** turned on in [Enabled Features](ADMIN_GUIDE.md#feature-
 
 #### Start from a template
 
-**+ New survey** can start from a template instead of a blank survey: **Care check-in**, **Annual update** (contact details, emergency contact, a photo and a short update) and **Furlough and visit planning**. A template just fills in questions you then edit freely; nothing stays linked to it.
+**+ New survey** can start from a template instead of a blank survey: **Care check-in**, **Annual update** (contact details, emergency contact, a photo and a short update), **Getting to know you** (a fuller partnership survey: their story and work, how they keep in touch, challenges, highlights, hopes and how we can help) and **Furlough and visit planning**. A template just fills in questions you then edit freely; nothing stays linked to it.
 
 ![Starting a survey from a template](docs/assets/screenshots/surveys-template.png)
 

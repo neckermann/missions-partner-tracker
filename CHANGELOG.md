@@ -22,6 +22,7 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ### Added
 
+- **A "Getting to know you" survey template** for restarting a relationship with partners: their story and work, how they keep in touch, challenges, highlights, hopes and how we can help. Edit it freely; it is a starting point, not a fixed form.
 - **Staff-only support options.** An option can be marked **Staff only**: its answers are hidden from care team guests and can't be recorded by them (the example "what can and cannot be shared" starts this way).
 - **Contacts can name a support option.** A logged contact can say which option it was about; the label is kept if the option is later retired or deleted.
 - **Adoption and commissioning dates are key dates.** Record them on the partner's page (Our History With Them); their anniversaries appear on the bell, in the daily key-date email and on My partners.
