@@ -487,8 +487,21 @@ than by omission"). Roles exist to gate **writes**, not visibility:
   enrolment setup token, which then also signs the person in), list, `DELETE /:id` (password
   required; refused for the last factor while two-factor is required), and `login/options|verify`
   (second step after the password, using the pending token). Login returns `methods`
-  `{authenticatorApp, passkey}`. Admin MFA reset deletes passkeys. Layer 2 (passwordless) is not
-  built.
+  `{authenticatorApp, passkey}`. Admin MFA reset deletes passkeys.
+- **Passwordless (#386 Layer 2)**: `ChurchSettings.requirePasswordless`, church-wide, off by
+  default, never on a demo. Turning it on (`PUT /api/settings`) needs outbound email ready (feature
+  on, Postmark token and From address set, `APP_BASE_URL`) and the acting admin to hold a passkey;
+  while on, outbound email can't be switched off. `isTwoFactorRequired()` is true while it is on, so
+  an account with no factor is sent to enrolment. `POST /api/auth/login` refuses (403,
+  `passwordless: true`). A passkey signs in alone: `/api/auth/passkeys/passwordless/options|verify`
+  use discoverable credentials and user verification, with no email asked for (nothing
+  enumerable). An account with no passkey asks `POST /api/auth/passwordless/email-link` (one
+  reply for every address; only a passkey-less active local account is sent a link) and the link
+  (`SignInLinkToken`, SHA-256 hash stored, 15 minutes, single-use via a conditional update) is spent
+  at `POST /api/auth/passwordless/link/redeem`, which continues exactly as after a password
+  (`afterFirstFactor`: a TOTP code, enrolment, or the session). A person with a passkey gets no
+  link: a lost passkey is recovered by an admin (Reset MFA). Welcome emails send a sign-in link
+  instead of a setup link while it is on.
 - **MFA**: self-service TOTP, opt-in per user; an admin can force
   enrollment (`mfaSetupRequired`) of one account without knowing the
   secret, or require it of every account with the church-wide

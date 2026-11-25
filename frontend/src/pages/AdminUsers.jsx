@@ -155,6 +155,38 @@ export default function AdminUsers() {
     }
   }
 
+  // Passwordless sign-in (#386 Layer 2). Turning it on ends password sign-in for everyone, so it
+  // says who will sign in by emailed link first; the server refuses, with the reason, unless
+  // email works and the admin turning it on has a passkey.
+  async function handleTogglePasswordless(withoutPasskey) {
+    setError("");
+    const turningOn = !currentUser?.passwordlessRequired;
+    if (turningOn) {
+      const confirmed = await confirmDialog({
+        title: "Turn on passwordless sign-in?",
+        body: (
+          <ConfirmMessageBody>
+            Nobody will be able to sign in with a password any more.{" "}
+            {withoutPasskey > 0
+              ? `${withoutPasskey} active account${withoutPasskey === 1 ? " has" : "s have"} no passkey yet and will sign in with an emailed link until they add one.`
+              : "Everyone already has a passkey."}{" "}
+            If email stops working, an admin has to reset a person's two-factor and hand over a setup link.
+            Passwords aren't deleted, so you can turn this off again.
+          </ConfirmMessageBody>
+        ),
+        confirmLabel: "Turn it on",
+      });
+      if (!confirmed) return;
+    }
+    try {
+      await updateChurchSettings({ requirePasswordless: turningOn });
+      setCurrentUser(await fetchCurrentUser());
+      reload();
+    } catch (err) {
+      reportError(err, "Couldn't change passwordless sign-in");
+    }
+  }
+
   // Recovery path for a lost/broken authenticator device — clears MFA so
   // the user can log in with just their password and re-enroll themselves.
   async function handleResetMfa(id, email) {
@@ -350,6 +382,16 @@ export default function AdminUsers() {
   const signingIn = users.filter((u) => u.active && u.authProvider === "local");
   const notEnrolled = signingIn.filter((u) => !u.mfaEnabled).length;
   const twoFactorRequired = !!currentUser?.twoFactorRequired;
+  const passwordlessOn = !!currentUser?.passwordlessRequired;
+  const withoutPasskey = signingIn.filter((u) => !u.passkeyCount).length;
+  // Why the passwordless switch can't be used yet, if it can't (the server checks the same).
+  const passwordlessBlocker = passwordlessOn
+    ? null
+    : !currentUser?.emailReady
+      ? "Turn on outbound email and finish setting it up first (Settings → Email): people without a passkey sign in through an emailed link."
+      : !currentUser?.passkeyCount
+        ? "Add a passkey to your own account first (My Account), so turning this on doesn't lock you out."
+        : null;
 
   return (
     <div className="admin-shell">
@@ -394,6 +436,37 @@ export default function AdminUsers() {
         {!twoFactorRequired && currentUser && !currentUser.mfaEnabled && (
           <p style={{ fontSize: "0.85rem", color: "var(--muted)", marginBottom: 0 }}>
             Set up two-factor on your own account first (My Account), so turning this on doesn't lock you out.
+          </p>
+        )}
+      </div>
+
+      <div className="admin-section" style={{ marginBottom: "1rem" }}>
+        <h3 style={{ marginTop: 0 }}>Passwordless sign-in</h3>
+        <p style={{ margin: "0.25rem 0 0.75rem" }}>
+          {passwordlessOn ? (
+            <span className="status-pill good">On: no passwords</span>
+          ) : (
+            <span className="status-pill">Off</span>
+          )}{" "}
+          {withoutPasskey === 0
+            ? "Everyone has a passkey."
+            : `${withoutPasskey} of ${signingIn.length} active account${signingIn.length === 1 ? "" : "s"} ${withoutPasskey === 1 ? "has" : "have"} no passkey yet${passwordlessOn ? " and sign in with an emailed link" : ""}.`}
+        </p>
+        <button
+          type="button"
+          className="btn secondary small"
+          onClick={() => handleTogglePasswordless(withoutPasskey)}
+          disabled={!!passwordlessBlocker}
+        >
+          {passwordlessOn ? "Turn off passwordless sign-in" : "Turn on passwordless sign-in"}
+        </button>
+        {passwordlessBlocker && (
+          <p style={{ fontSize: "0.85rem", color: "var(--muted)", marginBottom: 0 }}>{passwordlessBlocker}</p>
+        )}
+        {passwordlessOn && (
+          <p style={{ fontSize: "0.85rem", color: "var(--muted)", marginBottom: 0 }}>
+            Two-factor is required while this is on. Someone who loses their passkey asks an admin to Reset
+            MFA.
           </p>
         )}
       </div>

@@ -975,7 +975,7 @@ export async function extractFromPartnerFile(id) {
 
 export async function fetchSetupStatus() {
   const { data } = await api.get("/auth/setup-status");
-  return data; // { needed: boolean }
+  return data; // { needed: boolean, passwordless: boolean }
 }
 
 export async function completeSetup(email, password) {
@@ -1076,6 +1076,29 @@ export async function loginWithPasskey(pendingToken) {
     challengeToken: begin.challengeToken,
     response,
   });
+  return data;
+}
+
+// #386 Layer 2: passwordless sign-in. A passkey alone (the browser offers the ones it holds for this
+// site), or an emailed one-time link for someone who hasn't added one yet.
+export async function signInWithPasskeyOnly() {
+  const { data: begin } = await api.post("/auth/passkeys/passwordless/options");
+  const response = await startAuthentication({ optionsJSON: begin.options });
+  const { data } = await api.post("/auth/passkeys/passwordless/verify", {
+    challengeToken: begin.challengeToken,
+    response,
+  });
+  return data;
+}
+
+export async function requestSignInLink(email) {
+  const { data } = await api.post("/auth/passwordless/email-link", { email });
+  return data;
+}
+
+// Same shapes as a password sign-in: a session, a second step, or enrolment to finish.
+export async function redeemSignInLink(token) {
+  const { data } = await api.post("/auth/passwordless/link/redeem", { token });
   return data;
 }
 

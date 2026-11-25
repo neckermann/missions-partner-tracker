@@ -9,6 +9,8 @@ import {
   loginWithPasskey,
   registerPasskey,
   browserSupportsWebAuthn,
+  signInWithPasskeyOnly,
+  requestSignInLink,
 } from "../api/client.js";
 import MfaAppGuide from "../components/MfaAppGuide.jsx";
 
@@ -41,6 +43,9 @@ export default function Login() {
   const [setupToken, setSetupToken] = useState(null);
   const [setupData, setSetupData] = useState(null); // { secret, qrCode }
   const [error, setError] = useState("");
+  // #386 Layer 2: the church signs in without passwords.
+  const [passwordless, setPasswordless] = useState(false);
+  const [linkSent, setLinkSent] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -60,26 +65,64 @@ export default function Login() {
     fetchSetupStatus()
       .then((status) => {
         if (status.needed) navigate("/setup", { replace: true });
+        setPasswordless(status.passwordless === true);
       })
       .catch(() => {});
   }, [navigate]);
+
+  // Arriving from the emailed sign-in link: its result (a second step, or enrolment to finish) is
+  // handled exactly as if a password had just been checked.
+  useEffect(() => {
+    const resume = location.state?.resume;
+    if (resume) applyLoginResult(resume);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function applyLoginResult(result) {
+    if (result.mfaRequired) {
+      setPendingToken(result.pendingToken);
+      setMethods(result.methods || { authenticatorApp: true, passkey: false });
+    } else if (result.mfaSetupRequired) {
+      setSetupToken(result.setupToken);
+      setSetupData(await startForcedMfaSetup(result.setupToken));
+    } else {
+      goToDestination();
+    }
+  }
 
   async function handleLocalLogin(e) {
     e.preventDefault();
     setError("");
     try {
-      const result = await login(email, password);
-      if (result.mfaRequired) {
-        setPendingToken(result.pendingToken);
-        setMethods(result.methods || { authenticatorApp: true, passkey: false });
-      } else if (result.mfaSetupRequired) {
-        setSetupToken(result.setupToken);
-        setSetupData(await startForcedMfaSetup(result.setupToken));
-      } else {
-        goToDestination();
-      }
+      await applyLoginResult(await login(email, password));
     } catch (err) {
       setError(err.response?.data?.error || "Login failed");
+    }
+  }
+
+  async function handlePasskeyOnly() {
+    setError("");
+    try {
+      await signInWithPasskeyOnly();
+      goToDestination();
+    } catch (err) {
+      setError(
+        err.response?.data?.error ||
+          (err.name === "NotAllowedError"
+            ? "That was cancelled. Try again when you're ready."
+            : "That passkey didn't work. Try again, or use an emailed link.")
+      );
+    }
+  }
+
+  async function handleEmailLink(e) {
+    e.preventDefault();
+    setError("");
+    try {
+      await requestSignInLink(email);
+      setLinkSent(true);
+    } catch (err) {
+      setError(err.response?.data?.error || "Couldn't send a link. Try again in a moment.");
     }
   }
 
@@ -249,6 +292,50 @@ export default function Login() {
             {backToLogin}
           </div>
         )}
+      </div>
+    );
+  }
+
+  if (passwordless) {
+    return (
+      <div className="admin-shell" style={{ maxWidth: 400 }}>
+        <h2>Team Login</h2>
+        {typeof location.state?.notice === "string" && (
+          <p role="status" style={{ color: "#555" }}>
+            {location.state.notice}
+          </p>
+        )}
+        {browserSupportsWebAuthn() && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginBottom: "1.5rem" }}>
+            <p style={{ color: "#555" }}>
+              Use the passkey on this device (fingerprint, face or screen lock).
+            </p>
+            <button type="button" className="btn" onClick={handlePasskeyOnly}>
+              Sign in with a passkey
+            </button>
+          </div>
+        )}
+        {linkSent ? (
+          <p role="status">
+            If that email has an account, a sign-in link is on its way. It works once and expires in 15
+            minutes.
+          </p>
+        ) : (
+          <form
+            onSubmit={handleEmailLink}
+            style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}
+          >
+            <p style={{ color: "#555" }}>No passkey yet? We'll email you a link to sign in.</p>
+            <label>
+              Email
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            </label>
+            <button type="submit" className="btn secondary">
+              Email me a sign-in link
+            </button>
+          </form>
+        )}
+        {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
       </div>
     );
   }
