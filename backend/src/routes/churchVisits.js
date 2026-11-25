@@ -10,10 +10,9 @@ const {
 const { partnerRefSelect } = require("../utils/prismaIncludes");
 
 const router = express.Router();
-router.use(requireAuth); // everything below requires a logged-in user
+router.use(requireAuth);
 
-// The only writer for ChurchVisit -- see routes/adults.js for the full
-// reasoning, same shape, no consolidated cross-partner list.
+// The only writer for ChurchVisit; same shape as routes/adults.js.
 const churchVisitSchema = z.object({
   partnerId: z.string(),
   visitDate: z.coerce.date(),
@@ -22,7 +21,6 @@ const churchVisitSchema = z.object({
 
 const churchVisitInclude = { partner: partnerRefSelect };
 
-// GET /api/church-visits?partnerId=
 router.get("/", requirePartnerQueryScope, async (req, res, next) => {
   try {
     const where = {};
@@ -39,7 +37,6 @@ router.get("/", requirePartnerQueryScope, async (req, res, next) => {
   }
 });
 
-// POST /api/church-visits  (create — editor or admin)
 router.post("/", requirePartnerWriter({ body: true }), async (req, res, next) => {
   try {
     const data = churchVisitSchema.parse(req.body);
@@ -50,7 +47,6 @@ router.post("/", requirePartnerWriter({ body: true }), async (req, res, next) =>
   }
 });
 
-// PUT /api/church-visits/:id  (update — editor or admin)
 router.put("/:id", requirePartnerWriter({ model: "churchVisit" }), async (req, res, next) => {
   try {
     const data = churchVisitSchema.partial().parse(req.body);
@@ -65,7 +61,6 @@ router.put("/:id", requirePartnerWriter({ model: "churchVisit" }), async (req, r
   }
 });
 
-// DELETE /api/church-visits/:id  (admin only)
 router.delete("/:id", requireRole("admin"), async (req, res, next) => {
   try {
     await prisma.churchVisit.delete({ where: { id: req.params.id } });

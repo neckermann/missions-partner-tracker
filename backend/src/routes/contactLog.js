@@ -15,14 +15,12 @@ const {
 const { careTimings } = require("../utils/careSettings");
 const { loadAssignedPartners, loadUpdatesToPassOn } = require("../utils/contactLogQueries");
 
-// #288: the partner contact log. Gated by the `contactLog` feature (404 when
-// off, data kept).
+// The partner contact log. Gated by the `contactLog` feature (404 when off,
+// data kept).
 //
-// Who: anyone who can see the partner can log a contact -- admin, editor,
-// viewer, and a guest who holds a care team seat on that partner. A trip
-// leader (a trip grant only) has a much smaller scope and never reaches it,
-// the same line as one-time needs. Fixing or deleting an entry is admin/editor.
-// Everyone's contact counts toward the "gone quiet" clock.
+// Anyone who can see the partner can log a contact: admin, editor, viewer, and
+// a guest with a care team seat on that partner. A trip leader never reaches
+// it, the same line as one-time needs. Fixing or deleting is admin/editor.
 const router = express.Router();
 router.use(requireAuth);
 router.use(requireFeature("contactLog"));
@@ -52,8 +50,7 @@ const entrySchema = z.object({
   supportNeedId: z.string().min(1).optional().nullable(),
 });
 
-// Today as a calendar day. A client sends the viewer's local date; this is
-// only the fallback when it sends none.
+// Fallback "today" (UTC calendar day) when the client sends no local date.
 function today() {
   const n = new Date();
   return new Date(Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), n.getUTCDate()));
@@ -113,11 +110,10 @@ router.get("/assigned", async (req, res, next) => {
   }
 });
 
-// GET /api/contact-log/timeline?partnerId= -- the events on a partner's record that aren't log
-// entries but are part of the same story (a church visit, a newsletter filed), newest first, for
-// the contact log to show alongside its own entries (#364). Read at request time from the source
-// records, never copied into the log, so editing or deleting a visit or newsletter can't leave a
-// stale copy behind.
+// GET /api/contact-log/timeline?partnerId= -- church visits and newsletters
+// shown alongside log entries, newest first. Read from the source records at
+// request time, never copied into the log, so edits and deletes can't leave a
+// stale copy.
 router.get("/timeline", async (req, res, next) => {
   try {
     const partnerId = String(req.query.partnerId || "");
@@ -156,9 +152,8 @@ router.get("/timeline", async (req, res, next) => {
   }
 });
 
-// GET /api/contact-log/updates?partnerId= -- what has happened for this partner that is still
-// waiting to be passed on (a decided need, an answered prayer; #364), the same list the bell
-// counts, so the partner page can offer a one-tap "log a thank-you".
+// GET /api/contact-log/updates?partnerId= -- what is still waiting to be passed
+// on (a decided need, an answered prayer); the same list the bell counts.
 router.get("/updates", async (req, res, next) => {
   try {
     const partnerId = String(req.query.partnerId || "");
@@ -198,12 +193,11 @@ router.get("/", async (req, res, next) => {
   }
 });
 
-// POST /api/contact-log
 router.post("/", async (req, res, next) => {
   try {
     const data = entrySchema.parse(req.body);
     if (!canUse(req.user, data.partnerId)) return res.status(403).json({ error: "Insufficient permissions" });
-    // Staff may log a contact on someone else's behalf; anyone else's entry is always their own (#412).
+    // Staff may log a contact on someone else's behalf; anyone else's is always their own.
     if (!["admin", "editor"].includes(req.user.role)) data.contactedById = req.user.id;
     const partner = await prisma.partner.findUnique({ where: { id: data.partnerId }, select: { id: true } });
     if (!partner) return res.status(404).json({ error: "Not found" });
@@ -249,7 +243,6 @@ router.put("/:id", requireRole("admin", "editor"), async (req, res, next) => {
   }
 });
 
-// DELETE /api/contact-log/:id
 router.delete("/:id", requireRole("admin", "editor"), async (req, res, next) => {
   try {
     const existing = await prisma.contactLog.findUnique({

@@ -4,11 +4,8 @@ const { resetDemoData } = require("../../scripts/reset-demo-data");
 
 const router = express.Router();
 
-// Plain `!==` on secrets leaks a timing side-channel (it stops comparing at
-// the first mismatched byte, so a closer guess takes measurably longer) —
-// crypto.timingSafeEqual always compares every byte, in constant time,
-// regardless of where the mismatch is. It throws on mismatched lengths
-// rather than returning false, so that's checked first.
+// Constant-time compare: `!==` on secrets leaks timing. timingSafeEqual throws
+// on mismatched lengths, so length is checked first.
 function safeTokenMatch(a, b) {
   if (typeof a !== "string" || typeof b !== "string") return false;
   const bufA = Buffer.from(a);
@@ -16,9 +13,8 @@ function safeTokenMatch(a, b) {
   return bufA.length === bufB.length && crypto.timingSafeEqual(bufA, bufB);
 }
 
-// POST /api/demo/reset — wipes and reseeds the database with fresh fake
-// data. Only mounted at all if DEMO_RESET_TOKEN is set (see server.js) —
-// absent in every normal deployment, so this route doesn't exist there.
+// Wipes and reseeds the database with fake data. Only mounted when
+// DEMO_RESET_TOKEN is set (see server.js), so it doesn't exist in normal deployments.
 router.post("/reset", async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization || "";

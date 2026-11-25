@@ -11,33 +11,24 @@ const { notifyNewsletterCreated } = require("../utils/dispatchRecording");
 const { partnerRefSelect } = require("../utils/prismaIncludes");
 const { FILE_KINDS } = require("./fileKinds");
 
-// Mixed router (see #72): POST /postmark is called by Postmark directly,
-// not a logged-in admin -- it authenticates via HTTP Basic Auth (see
-// checkWebhookAuth below), never requireAuth/requireRole. Everything else
-// here is the admin-facing review queue for emails that couldn't be
-// auto-matched, same session-based gating as every other admin route.
+// Mixed router: POST /postmark is called by Postmark and authenticates via
+// HTTP Basic Auth (checkWebhookAuth), never requireAuth. Everything else is
+// the admin-facing review queue for emails that couldn't be auto-matched.
 const router = express.Router();
 
-// Postmark has no HMAC signature verification for inbound webhooks -- the
-// webhook URL itself carries Basic Auth credentials instead (confirmed
-// against Rails' own ActionMailbox Postmark ingress, a real production
-// implementation of the same thing). Constant-time comparison, same
-// discipline as every other credential check in this app -- a connection
-// a brute-forcing bot can hold open to time a string comparison byte-by-
-// byte is exactly the scenario timingSafeEqual exists for.
+// Postmark has no HMAC signature for inbound webhooks; the webhook URL carries
+// Basic Auth credentials instead. Compared in constant time so a guesser can't
+// time the comparison.
 function timingSafeStringEqual(a, b) {
   const aBuf = Buffer.from(a);
   const bBuf = Buffer.from(b);
   return aBuf.length === bBuf.length && crypto.timingSafeEqual(aBuf, bBuf);
 }
 
-// Best-effort, never lets a logging failure mask the real error/response --
-// see the in-app notifications plan's "Inbound email processing errors"
-// category. Previously these paths just returned a 4xx with nothing left
-// to query afterward. Deliberately NOT called for "no webhook credentials
-// configured yet" or "feature off" (above) -- those aren't processing
-// failures, they're an unconfigured/disabled instance, and persisting them
-// would just be noise from every automated prober hitting a fresh install.
+// Best-effort: a logging failure must never mask the real error/response.
+// Deliberately NOT called for "no webhook credentials configured" or "feature
+// off" -- those aren't processing failures, and persisting them would be noise
+// from automated probers.
 async function recordInboundEmailFailure(reason, payload) {
   try {
     const snippet = JSON.stringify(payload ?? {}).slice(0, 2000);
@@ -47,33 +38,18 @@ async function recordInboundEmailFailure(reason, payload) {
   }
 }
 
-// #327 Finding 5: `From` is trivially forgeable -- anyone who knows the
-// church's inbound address and one partner's email can put a document of
-// their choosing under that partner's name, which auto-files it and
-// broadcasts it to GroupMe/WhatsApp/the digest, unreviewed. This is the
-// one check standing between a forged letter and that happening.
+// `From` is trivially forgeable: without this check, anyone who knows a
+// partner's email could have a document auto-filed under that partner and
+// broadcast unreviewed. Keep it.
 //
-// Confirmed directly against Postmark's own documented inbound payload
-// (not guessed, and not what the original review assumed): there is no
-// "Authentication-Results" header in Postmark's inbound JSON at all --
-// only `Headers` array entries, and only two are ever documented as
-// carrying an authentication signal:
-//   - "Received-SPF", value either a bare token ("pass"/"neutral"/
-//     "softfail"/"fail", confirmed lowercase in Postmark's own SPF-header
-//     docs) or the longer prose form ("Pass (sender SPF authorized)
-//     identity=...)", confirmed from Postmark's own sample payload) --
-//     handled by just checking whether the value starts with "pass",
-//     case-insensitively, either way.
-//   - "X-Spam-Tests", a comma-separated list of SpamAssassin rule names
-//     that includes "DKIM_VALID" when DKIM verified successfully --
-//     Postmark's own docs are explicit that SpamAssassin headers aren't
-//     guaranteed to be present at all ("there may be instances where our
-//     system is unable to run those SpamAssassin scans... the
-//     SpamAssassin headers will not be present or may be incomplete"),
-//     so this is a best-effort secondary signal, not authoritative.
-// Fails closed: no Headers array, or neither signal found, counts as
-// unverified -- never assume pass when the data needed to check is
-// simply missing.
+// Postmark's inbound JSON has no Authentication-Results header; only two
+// `Headers` entries carry a signal:
+//   - "Received-SPF": a bare token ("pass", "fail", ...) or longer prose
+//     ("Pass (sender SPF authorized) ..."), so check it starts with "pass",
+//     case-insensitively.
+//   - "X-Spam-Tests": includes "DKIM_VALID" when DKIM verified. SpamAssassin
+//     headers may be absent, so this is a best-effort secondary signal.
+// Fails closed: missing Headers or neither signal counts as unverified.
 function isSenderVerified(headers) {
   if (!Array.isArray(headers)) return false;
   const byName = (name) => headers.find((h) => h?.Name?.toLowerCase() === name.toLowerCase())?.Value || "";
@@ -104,10 +80,9 @@ function checkWebhookAuth(req, expectedUsername, expectedPassword) {
   );
 }
 
-// POST /api/inbound-email/postmark -- the webhook. Always 200s once the
-// payload itself is valid, regardless of whether the sender matched a
-// partner -- "queued for review" is a normal outcome, not a failure, and
-// a non-200 here would make Postmark retry delivery.
+// POST /api/inbound-email/postmark -- the webhook. Always 200s once the payload
+// is valid: "queued for review" is a normal outcome, and a non-200 would make
+// Postmark retry delivery.
 router.post("/postmark", async (req, res, next) => {
   try {
     const settings = await prisma.churchSettings.findUnique({
@@ -115,25 +90,18 @@ router.post("/postmark", async (req, res, next) => {
       select: { inboundEmailWebhookUsername: true, inboundEmailWebhookPassword: true, enabledFeatures: true },
     });
 
-    // Nothing configured yet -- never treat an empty expected credential
-    // as a match for an empty/missing one presented by the caller.
+    // Never treat an empty expected credential as matching an empty/missing one.
     if (!settings?.inboundEmailWebhookUsername || !settings?.inboundEmailWebhookPassword) {
       return res.status(401).json({ error: "Unauthorized" });
     }
     const expectedPassword = decryptField(settings.inboundEmailWebhookPassword);
     if (!checkWebhookAuth(req, settings.inboundEmailWebhookUsername, expectedPassword)) {
-      // #327 Finding 4: this used to call recordInboundEmailFailure here,
-      // writing a DB row for a caller who never actually authenticated --
-      // 60 allowed attempts per 15 minutes (inboundEmailWebhookLimiter,
-      // server.js) from a single guesser, with no credential required to
-      // trigger a write. The rate limiter already throttles the attempt
-      // itself; nothing downstream needs a persisted row for a request
-      // that never got past the door.
+      // Deliberately no recordInboundEmailFailure here: an unauthenticated
+      // caller must not be able to trigger a DB write.
       return res.status(401).json({ error: "Unauthorized" });
     }
-    // Checked after auth, not before: a wrong-password attempt and a
-    // right-password-but-feature-off attempt should look identical to
-    // anyone who hasn't already proven they know the credentials.
+    // After auth, so a wrong password and a right password with the feature
+    // off look identical to anyone without the credentials.
     if (!isFeatureEnabled(settings.enabledFeatures, "inboundEmail")) {
       return res.status(404).json({ error: "Not found" });
     }
@@ -146,19 +114,13 @@ router.post("/postmark", async (req, res, next) => {
       return res.status(400).json({ error: "Missing From/RawEmail in payload" });
     }
 
-    // RawEmail is the full RFC 822 message as plain text (not base64 --
-    // confirmed against Rails' ActionMailbox Postmark ingress, which
-    // reads this same field the same way), so a plain UTF-8 buffer is
-    // the raw .eml source, same shape as an uploaded PartnerFile.bytes.
+    // RawEmail is the full RFC 822 message as plain text (not base64), i.e. the .eml source.
     const bytes = Buffer.from(rawEmail, "utf8");
     const fileName = `inbound-${payload.MessageID || crypto.randomUUID()}.eml`;
     const subject = payload.Subject || null;
 
-    // Checks every partner's own contactEmail (organization-only field)
-    // and every linked Adult's email (missionaries' own addresses, one
-    // row per household adult -- see #72's plan for why contactEmail
-    // alone would miss most partners). Case-insensitive: email addresses
-    // are compared that way in practice everywhere else they're handled.
+    // Match on the partner's contactEmail (organizations) or any linked
+    // Adult's email (missionaries); contactEmail alone would miss most partners.
     const matches = await prisma.partner.findMany({
       where: {
         OR: [
@@ -184,18 +146,14 @@ router.post("/postmark", async (req, res, next) => {
         },
         include: { partner: partnerRefSelect },
       });
-      // Best-effort, same reasoning as every other newsletter-creation
-      // path -- a broken notification channel must never affect whether
-      // this email got filed.
+      // A broken notification channel must never affect whether this email got filed.
       await notifyNewsletterCreated(created);
       return res.status(200).json({ matched: true });
     }
 
-    // Zero matches, more than one, or (#327 Finding 5) exactly one match
-    // whose sender didn't verify -- don't guess, and never auto-file (or
-    // notify channels on) anything the sender address alone can't be
-    // trusted for. Queue it either way; queueReason distinguishes why for
-    // the reviewing admin.
+    // Zero matches, several, or one whose sender didn't verify: never
+    // auto-file or notify channels on anything the sender address alone can't
+    // vouch for. queueReason tells the reviewing admin why.
     const queueReason =
       matches.length === 1
         ? "Matched a partner by sender address, but SPF/DKIM didn't confirm it -- review before assigning."
@@ -210,27 +168,15 @@ router.post("/postmark", async (req, res, next) => {
   }
 });
 
-// Everything below is the admin-facing review queue -- a logged-in user,
-// same as any other admin route.
+// Everything below is the admin-facing review queue.
 router.use(requireAuth);
 router.use(requireFeature("inboundEmail"));
 
-// No omit needed any more -- bytes lives in its own table (bytesRow) now,
-// never selected here at all.
 const inboundEmailInclude = {};
 
-// #329 Finding 1: this queue previously had no role restriction beyond
-// being logged in (same as GET /api/partner-files), which let a scoped
-// guest (role: "guest", then called tripLeader) read the whole church's
-// unmatched-inbound-email queue -- every sender address and raw .eml,
-// across every partner and trip, not just their own. Unlike
-// partner-files/prayer-requests/etc, there's no sensible trip-scoped
-// version of "mail nobody could match yet" (that's the whole point of
-// this queue -- it isn't attached to a partner or trip at all), so this
-// excludes guest entirely rather than scoping it, the same
-// requireRole("admin", "editor", "viewer") pattern GET /api/trips/planning
-// already uses for a route that should reach every full role but not the
-// scoped-guest tier.
+// Guests are excluded entirely: the queue holds every unmatched sender address
+// and raw .eml, and being attached to no partner or trip it has no scoped
+// version. Keep requireRole here and on /:id/raw.
 router.get("/", requireRole("admin", "editor", "viewer"), async (req, res, next) => {
   try {
     const records = await prisma.inboundEmail.findMany({
@@ -244,12 +190,8 @@ router.get("/", requireRole("admin", "editor", "viewer"), async (req, res, next)
 });
 
 // GET /api/inbound-email/:id/raw -- lets an admin read the email before
-// deciding who it's from. Same sendStoredFile helper
-// partnerFiles.js's /:id/download uses; contentType is always
-// message/rfc822 here so it isn't a stored column (see the model
-// comment in schema.prisma). #329 Finding 1: same guest exclusion as
-// GET / above -- the raw .eml is the same unmatched-queue data, just one
-// row at a time.
+// deciding who it's from. contentType is always message/rfc822, so it isn't
+// stored. Same guest exclusion as GET / above.
 router.get("/:id/raw", requireRole("admin", "editor", "viewer"), async (req, res, next) => {
   try {
     const record = await prisma.inboundEmail.findUnique({
@@ -263,18 +205,9 @@ router.get("/:id/raw", requireRole("admin", "editor", "viewer"), async (req, res
   }
 });
 
-// kind defaults to "newsletter" when omitted (#206) -- that's still the
-// overwhelming majority of what actually arrives, and keeps any other
-// existing caller of this endpoint working unchanged. Same
-// customKind-required-when-"other" rule as partnerFiles.js's own
-// metaSchema, mirrored here rather than reusing that schema directly
-// since this route only ever sets these two fields, not the rest of
-// PartnerFile's create shape.
-// Trips (#252): partnerId XOR tripParticipantId -- exactly one of the
-// two, same style of zod refine this route already uses for its own
-// kind/customKind rule. requirementId is optional even when filing as a
-// TripDocument -- a trip-wide document or one that doesn't map to any
-// tracked requirement is still perfectly valid to file.
+// kind defaults to "newsletter". customKind is required when kind is "other",
+// mirroring partnerFiles.js's metaSchema. Exactly one of partnerId or
+// tripParticipantId; requirementId is optional even for a TripDocument.
 const assignSchema = z
   .object({
     partnerId: z.string().optional(),
@@ -292,9 +225,7 @@ const assignSchema = z
     path: ["partnerId"],
   });
 
-// POST /api/inbound-email/:id/assign (editor or admin, matches
-// partnerFiles.js's own create-role gating). Files as whichever kind the
-// admin picked (#206) -- defaults to newsletter if the caller omits it.
+// POST /api/inbound-email/:id/assign -- files the email as the chosen kind.
 router.post("/:id/assign", requireRole("admin", "editor"), async (req, res, next) => {
   try {
     const { partnerId, tripParticipantId, requirementId, kind, customKind } = assignSchema.parse(req.body);
@@ -304,12 +235,8 @@ router.post("/:id/assign", requireRole("admin", "editor"), async (req, res, next
       select: { enabledFeatures: true },
     });
 
-    // #274 hardening: excludes `bytes` (the raw .eml, inbound-mail-sized
-    // but still no reason to hold in memory any longer than necessary)
-    // from this initial read -- every check below (feature flags, the
-    // participant/partner lookup) only needs the small fields here.
-    // Re-fetched just below, once, immediately before whichever branch's
-    // create() actually needs it.
+    // Excludes `bytes` (the raw .eml) here; it is re-fetched only by the
+    // branch that creates the file.
     const record = await prisma.inboundEmail.findUnique({
       where: { id: req.params.id },
       select: { id: true, subject: true, fileName: true, receivedAt: true },
@@ -346,11 +273,8 @@ router.post("/:id/assign", requireRole("admin", "editor"), async (req, res, next
       return res.status(200).json(created);
     }
 
-    // Must be on too -- not just "inboundEmail" (checked by the
-    // router.use above), since an admin shouldn't be able to file a row
-    // into a feature that's disabled. Same 404 semantics as
-    // requireFeature itself: a disabled feature looks like this action
-    // doesn't exist, not like a validation error.
+    // "partnerFiles" must be on too, not just "inboundEmail"; 404 like
+    // requireFeature, so a disabled feature looks like the action doesn't exist.
     if (!isFeatureEnabled(settings?.enabledFeatures, "partnerFiles")) {
       return res.status(404).json({ error: "Not found" });
     }
@@ -391,8 +315,7 @@ router.post("/:id/assign", requireRole("admin", "editor"), async (req, res, next
   }
 });
 
-// DELETE /api/inbound-email/:id (admin only, matches partnerFiles.js's own
-// delete-role gating) -- discards without filing anything.
+// DELETE /api/inbound-email/:id -- discards without filing anything.
 router.delete("/:id", requireRole("admin"), async (req, res, next) => {
   try {
     const record = await prisma.inboundEmail.findUnique({

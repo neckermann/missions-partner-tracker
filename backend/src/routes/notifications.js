@@ -2,10 +2,8 @@ const express = require("express");
 const { requireAuth } = require("../middleware/requireAuth");
 const { resolveNotificationSummary, markCategorySeen } = require("../notifications/categories");
 
-// GET /api/notifications/summary -- any logged-in role; the registry
-// itself decides which categories that role's response includes (see
-// notifications/categories.js's own header comment for the shared-vs-
-// per-user count distinction and the admin-only visibility tier).
+// Any logged-in role; the registry in notifications/categories.js decides
+// which categories each role's summary includes.
 const router = express.Router();
 router.use(requireAuth);
 
@@ -15,7 +13,7 @@ router.get("/summary", async (req, res, next) => {
       userId: req.user.id,
       role: req.user.role,
       scopeTripIds: req.user.role === "guest" ? req.user.tripIds : null,
-      // A guest's new-need/prayer counts are limited to their care team partners (#292).
+      // A guest's new-need/prayer counts are limited to their care team partners.
       scopePartnerIds: req.user.role === "guest" ? req.user.careTeamPartnerIds || [] : null,
     });
     res.json({ categories });
@@ -24,8 +22,7 @@ router.get("/summary", async (req, res, next) => {
   }
 });
 
-// POST /api/notifications/seen -- marks one category seen for the calling
-// user only (never shared -- see categories.js's own reasoning for why).
+// Marks one category seen for the calling user only, never shared.
 router.post("/seen", async (req, res, next) => {
   try {
     const category = String(req.body?.category || "");
