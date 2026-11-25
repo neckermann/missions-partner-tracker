@@ -2372,7 +2372,7 @@ async function seedTripsDemo() {
         // (seedSupportPreferencesDemo).
         supportPreferences: true,
         // Partner surveys, with one open survey and some answers (seedSurveysDemo). The links
-        // are never emailed on a demo: sending refuses there (routes/surveys.js).
+        // can be emailed by hand on a demo like anywhere else (only scheduled emails are skipped there).
         surveys: true,
         // The audit log is on for a demo, with example entries (seedAuditLogDemo).
         auditTrail: true,

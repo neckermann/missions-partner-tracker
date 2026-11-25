@@ -2,14 +2,15 @@
 // is never set on a real deployment (publicSettings.js and server.js key off it too).
 
 // True on a public demo deployment. Only the web service has the variable; use isDemoInstance()
-// anywhere that can run in the separate worker process (schedules, email sending).
+// anywhere that can run in the separate worker process (the schedules).
 function isDemoDeployment() {
   return Boolean(process.env.DEMO_RESET_TOKEN);
 }
 
 // True when this database is a public demo: the variable above, or the `demoMode` flag the demo
 // reset writes to the settings row. The worker runs the schedules and does not get the variable,
-// so the flag is what stops it emailing a demo's fake accounts and spending the email plan.
+// so the flag is what stops its schedules emailing a demo's fake accounts and spending the email plan.
+// Only scheduled sends are skipped: an email a person adds or clicks to send goes out as anywhere else.
 // Read at most once a minute.
 let cachedDemoMode = { at: 0, value: false };
 async function isDemoInstance() {
@@ -37,12 +38,12 @@ function forgetDemoModeCache() {
 
 // Features a demo keeps OFF on every reset. Standing rule: a demo must not email
 // its seeded accounts (fake addresses bounce and spend the email plan), so anything
-// emailing people on a schedule stays off. The reset script and the seed both apply
+// emailing people on a schedule stays off (anything a person sends by hand still goes). The reset script and the seed both apply
 // this, because the seed rewrites the feature list after the reset.
 //
 // Currently empty: key-date reminders are ON so a visitor sees the bell alert; their
 // email can't go out because the daily job returns early on a demo
-// (keyDateReminderScheduler.js) and sendEmail skips every send there (email.js). Add a key
+// (keyDateReminderScheduler.js, and the other scheduled senders). Add a key
 // if a new scheduled email needs the flag off.
 const DEMO_DISABLED_FEATURES = [];
 

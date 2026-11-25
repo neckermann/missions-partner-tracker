@@ -93,7 +93,7 @@ reset script and the seed turn every feature on **except** the list in
 `backend/src/utils/demoMode.js`, which is where a scheduled-email feature would
 be kept off (today the list is empty). And the daily key-date job returns early
 on a demo (`DEMO_RESET_TOKEN`, or the `demoMode` flag the reset writes, which is what the worker
-process sees), and `sendEmail` skips every send there, so nothing can email a demo's team members
+process sees), as do the other scheduled emails, so no schedule can email a demo's team members
 even though **Key-date reminders are on**: a visitor sees the "Key dates coming
 up" alert on the bell and Home page, but nothing is ever sent. To keep another
 scheduled-email feature off a demo, add its key to that list.
