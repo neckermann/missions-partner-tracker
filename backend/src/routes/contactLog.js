@@ -11,9 +11,9 @@ const {
   CONTACT_TYPE_VALUES,
   DIRECTION_VALUES,
   TOPIC_VALUES,
-  CONTACT_STALE_DAYS,
 } = require("../utils/contactLog");
-const { loadAssignedPartners } = require("../utils/contactLogQueries");
+const { careTimings } = require("../utils/careSettings");
+const { loadAssignedPartners, loadUpdatesToPassOn } = require("../utils/contactLogQueries");
 
 // #288: the partner contact log. Gated by the `contactLog` feature (404 when
 // off, data kept).
@@ -88,13 +88,17 @@ async function checkReferences(data, partnerId) {
 
 // GET /api/contact-log/options -- the fixed lists, so the frontend keeps no
 // copy of its own.
-router.get("/options", (req, res) => {
-  res.json({
-    types: CONTACT_TYPES,
-    directions: DIRECTIONS,
-    topics: TOPICS,
-    staleDays: CONTACT_STALE_DAYS,
-  });
+router.get("/options", async (req, res, next) => {
+  try {
+    res.json({
+      types: CONTACT_TYPES,
+      directions: DIRECTIONS,
+      topics: TOPICS,
+      staleDays: (await careTimings()).contactStaleDays,
+    });
+  } catch (err) {
+    next(err);
+  }
 });
 
 // GET /api/contact-log/assigned -- the partners this login holds a care team
@@ -104,6 +108,74 @@ router.get("/assigned", async (req, res, next) => {
   try {
     if (!(await isCareTeamEnabled())) return res.status(404).json({ error: "Not found" });
     res.json(await loadAssignedPartners(req.user.id, today()));
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/contact-log/timeline?partnerId= -- the events on a partner's record that aren't log
+// entries but are part of the same story (a church visit, a newsletter filed), newest first, for
+// the contact log to show alongside its own entries (#364). Read at request time from the source
+// records, never copied into the log, so editing or deleting a visit or newsletter can't leave a
+// stale copy behind.
+router.get("/timeline", async (req, res, next) => {
+  try {
+    const partnerId = String(req.query.partnerId || "");
+    if (!partnerId) return res.status(400).json({ error: "partnerId is required" });
+    if (!canUse(req.user, partnerId)) return res.status(403).json({ error: "Insufficient permissions" });
+    const [visits, newsletters] = await Promise.all([
+      prisma.churchVisit.findMany({
+        where: { partnerId },
+        select: { id: true, visitDate: true, notes: true },
+      }),
+      prisma.partnerFile.findMany({
+        where: { partnerId, kind: "newsletter" },
+        select: { id: true, receivedDate: true, title: true, fileName: true },
+      }),
+    ]);
+    const day = (d) => d.toISOString().slice(0, 10);
+    const events = [
+      ...visits.map((v) => ({
+        id: `visit:${v.id}`,
+        source: "visit",
+        date: day(v.visitDate),
+        title: "Visited the church",
+        detail: v.notes || "",
+      })),
+      ...newsletters.map((n) => ({
+        id: `newsletter:${n.id}`,
+        source: "newsletter",
+        date: day(n.receivedDate),
+        title: "Newsletter filed",
+        detail: n.title || n.fileName || "",
+      })),
+    ].sort((a, b) => b.date.localeCompare(a.date) || a.id.localeCompare(b.id));
+    res.json({ events });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/contact-log/updates?partnerId= -- what has happened for this partner that is still
+// waiting to be passed on (a decided need, an answered prayer; #364), the same list the bell
+// counts, so the partner page can offer a one-tap "log a thank-you".
+router.get("/updates", async (req, res, next) => {
+  try {
+    const partnerId = String(req.query.partnerId || "");
+    if (!partnerId) return res.status(400).json({ error: "partnerId is required" });
+    if (!canUse(req.user, partnerId)) return res.status(403).json({ error: "Insufficient permissions" });
+    const items = await loadUpdatesToPassOn([partnerId]);
+    res.json({
+      updates: items
+        .map(({ id, kind, date, label, topic }) => ({
+          id,
+          kind,
+          date: date.toISOString().slice(0, 10),
+          label,
+          topic,
+        }))
+        .sort((a, b) => b.date.localeCompare(a.date)),
+    });
   } catch (err) {
     next(err);
   }

@@ -2577,6 +2577,9 @@ async function seedTripsDemo() {
         trips: true,
         careTeam: true,
         contactLog: true,
+        // #365: key-date reminders are on for a demo so the bell shows them; their email is blocked
+        // on any demo by the scheduler (see utils/demoMode.js).
+        keyDates: true,
         // #374: support preferences, with an example menu and some recorded choices (seedSupportPreferencesDemo).
         supportPreferences: true,
         // The audit log is on for a demo, with example entries (seedAuditLogDemo).

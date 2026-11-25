@@ -374,7 +374,7 @@ model Trip {
   // public submissions, which have no signed-in person. The name is a snapshot
   // so it still reads after that account is deleted.
   // When the trip was added (#383). Shown on the trip page and sortable on the Trips list.
-  createdAt        DateTime @default(now())
+  createdAt        DateTime  @default(now())
   lastEditedById   String?
   lastEditedByName String?
   lastEditedAt     DateTime?
@@ -2098,6 +2098,12 @@ model ChurchSettings {
   defaultCareLeadUserId String?
   defaultCareLead       User?   @relation("ChurchDefaultCareLead", fields: [defaultCareLeadUserId], references: [id], onDelete: SetNull)
 
+  // #365: how many days ahead a key date is raised (the bell and the daily email always
+  // agree), and how many days without a logged contact make a partner "quiet". Fixed defaults
+  // until an admin changes them under Settings -> Care Teams.
+  keyDateLeadDays  Int @default(7)
+  contactStaleDays Int @default(90)
+
   // Email dispatch customization (see #182) -- null subject/signature
   // means "use the built-in default" (see DEFAULT_SUBJECT_TEMPLATE in
   // emailDispatchShell.js), same blank-means-default convention every
@@ -2336,6 +2342,10 @@ model User {
   // admin can mandate MFA for an account without knowing/setting the
   // secret themselves — the user still does the actual QR scan.
   mfaSetupRequired Boolean @default(false)
+
+  // #365: someone on a care team who doesn't want the daily key-date email. The bell alert is
+  // unaffected. Self-service from My account.
+  keyDateEmailOptOut Boolean @default(false)
 
   // Opt-in per user, self-service from Account Settings -- same pattern
   // as MFA above. null = not subscribed to the admin digest email (see

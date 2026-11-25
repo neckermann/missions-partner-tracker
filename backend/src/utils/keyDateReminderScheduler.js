@@ -44,8 +44,10 @@ async function checkAndSendKeyDateReminders({ today = new Date(), send = sendEma
   for (const item of open) {
     for (const userId of item.recipientIds) byUser.set(userId, [...(byUser.get(userId) || []), item]);
   }
+  // Someone who has opted out of the daily email (My account) keeps the bell alert but gets no
+  // email, and nothing is recorded for them, so turning it back on lets what is still due go out.
   const users = await prisma.user.findMany({
-    where: { id: { in: [...byUser.keys()] }, active: true },
+    where: { id: { in: [...byUser.keys()] }, active: true, keyDateEmailOptOut: false },
     select: { id: true, email: true, firstName: true },
   });
   const done = await prisma.keyDateReminder.findMany({

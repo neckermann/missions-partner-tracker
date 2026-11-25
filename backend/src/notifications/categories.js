@@ -33,9 +33,13 @@
 const prisma = require("../prismaClient");
 const { needsReview } = require("../utils/dispatchEligibility");
 const { isCareTeamEnabled } = require("../utils/guestAccess");
-const { isContactLogEnabled, loadAssignedPartners } = require("../utils/contactLogQueries");
+const {
+  isContactLogEnabled,
+  loadAssignedPartners,
+  loadUpdatesToPassOn,
+} = require("../utils/contactLogQueries");
 const { loadOpenKeyDatesFor } = require("../utils/keyDateQueries");
-const { KEY_DATE_LEAD_DAYS } = require("../utils/keyDates");
+const { careTimings } = require("../utils/careSettings");
 
 const SOON_DAYS = 30;
 const BACKUP_REMIND_AGAIN_AFTER_MS = 30 * 24 * 60 * 60 * 1000;
@@ -57,7 +61,7 @@ async function getSeenAt(userId, category) {
 }
 
 // #288: partners on this login's care team that nobody has been in touch with
-// for CONTACT_STALE_DAYS, or whose follow-up date has come. Counted live from
+// for the church's quiet threshold (default 90 days), or whose follow-up date has come. Counted live from
 // the same read model as the My partners tab, so the two always agree.
 // Counts nothing while either feature is off. `latest` is when the most
 // recent partner became overdue, so the bell only lights up for NEW ones.
@@ -83,8 +87,9 @@ async function keyDatesComing({ userId }) {
   if (!userId) return { count: 0, latest: null };
   const items = await loadOpenKeyDatesFor(userId);
   if (items.length === 0) return { count: 0, latest: null };
+  const { keyDateLeadDays } = await careTimings();
   const latest = items.reduce((m, i) => {
-    const due = new Date(new Date(`${i.date}T00:00:00Z`).getTime() - KEY_DATE_LEAD_DAYS * 86400000);
+    const due = new Date(new Date(`${i.date}T00:00:00Z`).getTime() - keyDateLeadDays * 86400000);
     return !m || due > m ? due : m;
   }, null);
   // One partner: go straight to it; several: the list of my partners.
@@ -254,8 +259,6 @@ async function newOneTimeNeeds({ userId }, _scopeTripIds, scopePartnerIds) {
 // makes is inbound -- the partner told us -- so it doesn't clear its own
 // prompt.) Live, so it needs the contact log to be able to clear; counts
 // nothing while contactLog or careTeam is off.
-const UPDATE_WINDOW_DAYS = 30;
-
 async function updatesToPassOn({ userId }) {
   if (!userId || !(await isContactLogEnabled()) || !(await isCareTeamEnabled())) {
     return { count: 0, latest: null };
@@ -267,36 +270,7 @@ async function updatesToPassOn({ userId }) {
   const partnerIds = seats.map((s) => s.partnerId);
   if (partnerIds.length === 0) return { count: 0, latest: null };
 
-  const today = new Date();
-  const since = new Date(
-    Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()) - UPDATE_WINDOW_DAYS * 86400000
-  );
-  const [needs, prayers, logs] = await Promise.all([
-    prisma.supportNeed.findMany({
-      where: { partnerId: { in: partnerIds }, approvedDate: { gte: since } },
-      select: { partnerId: true, approvedDate: true },
-    }),
-    prisma.prayerRequest.findMany({
-      where: { partnerId: { in: partnerIds }, status: "answered", dateAnswered: { gte: since } },
-      select: { partnerId: true, dateAnswered: true },
-    }),
-    prisma.contactLog.findMany({
-      where: { partnerId: { in: partnerIds }, direction: "outbound", contactDate: { gte: since } },
-      select: { partnerId: true, contactDate: true, topics: true },
-    }),
-  ]);
-  const relayed = (partnerId, date, topics) =>
-    logs.some(
-      (l) => l.partnerId === partnerId && l.contactDate >= date && l.topics.some((t) => topics.includes(t))
-    );
-  const open = [
-    ...needs
-      .filter((n) => !relayed(n.partnerId, n.approvedDate, ["need"]))
-      .map((n) => ({ partnerId: n.partnerId, date: n.approvedDate })),
-    ...prayers
-      .filter((p) => !relayed(p.partnerId, p.dateAnswered, ["encouragement", "prayer"]))
-      .map((p) => ({ partnerId: p.partnerId, date: p.dateAnswered })),
-  ];
+  const open = await loadUpdatesToPassOn(partnerIds);
   if (open.length === 0) return { count: 0, latest: null };
   const distinct = [...new Set(open.map((o) => o.partnerId))];
   return {

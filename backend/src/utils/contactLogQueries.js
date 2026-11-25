@@ -5,7 +5,8 @@
 const prisma = require("../prismaClient");
 const { nextAnnual, daysBetween, toUtcDay, DAY_MS } = require("../reporting/definitions");
 const { isFeatureEnabled } = require("./features");
-const { CONTACT_STALE_DAYS, autoLogForPrayerRequest } = require("./contactLog");
+const { autoLogForPrayerRequest } = require("./contactLog");
+const { careTimings } = require("./careSettings");
 
 // Latest contact date per partner, from the log alone. Any entry counts,
 // whichever direction and whoever made it -- "has anyone been in touch".
@@ -33,29 +34,53 @@ function openFollowUp(logs) {
 // Every partner this login holds a care team seat on (not archived), with the
 // columns the tab shows. `today` is a Date (UTC day) so tests can pin it.
 async function loadAssignedPartners(userId, today = new Date()) {
+  const { contactStaleDays } = await careTimings();
+  const partnerSelect = {
+    id: true,
+    kind: true,
+    displayName: true,
+    isRestricted: true,
+    createdAt: true,
+    anniversary: true,
+    adults: { select: { firstName: true, birthday: true } },
+    children: { select: { firstName: true, birthday: true } },
+    contactLogs: { select: { id: true, contactDate: true, followUpDate: true, createdAt: true } },
+    prayerRequests: { where: { status: "ongoing" }, select: { id: true } },
+    needRequests: { where: { approvedAmount: null }, select: { id: true } },
+  };
   const seats = await prisma.careTeamMember.findMany({
     where: { userId, partner: { archived: false } },
-    select: {
-      isLead: true,
-      createdAt: true,
-      partner: {
-        select: {
-          id: true,
-          kind: true,
-          displayName: true,
-          isRestricted: true,
-          anniversary: true,
-          adults: { select: { firstName: true, birthday: true } },
-          children: { select: { firstName: true, birthday: true } },
-          contactLogs: { select: { id: true, contactDate: true, followUpDate: true, createdAt: true } },
-          prayerRequests: { where: { status: "ongoing" }, select: { id: true } },
-          needRequests: { where: { approvedAmount: null }, select: { id: true } },
-        },
-      },
-    },
+    select: { isLead: true, createdAt: true, partner: { select: partnerSelect } },
   });
 
-  const rows = seats.map(({ isLead, createdAt: seatSince, partner: p }) => {
+  // The church's default lead is the fallback for a partner with no care team (#365), the same
+  // fallback key-date reminders already use. Only for staff: a guest's reach is exactly the
+  // partners they hold a grant on, and a fallback must not widen that.
+  let fallback = [];
+  const settings = await prisma.churchSettings.findUnique({
+    where: { id: "singleton" },
+    select: { defaultCareLeadUserId: true },
+  });
+  if (settings?.defaultCareLeadUserId && settings.defaultCareLeadUserId === userId) {
+    const lead = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true, active: true },
+    });
+    if (lead?.active && lead.role !== "guest") {
+      const partners = await prisma.partner.findMany({
+        where: { archived: false, careTeam: { none: {} } },
+        select: partnerSelect,
+      });
+      fallback = partners.map((partner) => ({
+        isLead: false,
+        createdAt: partner.createdAt,
+        partner,
+        viaDefaultLead: true,
+      }));
+    }
+  }
+
+  const rows = [...seats, ...fallback].map(({ isLead, createdAt: seatSince, partner: p, viaDefaultLead }) => {
     const last = p.contactLogs.reduce((m, l) => (!m || l.contactDate > m ? l.contactDate : m), null);
     const daysSinceContact = last ? daysBetween(today, last) : null;
     const followUp = openFollowUp(p.contactLogs);
@@ -78,9 +103,9 @@ async function loadAssignedPartners(userId, today = new Date()) {
     // the last contact, or from joining the team if never contacted), or the
     // follow-up date, whichever came first. The notification uses the latest
     // of these to know when something NEW needs attention.
-    const quietSince = new Date(toUtcDay(last || seatSince).getTime() + CONTACT_STALE_DAYS * DAY_MS);
+    const quietSince = new Date(toUtcDay(last || seatSince).getTime() + contactStaleDays * DAY_MS);
     const dueDates = [];
-    if (daysSinceContact === null || daysSinceContact >= CONTACT_STALE_DAYS) dueDates.push(quietSince);
+    if (daysSinceContact === null || daysSinceContact >= contactStaleDays) dueDates.push(quietSince);
     if (followUpDue) dueDates.push(toUtcDay(followUp));
     const overdueSince = dueDates.length ? new Date(Math.min(...dueDates)) : null;
 
@@ -90,9 +115,10 @@ async function loadAssignedPartners(userId, today = new Date()) {
       displayName: p.displayName,
       isRestricted: p.isRestricted,
       isLead,
+      viaDefaultLead: viaDefaultLead === true,
       lastContact: last ? toUtcDay(last).toISOString().slice(0, 10) : null,
       daysSinceContact,
-      quiet: daysSinceContact === null || daysSinceContact >= CONTACT_STALE_DAYS,
+      quiet: daysSinceContact === null || daysSinceContact >= contactStaleDays,
       followUpDate: followUp ? toUtcDay(followUp).toISOString().slice(0, 10) : null,
       followUpDue,
       overdueSince: overdueSince ? overdueSince.toISOString().slice(0, 10) : null,
@@ -109,6 +135,66 @@ async function loadAssignedPartners(userId, today = new Date()) {
       a.displayName.localeCompare(b.displayName)
   );
   return rows;
+}
+
+// An answered prayer or a decided need on these partners that nobody has passed on yet (#292,
+// shown on the bell and, per partner, on the contact log): done once someone logs an OUTBOUND
+// contact for the partner on or after it, topic "need" for a decision, "encouragement" or "prayer"
+// for an answer. Items are [{ partnerId, kind: "need" | "prayer", id, date, label, topic }],
+// `topic` being the one a thank-you would be logged under.
+const UPDATE_WINDOW_DAYS = 30;
+
+async function loadUpdatesToPassOn(partnerIds, now = new Date()) {
+  if (partnerIds.length === 0) return [];
+  const since = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) - UPDATE_WINDOW_DAYS * 86400000
+  );
+  const [needs, prayers, logs] = await Promise.all([
+    prisma.supportNeed.findMany({
+      where: { partnerId: { in: partnerIds }, approvedDate: { gte: since } },
+      select: { id: true, partnerId: true, approvedDate: true, description: true },
+    }),
+    prisma.prayerRequest.findMany({
+      where: { partnerId: { in: partnerIds }, status: "answered", dateAnswered: { gte: since } },
+      select: { id: true, partnerId: true, dateAnswered: true, requestText: true },
+    }),
+    prisma.contactLog.findMany({
+      where: { partnerId: { in: partnerIds }, direction: "outbound", contactDate: { gte: since } },
+      select: { partnerId: true, contactDate: true, topics: true },
+    }),
+  ]);
+  const relayed = (partnerId, date, topics) =>
+    logs.some(
+      (l) => l.partnerId === partnerId && l.contactDate >= date && l.topics.some((t) => topics.includes(t))
+    );
+  const short = (text) => {
+    const t = String(text || "")
+      .replace(/\s+/g, " ")
+      .trim();
+    return t.length > 90 ? `${t.slice(0, 87)}...` : t;
+  };
+  return [
+    ...needs
+      .filter((n) => !relayed(n.partnerId, n.approvedDate, ["need"]))
+      .map((n) => ({
+        partnerId: n.partnerId,
+        kind: "need",
+        id: n.id,
+        date: n.approvedDate,
+        label: short(n.description),
+        topic: "need",
+      })),
+    ...prayers
+      .filter((p) => !relayed(p.partnerId, p.dateAnswered, ["encouragement", "prayer"]))
+      .map((p) => ({
+        partnerId: p.partnerId,
+        kind: "prayer",
+        id: p.id,
+        date: p.dateAnswered,
+        label: short(p.requestText),
+        topic: "encouragement",
+      })),
+  ];
 }
 
 async function isContactLogEnabled() {
@@ -135,6 +221,7 @@ async function logContactForPrayerRequest(request, user, options) {
 module.exports = {
   lastContactByPartner,
   loadAssignedPartners,
+  loadUpdatesToPassOn,
   openFollowUp,
   isContactLogEnabled,
   logContactForPrayerRequest,

@@ -16,6 +16,7 @@ const { makeExtResolver, uploadFilteredBy } = require("../utils/upload");
 // /api/settings prefix from server.js. This file had grown to cover all
 // six sub-resources in one place -- same anti-pattern trips.js had, same
 // fix.
+const { KEY_DATE_LEAD_RANGE, CONTACT_STALE_RANGE } = require("../utils/careSettings");
 const router = express.Router();
 router.use(requireAuth); // everything below requires a logged-in user
 
@@ -132,6 +133,10 @@ const settingsSchema = z.object({
   // Require two-factor for every account (#385); see the field's comment in schema.prisma.
   // Turning it on has guards in PUT / below.
   requireTwoFactor: z.boolean().optional(),
+  // How far ahead a key date is raised, and how long without a logged contact makes a partner
+  // "quiet" (#365); see utils/careSettings.js for the bounds.
+  keyDateLeadDays: z.number().int().min(KEY_DATE_LEAD_RANGE.min).max(KEY_DATE_LEAD_RANGE.max).optional(),
+  contactStaleDays: z.number().int().min(CONTACT_STALE_RANGE.min).max(CONTACT_STALE_RANGE.max).optional(),
   // This church's own IANA timezone -- see the field's own comment in
   // schema.prisma for why this exists and what it drives. Validated
   // against the real, current list of valid zone names (the same list
@@ -193,6 +198,8 @@ router.get("/", async (req, res, next) => {
           primaryColor: true,
           logoContentType: true,
           enabledFeatures: true,
+          keyDateLeadDays: true,
+          contactStaleDays: true,
           extractionModel: true,
           allowRestrictedPartnerDispatch: true,
           backupReminderDisabled: true,

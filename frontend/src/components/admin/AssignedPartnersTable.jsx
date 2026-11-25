@@ -35,7 +35,15 @@ export default function AssignedPartnersTable() {
     {
       key: "isLead",
       label: "You are",
-      render: (r) => (r.isLead ? <StatusPill label="Lead" color="#2a5d3c" /> : "Member"),
+      render: (r) =>
+        r.isLead ? (
+          <StatusPill label="Lead" color="#2a5d3c" />
+        ) : r.viaDefaultLead ? (
+          // No care team on this partner: it came to the church's default lead (#365).
+          <StatusPill label="Default lead" color="#6b6f76" />
+        ) : (
+          "Member"
+        ),
     },
     {
       key: "daysSinceContact",

@@ -2,10 +2,18 @@ import React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, within, waitFor } from "@testing-library/react";
 import ContactLogSection from "./ContactLogSection.jsx";
-import { fetchContactLogOptions, createContactLogEntry, updateContactLogEntry } from "../../api/client.js";
+import {
+  fetchContactLogOptions,
+  fetchContactTimeline,
+  fetchContactUpdates,
+  createContactLogEntry,
+  updateContactLogEntry,
+} from "../../api/client.js";
 
 vi.mock("../../api/client.js", () => ({
   fetchContactLogOptions: vi.fn(),
+  fetchContactTimeline: vi.fn(),
+  fetchContactUpdates: vi.fn(),
   createContactLogEntry: vi.fn(),
   updateContactLogEntry: vi.fn(),
   deleteContactLogEntry: vi.fn(),
@@ -44,6 +52,8 @@ const entry = {
 beforeEach(() => {
   vi.clearAllMocks();
   fetchContactLogOptions.mockResolvedValue(OPTIONS);
+  fetchContactTimeline.mockResolvedValue([]);
+  fetchContactUpdates.mockResolvedValue([]);
   createContactLogEntry.mockResolvedValue({});
   updateContactLogEntry.mockResolvedValue({});
 });
@@ -119,5 +129,63 @@ describe("ContactLogSection (#288)", () => {
   it("shows an empty state", async () => {
     renderIt({ entries: [] });
     expect(await screen.findByText("No contact logged yet.")).toBeTruthy();
+  });
+
+  it("shows church visits and newsletters among the entries, newest first, as read-only rows (#364)", async () => {
+    fetchContactTimeline.mockResolvedValue([
+      {
+        id: "visit:v1",
+        source: "visit",
+        date: "2026-05-10",
+        title: "Visited the church",
+        detail: "Spoke at the Sunday service",
+      },
+      {
+        id: "newsletter:n1",
+        source: "newsletter",
+        date: "2026-01-15",
+        title: "Newsletter filed",
+        detail: "January update",
+      },
+    ]);
+    const { container } = renderIt({ canFix: true });
+    expect(await screen.findByText("Visited the church")).toBeInTheDocument();
+    expect(screen.getByText("Spoke at the Sunday service")).toBeInTheDocument();
+    expect(screen.getByText("Newsletter filed")).toBeInTheDocument();
+    // Newest first: the May visit, the March call, the January newsletter.
+    const text = container.textContent;
+    expect(text.indexOf("Visited the church")).toBeLessThan(text.indexOf("Phone call"));
+    expect(text.indexOf("Phone call")).toBeLessThan(text.indexOf("Newsletter filed"));
+    // Only the log's own entry can be edited or deleted.
+    expect(screen.getAllByRole("button", { name: "Edit" })).toHaveLength(1);
+  });
+
+  it("still shows the log when the timeline can't be loaded", async () => {
+    fetchContactTimeline.mockRejectedValue(new Error("nope"));
+    renderIt();
+    expect(await screen.findByText("Phone call")).toBeInTheDocument();
+  });
+
+  it("offers a one-tap thank-you for an answered prayer, prefilled as 'we reached out' with the right topic (#364)", async () => {
+    fetchContactUpdates.mockResolvedValue([
+      { id: "pr1", kind: "prayer", date: "2026-11-20", label: "Pray for the visa", topic: "prayer" },
+    ]);
+    renderIt();
+    expect(await screen.findByText("Updates to pass on")).toBeInTheDocument();
+    expect(screen.getByText(/A prayer was answered/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Log a thank-you" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByRole("button", { name: "We reached out" })).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
+    // The topic the update clears under is already ticked.
+    expect(within(dialog).getByRole("button", { name: "Prayer" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("shows no banner when nothing is waiting to be passed on", async () => {
+    renderIt();
+    await screen.findByText("Phone call");
+    expect(screen.queryByText("Updates to pass on")).not.toBeInTheDocument();
   });
 });

@@ -525,6 +525,17 @@ export async function fetchContactLog(params = {}) {
   const { data } = await api.get("/contact-log", { params });
   return data;
 }
+// Church visits and newsletters filed, read-only, to show alongside the log's own entries (#364).
+export async function fetchContactTimeline(partnerId) {
+  const { data } = await api.get("/contact-log/timeline", { params: { partnerId } });
+  return data.events;
+}
+// What is still waiting to be passed on for a partner (a decided need, an answered prayer), so
+// the page can offer a one-tap "log a thank-you" (#364).
+export async function fetchContactUpdates(partnerId) {
+  const { data } = await api.get("/contact-log/updates", { params: { partnerId } });
+  return data.updates;
+}
 export async function createContactLogEntry(payload) {
   const { data } = await api.post("/contact-log", payload);
   return data;
@@ -1047,6 +1058,11 @@ export async function changePassword(currentPassword, newPassword) {
 // Self-service cadence + scope for the admin digest email -- same
 // self-service-from-Account-Settings pattern as the MFA enroll/disable
 // calls above.
+// Turn the daily key-date email off or on for yourself (#365); the bell alert is unaffected.
+export async function setKeyDateEmailOptOut(optOut) {
+  const { data } = await api.put("/auth/key-date-email", { optOut });
+  return data.user;
+}
 export async function updateNotifyByEmail({ cadence, allPartners, partnerIds }) {
   const { data } = await api.put("/auth/dispatch-by-email", { cadence, allPartners, partnerIds });
   return data.user;

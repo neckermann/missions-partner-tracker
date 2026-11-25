@@ -690,8 +690,10 @@ grant alone) never reaches it — the same line as one-time needs
 Everyone's contact counts toward the quiet clock. An entry is never held for
 review (it isn't dispatched anywhere).
 
-**Quiet and follow-ups.** `CONTACT_STALE_DAYS` (90, the report's default too)
-is the one number for "quiet": no logged contact for that long, or never. A
+**Quiet and follow-ups.** `ChurchSettings.contactStaleDays` (default 90, 7 to 365,
+set under Settings → Care Teams; `utils/careSettings.js` `careTimings` reads it)
+is the one number for "quiet" (the *Last heard from* report defaults to it too,
+and counts a church visit as hearing from a partner): no logged contact for that long, or never. A
 follow-up date is answered by any later-entered contact dated on or after the
 one that set it; unanswered and past, it is *due*. `utils/contactLogQueries.js`
 `loadAssignedPartners` is the single read model behind the **My partners**
@@ -724,8 +726,8 @@ recipients come from; the email also needs `outboundEmail`). A reminder is
 raised for a birthday (adults and children), the wedding anniversary, and a
 **supported-since milestone** (the first year, then every fifth — year-only
 start dates are stored as Jan 1, so a yearly nudge would only ever say Jan 1)
-coming up within `KEY_DATE_LEAD_DAYS` (7, a fixed default, not a setting, so
-the bell and the email always agree). `utils/keyDates.js` is the pure rule and
+coming up within `ChurchSettings.keyDateLeadDays` (default 7, 1 to 60, read through
+`careTimings`, so the bell and the email always agree). `utils/keyDates.js` is the pure rule and
 reuses `reporting/definitions.js` `nextAnnual` (the *Families & key dates*
 report's date math: Feb 29 lands on Feb 28, and the age or years turning come
 with it).
@@ -733,7 +735,11 @@ with it).
 **Who.** The partner's whole care team (lead + members, active logins); if it
 has none, the church's **default lead** (`ChurchSettings.defaultCareLeadUserId`,
 set at `PUT /api/care-team/default-lead`, admin only, cleared if that login is
-deleted); if neither, nobody. `utils/keyDateQueries.js` `loadOpenKeyDates` is
+deleted); if neither, nobody. The default lead is also the fallback for *Partners to
+reach out to* (`loadAssignedPartners` adds partners with no care team, marked
+`viaDefaultLead`), for a staff default lead only: a guest's reach never widens. A
+person can opt out of the daily email alone (`User.keyDateEmailOptOut`,
+`PUT /api/auth/key-date-email`); the bell is unaffected. `utils/keyDateQueries.js` `loadOpenKeyDates` is
 the one read model: it counts nothing while `keyDates` or `careTeam` is off,
 skips archived partners, and drops anything *handled*.
 
