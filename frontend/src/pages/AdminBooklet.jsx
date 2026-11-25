@@ -133,16 +133,22 @@ function contactFullName(entity) {
   return [entity?.contactFirstName, entity?.contactLastName].filter(Boolean).join(" ");
 }
 
-function renderSendingPartyBlock(m) {
+// `withhold` (a partner not safe to contact, #411): the church or organization's name still prints,
+// but not its contact person or phone, which would be a way to reach the partner.
+function renderSendingPartyBlock(m, withhold = false) {
   const parts = [];
   if (m.sendingChurch?.name) {
-    const bits = [contactFullName(m.sendingChurch), m.sendingChurch.phone].filter(Boolean).map(escapeHtml);
+    const bits = withhold
+      ? []
+      : [contactFullName(m.sendingChurch), m.sendingChurch.phone].filter(Boolean).map(escapeHtml);
     parts.push(
       `<p><strong>Sending Church:</strong> ${escapeHtml(m.sendingChurch.name)}${bits.length ? ` — ${bits.join(" · ")}` : ""}</p>`
     );
   }
   if (m.sendingOrg?.name) {
-    const bits = [contactFullName(m.sendingOrg), m.sendingOrg.phone].filter(Boolean).map(escapeHtml);
+    const bits = withhold
+      ? []
+      : [contactFullName(m.sendingOrg), m.sendingOrg.phone].filter(Boolean).map(escapeHtml);
     parts.push(
       `<p><strong>Sending Org:</strong> ${escapeHtml(m.sendingOrg.name)}${bits.length ? ` — ${bits.join(" · ")}` : ""}</p>`
     );
@@ -273,6 +279,9 @@ function buildBackCoverHtml({ churchName, logo, address, phone, websiteLink, acc
 function buildMissionaryPageHtml(m, accent, fields) {
   const physical = addressByType(m.addresses, "physical");
   const mailing = addressByType(m.addresses, "mailing");
+  // A partner not safe to contact prints no address either, nor their sending party's contact
+  // details (#288, #411): the name and the family's names still print.
+  const unsafe = m.contactSafe === false;
 
   return `
     <section class="booklet-page" style="--accent:${accent}">
@@ -282,10 +291,10 @@ function buildMissionaryPageHtml(m, accent, fields) {
       <p class="booklet-eyebrow">${escapeHtml(m.fieldDisplayName || "")}</p>
       <h2 class="booklet-name">${escapeHtml(m.displayName)}</h2>
       ${fields.showOverview && m.overview ? `<div class="booklet-callout"><p>${escapeHtml(m.overview)}</p></div>` : ""}
-      ${fields.showServingLocation ? renderAddressBlock("Serving Location", physical) : ""}
-      ${fields.showMailing ? renderAddressBlock("Mailing & Contact Address", mailing) : ""}
+      ${fields.showServingLocation && !unsafe ? renderAddressBlock("Serving Location", physical) : ""}
+      ${fields.showMailing && !unsafe ? renderAddressBlock("Mailing & Contact Address", mailing) : ""}
       ${renderFamilyBlock(m, fields)}
-      ${fields.showSendingParty ? renderSendingPartyBlock(m) : ""}
+      ${fields.showSendingParty ? renderSendingPartyBlock(m, unsafe) : ""}
       <div class="booklet-footer">${escapeHtml(m.displayName)}</div>
       ${pageNumberMarkup()}
     </section>`;

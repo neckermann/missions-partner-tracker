@@ -16,6 +16,11 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ## [Unreleased]
 
+### Security
+
+- **A care team seat sees a trip's names and dates only ([#409](https://github.com/neckermann/missions-partner-tracker/issues/409)).** A guest who can read a trip only because they sit on its partner's care team now gets the trip's name, type, status, dates and who is on the team, and no longer its private apply-link and share tokens, participants' contact details and dates of birth, applications (declined ones included), documents, contributions, budget, flights, requirements or meetings. The applications list and document downloads are refused to them. A trip leader with a grant and the full roles are unchanged.
+- **The printed booklet withholds more for a partner who isn't safe to contact ([#411](https://github.com/neckermann/missions-partner-tracker/issues/411)):** their serving and mailing addresses, and their sending church or organization's contact person and phone, no longer print (the names still do). The restricted-access toggle is unchanged: including restricted partners remains a deliberate staff choice.
+
 ## [0.1.0-beta.1] - 2026-11-25
 
 ### Added

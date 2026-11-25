@@ -9,6 +9,7 @@ const express = require("express");
 const { z } = require("zod");
 const prisma = require("../prismaClient");
 const { requireAuth, requireRole, requireTripScope } = require("../middleware/requireAuth");
+const { isSeatOnly } = require("../utils/seatTripView");
 const { requireFeature } = require("../middleware/requireFeature");
 const { ANSWERS_INCLUDE } = require("../utils/tripTemplates");
 
@@ -52,6 +53,10 @@ async function getSettings() {
 
 router.get("/:id/applications", requireTripScope("id"), async (req, res, next) => {
   try {
+    // Applicants (declined and pending ones too) are not a care team seat's to read (#409).
+    if (isSeatOnly(req.user, req.params.id)) {
+      return res.status(403).json({ error: "Insufficient permissions" });
+    }
     const applications = await prisma.tripApplication.findMany({
       where: { tripId: req.params.id },
       include: { answers: ANSWERS_INCLUDE },
