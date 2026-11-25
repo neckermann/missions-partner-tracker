@@ -19,6 +19,7 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 ### Changed
 
 - **App users can have a phone number and a short profile.** Add them in the Add User wizard or the Users edit popup, or people add their own under **My account → Your details**. A partner's care team list shows each member's phone, email and note to staff roles, so you know how to reach them for an update; a Guest never sees them. A trip's Team page also lists each confirmed member's phone and email, and shows a trip guest's phone. The demo's logins have a phone and a note. Migration: new `User.phone` and `User.profile` columns (baseline squashed).
+- **Close works on the Care team popup (and any popup opened from a clickable row).** Clicking Close reopened it, because the click reached the row behind it; only clicking outside worked. Fixed once in the shared popup, so it holds everywhere.
 - **A survey's page follows what you are doing.** A draft shows Details, Questions, then Send. Once it is open it leads with Send and the Answers, with the long question list and details below; a closed survey leads with its Answers.
 - **A public demo lets visitors try passkeys and an authenticator app ([#386](https://github.com/neckermann/missions-partner-tracker/issues/386)).** Adding or removing one works, but the demo never asks for a second factor at sign-in and doesn't end other visitors' sessions, so the shared logins keep working.
 
@@ -57,7 +58,7 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ### Fixed
 
-- **Clicking the care team on the Contact card opens only the care team editor.** It also opened Edit contact over it.
+- **The Contact card is two zones.** The contact details on top open Edit contact; the care team below a divider opens its own editor (Edit team or + Assign team). Clicking one never opens the other.
 - **Linking a survey question to a part of the record from the builder now saves.** Saving a survey's questions kept the link only for questions that already had one (an imported pack), so a link chosen in the builder was dropped.
 - **A demo no longer emails its seeded accounts on a schedule.** The daily key-date email (and the other scheduled emails) was still going out from the demo, because the worker that runs the schedules never had the variable that marks a demo, so it bounced and spent the email plan. The demo reset now records that it is a demo in the database, and every process reads it. Only the schedules are skipped (key-date reminders, trip reminders, scheduled reports and digests): an email a person adds or clicks to send, such as a survey link, a welcome email or a trip invite, goes out on a demo like anywhere else.
 - **A partner page no longer fails when a feature is switched off.** With Prayer Requests, Newsletters & Docs, Monthly support or One-time needs off, every partner page showed "This partner wasn't found", because it still asked for those lists. It now asks only for what is on. The Contact Log's "Updates to pass on" and newsletter lines also respect those switches, and a survey's Send section says so up front (and points to **Get link**) when Email (Sending) is off. A new test runs the app with every optional feature off.

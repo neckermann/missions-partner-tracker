@@ -2474,11 +2474,23 @@ button.report-summary-item[aria-pressed="true"] {
   margin-bottom: 0.65rem;
 }
 
-/* The care team's one-liner on the contact card, set off from the contact details below it. */
+/* The Contact card has two zones, each its own click target: the contact details (.contact-zone) and,
+   below a divider, the care team (.contact-care-team). Each zone has its own hover. */
+.contact-zone {
+  margin: -0.5rem -0.75rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-md);
+}
+.contact-zone-clickable {
+  cursor: pointer;
+}
+.contact-zone-clickable:hover {
+  background: var(--surface-2);
+}
 .contact-care-team {
-  margin-top: 0.6rem;
-  padding-bottom: 0.6rem;
-  border-bottom: 1px solid var(--border);
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
 }
 
 /* PageHeader: title, optional count line, main buttons on the right, optional description. */
