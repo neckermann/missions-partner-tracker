@@ -17,8 +17,7 @@ const {
 const { passwordSchema } = require("../utils/password");
 const { isTwoFactorRequired } = require("../utils/twoFactor");
 
-// Narrow-select, same discipline every other route's own getSettings()
-// follows -- this route only ever needs to know if outbound email is on.
+// Narrow select: this route only needs to know whether outbound email is on.
 async function getSettings() {
   return prisma.churchSettings.findUnique({
     where: { id: "singleton" },
@@ -27,12 +26,10 @@ async function getSettings() {
 }
 
 const router = express.Router();
-router.use(requireRole("admin")); // user management is admin-only
+router.use(requireRole("admin"));
 
-// Guest (role: "guest") is a scoped login, not one of the 3 full roles
-// (#356): it reaches only what its grants allow. Today that means TripAccess
-// rows; #289 adds care team seats, at which point a guest may hold those
-// instead of any trip. Until then a guest needs at least one trip.
+// Guest (role: "guest") is a scoped login, not one of the 3 full roles (#356): it reaches only what
+// its grants allow (TripAccess rows or care team seats, #289).
 const ROLE_ENUM = z.enum(["admin", "editor", "viewer", "guest"]);
 
 // expiresAt on a grant is only ever an override of the derived "trip end
@@ -105,10 +102,8 @@ const createUserSchema = z.object({
   // chosen from the partner's own care team.
   tripAccess: z.array(grantInput).optional(),
   careTeam: z.array(z.object({ partnerId: z.string().min(1) })).optional(),
-  // Every account is local now. The column stays (see the User model in
-  // schema.prisma) because auth.js still refuses to password-authenticate
-  // anything that isn't "local" -- cheap insurance against a passwordless
-  // row ever being created by some future path.
+  // Every account is local. The column stays (see User in schema.prisma) because auth.js refuses to
+  // password-authenticate anything not "local": insurance against a passwordless row from a future path.
   authProvider: z.literal("local").default("local"),
   // Optional: the preferred path is no admin-set password at all -- the
   // welcome email's one-time link lets the person choose their own (see
@@ -158,11 +153,6 @@ async function wouldRemoveLastAdmin(targetId, becomingNonAdminOrInactive) {
   return otherActiveAdmins === 0;
 }
 
-// Creates (or updates the override on) one TripAccess row per input. `db` is
-// a transaction handle. No audit trail yet: recording who changed whose
-// access is deferred to the admin audit/activity design in #341, which
-// should cover these events (grant, extend/end, revoke, and the
-// deactivation below) along with the rest of the app's sensitive actions.
 // Records one trip-access event (#341). `ctx` is { actor, req } from the route;
 // the row commits with the change when `db` is a transaction handle.
 async function auditAccess(db, ctx, action, user, tripId, details) {
@@ -240,7 +230,7 @@ function withAccess(user, now = new Date(), careEnabled = false) {
   const seats = careEnabled ? careTeamSeats || [] : [];
   return {
     ...sanitize(rest),
-    // #386: how many passkeys they have, for the passwordless switch's "who signs in by email" count.
+    // How many passkeys they have, for the passwordless switch's "who signs in by email" count.
     passkeyCount: _count?.passkeys ?? 0,
     tripAccess: grants,
     careTeamSeats: seats,
@@ -328,18 +318,9 @@ router.post("/", async (req, res, next) => {
         return res.status(400).json({ error: GUEST_NEEDS_ACCESS });
       }
     }
-    // With a welcome email the person chooses their own password, so the
-    // account starts with none (it can't sign in until they do). An
-    // explicitly-given password always wins over that, though, regardless
-    // of sendWelcomeEmail -- a caller that bothers to supply one clearly
-    // wants it used, and silently discarding it (sendWelcomeEmail defaults
-    // to true, so every pre-existing caller that doesn't know about this
-    // field would otherwise get a passwordless account with no error and
-    // no indication why) is a real backward-compatibility break, not a
-    // feature. Confirmed as a real bug, not a hypothetical: every e2e test
-    // that creates a user via POST /api/users with a password and no
-    // sendWelcomeEmail field (pre-existing helper, written before this
-    // field existed) got a passwordless account and hung at sign-in.
+    // With a welcome email the person chooses their own password, so the account starts with none. An
+    // explicitly given password always wins, regardless of sendWelcomeEmail (default true): silently
+    // discarding it would give callers that don't know the field a passwordless account with no error.
     const passwordHash = password ? await bcrypt.hash(password, 12) : null;
 
     const created = await prisma.$transaction(async (tx) => {
@@ -368,13 +349,9 @@ router.post("/", async (req, res, next) => {
       return user;
     });
 
-    // A failed send (no APP_BASE_URL, provider error) must never lose the
-    // account just created -- report it and let the admin resend from the
-    // user list. Outbound email being disabled for this church entirely is
-    // not a failure to report, though -- same as /:id/setup-link below, the
-    // setup link itself needs nothing Postmark-shaped to exist, only its
-    // automatic emailing does, so hand the admin the link directly instead
-    // of pretending this can't be done without email configured.
+    // A failed send (no APP_BASE_URL, provider error) must never lose the account just created: report
+    // it and let the admin resend. Outbound email being disabled entirely is not a failure: as with
+    // /:id/setup-link below, the link needs no Postmark, so hand the admin the link directly.
     let welcomeEmail = { sent: false, skipped: true };
     if (sendWelcome && !password) {
       const settings = await getSettings();
@@ -394,16 +371,10 @@ router.post("/", async (req, res, next) => {
     const withGrants = await prisma.user.findUnique({ where: { id: created.id }, include: userInclude });
     res.status(201).json({ ...withAccess(withGrants, new Date(), careEnabled), welcomeEmail });
   } catch (err) {
-    // The generic P2002 handler in middleware/errors.js says "That value is
-    // already in use" -- technically correct, but an admin adding a user
-    // reads it as a form-validation complaint, not as "this account already
-    // exists, you don't need a new one." Worth the specific message here:
-    // this is the one place in the app where the unique field being an
-    // *account* (not a partner, a trip, etc.) actually changes what the
-    // right next action is. email is User's only @unique field, so any
-    // P2002 from this create() is necessarily this collision -- no need to
-    // inspect err.meta.target, whose shape isn't reliable with this
-    // project's Prisma driver adapter (confirmed: it came back empty here).
+    // The generic P2002 handler says "That value is already in use", which an admin reads as a
+    // validation complaint rather than "this account already exists". email is User's only @unique
+    // field, so any P2002 here is this collision; err.meta.target is not inspected because it comes back
+    // empty with this project's Prisma driver adapter.
     if (err?.code === "P2002") {
       return res.status(409).json({
         error:
@@ -457,11 +428,9 @@ router.post("/:id/setup-link", async (req, res, next) => {
   }
 });
 
-// --- Trip access grants (#356) ---------------------------------------
-// Admin-only like the rest of this router. Removing the last grant
-// deactivates the guest (see revokeTripAccess); extending or ending a
-// grant just moves its expiresAt override, which requireAuth honours on
-// the guest's very next request.
+// Trip access grants (#356). Removing the last grant deactivates the guest (revokeTripAccess);
+// extending or ending a grant moves its expiresAt override, which requireAuth honours on the guest's
+// very next request.
 
 const grantUpdateSchema = z.object({
   // A date/timestamp = extend or end early; null = back to the derived
@@ -596,11 +565,9 @@ router.put("/:id", async (req, res, next) => {
       // An admin-set password supersedes any outstanding setup link.
       await prisma.passwordSetupToken.deleteMany({ where: { userId: req.params.id } });
     }
-    // #327 Finding 7: an admin-set password reset or a role change should
-    // end every session this account already has open -- this is an admin
-    // acting on *another* account here, not re-issuing a cookie for
-    // themselves, so there's no "keep this tab working" concern the way
-    // auth.js's self-service routes have.
+    // #327 Finding 7: an admin password reset or role change ends every session the account has open.
+    // This is an admin acting on *another* account, so there is no "keep this tab working" concern as
+    // in auth.js's self-service routes.
     if (password || (data.role !== undefined && data.role !== existing.role)) {
       updateData.sessionVersion = { increment: 1 };
     }
@@ -648,30 +615,21 @@ router.put("/:id", async (req, res, next) => {
   }
 });
 
-// Recovery path for a user who lost their authenticator device — clears
-// MFA so they can log in with just their password and re-enroll from
-// Account Settings. Admins can't see or set the secret itself, only force
-// it off. (While the church requires two-factor (#385) nobody can switch it off
-// themselves, so this reset is how a lost authenticator is cleared: they sign in with
-// their password and are taken straight through enrolment again.)
+// Recovery for a user who lost their authenticator device: clears MFA so they can log in with just
+// their password and re-enroll from Account Settings. Admins can't see or set the secret, only force
+// it off. (While the church requires two-factor (#385) nobody can switch it off themselves, so this
+// reset is how a lost authenticator is cleared; they are taken straight through enrolment again.)
 //
-// Refuses to target the caller's own account, same guard as DELETE /:id
-// below. auth.js's self-service /mfa/disable deliberately requires
-// re-entering the current password first, specifically so a hijacked
-// browser tab can't silently strip MFA off the account -- this route had
-// no such check, so an admin (or a hijacked admin session) could reach
-// the same end state through this one instead, with no password at all.
-// This route's own purpose is recovering someone *else's* account, so
-// disallowing self-target doesn't remove any real capability; it just
-// closes the path that bypassed the protection.
+// Refuses the caller's own account, as DELETE /:id does: auth.js's self-service /mfa/disable requires
+// the current password so a hijacked tab can't strip MFA, and self-targeting here would bypass that.
+// Recovering someone *else's* account loses no capability.
 router.post("/:id/mfa/reset", async (req, res, next) => {
   try {
     if (req.params.id === req.user.id) {
       return res.status(400).json({ error: "Use Account Settings to disable your own MFA" });
     }
-    // #327 Finding 7: same reasoning as the password-reset bump above --
-    // this account's existing sessions shouldn't survive an admin forcing
-    // MFA off.
+    // #327 Finding 7: as the password-reset bump above, existing sessions must not survive an admin
+    // forcing MFA off.
     const target = await prisma.user.findUnique({ where: { id: req.params.id }, select: { id: true } });
     if (!target) return res.status(404).json({ error: "Not found" });
     // With the church-wide requirement on, they re-enrol at next sign-in because login sends

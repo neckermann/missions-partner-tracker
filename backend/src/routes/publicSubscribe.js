@@ -12,22 +12,15 @@ const router = express.Router();
 
 const CADENCES = ["biweekly", "monthly", "quarterly"];
 
-// Public and anonymous subscription (#202): no login required, so the
-// visibility gate is purely the feature flag, not an auth check.
-// publicDirectory/outboundEmail are each additionally required, but
-// only for POST / specifically -- see requireSubscribeDependencies and
-// GET /confirm's own comments below for why they don't apply uniformly
-// to every route in this file.
+// Public and anonymous subscription (#202): the visibility gate is the feature flag, not auth.
+// publicDirectory/outboundEmail are additionally required for POST / only (see
+// requireSubscribeDependencies).
 router.use(requireFeature(["publicPrayerDigest"]));
 
-// Only POST / (actually subscribing) needs publicDirectory and
-// outboundEmail -- there's no public site to follow partners from
-// without the first, and no way to send a confirmation email without
-// the second. GET /confirm deliberately does NOT require either: it
-// doesn't send anything or expose partner data, and an existing
-// subscriber should be able to confirm a link already in their inbox
-// even if the church later turns public browsing or email off --
-// publicPrayerDigest alone is the gate for that route.
+// Only POST / needs publicDirectory and outboundEmail: no public site to follow partners from
+// without the first, no way to send a confirmation without the second. GET /confirm deliberately
+// requires neither, so an existing subscriber can confirm a link already in their inbox even if
+// the church later turns public browsing or email off; publicPrayerDigest alone gates it.
 async function requireSubscribeDependencies(req, res, next) {
   const settings = await prisma.churchSettings.findUnique({
     where: { id: "singleton" },
@@ -40,13 +33,9 @@ async function requireSubscribeDependencies(req, res, next) {
   next();
 }
 
-// Scoped to just this one POST handler, not the whole /subscribe path
-// (which GET /confirm also lives under) -- the broad /api/public prefix
-// limiter in server.js (120/min) already covers every route in this
-// file by path; this is a tighter ceiling on top of that, only for the
-// one route with a real external side effect (an email sent). Relaxed
-// under test, same reasoning/pattern as the login route's own limiter
-// in server.js.
+// Scoped to this POST only, not GET /confirm: a tighter ceiling on top of the /api/public limiter
+// in server.js (120/min), for the one route with a real external side effect (an email). Relaxed
+// under test like the login limiter in server.js.
 const subscribeLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: process.env.NODE_ENV === "test" ? 1000 : 10,
@@ -59,15 +48,9 @@ const subscribeSchema = z.object({
   partnerIds: z.array(z.string()).optional(),
 });
 
-// Same preference order and tier-field mapping settingsDispatches.js's
-// PUT uses for migrating an already-subscribed person off a descoped
-// tier (#209), applied here to the *new*-subscriber default instead:
-// a caller that omits cadence entirely (not every caller is this app's
-// own frontend, which always sends an explicit, already-filtered value)
-// must not land on a tier the admin has turned off. Previously hardcoded
-// to "biweekly" -- harmless before this feature existed (every tier was
-// always offered), but biweekly defaults *disabled* now, so that literal
-// would have handed a disabled tier to any caller that left cadence out.
+// Same preference order and tier-field mapping as settingsDispatches.js's PUT uses to migrate a
+// subscriber off a descoped tier (#209), applied to the new-subscriber default: a caller that omits
+// cadence must not land on a tier the admin has turned off (biweekly is disabled by default).
 const CADENCE_FALLBACK_PREFERENCE = ["monthly", "quarterly", "biweekly"];
 const CADENCE_TIER_FIELDS = {
   biweekly: "cadenceBiweeklyEnabled",
@@ -103,14 +86,10 @@ async function applySubscription(existing, email, data, fallbackCadence) {
   return prisma.publicSubscriber.update({ where: { id: existing.id }, data: writeData });
 }
 
-// POST / -- subscribe (or re-scope an existing subscription). Always
-// responds with the exact same generic message regardless of outcome
-// (new email, still-unconfirmed email, already-confirmed email) -- same
-// no-enumeration discipline routes/auth.js's login route already
-// applies via its dummy-hash comparison. An already-confirmed row gets
-// its scope updated but is NOT sent a fresh confirmation email -- doing
-// so would let a caller learn "this address is already subscribed" from
-// inbox content even though the HTTP response never says so.
+// POST / -- subscribe (or re-scope an existing subscription). Always responds with the same
+// generic message whatever the outcome (new, still-unconfirmed, already-confirmed): the
+// no-enumeration discipline of routes/auth.js's login. An already-confirmed row is NOT sent a
+// fresh confirmation email, which would reveal "this address is already subscribed" via the inbox.
 router.post("/", subscribeLimiter, requireSubscribeDependencies, async (req, res, next) => {
   try {
     const parsed = subscribeSchema.safeParse(req.body);
@@ -128,17 +107,10 @@ router.post("/", subscribeLimiter, requireSubscribeDependencies, async (req, res
 
     const existing = await prisma.publicSubscriber.findUnique({ where: { email } });
 
-    // #327 Finding 11: an already-confirmed subscriber's preferences used
-    // to be applied immediately, with nothing proving the caller actually
-    // owns that email address -- anyone who knew (or guessed) a real
-    // subscriber's address could silently re-scope or re-cadence their
-    // subscription. For that case specifically, nothing is written here
-    // at all -- the proposed change travels inside a confirm-change link
-    // instead (see buildSubscriberConfirmChangeToken), applied only if
-    // that link is clicked. A brand-new or still-unconfirmed subscriber
-    // is unaffected: nothing about their row is "live" yet either way, so
-    // applying their latest requested draft immediately remains harmless,
-    // same as before.
+    // #327 Finding 11: nothing proves the caller owns an already-confirmed subscriber's address, so
+    // nothing is written for that case: the proposed change travels in a confirm-change link
+    // (buildSubscriberConfirmChangeToken) and is applied only when it is clicked. A new or
+    // still-unconfirmed row is not live yet, so applying the latest draft immediately is harmless.
     if (existing?.confirmedAt) {
       await sendConfirmChangeEmail(existing, {
         cadence: parsed.data.cadence,
@@ -167,9 +139,8 @@ router.post("/", subscribeLimiter, requireSubscribeDependencies, async (req, res
   }
 });
 
-// GET /confirm?token= -- public, reached straight from the confirmation
-// email. No requireOutboundEmail here (see that function's own comment
-// above) -- confirming doesn't itself send anything.
+// GET /confirm?token= -- public, reached from the confirmation email. No requireOutboundEmail:
+// confirming sends nothing.
 router.get("/confirm", async (req, res) => {
   let decoded;
   try {
@@ -181,11 +152,9 @@ router.get("/confirm", async (req, res) => {
     return res.status(400).send(await renderSubscriberPage("This confirmation link isn't valid."));
   }
 
-  // #327 Finding 11: a confirm-change link carries the actual proposed
-  // values and is where they're applied -- see POST / above, which never
-  // writes them anywhere else. Degrades gracefully (0 rows affected,
-  // still 200s) if the subscriber was deleted/unsubscribed since this
-  // link was sent.
+  // #327 Finding 11: a confirm-change link carries the proposed values and is where they are
+  // applied (POST / never writes them elsewhere). Degrades gracefully (0 rows, still 200) if the
+  // subscriber was deleted or unsubscribed since the link was sent.
   if (decoded.subscriberConfirmChange) {
     const existing = await prisma.publicSubscriber.findUnique({ where: { id: decoded.id } });
     if (existing) {

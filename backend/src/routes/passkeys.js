@@ -24,7 +24,7 @@ const {
   fromB64u,
 } = require("../utils/passkeys");
 
-// #386: passkeys as a second sign-in factor. Mounted at /api/auth/passkeys by routes/auth.js,
+// Passkeys as a second sign-in factor (#386). Mounted at /api/auth/passkeys by routes/auth.js,
 // which hands over its `completeLogin` so a passkey sign-in ends exactly as a code sign-in does.
 module.exports = function passkeyRoutes({ completeLogin }) {
   const router = express.Router();
@@ -49,7 +49,6 @@ module.exports = function passkeyRoutes({ completeLogin }) {
     }
   });
 
-  // ---- Adding one ----------------------------------------------------------------------
   // A session, or the forced-enrolment setup token (a person the church requires two-factor of
   // who has none yet): in that case finishing also signs them in, like a verified code does.
 
@@ -183,8 +182,6 @@ module.exports = function passkeyRoutes({ completeLogin }) {
     }
   });
 
-  // ---- Removing one --------------------------------------------------------------------
-
   router.delete("/:id", requireAuth, async (req, res, next) => {
     try {
       const { password } = req.body || {};
@@ -232,7 +229,6 @@ module.exports = function passkeyRoutes({ completeLogin }) {
     }
   });
 
-  // ---- Signing in ----------------------------------------------------------------------
   // Second step after a correct password, exactly where the authenticator-app code goes.
 
   function pendingUser(pendingToken) {
@@ -324,7 +320,6 @@ module.exports = function passkeyRoutes({ completeLogin }) {
     }
   });
 
-  // ---- Passwordless sign-in (#386 Layer 2) -----------------------------------------------
   // The passkey is the whole sign-in: no password, no pending token. No email is asked for, so
   // nothing here reveals which addresses have accounts: the browser offers the passkeys it holds
   // for this site and the answer names the credential.

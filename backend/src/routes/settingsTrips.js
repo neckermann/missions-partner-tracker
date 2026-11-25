@@ -6,17 +6,12 @@ const { requireFeature } = require("../middleware/requireFeature");
 const { APPLICATION_QUESTION_SCHEMA, REQUIREMENT_TEMPLATE_SCHEMA } = require("../utils/applicationQuestions");
 const { loadChurchLists, replaceQuestions, replaceRequirementItems } = require("../utils/tripTemplates");
 
-// #271 Finding: split out of the former settings.js -- see
-// settingsGroupMe.js's own header comment for the full reasoning.
 const router = express.Router();
-router.use(requireAuth); // everything below requires a logged-in user
+router.use(requireAuth);
 
-// Trips (#252) -- church-wide settings for the whole feature area: the
-// donation-instructions fields (§13), the donor-contact opt-in (§6), and
-// the two private-link gates (§4/§6). Gated by requireFeature("trips")
-// alone -- reachable to configure as soon as the backend feature is on,
-// same posture GroupMe/Joshua Project settings already take (configurable
-// before the more specific public-facing bits are turned on).
+// Trips (#252) church-wide settings: donation instructions (§13), donor-contact opt-in (§6) and
+// the two private-link gates (§4/§6). Gated by requireFeature("trips") alone, so it is configurable
+// before the public-facing bits are on (as GroupMe/Joshua Project).
 const tripsSettingsSelect = {
   onlineGivingUrl: true,
   onlineGivingInstructions: true,
@@ -37,29 +32,20 @@ const tripsSettingsSchema = z.object({
   allowPrivateApplicationLinks: z.boolean().optional(),
   allowPublicSupportRaisingLinks: z.boolean().optional(),
   enableTripBudgeting: z.boolean().optional(),
-  // Same shared shape as Trip.applicationQuestions (trips.js) -- see
-  // utils/applicationQuestions.js. tripApplicationTemplate is the
-  // church-wide layer every trip's form renders ahead of its own
-  // questions; tripQuestionLibrary is a pure copy-from-here picker
-  // source, never itself rendered on any form.
+  // Same shape as Trip.applicationQuestions (utils/applicationQuestions.js). tripApplicationTemplate is
+  // the church-wide layer rendered ahead of each trip's own questions; tripQuestionLibrary is a
+  // copy-from-here picker source, never rendered on a form.
   tripApplicationTemplate: APPLICATION_QUESTION_SCHEMA.optional().nullable(),
   tripQuestionLibrary: APPLICATION_QUESTION_SCHEMA.optional().nullable(),
-  // Same shared shape as Trip's own requirements, see
-  // utils/applicationQuestions.js's REQUIREMENT_TEMPLATE_SCHEMA.
-  // tripRequirementTemplate auto-copies onto every trip;
-  // tripRequirementLibrary is the per-trip-picked equivalent of
-  // tripQuestionLibrary above, never auto-copied anywhere.
+  // Same shape as Trip's requirements (REQUIREMENT_TEMPLATE_SCHEMA in utils/applicationQuestions.js).
+  // tripRequirementTemplate auto-copies onto every trip; tripRequirementLibrary is picked per trip and
+  // never auto-copied.
   tripRequirementTemplate: REQUIREMENT_TEMPLATE_SCHEMA.optional().nullable(),
   tripRequirementLibrary: REQUIREMENT_TEMPLATE_SCHEMA.optional().nullable(),
 });
 
-// #327 Finding 2 (lower-value gap): this is church-wide trip configuration
-// (giving URL/instructions, application/requirement templates) -- SPEC.md
-// § 5.1's "Settings is a flat 403" policy for a Trip Leader scoped guest
-// already covers this route in intent, the code just hadn't been given
-// the role check. No legitimate Trip Leader use case for it -- their own
-// trip's application/requirements come from the trip-scoped routes, not
-// this global settings read.
+// #327 Finding 2: church-wide trip configuration. SPEC.md § 5.1 makes Settings a flat 403 for a Trip
+// Leader, who has no use for it (their trip's questions/requirements come from trip-scoped routes).
 router.get(
   "/trips",
   requireFeature("trips"),

@@ -6,20 +6,13 @@ const { requireFeature } = require("../middleware/requireFeature");
 const { partnerRefSelect } = require("../utils/prismaIncludes");
 
 const router = express.Router();
-router.use(requireAuth); // everything below requires a logged-in user
-// Gates the whole resource. The partner record's own PUT no longer accepts
-// a supportEntries array, so this router is the only way in -- turning the
-// feature off now actually turns it off.
+router.use(requireAuth);
+// Gates the whole resource; this router is the only way in.
 router.use(requireFeature("monthlySupport"));
 
-// The only writer for SupportEntry. The partner record's own PUT no longer
-// accepts a supportEntries array -- see the comment on PUT /api/partners/:id.
-//
-// Deliberately no PUT/edit here either: a support entry is a point-in-time
-// record of what the monthly amount was set to as of effectiveDate, same as
-// a real financial ledger. Correcting a mistake means deleting the bad entry
-// and adding a new one, not silently rewriting history -- "current support"
-// is always just whichever entry has the latest effectiveDate.
+// The only writer for SupportEntry. Deliberately no PUT: an entry is a point-in-time record of the
+// monthly amount as of effectiveDate, like a financial ledger. A mistake is corrected by deleting the
+// entry and adding a new one; "current support" is the entry with the latest effectiveDate.
 const supportEntrySchema = z.object({
   partnerId: z.string(),
   amount: z.coerce.number().int().nonnegative(),
@@ -31,20 +24,12 @@ const supportEntryInclude = {
   partner: partnerRefSelect,
 };
 
-// GET /api/support-entries?partnerId=  (all partners combined, newest
-// first) -- full history, not just each partner's current amount. Backs
-// both the consolidated Monthly Support page and the support section on a
-// single partner's page.
+// GET /api/support-entries?partnerId=  (all partners combined, newest first) -- full history. Backs
+// the Monthly Support page and a partner's support section.
 //
-// A Trip Leader has no access to financial support detail at all, even
-// for their own one linked Partner -- unlike Prayer Requests/Newsletters
-// & Docs (ministry content, fine for a trip guest to read), a partner's
-// monthly support history is financial detail this role was never meant
-// to see. requirePartnerQueryScope (used by those other resources to let
-// a Trip Leader through for their own partnerId) would have let this
-// through too, since it only checks the partnerId matches, not whether
-// the resource itself is theirs to see -- so this uses an outright role
-// block instead, same as partners.js's own directory route.
+// A Trip Leader gets no access to financial support detail, even for their own partner.
+// requirePartnerQueryScope would let them through (it only checks that partnerId matches), so this
+// is an outright role block, like partners.js's directory route.
 router.get("/", requireRole("admin", "editor", "viewer"), async (req, res, next) => {
   try {
     const where = {};
@@ -53,7 +38,6 @@ router.get("/", requireRole("admin", "editor", "viewer"), async (req, res, next)
     const records = await prisma.supportEntry.findMany({
       where,
       include: supportEntryInclude,
-      // createdAt as a tiebreaker -- see the same comment in prayerRequests.js.
       orderBy: [{ effectiveDate: "desc" }, { createdAt: "desc" }],
     });
     res.json(records);
@@ -73,9 +57,7 @@ router.post("/", requireRole("admin", "editor"), async (req, res, next) => {
   }
 });
 
-// DELETE /api/support-entries/:id  (admin only) -- removes a mis-entered
-// row (wrong amount/date/partner). Not an "edit"; see the no-PUT comment
-// above.
+// DELETE /api/support-entries/:id  (admin only) -- removes a mis-entered row; see the no-PUT note above.
 router.delete("/:id", requireRole("admin"), async (req, res, next) => {
   try {
     const existing = await prisma.supportEntry.findUnique({

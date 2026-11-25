@@ -70,8 +70,6 @@ const audit = (req, label, details) =>
 // GET /api/support-preferences/kinds -- the fixed kinds, so the frontend keeps no copy.
 router.get("/kinds", (req, res) => res.json({ kinds: KINDS }));
 
-// ---- The menu (admin) -------------------------------------------------------------------
-
 // GET /api/support-preferences/options -- every option, retired ones too, with how many
 // partners have answered each.
 router.get("/options", requireRole("admin"), async (req, res, next) => {
@@ -180,8 +178,6 @@ router.delete("/options/:id", requireRole("admin"), async (req, res, next) => {
     next(err);
   }
 });
-
-// ---- A partner's choices -----------------------------------------------------------------
 
 const lastEditedFields = { lastEditedByName: true, lastEditedAt: true };
 

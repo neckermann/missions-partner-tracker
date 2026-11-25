@@ -11,12 +11,10 @@ const { partnerRefSelect } = require("../utils/prismaIncludes");
 const { LINK_TYPES } = require("./linkTypes");
 
 const router = express.Router();
-router.use(requireAuth); // everything below requires a logged-in user
+router.use(requireAuth);
 
-// The only writer for PartnerLink -- see routes/adults.js for the full
-// reasoning, same shape, no consolidated cross-partner list. `type` is a
-// fixed set (see linkTypes.js), enforced here so a bad value fails loudly
-// instead of silently storing an unrecognized platform.
+// The only writer for PartnerLink; see routes/adults.js for the shared shape. `type` is a fixed
+// set (linkTypes.js), enforced here so a bad value fails loudly.
 const partnerLinkSchema = z.object({
   partnerId: z.string(),
   type: z.enum(LINK_TYPES),
@@ -43,10 +41,8 @@ router.get("/", requirePartnerQueryScope, async (req, res, next) => {
 });
 
 // POST /api/partner-links  (create — editor or admin)
-// @@unique([partnerId, type]) means a second link of a type already on
-// file 400s with a plain Prisma unique-constraint error -- the UI offers
-// only the partner's remaining unused types, so this is a true conflict,
-// not an expected path.
+// @@unique([partnerId, type]): a second link of the same type is a true conflict, since the UI
+// only offers unused types.
 router.post("/", requirePartnerWriter({ body: true }), async (req, res, next) => {
   try {
     const data = partnerLinkSchema.parse(req.body);

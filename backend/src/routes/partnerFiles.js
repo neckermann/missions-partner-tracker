@@ -20,16 +20,13 @@ const { notifyNewsletterCreated } = require("../utils/dispatchRecording");
 const { FILE_KINDS } = require("./fileKinds");
 
 const router = express.Router();
-router.use(requireAuth); // admin-only for now -- no public routes for this yet
+router.use(requireAuth);
 router.use(requireFeature("partnerFiles"));
 
-// Extends partnerRefSelect's own fields with `archived` -- same reasoning
-// as prayerRequests.js's own prayerRequestInclude.
 const fileInclude = { partner: { select: { ...partnerRefSelect.select, archived: true } } };
 
-// .eml files don't have a reliable MIME type across browsers/OSes (often
-// reported as application/octet-stream or blank), so they're recognized
-// by extension instead.
+// .eml has no reliable browser MIME type (often octet-stream or blank), so it is
+// recognized by extension.
 const MIME_TO_EXT = {
   "application/pdf": "pdf",
   "image/jpeg": "jpg",
@@ -42,9 +39,7 @@ const MIME_TO_EXT = {
 const resolveExt = makeExtResolver(MIME_TO_EXT, { test: isEml, ext: "eml" });
 
 const upload = uploadFilteredBy(resolveExt, {
-  // Files live directly in Postgres (see the PartnerFile model comment in
-  // schema.prisma) -- 10MB is the size past which the usual guidance
-  // shifts from "just use the database" to "use object storage instead."
+  // Files live in Postgres; 10MB is where object storage becomes the better choice.
   maxFileSize: 10 * 1024 * 1024,
   message: "Only PDF, Word, Excel, .eml, JPEG, or PNG files are allowed",
 });
@@ -57,9 +52,7 @@ const baseFields = {
   kind: z.enum(FILE_KINDS),
   customKind: z.string().optional().nullable(),
 };
-// A plain object (not the refined version below) so PUT /:id can
-// .partial() it -- .refine() wraps a schema in a way that no longer
-// exposes that (see the hand-rolled re-check on PUT below).
+// Plain object so PUT /:id can .partial() it; .refine() would hide that (PUT re-checks by hand).
 const metaObjectSchema = z.object(baseFields);
 const metaSchema = metaObjectSchema.refine(
   (data) => data.kind !== "other" || Boolean(data.customKind?.trim()),
@@ -69,17 +62,13 @@ const metaSchema = metaObjectSchema.refine(
   }
 );
 
-// GET /?partnerId=&kind=&entityType=&from=&to= (all partners combined, newest first)
-// entityType ("missionary"|"organization") filters by the owning partner's
-// own kind -- AdminPartnerFiles.jsx's "Show: Missionaries/Organizations"
-// filter was client-side-only before this; from/to filter receivedDate,
-// same range shape as prayerRequests.js/supportNeeds.js just added above.
+// GET /?partnerId=&kind=&entityType=&from=&to= -- all partners, newest first.
+// entityType filters by the owning partner's kind; from/to filter receivedDate.
 router.get("/", allowGuestPartnerList, async (req, res, next) => {
   try {
     const where = {};
     if (req.query.partnerId) where.partnerId = String(req.query.partnerId);
-    // A guest browsing without naming a partner sees only the partners they
-    // reach (#289) -- the server is the boundary, not the page.
+    // A guest without a named partner sees only the partners they reach (#289): the server is the boundary.
     const reachable = readablePartnerIds(req.user);
     if (reachable && !req.query.partnerId) where.partnerId = { in: reachable };
     if (req.query.kind) where.kind = String(req.query.kind);
@@ -94,9 +83,6 @@ router.get("/", allowGuestPartnerList, async (req, res, next) => {
     const records = await prisma.partnerFile.findMany({
       where,
       include: fileInclude,
-      // No omit needed -- file content lives in its own table (bytesRow)
-      // now, never selected here, only via GET /:id/download.
-      // createdAt as a tiebreaker -- see the same comment in prayerRequests.js.
       orderBy: [{ receivedDate: "desc" }, { createdAt: "desc" }],
     });
     res.json(records);
@@ -106,11 +92,8 @@ router.get("/", allowGuestPartnerList, async (req, res, next) => {
 });
 
 // POST / (upload -- editor or admin)
-// Admin/editor, or a care team member for their own partner (#289): any
-// non-staff login on that partner's care team may add a document or
-// newsletter. Changing metadata afterwards, deleting, and scanning with AI
-// stay staff-only, and a care team member's newsletter dispatch is held for
-// staff review before it goes anywhere.
+// Admin/editor, or a care team member for their own partner (#289). Editing, deleting and AI
+// scanning stay staff-only; a care team member's newsletter dispatch is held for staff review.
 router.post(
   "/",
   requireRole("admin", "editor", "viewer", "guest"),
@@ -120,13 +103,8 @@ router.post(
       if (!req.file) return res.status(400).json({ error: "No file provided" });
       const staff = req.user.role === "admin" || req.user.role === "editor";
 
-      // #327 Finding 8: this used to store req.file.mimetype as-is whenever
-      // the filename ended in .eml, skipping the signature check entirely
-      // for that case -- a file named x.eml declared as application/pdf
-      // was stored unverified and later served inline as PDF
-      // (VERIFIED_INLINE_TYPES, utils/fileResponse.js). verifyUpload always
-      // forces message/rfc822 for a real .eml, never the client's own
-      // declared type; everything else still gets signature-checked.
+      // verifyUpload forces message/rfc822 for a real .eml, never the client's declared type, so a
+      // mislabelled .eml cannot skip the signature check and be served inline (VERIFIED_INLINE_TYPES).
       const verified = verifyUpload(req.file);
       if (!verified.ok) {
         return res.status(400).json({ error: "File content doesn't match its declared type" });
@@ -149,8 +127,7 @@ router.post(
       });
 
       if (created.kind === "newsletter") {
-        // Best-effort: notifyNewsletterCreated never throws -- see the same
-        // comment in routes/prayerRequests.js.
+        // Best-effort: notifyNewsletterCreated never throws.
         await notifyNewsletterCreated(created, { requireReview: !staff });
       }
 
@@ -161,16 +138,8 @@ router.post(
   }
 );
 
-// GET /:id/download -- streams the file straight from the database (still
-// requireAuth'd, per router.use above; no separate signed URL to generate
-// since there's no external store to sign a URL for).
-//
-// Unlike GET / above, this single-record route has no requirePartnerQueryScope
-// of its own -- every other role is fine with that (any login already sees
-// every partner's files via the unscoped list route), but a guest must
-// not be able to download an arbitrary file id belonging to some other
-// partner just because they know (or guessed) it. Checked here explicitly,
-// same pattern as partners.js's own GET /:id.
+// Streams from the database. Unlike GET /, there is no requirePartnerQueryScope here: a guest
+// must not download another partner's file by id, so it is checked explicitly (as in partners.js GET /:id).
 router.get("/:id/download", async (req, res, next) => {
   try {
     const record = await prisma.partnerFile.findUnique({
@@ -189,29 +158,22 @@ router.get("/:id/download", async (req, res, next) => {
   }
 });
 
-// PUT /:id (update metadata -- editor or admin). Everything but the file
-// itself is editable, including `kind` (reclassifying is just an ordinary
-// edit -- there's no separate "reclassify" action) and moving it to a
-// different partner. The file's bytes/fileName/contentType/fileSize are
-// immutable (upload a new file and delete this one if the file's wrong).
+// PUT /:id (update metadata -- editor or admin). Everything but the file itself is editable,
+// including `kind` and the owning partner; bytes/fileName/contentType/fileSize are immutable.
 router.put("/:id", requirePartnerWriter({ model: "partnerFile" }), async (req, res, next) => {
   try {
     const data = metaObjectSchema.partial().parse(req.body);
 
     const existing = await prisma.partnerFile.findUnique({ where: { id: req.params.id } });
-    if (!existing) return res.status(404).json({ error: "Not found" }); // no bytesRow needed -- metadata only
+    if (!existing) return res.status(404).json({ error: "Not found" });
 
-    // The one metaSchema refinement that still needs re-checking on a
-    // partial update: either field can arrive alone, so "other" requires
-    // a customKind is evaluated against what the record will actually
-    // look like after the merge, not just the raw body.
+    // "other" requires a customKind: checked against the merged record, since either field can arrive alone.
     const kind = data.kind !== undefined ? data.kind : existing.kind;
     const customKind = data.customKind !== undefined ? data.customKind : existing.customKind;
     if (kind === "other" && !customKind?.trim()) {
       return res.status(400).json({ error: 'customKind is required when kind is "other"' });
     }
-    // Clear a stale customKind left over from a prior "other" once kind
-    // moves away from it, rather than leaving an orphaned label around.
+    // Clear a stale customKind once kind moves away from "other".
     if (kind !== "other" && data.customKind === undefined) data.customKind = null;
 
     const updated = await prisma.partnerFile.update({
@@ -225,40 +187,26 @@ router.put("/:id", requirePartnerWriter({ model: "partnerFile" }), async (req, r
   }
 });
 
-// POST /:id/extract -- scans the file with Claude for prayer requests and
-// one-time needs (editor or admin, same as upload). Gated on the
-// "aiExtraction" feature specifically (not this router's own feature gate
-// above) since a church can have Newsletters & Docs on but AI scanning
-// off. Nothing is persisted here -- the caller reviews and explicitly
-// adds each suggestion via the existing POST /api/prayer-requests /
-// /api/support-needs. Not restricted by kind -- governed by whether the
-// stored file's actual content type is one Claude can read (PDF/JPEG/PNG;
-// extractRequestsFromFile 400s clearly for anything else, e.g. a raw .eml
-// or Word/Excel file), a more accurate constraint than guessing from kind.
+// POST /:id/extract -- scans the file with Claude for prayer requests and needs (editor or admin).
+// Gated on "aiExtraction" separately from this router's feature gate. Nothing is persisted: the
+// caller adds each suggestion via the normal create routes. extractRequestsFromFile 400s for
+// content types Claude cannot read (anything but PDF/JPEG/PNG).
 router.post(
   "/:id/extract",
   requirePartnerWriter({ model: "partnerFile" }),
   requireFeature("aiExtraction"),
   async (req, res, next) => {
     try {
-      // The file's bytes live in the split-off PartnerFileBytes table (see
-      // that model's own comment), not on PartnerFile itself -- same
-      // include GET /:id/download above already uses. Without it,
-      // record.bytes is always undefined and buildFileBlock's
-      // Buffer.from(undefined) throws on every single scan attempt.
+      // Bytes live in PartnerFileBytes; without this include record.bytes is undefined and
+      // buildFileBlock throws.
       const record = await prisma.partnerFile.findUnique({
         where: { id: req.params.id },
         include: { bytesRow: { select: { bytes: true } } },
       });
       if (!record?.bytesRow) return res.status(404).json({ error: "Not found" });
 
-      // #323: warn (non-blocking -- the admin can still add more
-      // suggestions) when this file already produced saved records on an
-      // earlier scan. Independent of the extraction call itself (a
-      // read-only count against PrayerRequest/SupportNeed.sourceFileId,
-      // both of which already point back at this file -- see their own
-      // comments in schema.prisma), so it runs alongside it rather than
-      // after, with no added latency over the extraction call alone.
+      // Non-blocking warning when this file already produced saved records on an earlier scan;
+      // runs alongside the extraction.
       const [suggestions, priorPrayerRequestCount, priorSupportNeedCount] = await Promise.all([
         extractRequestsFromFile({ ...record, bytes: record.bytesRow.bytes }),
         prisma.prayerRequest.count({ where: { sourceFileId: req.params.id } }),
