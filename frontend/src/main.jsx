@@ -9,6 +9,7 @@ import PublicTripApplication from "./pages/PublicTripApplication.jsx";
 import PublicTripParticipant from "./pages/PublicTripParticipant.jsx";
 import PublicTripAccessRecovery from "./pages/PublicTripAccessRecovery.jsx";
 import Login from "./pages/Login.jsx";
+import SignInLink from "./pages/SignInLink.jsx";
 import Setup from "./pages/Setup.jsx";
 import SetPassword from "./pages/SetPassword.jsx";
 import RequireAdminAuth from "./components/RequireAdminAuth.jsx";
@@ -147,6 +148,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
               <Route path="/my-trip" element={<PublicTripParticipant />} />
               <Route path="/trip-access-recovery" element={<PublicTripAccessRecovery />} />
               <Route path="/login" element={<Login />} />
+              <Route path="/login/link" element={<SignInLink />} />
               <Route path="/setup" element={<Setup />} />
               <Route path="/set-password" element={<SetPassword />} />
 

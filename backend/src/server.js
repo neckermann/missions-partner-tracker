@@ -209,6 +209,16 @@ const sensitiveAuthLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10 });
 app.use("/api/auth/mfa/verify-setup", sensitiveAuthLimiter);
 app.use("/api/auth/mfa/disable", sensitiveAuthLimiter);
 // #386: passkey sign-in is a guess against a pending token; removing one checks the password.
+// #386 Layer 2: the emailed-link request sends mail and the redeem step guesses a 256-bit token;
+// both tight, like the password-reset request above.
+app.use(
+  "/api/auth/passwordless",
+  rateLimit({ windowMs: 15 * 60 * 1000, max: process.env.NODE_ENV === "test" ? 1000 : 10 })
+);
+app.use(
+  "/api/auth/passkeys/passwordless",
+  rateLimit({ windowMs: 15 * 60 * 1000, max: process.env.NODE_ENV === "test" ? 1000 : 30 })
+);
 app.use(
   "/api/auth/passkeys/login",
   rateLimit({ windowMs: 15 * 60 * 1000, max: process.env.NODE_ENV === "test" ? 1000 : 20 })

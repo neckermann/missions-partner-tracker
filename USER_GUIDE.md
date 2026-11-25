@@ -39,6 +39,14 @@ enrollment (add a passkey, or scan a QR code and confirm a code) before
 you can do anything else. If your church turns the requirement on while you're signed in, your
 next click takes you back to sign-in, and you set it up then.
 
+If your church has turned on **passwordless sign-in**, there is no password
+box. **Sign in with a passkey** signs you in with your fingerprint, face or
+screen lock alone (it counts as both factors). If you haven't added a passkey
+yet, **Email me a sign-in link** sends a one-time link that works once and
+expires in 15 minutes; it signs you in and then walks you through adding a
+passkey. Lost your passkey? Ask an admin to **Reset MFA** on your account;
+they'll hand you a fresh way in.
+
 ### Understanding your role
 
 Every user has one of three full roles:
@@ -1009,6 +1017,19 @@ through enrollment again. It only turns on for an admin who has set up
 two-factor on their own account first, so it can't lock you out, and it
 can't be turned on for the public demo. It's off by default. Turning it
 on or off is recorded in the [Audit log](#audit-log-admin-only).
+
+Below it, **Passwordless sign-in** takes passwords away church-wide: people
+with a passkey sign in with it alone, and everyone else gets an emailed
+one-time link and is then asked to add a passkey. It shows how many active
+accounts have no passkey yet, and the turn-on button explains itself when it
+is disabled: it needs outbound email set up (the emailed links depend on it)
+and a passkey on your own account (so it can't lock you out). Turning it on
+confirms first, since it ends password sign-in for everyone; it implies the
+two-factor requirement; passwords aren't deleted, so turning it off puts
+everyone back; and outbound email can't be switched off while it is on. If
+email breaks, or someone loses their passkey, **Reset MFA** on their row
+clears it and you hand them a setup link. It can't be turned on for the
+public demo.
 
 **+ Add User** opens its own page: email, name,
 role (Admin, Editor, Viewer, or Guest — pick at least one trip for a

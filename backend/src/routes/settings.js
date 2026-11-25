@@ -6,6 +6,7 @@ const { matchesFileSignature } = require("../utils/fileSignature");
 const { FEATURES, FEATURE_KEYS } = require("../utils/features");
 const { encryptField } = require("../utils/crypto");
 const { isTwoFactorRequired } = require("../utils/twoFactor");
+const { isPasswordlessOn, passwordlessBlocker } = require("../utils/passwordless");
 const { isDemoDeployment } = require("../utils/demoMode");
 const { makeExtResolver, uploadFilteredBy } = require("../utils/upload");
 
@@ -134,6 +135,7 @@ const settingsSchema = z.object({
   // Require two-factor for every account (#385); see the field's comment in schema.prisma.
   // Turning it on has guards in PUT / below.
   requireTwoFactor: z.boolean().optional(),
+  requirePasswordless: z.boolean().optional(),
   // How far ahead a key date is raised, and how long without a logged contact makes a partner
   // "quiet" (#365); see utils/careSettings.js for the bounds.
   keyDateLeadDays: z.number().int().min(KEY_DATE_LEAD_RANGE.min).max(KEY_DATE_LEAD_RANGE.max).optional(),
@@ -199,6 +201,10 @@ router.get("/", async (req, res, next) => {
           primaryColor: true,
           logoContentType: true,
           enabledFeatures: true,
+          // Church policy booleans, already visible to everyone as `twoFactorRequired` on
+          // /api/auth/me (#402).
+          requireTwoFactor: true,
+          requirePasswordless: true,
           keyDateLeadDays: true,
           contactStaleDays: true,
           extractionModel: true,
@@ -277,6 +283,19 @@ router.put("/", requireRole("admin"), async (req, res, next) => {
             "Set up two-factor on your own account first (My account), so turning this on doesn't lock you out",
         });
       }
+    }
+    // Turning passwordless sign-in ON (#386 Layer 2): email must work (people without a passkey
+    // sign in through an emailed link) and the admin doing it must have a passkey.
+    if (data.requirePasswordless === true && !(await isPasswordlessOn())) {
+      const blocker = await passwordlessBlocker(req.user.id);
+      if (blocker) return res.status(400).json({ error: blocker });
+    }
+    // ...and while it is on, outbound email can't be switched off: nobody without a passkey could
+    // sign in, and nobody could be recovered.
+    if (data.enabledFeatures?.outboundEmail === false && (await isPasswordlessOn())) {
+      return res.status(400).json({
+        error: "Outbound email can't be turned off while passwordless sign-in is on: turn that off first",
+      });
     }
     // `logo` isn't a real column (see schema.prisma) — the only thing the
     // frontend ever sends it as is `null`, to clear an existing logo (a

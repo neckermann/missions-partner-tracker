@@ -257,7 +257,19 @@ tied to the site's address, so set `APP_BASE_URL` to the address people use (its
 host name is the passkey's identity) and keep it stable; if the church moves to
 a new domain, existing passkeys stop working and people add them again (an
 authenticator app is unaffected). **Reset MFA** on a user clears their app and
-passkeys. There is
+passkeys.
+
+**Passwordless sign-in** (#386, Settings → Manage Users) is an optional
+church-wide switch for churches that have outbound email working: nobody signs
+in with a password; a person with a passkey signs in with it alone, and anyone
+without one gets a one-time emailed link (valid 15 minutes) and is then taken
+through adding a passkey. It needs working outbound email and a passkey on the
+admin turning it on, implies the two-factor requirement, is refused on a demo,
+and stops outbound email being turned off while it is on. There is no automatic
+fallback to passwords: if email breaks, an admin recovers each person with
+Reset MFA and a setup link. Passwords are kept, so turning it off restores
+password sign-in. A church without email stays on password plus two-factor, or
+passkeys as a second factor, indefinitely. There is
 nothing to configure beyond your first admin account, created at `/setup`
 on a fresh deploy or with `createAdmin.js` — see
 [Getting your church running](#getting-your-church-running-render) above.

@@ -223,6 +223,7 @@ async function revokeTripAccess(db, user, tripIds, ctx, reason) {
 // what a guest can reach, when it lapses, and whether the account is
 // effectively inactive -- all without a query per user.
 const userInclude = {
+  _count: { select: { passkeys: true } },
   tripAccess: { select: GRANT_SELECT, orderBy: { createdAt: "asc" } },
   careTeamSeats: {
     select: { id: true, isLead: true, partner: { select: { id: true, displayName: true } } },
@@ -234,11 +235,13 @@ const userInclude = {
 // feature is on -- the data is kept when it's off, but it's hidden and
 // ignored for access, so it must be ignored here too.
 function withAccess(user, now = new Date(), careEnabled = false) {
-  const { tripAccess, careTeamSeats, ...rest } = user;
+  const { tripAccess, careTeamSeats, _count, ...rest } = user;
   const grants = summarizeGrants(tripAccess || [], now);
   const seats = careEnabled ? careTeamSeats || [] : [];
   return {
     ...sanitize(rest),
+    // #386: how many passkeys they have, for the passwordless switch's "who signs in by email" count.
+    passkeyCount: _count?.passkeys ?? 0,
     tripAccess: grants,
     careTeamSeats: seats,
     // null for a guest who can currently sign in, and for every other role.

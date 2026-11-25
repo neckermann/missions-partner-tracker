@@ -13,6 +13,7 @@ const { requireAuth, requireAuthOrMfaSetup } = require("../middleware/requireAut
 const { setSessionCookie } = require("../utils/jwt");
 const { recordAuditSafe } = require("../utils/auditLog");
 const { isTwoFactorRequired } = require("../utils/twoFactor");
+const { isPasswordlessOn } = require("../utils/passwordless");
 const {
   MAX_PASSKEYS,
   relyingParty,
@@ -73,7 +74,7 @@ module.exports = function passkeyRoutes({ completeLogin }) {
           id: p.credentialId,
           transports: p.transports,
         })),
-        authenticatorSelection: { residentKey: "preferred", userVerification: "preferred" },
+        authenticatorSelection: { residentKey: "required", userVerification: "preferred" },
       });
       res.json({
         options,
@@ -284,6 +285,82 @@ module.exports = function passkeyRoutes({ completeLogin }) {
           expectedChallenge: challenge,
           expectedOrigin: rp.origins,
           expectedRPID: rp.rpID,
+          credential: {
+            id: passkey.credentialId,
+            publicKey: fromB64u(passkey.publicKey),
+            counter: passkey.counter,
+            transports: passkey.transports,
+          },
+        });
+      } catch {
+        return fail("passkey_invalid");
+      }
+      if (!verification.verified) return fail("passkey_invalid");
+      await prisma.userPasskey.update({
+        where: { id: passkey.id },
+        data: { counter: verification.authenticationInfo.newCounter, lastUsedAt: new Date() },
+      });
+      res.json(await completeLogin(res, user, req));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // ---- Passwordless sign-in (#386 Layer 2) -----------------------------------------------
+  // The passkey is the whole sign-in: no password, no pending token. No email is asked for, so
+  // nothing here reveals which addresses have accounts: the browser offers the passkeys it holds
+  // for this site and the answer names the credential.
+
+  router.post("/passwordless/options", async (req, res, next) => {
+    try {
+      if (!(await isPasswordlessOn())) return res.status(404).json({ error: "Not found" });
+      const rp = relyingParty(req);
+      const options = await generateAuthenticationOptions({ rpID: rp.rpID, userVerification: "required" });
+      res.json({
+        options,
+        challengeToken: signChallenge({ challenge: options.challenge, purpose: "passwordless", userId: "" }),
+      });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.post("/passwordless/verify", async (req, res, next) => {
+    try {
+      if (!(await isPasswordlessOn())) return res.status(404).json({ error: "Not found" });
+      const { challengeToken, response } = req.body || {};
+      const passkey =
+        response && typeof response.id === "string"
+          ? await prisma.userPasskey.findUnique({
+              where: { credentialId: response.id },
+              include: { user: true },
+            })
+          : null;
+      const challenge = consumeChallenge(challengeToken, { purpose: "passwordless", userId: "" });
+      const user = passkey?.user;
+      const fail = async (reason) => {
+        if (user) {
+          await recordAuditSafe(null, {
+            action: "auth.login_failed",
+            target: user,
+            req,
+            details: { reason },
+          });
+        }
+        return res.status(401).json({ error: "That passkey didn't work" });
+      };
+      if (!challenge || !passkey || !user.active || user.authProvider !== "local") {
+        return fail("passkey_unknown");
+      }
+      const rp = relyingParty(req);
+      let verification;
+      try {
+        verification = await verifyAuthenticationResponse({
+          response,
+          expectedChallenge: challenge,
+          expectedOrigin: rp.origins,
+          expectedRPID: rp.rpID,
+          requireUserVerification: true,
           credential: {
             id: passkey.credentialId,
             publicKey: fromB64u(passkey.publicKey),

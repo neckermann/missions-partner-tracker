@@ -90,7 +90,13 @@ describe("audit log API", () => {
     assert.deepEqual(await get("action=backup.downloaded"), ["backup.downloaded"]);
     assert.deepEqual((await get("q=dana")).sort(), ["auth.login_success", "backup.downloaded"]);
     assert.deepEqual(await get("q=203.0.113"), ["auth.login_failed"]);
-    const iso = (n) => new Date(Date.now() - n * day).toISOString().slice(0, 10);
+    // The route reads a date as a day in the process timezone, so build it in local time too:
+    // the UTC date is a different day for part of every day (#401).
+    const iso = (n) => {
+      const d = new Date(Date.now() - n * day);
+      const pad = (x) => String(x).padStart(2, "0");
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    };
     assert.deepEqual(await get(`from=${iso(6)}`), ["backup.downloaded", "auth.login_success"]);
     assert.deepEqual(await get(`to=${iso(6)}`), ["auth.login_failed"]);
     assert.equal((await admin("/api/audit?from=not-a-date")).status, 400);
