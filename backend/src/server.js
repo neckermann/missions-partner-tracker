@@ -66,6 +66,7 @@ const publicTripRoutes = require("./routes/publicTrips");
 const publicTripApplicationRoutes = require("./routes/publicTripApplications");
 const publicTripParticipantRoutes = require("./routes/publicTripParticipants");
 const prisma = require("./prismaClient");
+const { backgroundJobsEnabled, startBackgroundJobs, stopBackgroundJobs } = require("./utils/backgroundJobs");
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -267,12 +268,13 @@ app.get("*splat", (req, res) => res.sendFile(path.join(frontendBuild, "index.htm
 app.use(errorHandler);
 
 // Guarded so route tests can require() the app and boot it on an ephemeral
-// port. Schedulers and the WhatsApp connection run in worker.js, not here.
+// port. The scheduled jobs and the WhatsApp connection also start from here, in production
+// (utils/backgroundJobs.js): there is no separate worker service.
 if (require.main === module) {
   (async () => {
     // Apply ChurchSettings.timezone to process.env.TZ once, before any
-    // date-sensitive route reads the clock (changing TZ later is unreliable).
-    // worker.js does the same independently. Falls back to UTC on a fresh
+    // date-sensitive route reads the clock (changing TZ later is unreliable); the
+    // scheduled jobs start after this, so they read it too. Falls back to UTC on a fresh
     // deploy or transient DB error; never blocks startup.
     try {
       const settings = await prisma.churchSettings.findUnique({
@@ -289,9 +291,16 @@ if (require.main === module) {
       console.log(`Missionary Tracker API listening on port ${PORT}`);
     });
 
-    const shutdown = () => {
-      server.close(() => process.exit(0));
+    if (backgroundJobsEnabled()) {
+      startBackgroundJobs().catch((err) => console.error("Couldn't start the background jobs:", err));
+    } else {
+      console.log("Background jobs are off here (they run in production, or set BACKGROUND_JOBS=on).");
+    }
+
+    const shutdown = async () => {
       setTimeout(() => process.exit(0), 8000).unref();
+      await stopBackgroundJobs().catch(() => {});
+      server.close(() => process.exit(0));
     };
     process.once("SIGTERM", shutdown);
     process.once("SIGINT", shutdown);

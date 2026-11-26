@@ -15,7 +15,7 @@ const adapter = new PrismaPg(parseDatabaseUrl(process.env.DATABASE_URL));
 // lastEditedById column; see schema.prisma) made during a person's request is
 // stamped with who and when, here in one place, so no route has to remember. The
 // actor comes from utils/actorContext.js, set by requireAuth. With no actor (the
-// seed, worker jobs, public submissions) nothing is stamped.
+// seed, scheduled jobs, public submissions) nothing is stamped.
 //
 // Only the row written directly is stamped, not children touched by a nested write.
 const { currentActor } = require("./utils/actorContext");

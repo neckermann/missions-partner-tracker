@@ -180,7 +180,7 @@ async function recordRestrictedView({ viewer, partner, req, now = new Date() }) 
   });
 }
 
-// Delete events older than the retention window. Runs daily in the worker and
+// Delete events older than the retention window. Runs daily in the scheduled jobs and
 // whether or not the feature is currently on, so turning it off doesn't leave
 // old rows behind forever.
 async function pruneAuditLog({ now = new Date() } = {}) {

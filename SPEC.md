@@ -784,8 +784,8 @@ person: one card goes to the family.
 `notifications/categories.js`, computed live for the caller (one partner links
 straight to it, several to My partners).
 
-**Email.** `utils/keyDateReminderScheduler.js`, registered in `worker.js` (not
-the web process) on a daily 07:00 church-local cron, in the shape of
+**Email.** `utils/keyDateReminderScheduler.js`, started from `utils/backgroundJobs.js` (inside the
+web process) on a daily 07:00 church-local cron, in the shape of
 `tripReminderScheduler.js`. It sends **one grouped email per person**, only on a
 day something is due and not yet mailed to that person — never one per partner.
 `KeyDateReminder` (unique per person, partner, kind, subject, occurrence
@@ -818,8 +818,7 @@ rewrites the feature list after the reset script does) both apply it, and
 `checkAndSendKeyDateReminders` returns immediately on a demo, as a backstop for the
 published admin login switching the flag on. A demo is known two ways: the
 `DEMO_RESET_TOKEN` variable (web service only) or `ChurchSettings.demoMode`, which the
-demo reset writes so the separate worker process (which does not get the variable)
-agrees. Only the scheduled senders (key dates, trip reminders, scheduled reports, email digests)
+demo reset writes, so the scheduled jobs agree wherever they run. Only the scheduled senders (key dates, trip reminders, scheduled reports, email digests)
 skip on a demo; an email a person adds or clicks to send goes out as anywhere else.
 
 ### 5.5 What flows to the care team (#292 Phase 1)
@@ -865,7 +864,7 @@ entry survives either account being deleted; the API flags `deleted` when the id
 no longer matches a user. `details` holds old/new values and never a secret:
 secret columns are noted `"changed"` (`secretChange`). Kept for
 `ChurchSettings.auditRetentionDays` (30/60/90, default 90), pruned daily at
-03:30 church time by the worker (`auditPruneScheduler.js`) whether or not the
+03:30 church time by the scheduled jobs (`auditPruneScheduler.js`) whether or not the
 feature is on. Included in backup/restore. Account, access, delete and care-team
 entries are written in the **same transaction** as the change (`recordAudit(tx)`),
 so an access change that cannot be recorded does not happen; sign-in events use
@@ -891,7 +890,7 @@ so an access change that cannot be recorded does not happen; sign-in events use
 record (unbounded).** On 32 editable models. Stamped by a Prisma client extension
 (`prismaClient.js`) on every `create`/`update`/`upsert` made while a signed-in
 request runs; the actor comes from an `AsyncLocalStorage` (`utils/actorContext.js`)
-entered by `requireAuth`. No actor — the seed, the worker's jobs, a public
+entered by `requireAuth`. No actor — the seed, the scheduled jobs, a public
 submission — means nothing is stamped and the old value stays. Overwritten in
 place, never pruned, and the name is a snapshot so it survives account deletion.
 Only the row written directly is stamped, not rows touched by a nested write.
@@ -1138,8 +1137,8 @@ deliberate, permanent unlink, which isn't what a transient disconnect
 means.
 
 **Partner care posts.** Three chat-only dispatch types, `keyDateComing`, `quietPartner`
-and `updateToPassOn` (`utils/careChatDispatch.js`, a daily 05:00 church-local cron in
-the worker), share one topic/group (`groupmeCareTopicId`, `whatsappCareGroupId`) and have
+and `updateToPassOn` (`utils/careChatDispatch.js`, a daily 05:00 church-local cron
+in the scheduled jobs), share one topic/group (`groupmeCareTopicId`, `whatsappCareGroupId`) and have
 their own opt-in switches (`chatDispatchKeyDates`, `chatDispatchQuietPartners`,
 `chatDispatchUpdatesToPass`, all default off), checked in `isEligibleForChannel` Rule 2.
 They are recorded only while GroupMe or WhatsApp is on and the matching feature (keyDates,
