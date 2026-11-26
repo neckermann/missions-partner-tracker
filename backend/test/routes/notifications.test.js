@@ -17,6 +17,7 @@ let viewer;
 let unauthenticated;
 let partnerId;
 let adminUserId;
+let realFeatures;
 
 before(async () => {
   await ensureTestUsers();
@@ -24,6 +25,27 @@ before(async () => {
   editor = await client("editor");
   viewer = await client("viewer");
   unauthenticated = await client();
+
+  // The bell lists a category only while the feature behind its page is on, so turn those on here.
+  realFeatures = (
+    await prisma.churchSettings.findUnique({ where: { id: "singleton" }, select: { enabledFeatures: true } })
+  )?.enabledFeatures;
+  await prisma.churchSettings.upsert({
+    where: { id: "singleton" },
+    update: {
+      enabledFeatures: {
+        ...(realFeatures || {}),
+        groupme: true,
+        whatsapp: true,
+        inboundEmail: true,
+        surveys: true,
+        prayerRequests: true,
+        oneTimeNeeds: true,
+        trips: true,
+      },
+    },
+    create: { id: "singleton", enabledFeatures: { groupme: true } },
+  });
 
   const me = await admin("/api/auth/me");
   adminUserId = me.body.id;
@@ -37,6 +59,10 @@ before(async () => {
 });
 
 after(async () => {
+  await prisma.churchSettings.update({
+    where: { id: "singleton" },
+    data: { enabledFeatures: realFeatures ?? {} },
+  });
   await prisma.notificationSeen.deleteMany({ where: { userId: adminUserId } });
   await prisma.dispatchRecord.deleteMany({ where: { partnerId } });
   await removeFixturePartners();
@@ -140,5 +166,77 @@ describe("GET /api/notifications/summary", () => {
     assert.equal(afterCat.count, 0, "nothing newer than this admin's own seenAt remains");
 
     await prisma.prayerRequest.delete({ where: { id: pr.id } });
+  });
+});
+
+// A bell item must never lead to a page that says "This feature is turned off": a category is hidden
+// while the feature behind its page is off, whatever rows are still on file.
+describe("bell items for switched-off pages", () => {
+  let original;
+  before(async () => {
+    original = (
+      await prisma.churchSettings.findUnique({
+        where: { id: "singleton" },
+        select: { enabledFeatures: true },
+      })
+    )?.enabledFeatures;
+  });
+  after(async () => {
+    await prisma.churchSettings.update({
+      where: { id: "singleton" },
+      data: { enabledFeatures: original ?? {} },
+    });
+  });
+
+  async function keys() {
+    const res = await admin("/api/notifications/summary");
+    return res.body.categories.map((c) => c.key);
+  }
+  async function setFeatures(patch) {
+    await prisma.churchSettings.update({
+      where: { id: "singleton" },
+      data: { enabledFeatures: { ...(original || {}), ...patch } },
+    });
+  }
+
+  test("Unmatched Emails and email failures need Email (Receiving)", async () => {
+    await setFeatures({ inboundEmail: false });
+    let k = await keys();
+    assert.ok(!k.includes("unmatchedEmails") && !k.includes("inboundEmailFailures"));
+    await setFeatures({ inboundEmail: true });
+    k = await keys();
+    assert.ok(k.includes("unmatchedEmails") && k.includes("inboundEmailFailures"));
+  });
+
+  test("Pending Dispatches items need GroupMe, WhatsApp or Email (Sending)", async () => {
+    await setFeatures({ groupme: false, whatsapp: false, outboundEmail: false });
+    let k = await keys();
+    assert.ok(!k.includes("dispatchesNeedingApproval") && !k.includes("dispatchSendFailures"));
+    await setFeatures({ groupme: true });
+    k = await keys();
+    assert.ok(k.includes("dispatchesNeedingApproval") && k.includes("dispatchSendFailures"));
+  });
+
+  test("the WhatsApp, prayer-request, need and trip items follow their own features", async () => {
+    await setFeatures({ whatsapp: false, prayerRequests: false, oneTimeNeeds: false, trips: false });
+    let k = await keys();
+    for (const key of [
+      "whatsappConnectionDrop",
+      "newPrayerRequests",
+      "newOneTimeNeeds",
+      "tripApplicationsPending",
+    ]) {
+      assert.ok(!k.includes(key), `${key} is hidden while its page is off`);
+    }
+    await setFeatures({ whatsapp: true, prayerRequests: true, oneTimeNeeds: true, trips: true });
+    k = await keys();
+    for (const key of [
+      "whatsappConnectionDrop",
+      "newPrayerRequests",
+      "newOneTimeNeeds",
+      "tripApplicationsPending",
+    ]) {
+      assert.ok(k.includes(key), `${key} shows once its page is on`);
+    }
   });
 });

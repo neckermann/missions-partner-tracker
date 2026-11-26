@@ -49,6 +49,7 @@ async function fetchPartnerTileDetailsById(partnerIds) {
       id: true,
       kind: true,
       isRestricted: true,
+      isPublic: true,
       fieldDisplayName: true,
       supportingSince: true,
       overviewShort: true,

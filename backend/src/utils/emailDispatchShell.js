@@ -48,8 +48,10 @@ function partnerTileDetails(p) {
   // keep the household shape (placeholder variety, not a security boundary).
   const category =
     p.kind === "organization" ? "organization" : restricted ? "single" : missionaryHouseholdCategory(p);
+  // A photo only when the partner is on the public site: the photo address answers anyone only for a public,
+  // unrestricted partner (routes/photos.js), and a mail client cannot sign in.
   const realPhotoSrc =
-    !restricted && base && p.photos?.[0] ? `${base}${withPhotoUrl(p.photos[0]).url}` : null;
+    !restricted && p.isPublic && base && p.photos?.[0] ? `${base}${withPhotoUrl(p.photos[0]).url}` : null;
   // Never the real photo for a restricted partner. Must be a reachable URL, not
   // silhouetteFor()'s data: URI, which many email clients (Outlook) strip;
   // routes/silhouette.js serves the same shape.

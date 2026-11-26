@@ -176,6 +176,12 @@ function buildNavItems(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures
       icon: "📝",
       label: "Survey Updates",
     },
+    enabledFeatures.monthlySupport && {
+      key: "monthlySupport",
+      to: "/admin/support/monthly",
+      icon: "💵",
+      label: "Monthly Support",
+    },
     enabledFeatures.booklet && { key: "booklet", to: "/admin/booklet", icon: "📘", label: "Print Booklet" },
     enabledFeatures.reports && { key: "reports", to: "/admin/reports", icon: "📊", label: "Reports" },
   ].filter(Boolean);
