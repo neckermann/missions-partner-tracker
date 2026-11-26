@@ -182,8 +182,18 @@ describe("clearDispatchRecords", () => {
     });
     const partner = await createPartner();
     const day = 24 * 60 * 60 * 1000;
-    const fresh = await createRow(partner.id, "newsletterCreated", { partnerName: "x" }, { createdAt: new Date(Date.now() - 13 * day) });
-    const stale = await createRow(partner.id, "newsletterCreated", { partnerName: "x" }, { createdAt: new Date(Date.now() - 15 * day) });
+    const fresh = await createRow(
+      partner.id,
+      "newsletterCreated",
+      { partnerName: "x" },
+      { createdAt: new Date(Date.now() - 13 * day) }
+    );
+    const stale = await createRow(
+      partner.id,
+      "newsletterCreated",
+      { partnerName: "x" },
+      { createdAt: new Date(Date.now() - 15 * day) }
+    );
 
     const { cleared } = await clearDispatchRecords();
     assert.equal(cleared, 1);
@@ -490,7 +500,10 @@ describe("createDispatchRecord", () => {
     assert.equal(await createDispatchRecord("newsletterCreated", partner, { partnerName: "x" }), null);
     assert.equal(await prisma.dispatchRecord.count({ where: { partnerId: partner.id } }), 0);
 
-    await prisma.churchSettings.update({ where: { id: "singleton" }, data: { enabledFeatures: { groupme: true } } });
+    await prisma.churchSettings.update({
+      where: { id: "singleton" },
+      data: { enabledFeatures: { groupme: true } },
+    });
     assert.ok(await createDispatchRecord("newsletterCreated", partner, { partnerName: "x" }));
   });
 });
