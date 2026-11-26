@@ -72,6 +72,11 @@ export function formatDateLong(value, { fallback = null } = {}) {
 
 // "$1,000": amounts are whole dollars (Int columns), so no cents. Currency is a parameter so
 // forks aren't tied to USD.
+// A one-time need can be saved with no dollar figure; that is stored as 0 and shown in words.
+export function formatRequestedAmount(amount) {
+  return amount ? formatCurrency(amount) : "No amount";
+}
+
 export function formatCurrency(amount, { fallback = null, currency = "USD" } = {}) {
   if (amount == null) return fallback;
   return amount.toLocaleString(undefined, {

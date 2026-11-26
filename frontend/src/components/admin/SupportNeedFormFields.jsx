@@ -34,13 +34,13 @@ export default function SupportNeedFormFields({
         />
       </label>
       <label>
-        Requested Amount ($)
+        Requested Amount ($, optional)
         <input
           type="number"
           min="0"
           value={form.requestedAmount}
+          placeholder="Leave blank if no amount was named"
           onChange={(e) => setForm((f) => ({ ...f, requestedAmount: e.target.value }))}
-          required
         />
       </label>
       <label>

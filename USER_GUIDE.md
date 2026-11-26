@@ -454,10 +454,12 @@ status pill (Pending Decision / Fully Funded / Partially Funded /
 Declined) computed from the approved vs. requested amount. **+ Add Need**
 adds one without leaving the page; an undecided need gets a **Record
 Decision** button to fill in the approved amount/date once your church
-has made a call, plus an optional **Decision Note** for why it came out
-that way (a reason for declining, or for funding less than what was
-asked). Both the requested amount (on creation) and the approved
-amount/decision note (once decided) show up in the GroupMe post and the
+has made a call (tick **Decline this request** to record a no), plus an
+optional **Decision Note** for why it came out that way (a reason for
+declining, or for funding less than what was asked). The requested
+amount is optional: leave it blank when a letter names no figure, and the
+need shows "No amount". The requested amount (when there is one) and the
+approved amount/decision note (once decided) show up in the GroupMe post and the
 admin email digest for that need — one-time needs never reach the
 public digest, so there's no reason to hold that detail back from the
 audiences that do see it. Both **+ Add Need** and its Edit form have a
