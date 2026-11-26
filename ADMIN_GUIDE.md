@@ -435,7 +435,7 @@ above instead.
    cp .env.example .env       # fill in DATABASE_URL, SESSION_SECRET, etc. — see reference above
    npm install
    npm run prisma:migrate     # creates tables
-   npm run seed                # optional: ~35 fake partners for demoing the UI
+   npm run seed                # optional: ~35 fake partners for demoing the UI (sample users get unknown random passwords)
    node prisma/createAdmin.js you@yourchurch.org "SomeStrongPassword!"
    npm run dev                  # http://localhost:4000
    ```

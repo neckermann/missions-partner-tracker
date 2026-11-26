@@ -3,6 +3,7 @@ import { Navigate, Outlet, useLocation } from "react-router-dom";
 import AdminSidebar from "./AdminSidebar.jsx";
 import UpdateBanner from "./UpdateBanner.jsx";
 import BackupReminder from "./BackupReminder.jsx";
+import GuestNotice from "./GuestNotice.jsx";
 import ErrorBoundary from "../ErrorBoundary.jsx";
 import useCurrentUser from "../../hooks/useCurrentUser.js";
 
@@ -49,6 +50,7 @@ export default function AdminLayout() {
       <div className="admin-layout">
         <AdminSidebar />
         <main className="admin-main">
+          <GuestNotice />
           {/* Inside the shell rather than around it, so one broken page
               leaves the sidebar and nav usable instead of blanking the whole
               admin app. Keyed on the path because an error boundary latches:
