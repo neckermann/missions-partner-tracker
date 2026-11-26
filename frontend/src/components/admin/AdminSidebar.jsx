@@ -184,6 +184,7 @@ function buildNavItems(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures
 function buildSiteAdminLinks(enabledFeatures) {
   return [
     { to: "/admin/settings/about", label: "About & Branding", icon: "🎨" },
+    { to: "/admin/settings/privacy", label: "Privacy and safety", icon: "🔒" },
     { to: "/admin/settings/users", label: "Manage Users", icon: "👥" },
     enabledFeatures.auditTrail && { to: "/admin/settings/audit", label: "Audit log", icon: "📜" },
     { to: "/admin/settings/features", label: "Enabled Features", icon: "🧩" },

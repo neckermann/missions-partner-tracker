@@ -787,15 +787,41 @@ describe("care team: editor parity on their own partner, and nothing beyond it",
     await prisma.adult.deleteMany({ where: { id: { in: adultIds } } });
   });
 
-  test("edits the partner's profile, flags included, and archives and unarchives it", async () => {
+  // Decided by the owner (A4, November 2026 review): who can see a partner publicly is staff's call, so a
+  // care-team guest can edit the profile but not the public or restricted flags.
+  test("edits the partner's profile and archives and unarchives it, but can't change who sees it", async () => {
     const m = await member.login();
     const res = await m(`/api/partners/${partnerA.id}`, {
       method: "PUT",
-      body: { overviewShort: "Edited by the care team", isPublic: true },
+      body: { overviewShort: "Edited by the care team" },
     });
     assert.equal(res.status, 200);
     assert.equal(res.body.overviewShort, "Edited by the care team");
-    assert.equal(res.body.isPublic, true, "editor parity: the public flag too");
+
+    const before = await prisma.partner.findUnique({ where: { id: partnerA.id } });
+    for (const flags of [{ isPublic: !before.isPublic }, { isRestricted: !before.isRestricted }]) {
+      const refused = await m(`/api/partners/${partnerA.id}`, { method: "PUT", body: flags });
+      assert.equal(refused.status, 403, JSON.stringify(flags));
+    }
+    const after = await prisma.partner.findUnique({ where: { id: partnerA.id } });
+    assert.equal(after.isPublic, before.isPublic);
+    assert.equal(after.isRestricted, before.isRestricted);
+
+    // The page sends the whole card, so resending the values as they are is not a change.
+    const same = await m(`/api/partners/${partnerA.id}`, {
+      method: "PUT",
+      body: { isPublic: before.isPublic, isRestricted: before.isRestricted, overviewShort: "Again" },
+    });
+    assert.equal(same.status, 200);
+
+    // Staff can still change it.
+    const staff = await admin(`/api/partners/${partnerA.id}`, {
+      method: "PUT",
+      body: { isPublic: !before.isPublic },
+    });
+    assert.equal(staff.status, 200);
+    await prisma.partner.update({ where: { id: partnerA.id }, data: { isPublic: before.isPublic } });
+
     assert.equal((await m(`/api/partners/${partnerA.id}/archive`, { method: "POST" })).status, 200);
     assert.equal((await m(`/api/partners/${partnerA.id}/unarchive`, { method: "POST" })).status, 200);
   });

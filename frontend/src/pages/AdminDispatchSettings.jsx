@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { fetchDispatchSettings, updateDispatchSettings, fetchScopedDigestSummary } from "../api/client.js";
 import { useSettings } from "../context/SettingsContext.jsx";
 import { joinWithAnd } from "../utils/urgentSend.js";
@@ -32,8 +33,8 @@ function hourSummary(value) {
   return value == null ? "Not set" : hourLabel(value);
 }
 
-// Email dispatch schedule, chat-channel schedule and content mutes, the cross-channel
-// restricted-partner safety gate, and email appearance, each its own EditableSection card.
+// Email dispatch schedule, chat-channel schedule and content mutes, and email appearance, each its own
+// EditableSection card. (The restricted-partner settings moved to Settings → Privacy and safety.)
 // The review queue lives on the separate "Pending Dispatches" page.
 export default function AdminDispatchSettings() {
   const { enabledFeatures } = useSettings();
@@ -90,9 +91,9 @@ export default function AdminDispatchSettings() {
       />
       <p style={{ color: "var(--muted)" }}>
         Schedules for the admin/public email dispatch and for {chatLabel || "GroupMe/WhatsApp"}, the chat
-        channels' own content-type mutes, the restricted-partner safety gate, and email dispatch appearance.
-        To review or edit what's currently queued, see the <strong>Pending Dispatches</strong> page in the
-        main menu.
+        channels' own content-type mutes, and email dispatch appearance. The settings for partners in
+        sensitive places are under <Link to="/admin/settings/privacy">Privacy and safety</Link>. To review or
+        edit what's currently queued, see the <strong>Pending Dispatches</strong> page in the main menu.
       </p>
       <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
         Every schedule on this page only fires from the separate background worker process, not the main site
@@ -129,68 +130,6 @@ export default function AdminDispatchSettings() {
           )}
         </div>
       )}
-
-      <div style={{ marginTop: "1rem" }}>
-        <EditableSection
-          title="Restricted Partners"
-          value={{
-            allowRestrictedPartnerDispatch: settings.allowRestrictedPartnerDispatch,
-            restrictedPartnerInitialsEnabled: settings.restrictedPartnerInitialsEnabled,
-          }}
-          onSave={savePartial}
-          onSaved={reload}
-          view={(v) => (
-            <>
-              <p>{v.allowRestrictedPartnerDispatch ? "Recorded, subject to review" : "Never recorded"}</p>
-              <p>
-                {v.restrictedPartnerInitialsEnabled === false
-                  ? "Initials off -- shown with a generic label instead"
-                  : "Initials shown (e.g. “J.R.”)"}
-              </p>
-            </>
-          )}
-          edit={(d, set) => (
-            <>
-              <p style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
-                The one safety setting that applies equally to every dispatch channel this church has enabled,
-                not just one. Off (default) means a restricted-access partner's events are never recorded at
-                all -- nothing to hold, nothing to review, since nothing's queued. On records them like anyone
-                else, subject to review -- either from the Pending Dispatches page afterward, or right away
-                with the "Review and approve now" checkbox when the prayer request or one-time need is first
-                created. Either path clears a row for every channel at once, including an urgent send.
-              </p>
-              <div className="admin-checkbox-row">
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={d.allowRestrictedPartnerDispatch}
-                    onChange={(e) => set("allowRestrictedPartnerDispatch", e.target.checked)}
-                  />
-                  Restricted partners
-                </label>
-              </div>
-              <p style={{ color: "var(--muted)", fontSize: "0.9rem", marginTop: "0.75rem" }}>
-                A restricted partner's masked public name is their initials (e.g. "J.R.") everywhere one can
-                surface -- the public site, GroupMe/WhatsApp messages, and email digests. For a small country,
-                initials plus country can be enough to re-identify who that is to someone who knows the local
-                mission community. On (default) keeps today's behavior. Off shows a generic field label (e.g.
-                "Southeast Asia") instead, if one is set on the partner's record, or a fixed generic label
-                otherwise.
-              </p>
-              <div className="admin-checkbox-row">
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={d.restrictedPartnerInitialsEnabled !== false}
-                    onChange={(e) => set("restrictedPartnerInitialsEnabled", e.target.checked)}
-                  />
-                  Show initials for restricted partners
-                </label>
-              </div>
-            </>
-          )}
-        />
-      </div>
 
       {enabledFeatures.outboundEmail && (
         <div style={{ marginTop: "1rem" }}>

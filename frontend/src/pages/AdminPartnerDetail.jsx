@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   fetchPartner,
   updatePartner,
@@ -832,6 +832,7 @@ export default function AdminPartnerDetail() {
                   <input
                     type="checkbox"
                     checked={d.isPublic}
+                    disabled={isGuest}
                     onChange={(e) => set("isPublic", e.target.checked)}
                   />
                   Show on public site
@@ -840,11 +841,24 @@ export default function AdminPartnerDetail() {
                   <input
                     type="checkbox"
                     checked={d.isRestricted}
+                    disabled={isGuest}
                     onChange={(e) => set("isRestricted", e.target.checked)}
                   />
                   Restricted-access location
                 </label>
               </div>
+              {isGuest && (
+                <p style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
+                  Only staff can change whether this {isOrg ? "organization" : "partner"} is shown publicly or
+                  restricted.
+                </p>
+              )}
+              {isAdmin && (
+                <p style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
+                  What a restricted partner shows publicly, and how to change it:{" "}
+                  <Link to="/admin/settings/privacy">Privacy and safety</Link>.
+                </p>
+              )}
             </>
           )}
         />

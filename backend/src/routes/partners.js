@@ -620,9 +620,22 @@ router.put("/:id", requirePartnerWriter({ param: "id" }), async (req, res, next)
     // Read before the transaction to compare against scalarData.sentByOurChurch below.
     const before = await prisma.partner.findUnique({
       where: { id: req.params.id },
-      select: { sentByOurChurch: true, isRestricted: true, displayName: true },
+      select: { sentByOurChurch: true, isRestricted: true, isPublic: true, displayName: true },
     });
     if (!before) return res.status(404).json({ error: "Not found" });
+
+    // Who can see a partner on the public site is staff's decision. A care-team guest can write to
+    // their partner's record, but their prayer requests and uploads wait for approval, so this must
+    // not be the one thing that takes effect at once. Resending the current values is not a change.
+    if (
+      req.user.role === "guest" &&
+      ((scalarData.isPublic !== undefined && scalarData.isPublic !== before.isPublic) ||
+        (scalarData.isRestricted !== undefined && scalarData.isRestricted !== before.isRestricted))
+    ) {
+      return res
+        .status(403)
+        .json({ error: "Only staff can change whether a partner is shown publicly or restricted" });
+    }
 
     const updated = await prisma.$transaction(async (tx) => {
       if (addressRows) await tx.address.deleteMany({ where: { partnerId: req.params.id } });
