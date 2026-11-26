@@ -78,22 +78,20 @@ describe("trip application email", () => {
   }
   const application = { firstName: "Dana", lastName: "Reed", email: "dana@example.test", phone: "555" };
 
-  test("goes to admins, editors and the trip's own leaders, and no one else", async () => {
+  test("goes to admins only, not editors, viewers or the trip's own leaders", async () => {
     const t = await trip();
     const admin = await person("admin", "admin");
     const editor = await person("editor", "editor");
     const viewer = await person("viewer", "viewer");
     const leader = await person("leader", "guest");
-    const otherGuest = await person("otherguest", "guest");
     await prisma.tripAccess.create({ data: { userId: leader.id, tripId: t.id } });
     const c = collector();
     await notifyTripTeamOfApplication(t.id, application, { send: c.send });
-    const to = c
-      .mine()
-      .map((m) => m.to)
-      .sort();
-    assert.deepEqual(to, [admin.email, editor.email, leader.email].sort());
-    assert.ok(!to.includes(viewer.email) && !to.includes(otherGuest.email));
+    assert.deepEqual(
+      c.mine().map((m) => m.to),
+      [admin.email]
+    );
+    assert.ok(![editor.email, viewer.email, leader.email].some((e) => c.mine().some((m) => m.to === e)));
     const mail = c.mine()[0];
     assert.match(mail.subject, new RegExp(`New application for ${TAG} trip`));
     assert.ok(mail.text.includes("Dana Reed"));
@@ -104,15 +102,12 @@ describe("trip application email", () => {
     assert.ok(mail.text.includes(`/admin/trips/${t.id}/team`));
   });
 
-  test("a leader whose access has lapsed is not emailed", async () => {
+  test("an inactive admin is not emailed", async () => {
     const t = await trip();
-    const leader = await person("lapsed", "guest");
-    await prisma.tripAccess.create({
-      data: { userId: leader.id, tripId: t.id, expiresAt: new Date("2020-01-01") },
-    });
+    const gone = await person("gone", "admin", { active: false });
     const c = collector();
     await notifyTripTeamOfApplication(t.id, application, { send: c.send });
-    assert.ok(!c.mine().some((m) => m.to === leader.email));
+    assert.ok(!c.mine().some((m) => m.to === gone.email));
   });
 
   test("sends nothing with email off, so the bell and Team page are the only notice", async () => {
@@ -127,7 +122,7 @@ describe("trip application email", () => {
   test("one failed address does not stop the rest", async () => {
     const t = await trip();
     const bad = await person("bad", "admin");
-    const good = await person("good", "editor");
+    const good = await person("good", "admin");
     const sent = [];
     const send = async (m) => {
       if (m.to === bad.email) throw new Error("postmark blip");

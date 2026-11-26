@@ -2,34 +2,21 @@
 // still a badge on the bell ("Trip applications pending review") and a row on the trip's Team page, which is the
 // email-off option (utils/emailSenders.js). Best-effort: a failed email must never fail the public submission.
 //
-// Who: every active admin and editor (they run every trip), plus a Guest holding an unlapsed grant on this trip
-// (the trip's own leaders, who may review its applications). The email names the applicant and links to the
-// review page, and leaves out their contact details, date of birth and answers.
+// Who: every active admin, and no one else (not editors, viewers or a trip's guest leaders). The email names the
+// applicant and links to the review page, and leaves out their contact details, date of birth and answers.
 const prisma = require("../prismaClient");
 const { sendEmail } = require("./email");
 const { isFeatureEnabled } = require("./features");
 const { isDemoInstance } = require("./demoMode");
 const { renderEmail, blocks } = require("./emailTemplate");
-const { isGrantActive } = require("./tripAccessRules");
 const { appBaseUrl } = require("./tripAccessToken");
 
-async function applicationRecipients(trip) {
-  const [staff, grants] = await Promise.all([
-    prisma.user.findMany({
-      where: { active: true, role: { in: ["admin", "editor"] } },
-      select: { id: true, email: true, firstName: true },
-    }),
-    prisma.tripAccess.findMany({
-      where: { tripId: trip.id, user: { active: true, role: "guest" } },
-      select: {
-        expiresAt: true,
-        user: { select: { id: true, email: true, firstName: true } },
-      },
-    }),
-  ]);
-  const leaders = grants.filter((g) => isGrantActive(g, trip)).map((g) => g.user);
-  const byId = new Map([...staff, ...leaders].map((u) => [u.id, u]));
-  return [...byId.values()].filter((u) => u.email);
+async function applicationRecipients() {
+  const admins = await prisma.user.findMany({
+    where: { active: true, role: "admin" },
+    select: { id: true, email: true, firstName: true },
+  });
+  return admins.filter((u) => u.email);
 }
 
 function buildApplicationEmail({ user, trip, applicantName, settings, appUrl }) {
@@ -59,12 +46,12 @@ async function notifyTripTeamOfApplication(tripId, application, { send = sendEma
     if (await isDemoInstance()) return 0;
     const trip = await prisma.trip.findUnique({
       where: { id: tripId },
-      select: { id: true, name: true, endDate: true },
+      select: { id: true, name: true },
     });
     if (!trip) return 0;
     const applicantName = [application.firstName, application.lastName].filter(Boolean).join(" ");
     let sent = 0;
-    for (const user of await applicationRecipients(trip)) {
+    for (const user of await applicationRecipients()) {
       try {
         const message = buildApplicationEmail({ user, trip, applicantName, settings, appUrl: appBaseUrl() });
         await send({ to: user.email, subject: message.subject, text: message.text, html: message.html });
