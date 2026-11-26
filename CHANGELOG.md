@@ -20,6 +20,10 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 - **Trip applications and backup reminders can come by email (#423).** When Email (Sending) is on, a new trip application emails the admins (only admins) with the applicant's name and a link to review it, never their contact details. Admins also get a backup reminder email about once a month, held back for 30 days after they dismiss the in-app one, and off once the reminder is turned off for good. With email off nothing changes: the application is still a bell badge and a row on the trip's Team page, and the backup reminder is still the banner and the bell. Neither is ever sent from a public demo.
 
+### Fixed
+
+- **A backup could not be restored when a survey photo was waiting for approval (#493).** The photo's bytes were left out of the encoding the other binary columns get, so the restore stopped at that table and nothing came back. The backup now finds every binary column from the database schema, so a new one cannot be forgotten, and two tests guard it.
+
 ## [0.1.0-beta.3] - 2026-11-26
 
 ### Changed

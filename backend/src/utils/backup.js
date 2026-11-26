@@ -144,16 +144,17 @@ const SCHEMA_MODEL_NAMES = new Set(
 
 // Prisma returns a Node Buffer for every `Bytes` column. JSON.stringify would
 // bloat it ~4x ({type:"Buffer",data:[...]}), so these are base64-encoded
-// (~1.33x) and decoded on restore. Each lives on its own one-to-one table, keyed by that model name.
-const BYTES_FIELDS = {
-  partnerFileBytes: ["bytes"],
-  photoBytes: ["bytes"],
-  churchSettingsLogo: ["logoBytes"],
-  // Same base64 treatment as the three above.
-  tripParticipantPhoto: ["photo"],
-  tripDocumentBytes: ["bytes", "signatureImage"],
-  inboundEmailBytes: ["bytes"],
-};
+// (~1.33x) and decoded on restore.
+//
+// Read from the schema (Prisma.dmmf), not listed by hand: a hand-kept list let
+// surveyUpload.bytes be left out, which made every restore fail on that table.
+// Any new Bytes column is picked up automatically.
+const BYTES_FIELDS = {};
+for (const model of Prisma.dmmf.datamodel.models) {
+  if (EXCLUDED_MODELS.has(model.name)) continue;
+  const fields = model.fields.filter((f) => f.type === "Bytes").map((f) => f.name);
+  if (fields.length) BYTES_FIELDS[clientAccessorName(model.name)] = fields;
+}
 
 function encodeBytesFields(model, row) {
   const fields = BYTES_FIELDS[model];
@@ -268,4 +269,13 @@ async function restoreRows(prisma, rowsByModel, { timeout = 10 * 60 * 1000 } = {
   return counts;
 }
 
-module.exports = { MODELS, buildBackup, parseBackup, restoreRows, latestMigrationName };
+module.exports = {
+  MODELS,
+  BYTES_FIELDS,
+  encodeBytesFields,
+  decodeBytesFields,
+  buildBackup,
+  parseBackup,
+  restoreRows,
+  latestMigrationName,
+};
