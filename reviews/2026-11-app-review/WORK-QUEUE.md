@@ -118,7 +118,7 @@ A6's PR is #515.
 | 16h | C13 | merged | #536 |
 | 16i | C14 | merged | #537 |
 | 16j | C9a | merged (decline option and optional amount; the 'someone's on it / met' state is C9b in the schema batch) | #538 |
-| 16k | B14 | PR open, CI running | #541 |
+| 16k | B14 | merged | #541 |
 | 17 | A10 | not started | |
 | 18 | B13 | not started | |
 | 19 | C9b | not started | |
@@ -145,3 +145,4 @@ A6's PR is #515.
 - 2026-11-26: #533 (B15) and #534 (B6 part 2) merged. #536 (C13: photos need a sign-in unless the partner is public and unrestricted; digests use a real photo only for public partners) merged; #535 (C12: AI scan staff-only plus a confirmation for a restricted partner) is green and waiting on a CHANGELOG merge; #537 (C14: link fields take only http/https) opened. A known test flake (a random share link beginning with '-' failing a \\w+ pattern in tripParticipants.test.js, about one run in 64) hit #535 once and was fixed in #536; its failed job was re-run once.
 - 2026-11-26: #535 (C12), #537 (C14) and #538 (C9a: Decline choice on Record Decision, optional requested amount stored as 0 and shown as 'No amount') merged. Item 16f (B6 part 3, restore from inside the app) opened as DRAFT #539 and is not merged: owner review required. Remaining Phase 1: B5 (#500 plain words), B14 (#509 docs pass). Then Phase 2 (schema batch, stop before merging): A10 (#496), B10b (#505 skip-review setting), B13 (#508), C9b (#511).
 - 2026-11-26: #540 (B5, plain words) merged (all four checks green, including e2e on the renamed labels). Item 16k (B14, docs pass) opened as #541 (docs, two code comments and one console message; screenshots and 'Last verified' dates left for the owner on purpose). Phase 1 is complete once #541 merges; #539 (in-app restore) stays a DRAFT awaiting the owner. Phase 2 (schema batch) not started: stop before merging anything there.
+- 2026-11-26: #541 (B14, docs pass) merged (all four checks green). **Phase 1 is complete**: every item is merged except 16f (B6 part 3, in-app restore), which is DRAFT #539, brought up to date with `dev`, its CI re-running, waiting for the owner's review. Phase 2 (schema batch: A10 #496, B10b #505, B13 #508, C9b #511) not started; it stops before merging and needs the owner for the dev-test database reset. Owner follow-ups are listed at the top of this file.
