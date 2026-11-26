@@ -1,7 +1,7 @@
 // The one function every channel (GroupMe, WhatsApp, admin and public email
 // dispatch) calls to decide whether a recorded DispatchRecord row belongs in its send now.
 const prisma = require("../prismaClient");
-const { PUBLIC_EMAIL_DISPATCH_TYPES, REVIEW_GATED_TYPES } = require("./dispatchBlurbs");
+const { PUBLIC_EMAIL_DISPATCH_TYPES, REVIEW_GATED_TYPES, CARE_DISPATCH_TYPES } = require("./dispatchBlurbs");
 
 // Shared wrapper over the ChurchSettings lookup every dispatch file needs.
 function getChurchSettings() {
@@ -55,6 +55,13 @@ function isEligibleForChannel(row, channel, partner, settings, hasEligibleRecipi
     if (isPrayerRequestType && settings?.chatDispatchPrayerRequests === false) return false;
     if (ONE_TIME_NEED_TYPES.has(row.type) && settings?.chatDispatchOneTimeNeeds === false) return false;
     if (row.type === "newsletterCreated" && settings?.chatDispatchNewsletters === false) return false;
+    // The partner care posts are opt-in: each type posts only when its own switch is on.
+    if (row.type === "keyDateComing" && settings?.chatDispatchKeyDates !== true) return false;
+    if (row.type === "quietPartner" && settings?.chatDispatchQuietPartners !== true) return false;
+    if (row.type === "updateToPassOn" && settings?.chatDispatchUpdatesToPass !== true) return false;
+  } else if (CARE_DISPATCH_TYPES.has(row.type)) {
+    // Chat-only: the digest carries key dates in its own section, and the bell carries the rest.
+    return false;
   }
   if (channel === CHANNELS.EMAIL_PUBLIC) {
     if (!isPrayerRequestType) return false;

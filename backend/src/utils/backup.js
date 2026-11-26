@@ -83,6 +83,7 @@ const MODELS = [
   "careTeamMember", // -> partner, user
   "contactLog", // -> partner, user
   "keyDateReminder", // -> partner, user
+  "careChatPost", // -> partner
   "supportOption", // standalone: the church's menu
   "partnerSupportPreference", // -> partner, supportOption
   "survey", // standalone: the church's surveys

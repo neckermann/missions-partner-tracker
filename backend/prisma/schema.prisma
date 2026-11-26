@@ -104,6 +104,7 @@ model Partner {
   surveyProposals          SurveyProposal[]
   surveyUploads            SurveyUpload[]
   keyDateReminders         KeyDateReminder[]
+  careChatPosts            CareChatPost[]
   publicSubscriberPartners PublicSubscriberPartner[]
   adults                   Adult[]
   children                 Child[]
@@ -785,6 +786,23 @@ model KeyDateReminder {
   @@index([partnerId])
 }
 
+// A care post already made to the church's chat (GroupMe/WhatsApp), so the daily run never posts the same one
+// twice. Church-wide, not per person: the chat is one group. `type` is the dispatch type; `subjectKey` and
+// `occurrenceDate` say which occurrence (a key date's own date, the day a quiet stretch began, the date of the
+// decision or answer), and `tier` is the key-date heads-up (as KeyDateReminder.tier; 0 otherwise).
+model CareChatPost {
+  id             String   @id @default(uuid())
+  partnerId      String
+  partner        Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  type           String
+  subjectKey     String   @default("")
+  occurrenceDate DateTime @db.Date
+  tier           Int      @default(0)
+  postedAt       DateTime @default(now())
+
+  @@unique([partnerId, type, subjectKey, occurrenceDate, tier])
+}
+
 // A link about this partner (website, support page, newsletter signup, social profile). `type`
 // is a validated string (routes/partnerLinks.js), not an enum, so a fork can add one without a
 // migration. @@unique allows one link per type.
@@ -1101,6 +1119,7 @@ model InboundEmailFailure {
 model DispatchRecord {
   id        String   @id @default(uuid())
   // "prayerRequestCreated" | "prayerRequestAnswered" | "supportNeedCreated" | "supportNeedDecided" | "newsletterCreated"
+  // | the chat-only care posts "keyDateComing" | "quietPartner" | "updateToPassOn" (utils/careChatDispatch.js)
   type      String
   partnerId String
   partner   Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
@@ -1247,6 +1266,8 @@ model ChurchSettings {
   groupmeOneTimeNeedTopicName String?
   groupmeNewsletterTopicId    String?
   groupmeNewsletterTopicName  String?
+  groupmeCareTopicId          String?
+  groupmeCareTopicName        String?
 
   // WhatsApp integration (utils/whatsappChannel.js, whatsappClient.js). No token here: the
   // credential is a Baileys session stored encrypted per row in WhatsAppAuthEntry. Nothing in
@@ -1275,6 +1296,8 @@ model ChurchSettings {
   whatsappOneTimeNeedGroupName  String?
   whatsappNewsletterGroupId     String?
   whatsappNewsletterGroupName   String?
+  whatsappCareGroupId           String?
+  whatsappCareGroupName         String?
 
   // Joshua Project API key (utils/joshuaProject.js). Encrypted at rest like
   // groupmeAccessToken; every route outside routes/settings.js's /joshua-project sub-routes
@@ -1369,6 +1392,12 @@ model ChurchSettings {
   chatDispatchPrayerRequests     Boolean @default(true)
   chatDispatchOneTimeNeeds       Boolean @default(true)
   chatDispatchNewsletters        Boolean @default(true)
+  // Partner care posts to the same chats, one switch each: a coming key date, a partner nobody has heard
+  // from, and news waiting to be passed on to a partner. Off by default, so nothing starts posting to a
+  // church's group until someone turns it on. They share one Partner care topic/group.
+  chatDispatchKeyDates           Boolean @default(false)
+  chatDispatchQuietPartners      Boolean @default(false)
+  chatDispatchUpdatesToPass      Boolean @default(false)
   // Applies to every channel. Off means a restricted partner's event is never recorded, for
   // any type, so a church that does not watch the review queue
   // (DispatchRecord.dispatchReviewedAt) does not accumulate an unreviewed backlog. Default off

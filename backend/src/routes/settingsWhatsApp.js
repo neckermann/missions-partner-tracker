@@ -26,6 +26,8 @@ const whatsappSettingsSelect = {
   whatsappOneTimeNeedGroupName: true,
   whatsappNewsletterGroupId: true,
   whatsappNewsletterGroupName: true,
+  whatsappCareGroupId: true,
+  whatsappCareGroupName: true,
 };
 function shapeWhatsAppSettings(settings) {
   const { status, health, error } = whatsappClient.getStatus();
@@ -43,6 +45,8 @@ function shapeWhatsAppSettings(settings) {
     oneTimeNeedGroupName: settings?.whatsappOneTimeNeedGroupName || null,
     newsletterGroupId: settings?.whatsappNewsletterGroupId || null,
     newsletterGroupName: settings?.whatsappNewsletterGroupName || null,
+    careGroupId: settings?.whatsappCareGroupId || null,
+    careGroupName: settings?.whatsappCareGroupName || null,
     connection: { status, health, error },
   };
 }
@@ -63,6 +67,8 @@ const whatsappSchema = z.object({
   oneTimeNeedGroupName: whatsappLabel,
   newsletterGroupId: whatsappJid,
   newsletterGroupName: whatsappLabel,
+  careGroupId: whatsappJid,
+  careGroupName: whatsappLabel,
 });
 
 // Anyone who scans a live QR code links their phone to this app's
@@ -100,6 +106,7 @@ router.put("/whatsapp", ...whatsappGate, async (req, res, next) => {
     const prayer = groupPick(body.prayerGroupId, body.prayerGroupName);
     const needs = groupPick(body.oneTimeNeedGroupId, body.oneTimeNeedGroupName);
     const newsletter = groupPick(body.newsletterGroupId, body.newsletterGroupName);
+    const care = groupPick(body.careGroupId, body.careGroupName);
 
     // The Announcements group is auto-resolved (whatsappClient.js findAnnouncementGroup), so a community
     // change re-resolves it rather than clearing it. Best-effort: a momentary disconnect must not block
@@ -131,6 +138,8 @@ router.put("/whatsapp", ...whatsappGate, async (req, res, next) => {
       whatsappOneTimeNeedGroupName: needs.name,
       whatsappNewsletterGroupId: newsletter.id,
       whatsappNewsletterGroupName: newsletter.name,
+      whatsappCareGroupId: care.id,
+      whatsappCareGroupName: care.name,
     };
     const updated = await prisma.churchSettings.upsert({
       where: { id: "singleton" },
@@ -209,6 +218,8 @@ router.post("/whatsapp/unlink", ...whatsappGate, async (req, res, next) => {
         whatsappOneTimeNeedGroupName: null,
         whatsappNewsletterGroupId: null,
         whatsappNewsletterGroupName: null,
+        whatsappCareGroupId: null,
+        whatsappCareGroupName: null,
       },
     });
     void updated;

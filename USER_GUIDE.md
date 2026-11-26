@@ -1301,7 +1301,11 @@ unofficial connection and you'll want a dedicated phone number for it.
 WhatsApp sends once a day, at an admin-set hour, and has its own three
 content-type mutes (Prayer Requests / One-Time Needs / Newsletters) —
 both set on the [Dispatch Settings](#dispatch-settings-admin-only)
-page. GroupMe shares that same daily-hour field and the same three
+page. Beside those three, **partner care posts** (a coming key date, a
+partner nobody has heard from, and news to pass on to a partner) have
+their own switches, **off until you turn them on**, and share one
+Partner Care topic or group; a restricted partner is named by initials
+only. GroupMe shares that same daily-hour field and the same three
 mutes, because both are chat-style, near-real-time channels — not
 because WhatsApp depends on or borrows GroupMe's settings — but
 WhatsApp's own on/off state, community/group configuration, and

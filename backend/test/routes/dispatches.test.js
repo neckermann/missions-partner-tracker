@@ -120,6 +120,9 @@ describe("GET/PUT /api/settings/dispatches -- admin gate and defaults", () => {
         chatDispatchPrayerRequests: true,
         chatDispatchOneTimeNeeds: true,
         chatDispatchNewsletters: true,
+        chatDispatchKeyDates: false,
+        chatDispatchQuietPartners: false,
+        chatDispatchUpdatesToPass: false,
         allowRestrictedPartnerDispatch: true,
         // Pin every field explicitly, as in the rest of this block: the deepEqual below checks the
         // response's entire shape.
@@ -144,6 +147,9 @@ describe("GET/PUT /api/settings/dispatches -- admin gate and defaults", () => {
       chatDispatchPrayerRequests: true,
       chatDispatchOneTimeNeeds: true,
       chatDispatchNewsletters: true,
+      chatDispatchKeyDates: false,
+      chatDispatchQuietPartners: false,
+      chatDispatchUpdatesToPass: false,
       allowRestrictedPartnerDispatch: true,
       restrictedPartnerInitialsEnabled: true,
       emailDispatchSubjectTemplate: null,

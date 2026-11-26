@@ -13,6 +13,7 @@ require("./config/env").assertValidEnv();
 const { startEmailDispatchScheduler, startGroupMeScheduler } = require("./utils/emailDispatchScheduler");
 const { startTripReminderScheduler } = require("./utils/tripReminderScheduler");
 const { startKeyDateReminderScheduler } = require("./utils/keyDateReminderScheduler");
+const { startCareChatDispatchScheduler } = require("./utils/careChatDispatch");
 const { startReportScheduler } = require("./utils/reportScheduler");
 const { startAuditPruneScheduler } = require("./utils/auditPruneScheduler");
 const whatsappClient = require("./utils/whatsappClient");
@@ -42,6 +43,7 @@ if (require.main === module) {
     startGroupMeScheduler();
     startTripReminderScheduler();
     startKeyDateReminderScheduler();
+    startCareChatDispatchScheduler();
     startReportScheduler();
     startAuditPruneScheduler();
     console.log("Missionary Tracker worker is running.");

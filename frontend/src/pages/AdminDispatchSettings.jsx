@@ -399,6 +399,9 @@ export default function AdminDispatchSettings() {
               chatDispatchPrayerRequests: settings.chatDispatchPrayerRequests,
               chatDispatchOneTimeNeeds: settings.chatDispatchOneTimeNeeds,
               chatDispatchNewsletters: settings.chatDispatchNewsletters,
+              chatDispatchKeyDates: settings.chatDispatchKeyDates,
+              chatDispatchQuietPartners: settings.chatDispatchQuietPartners,
+              chatDispatchUpdatesToPass: settings.chatDispatchUpdatesToPass,
             }}
             onSave={savePartial}
             onSaved={reload}
@@ -414,6 +417,16 @@ export default function AdminDispatchSettings() {
                   ]
                     .filter(Boolean)
                     .join(", ") || "None"}
+                </p>
+                <p style={{ color: "var(--muted)" }}>
+                  Partner care posts:{" "}
+                  {[
+                    v.chatDispatchKeyDates && "Key dates",
+                    v.chatDispatchQuietPartners && "Quiet partners",
+                    v.chatDispatchUpdatesToPass && "News to pass on",
+                  ]
+                    .filter(Boolean)
+                    .join(", ") || "None (off)"}
                 </p>
               </>
             )}
@@ -466,6 +479,37 @@ export default function AdminDispatchSettings() {
                       onChange={(e) => set("chatDispatchNewsletters", e.target.checked)}
                     />
                     Newsletters
+                  </label>
+                </div>
+
+                <p style={{ margin: "1.25rem 0 0.5rem", color: "var(--muted)", fontSize: "0.9rem" }}>
+                  Partner care posts are off until you turn them on. They share one Partner Care topic (or
+                  group) on the {chatLabel} settings page. Restricted partners are named by initials only.
+                </p>
+                <div className="admin-checkbox-row">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={!!d.chatDispatchKeyDates}
+                      onChange={(e) => set("chatDispatchKeyDates", e.target.checked)}
+                    />
+                    Key dates coming up (needs Key-date reminders on)
+                  </label>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={!!d.chatDispatchQuietPartners}
+                      onChange={(e) => set("chatDispatchQuietPartners", e.target.checked)}
+                    />
+                    Partners nobody has heard from (needs Contact log on)
+                  </label>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={!!d.chatDispatchUpdatesToPass}
+                      onChange={(e) => set("chatDispatchUpdatesToPass", e.target.checked)}
+                    />
+                    News to pass on to a partner (needs Contact log on)
                   </label>
                 </div>
               </>

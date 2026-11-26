@@ -42,6 +42,15 @@ const TOPIC_TYPES = [
     nameField: "newsletterTopicName",
     fallbackNote: "newsletters post to the group's main conversation",
   },
+  {
+    number: 6,
+    key: "care",
+    title: "Partner Care Topic",
+    idField: "careTopicId",
+    nameField: "careTopicName",
+    fallbackNote:
+      "partner care posts (key dates, quiet partners, news to pass on) post to the group's main conversation",
+  },
 ];
 
 function TopicSection({ type, settings, groupId, topics, saving, onSave }) {
@@ -103,6 +112,8 @@ export default function AdminSettingsGroupMe() {
     oneTimeNeedTopicName: null,
     newsletterTopicId: null,
     newsletterTopicName: null,
+    careTopicId: null,
+    careTopicName: null,
   });
   const [accessToken, setAccessToken] = useState("");
 
@@ -213,8 +224,9 @@ export default function AdminSettingsGroupMe() {
     <div className="admin-shell">
       <SettingsPageHeader title="GroupMe" />
       <p style={{ color: "var(--muted)" }}>
-        Posts new prayer requests, one-time needs, and newsletters to GroupMe Topics as they're added. Turn
-        this on in <a href="/admin/settings/features">Enabled Features</a> once it's configured below.
+        Posts new prayer requests, one-time needs, and newsletters to GroupMe Topics as they're added, and
+        (when turned on under Dispatch Settings) partner care posts such as coming key dates. Turn this on in{" "}
+        <a href="/admin/settings/features">Enabled Features</a> once it's configured below.
       </p>
 
       {error && (
