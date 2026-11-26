@@ -27,6 +27,10 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 - **A public demo can no longer send real messages, spend the AI key or be locked out (#489).** Anyone using a demo's published sign-in could post their own words to the real GroupMe group, send email from the real sender, run the paid AI scan, and change the shared password. A demo (`DEMO_RESET_TOKEN` set) now logs what it would have sent instead of sending it, refuses the AI scan, password changes and integration settings, and a reset no longer restores the Anthropic, GroupMe and Postmark keys. Set `DEMO_TESTING_SITE=true` on your own test deployment to turn this off there; it also stops that site publishing its logins. Nothing changes on a real church install.
 - **A backup could not be restored when a survey photo was waiting for approval (#493).** The photo's bytes were left out of the encoding the other binary columns get, so the restore stopped at that table and nothing came back. The backup now finds every binary column from the database schema, so a new one cannot be forgotten, and two tests guard it.
 
+### Changed
+
+- **A new install is useful straight away (#477).** The contact log and key-date reminders are now on by default, and the first admin created at `/setup` is on the missions team. Until now both features were off, and turning them on did nothing because nobody was on the missions team (reminders go to whoever looks after a partner: its care team, else the missions team), so the bell said "Nothing waiting" with a birthday four days away. Email for key dates still needs Email (Sending). A church that wants either off can still switch it off under Settings → Enabled Features. Installs that never chose will see both turn on after this update; there are no churches with data yet.
+
 ## [0.1.0-beta.3] - 2026-11-26
 
 ### Changed

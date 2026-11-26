@@ -59,6 +59,9 @@ describe("first-run setup", () => {
     assert.equal(await prisma.user.count(), 1);
     const [admin] = await prisma.user.findMany();
     assert.equal(admin.role, "admin");
+    // Nobody else is on the missions team on a new install, so the contact log and key-date reminders
+    // (which go to whoever looks after a partner) would notify no one without this.
+    assert.equal(admin.onMissionsTeam, true);
     assert.equal((await anon("/api/auth/setup-status")).body.needed, false);
   });
 
