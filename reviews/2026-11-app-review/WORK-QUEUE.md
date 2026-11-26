@@ -54,6 +54,9 @@ Order is: safety first, then the install path, then the small bugs, then everyth
 | 16h | **C13** partner photos are no longer reachable by web address when the partner's settings say they shouldn't be public | (new) | Read how photos are served before changing anything |
 | 16i | **C14** link fields accept only web addresses (http and https), not any text | (new) | |
 
+| 16j | **C9a** Record Decision gets a decline option; a one-time need can be saved without a dollar amount | (new) | Read the need and decision code first to confirm the current states; check reports and email text that assume an amount |
+| 16k | **B14** docs pass, last in Phase 1: SPEC § 4 feature list and § 5 numbering, ADMIN_GUIDE care-teams count, `APP_BASE_URL` documented as required, other written inaccuracies from report 4. Screenshots are left for the owner | (new) | Run after every code item so the docs describe what shipped |
+
 The B items have no issue yet. File one per item from the draft text in `README.md` (section B) before starting each, and link it in the PR.
 
 ### Phase 2: schema batch (stop before merging)
@@ -61,13 +64,14 @@ The B items have no issue yet. File one per item from the draft text in `README.
 | # | Item | Issue | Notes |
 |---|---|---|---|
 | 17 | **A10** two-factor: recovery codes at enrolment; documented command to clear two-factor; `FIELD_ENCRYPTION_KEY` required at start-up; encourage a second admin in setup | #496 | New table or columns. Check `render.yaml`, docs and the demo setup so existing deployments still start |
+| 19 | **C9b** a one-time need gets a "someone's on it" / "met" state, shown on the need and in the bell and reports where needs are counted | (new) | New column or table; confirm the state names with the owner once the code is read |
 | 18 | **B13** the Bible passage on the public subscribe page becomes a church setting, empty by default | (new) | New column |
 
 One PR for the batch is fine. Open it, then stop and report. The owner approves the dev-test reset.
 
 ### Not in the queue
 
-- **B3, B4, B14, scheduled backups (B6 part 1)** and the whole C group: larger, or decisions first. B3 and B4 belong to #477. B14's docs fixes are partly picked up by A8 and A5; the rest waits.
+- **B3, B4 (both stay in #477), scheduled backups (B6 part 1)** and the whole C group: larger, or decisions first. B3 and B4 belong to #477. B14's docs fixes are partly picked up by A8 and A5; the rest waits.
 - **The Viewer role, WhatsApp removal, the "Trips departing soon" alert, what to do with trips (C1 to C3):** owner decisions, undecided. WhatsApp stays (D12).
 
 ## Owner tasks (not mine)
@@ -110,8 +114,11 @@ Update this table as items land.
 | 16g | C12 | not started | |
 | 16h | C13 | not started | |
 | 16i | C14 | not started | |
+| 16j | C9a | not started | |
+| 16k | B14 | not started | |
 | 17 | A10 | not started | |
 | 18 | B13 | not started | |
+| 19 | C9b | not started | |
 
 ## Log
 

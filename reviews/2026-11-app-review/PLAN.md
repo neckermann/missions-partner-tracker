@@ -63,6 +63,9 @@ Not re-run: A1 (needs the live demo, which is off limits and not mine to touch),
 | D26 | B2, B11, B15 and B5 added to the queue | WORK-QUEUE items 16a to 16c, 16e |
 | D27 | Backup file: optional passphrase with a clear warning; restore asks for it | WORK-QUEUE items 16d and 16f |
 | D28 | C12, C13 and C14 hardening items added | WORK-QUEUE items 16g to 16i |
+| D29 | B3 and B4 stay in #477 | |
+| D30 | C9: decline option and optional amount (16j); "on it / met" state in the schema batch (19) | WORK-QUEUE |
+| D31 | B14 docs pass queued last in Phase 1; screenshots left to the owner | WORK-QUEUE item 16k |
 | D5 | Blueprint default names | A8: drop the `name-instance` step, add a Deploy to Render button, list true requirements and cost |
 | D7 | No church has real data yet | Confirmed; wipe-on-upgrade is acceptable for now |
 
