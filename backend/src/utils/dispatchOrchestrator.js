@@ -12,6 +12,9 @@ const { postToWhatsApp, hasWhatsAppTarget } = require("./whatsappChannel");
 const whatsappClient = require("./whatsappClient");
 const { normalizeRecipient, sendToRecipients } = require("./emailDispatchDelivery");
 
+// Unsent rows no channel applies to are deleted after this long.
+const UNSENT_EXPIRY_MS = 14 * 24 * 60 * 60 * 1000;
+
 const TIERS = ["biweekly", "monthly", "quarterly"];
 const TIER_STAMP_COLUMN = {
   biweekly: "biweeklyEmailDispatchSentAt",
@@ -84,9 +87,12 @@ async function clearDispatchRecords() {
         isEligibleForChannel(row, CHANNELS.WHATSAPP, partner, settings, true);
       const tiers = Object.fromEntries(TIERS.map((tier) => [tier, tierApplies(row, tier, partner)]));
 
-      // Guards the vacuous case: with every channel off, every "!applies" term is
-      // trivially true and would delete a row that never reached anyone.
-      if (!(groupmeApplies || whatsappApplies || Object.values(tiers).some(Boolean))) return false;
+      // The vacuous case: with nothing applying, every "!applies" term is trivially true, so the
+      // row cannot be judged "fully sent". Keep it for a grace period (a channel may be switched
+      // on soon), then drop it so it can't pile up and post all at once much later.
+      if (!(groupmeApplies || whatsappApplies || Object.values(tiers).some(Boolean))) {
+        return row.createdAt < new Date(Date.now() - UNSENT_EXPIRY_MS);
+      }
 
       return (
         (!groupmeApplies || row.groupmeDispatchedAt) &&
