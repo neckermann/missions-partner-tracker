@@ -128,6 +128,39 @@ export async function fetchSystemInfo() {
   return data;
 }
 
+// Asks for the admin's password again (and, if given, locks the file with a passphrase), then saves the file
+// the server sends. A failed request answers with JSON but arrives as a Blob, so its message is read out here.
+export async function downloadBackup({ password, passphrase }) {
+  let res;
+  try {
+    res = await api.post(
+      "/backups/download",
+      { password, ...(passphrase ? { passphrase } : {}) },
+      { responseType: "blob" }
+    );
+  } catch (err) {
+    const blob = err.response?.data;
+    if (blob && typeof blob.text === "function") {
+      try {
+        err.message = JSON.parse(await blob.text()).error || err.message;
+      } catch {
+        // keep the original message
+      }
+    }
+    throw err;
+  }
+  const name = /filename="([^"]+)"/.exec(res.headers["content-disposition"] || "")?.[1] || "backup.ndjson.gz";
+  const url = URL.createObjectURL(res.data);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = name;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  return name;
+}
+
 export async function fetchBackupCheck() {
   const { data } = await api.get("/backup-check");
   return data;

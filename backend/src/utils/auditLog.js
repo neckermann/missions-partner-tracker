@@ -52,6 +52,7 @@ const AUDIT_ACTIONS = {
   "survey.update_rejected": { label: "Rejected a change from a survey answer", category: "Data" },
 
   "backup.downloaded": { label: "Downloaded a backup", category: "Data" },
+  "backup.download_refused": { label: "Backup download refused (wrong password)", category: "Data" },
 
   "partner.restricted_changed": { label: "Changed a partner's restricted status", category: "Restricted" },
   "partner.restricted_viewed": { label: "Viewed a restricted partner", category: "Restricted" },

@@ -1584,6 +1584,16 @@ server-side: downloading is the only copy that exists, so store it
 somewhere safe immediately (a password manager's file storage, an
 encrypted drive — somewhere only trusted people can reach).
 
+Downloading asks for **your password again**, so a borrowed or stolen
+signed-in browser can't pull the file on its own. It also offers to
+**lock the file with a passphrase** (recommended). A locked file is
+saved with a `.locked` ending and can't be opened without the
+passphrase — and the passphrase is not stored anywhere, so **if you lose
+it, nobody can open that backup, including us**. Keep the passphrase
+somewhere separate from the file (a password manager, or written down
+in a safe place). Unlocked downloads still work, but anyone who gets
+one can read everything in it.
+
 Nothing in the app backs up your database, so it reminds you. An admin sees
 a banner and a **Time to check your backups** item on the bell, and, **when
 Email (Sending) is on**, also gets a short email about once a month (never on
@@ -1621,17 +1631,22 @@ an admin could fire by accident.
    on every paid web service (the documented minimum tier already), opens
    a real terminal on your running instance, and needs no SSH keys or
    local setup.
-2. Upload the backup file somewhere the Shell can reach it — the
-   simplest path is a temporary, unlisted file host, or `scp`/SFTP if
-   you've set up SSH access instead of the dashboard Shell (see
-   [Render's SSH docs](https://render.com/docs/ssh)). Download it onto
-   the instance, e.g. `curl -o backup.ndjson.gz "<url>"`.
-3. From the Shell, in the `backend` directory:
+2. Get the backup file onto the instance **without exposing it**. Prefer
+   `scp`/SFTP if you've set up SSH access instead of the dashboard Shell
+   (see [Render's SSH docs](https://render.com/docs/ssh)). Do **not**
+   put an unlocked backup on a public or "anyone with the link" file
+   host: it holds every partner (restricted ones unmasked) and every
+   user's password hash. If you must stage it through a file-sharing
+   service, only use a backup you locked with a passphrase, a service
+   that needs a sign-in to download, and a link that expires.
+3. From the Shell, in the `backend` directory (a locked file asks for
+   its passphrase, or set `BACKUP_PASSPHRASE` for that one command):
    ```bash
    npm run backup:restore -- backup.ndjson.gz
    ```
-4. Delete the uploaded file from wherever you staged it in step 2 once
-   the restore succeeds — it's as sensitive as the original download.
+4. Delete the file from the instance and from wherever you staged it
+   once the restore succeeds — it's as sensitive as the original
+   download.
 
 **Anywhere else** (self-hosted, another platform): run the same command
 from a machine with `DATABASE_URL` set to the target database and this
