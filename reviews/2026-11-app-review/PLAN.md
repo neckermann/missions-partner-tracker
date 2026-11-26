@@ -55,6 +55,10 @@ Not re-run: A1 (needs the live demo, which is off limits and not mine to touch),
 | D18 | Schema changes batched last; stop for the owner before merging (dev-test reset) | WORK-QUEUE.md rule 3, Phase 2 |
 | D19 | Small B bug fixes (B1, B7, B8, B9, B10, B12, B13) are in the queue | WORK-QUEUE.md |
 | D20 | When stuck: skip, note on the issue, continue | WORK-QUEUE.md rule 4 |
+| D21 | A2b: one skippable screen after first sign-in; off if skipped | WORK-QUEUE item 7 |
+| D22 | B10: auto-filed inbound mail held for quick review by default | WORK-QUEUE item 15 |
+| D23 | B8: skip recording when no channel is on, and expire unsent rows after 14 days; held rows kept | WORK-QUEUE item 14 |
+| D24 | Unattended work runs in this session | |
 | D5 | Blueprint default names | A8: drop the `name-instance` step, add a Deploy to Render button, list true requirements and cost |
 | D7 | No church has real data yet | Confirmed; wipe-on-upgrade is acceptable for now |
 
