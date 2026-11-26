@@ -299,6 +299,13 @@ generated file afterward. Mention in your PR that it needs
 `main` is production. Render tracks this repo's default branch and deploys
 on push, so **a merge into `main` is a release**, not a checkpoint.
 
+Every church that used the "Deploy to Render" button follows `main` directly, so
+a merge into `main` also redeploys **every one of those installs**. Before 1.0,
+a release that edits the baseline migration makes each of them refuse to start
+until its database is reset (see
+[UPGRADING.md](UPGRADING.md) and [RUNBOOK.md](RUNBOOK.md)): do that only
+deliberately, and say so at the top of that release's `CHANGELOG.md` entry.
+
 Work therefore lands on `dev` and ships through a pull request:
 
 ```

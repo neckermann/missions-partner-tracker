@@ -1,5 +1,10 @@
 # Upgrading a fork
 
+> **Deployed with the "Deploy to Render" button, with no fork?** Then there is
+> nothing here for you to do: your site follows this project's `main` branch and
+> redeploys when a release is published. The box below, about the database,
+> still applies to you. The rest of this page is for churches that keep their own fork.
+
 > **Before 1.0, an upgrade can require wiping the database.** Until the 1.0
 > release the project rewrites its single database migration in place each time
 > the schema changes (see [SPEC.md § 8.3](SPEC.md#83-migration-strategy-pre-10)).

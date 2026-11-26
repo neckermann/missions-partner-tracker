@@ -44,72 +44,96 @@ an `httpOnly` cookie can't be read by JS at all).
 ## Getting your church running (Render)
 
 **This is the path almost every church should start with.** You don't
-need to know how to code, run a database, or use a command-line tool
-beyond the one short command below — Render hosts the database and the
-app for you, and keeps it updated automatically. If you're planning to
-contribute code to this project instead of running it for your own
-church, see [Local development setup](#local-development-setup)
-further down.
+need to know how to code, run a database, use a terminal, or even have a
+GitHub account: Render hosts the database and the app for you, and keeps
+it updated. If you're planning to contribute code to this project instead
+of running it for your own church, see
+[Local development setup](#local-development-setup) further down.
 
-This repo doesn't run a live deployment itself — it's the open-source
-upstream that your church's own fork deploys from (see
-[Upgrading a fork](#upgrading-a-fork) for how your copy keeps getting
-updates later). The deployment itself goes through
-[Render](https://render.com), via [`render.yaml`](render.yaml) at the
-repo root — a Blueprint that provisions the web service and Postgres
-database (which also holds every uploaded photo, newsletter, and
-document — see [File storage](#file-storage) below, nothing extra to
-provision) in one step:
+**What you need before you start**
 
-1. Make your own copy of this repo, then name it and pick a region:
+- A [Render](https://render.com) account, with a payment card. The web
+  service and the database are paid plans; together they cost about
+  **$13 a month** (the cheapest paid tiers). Nothing else is billed: the
+  database also holds every uploaded photo, newsletter and document, and
+  the scheduled emails and posts run inside the same service.
+- A phone with an authenticator app (Google Authenticator, Authy, 1Password
+  and so on). Two-factor sign-in is required from the very first sign-in
+  (see [Authentication setup](#authentication-setup)).
+- An email address and a strong password for the first admin account.
 
-   ```bash
-   npm run name-instance -- your-church-name oregon
-   ```
+The deployment goes through Render, via [`render.yaml`](render.yaml) at the
+root of this repo: a Blueprint that creates one web service and one
+Postgres database in a single step.
 
-   The name becomes your URL (`your-church-name.onrender.com`); the
-   region defaults to `oregon` (valid: `oregon`, `ohio`, `virginia`,
-   `frankfurt`, `singapore` — the database and web service must match).
-   Render's Blueprint deploy has no picker for either, so both have to
-   be set in `render.yaml` before you deploy.
+1. Click **Deploy to Render** (the button is on the
+   [project page](https://github.com/neckermann/missions-partner-tracker#deploy)
+   and at the bottom of the
+   [website](https://missionspartnertracker.com)). Sign in to Render, or
+   create an account and add a card when it asks.
+2. Render shows you what it is about to create (one web service and one
+   database) and asks for a couple of optional values `render.yaml` marks
+   `sync: false` (`MFA_ISSUER`, `NOMINATIM_CONTACT`; see
+   [Environment variables](#environment-variables) below). Leave them
+   blank if you like. `SESSION_SECRET` and `FIELD_ENCRYPTION_KEY` are
+   generated automatically; there is nothing to copy or enter.
+3. Click **Apply**. Render builds the app, applies the database setup as a
+   pre-deploy step, and starts it. This takes several minutes.
+4. When Render says the service is live, open its address (shown at the top
+   of the service's page; it looks like `missions-partner-tracker.onrender.com`,
+   with a few extra letters if that name was taken). A site with no accounts
+   yet sends you straight to the first-run page, `/setup`. **Do this as soon as
+   the deploy finishes:** until the first account exists, whoever reaches
+   `/setup` first creates it. If setup says it has "already been completed" and
+   you did not create that account, redeploy to start again (a new install has
+   no data to lose).
+5. Create your first admin account right in the browser, sign in once, and set
+   up your authenticator app (scan a QR code, confirm a code). You can turn the
+   two-factor requirement off later in Manage Users, but it is on by default.
+6. The first time you reach the admin area you are asked, once, whether to
+   show your partners on a public website. "Not yet" is fine, and you can
+   change it any time under Settings → Privacy and safety.
 
-   **Choose the region carefully: it cannot be changed afterwards.**
-   Render won't move an existing service, and editing this later just
-   makes every Blueprint sync fail silently while the site keeps
-   running. Getting it wrong means destroying and recreating both the
-   service and the database.
-2. Render Dashboard → **New → Blueprint** → pick your fork. The first
-   time you do this with a private fork, Render needs its GitHub App
-   authorized on that repo (Dashboard → Account Settings → GitHub →
-   Configure) — a one-time step.
-3. Render prompts for the handful of optional variables `render.yaml`
-   marks `sync: false` (`MFA_ISSUER`, etc. — see
-   [Environment variables](#environment-variables) below); leave them
-   blank to skip those optional features for now. `SESSION_SECRET` and
-   `FIELD_ENCRYPTION_KEY` are generated automatically, nothing to enter.
-4. Apply the blueprint. Render builds, runs `prisma migrate deploy` as a
-   pre-deploy step, and starts the app — no separate migration step to
-   remember.
-5. Visit your new site and go to `/setup` (or just open the site's front page —
-   a fresh instance sends you there automatically) to create your first admin
-   account, right in the browser. **Do this as soon as the deploy finishes:**
-   until the first account exists, whoever reaches `/setup` first creates it.
-   If setup says it has "already been completed" and you did not create that
-   account, redeploy to start again (a new install has no data to lose). No shell access, no
-   `DATABASE_URL`/`createAdmin.js` needed — the point of a one-click
-   deploy is defeated if the very first login still requires a terminal.
-   A new install **requires two-factor from the start** (see
-   [Authentication setup](#authentication-setup)), so after creating the
-   account you sign in once and set up an authenticator app on your phone
-   (scan a QR code, confirm a code). You can turn the requirement off later
-   in Manage Users, but it's on by default.
+**The region is Oregon, and cannot be changed afterwards.** Render won't move
+an existing service, so a church that wants a different region (`ohio`,
+`virginia`, `frankfurt` or `singapore`) or its own service name has to set it
+before the first deploy, which needs the advanced path below.
 
-Costs about $13/mo on Render's cheapest paid tiers — free tier exists
-but isn't viable for anything long-lived (the web service sleeps after
-15min idle, and the database gets deleted after 90 days). Every push to
-your fork's `main` redeploys automatically; `.github/workflows/ci.yml`
-runs the test suite and a real end-to-end Playwright pass on every PR
-and push, independent of deployment.
+**Your address.** Render gives your site its own `onrender.com` address and
+the app uses it for the links in the emails it sends (setup links, unsubscribe
+links, passkeys). If you later put the site on your own domain, set
+`APP_BASE_URL` to that address (see [Environment variables](#environment-variables)).
+
+**Updates.** Your site follows this project's `main` branch: when a new release
+is published, Render rebuilds and redeploys it automatically; there is nothing
+to click. Before 1.0 a release can need the database started over, in which
+case the new version refuses to start and your current one keeps running (see
+[UPGRADING.md](UPGRADING.md)). Download a backup before upgrades (see
+[Database backups](#database-backups)).
+
+**Advanced: your own fork, a different region or a custom name.** The button
+deploys this project exactly as it is, and Render Blueprints cannot prompt for
+a service name or region, so choosing either means editing `render.yaml` in a
+copy of the repo first. Make your own fork on GitHub, then from a terminal in
+your copy:
+
+```bash
+npm run name-instance -- your-church-name oregon
+git commit -am "Name the Render services for this instance"
+git push
+```
+
+The name becomes your address (`your-church-name.onrender.com`). Then
+**Render Dashboard → New → Blueprint** and pick your fork (a private fork needs
+Render's GitHub App authorized on it first: Dashboard → Account Settings →
+GitHub → Configure). With a fork, updates come from you pulling this project's
+changes into it (see [Upgrading a fork](#upgrading-a-fork)).
+
+Costs about $13/mo on Render's cheapest paid tiers. A free tier exists but
+isn't viable for anything long-lived (the web service sleeps after 15min idle,
+and the database gets deleted after 90 days). `.github/workflows/ci.yml` runs
+the test suite and a real end-to-end Playwright pass on every PR and push to
+this project, independent of your deployment.
 
 Once you're up and running, [Environment variables](#environment-variables)
 and [Feature toggles](#feature-toggles) below cover what to configure
@@ -153,7 +177,7 @@ full file with inline comments):
 | `FIELD_ENCRYPTION_KEY` | Recommended | Encrypts every reversibly-stored secret at rest: two-factor (MFA) secrets, plus the Postmark server token, GroupMe access token, Joshua Project API key, and WhatsApp session. Generate with `npm run generate-secrets`. Without it the app still runs, but MFA enrollment and any of those integrations fail. See [Rotating FIELD_ENCRYPTION_KEY](#rotating-field_encryption_key) below |
 | `NOMINATIM_CONTACT` | Recommended | Your contact email, sent with geocoding requests per [Nominatim's usage policy](https://operations.osmfoundation.org/policies/nominatim/) |
 | `MFA_ISSUER` | No | Name shown in a user's authenticator app when they enroll in MFA; defaults to "Missions Partner Tracker Admin" |
-| `APP_BASE_URL` | No | This app's own public URL, no trailing slash — needed for the dispatch queue's own links: the GroupMe newsletter dispatch's link, the email digest's "read the source" / "read the full newsletter" links, and the digest's own unsubscribe link (see [GroupMe dispatch](USER_GUIDE.md#groupme-dispatch-admin-only) and [Pending Dispatches](USER_GUIDE.md#pending-dispatches)). On Render this is picked up automatically from `RENDER_EXTERNAL_URL`; set it explicitly elsewhere. Leave unset and those links just don't appear. |
+| `APP_BASE_URL` | No | This app's own public URL, no trailing slash — needed for every link the app puts in a message or builds for you: setup, password-reset and sign-in links, survey and trip links, passkeys, the email digest's unsubscribe link, and the dispatch queue's own links: the GroupMe newsletter dispatch's link and the email digest's "read the source" / "read the full newsletter" links (see [GroupMe dispatch](USER_GUIDE.md#groupme-dispatch-admin-only) and [Pending Dispatches](USER_GUIDE.md#pending-dispatches)). On Render this is picked up automatically from `RENDER_EXTERNAL_URL`, so you need not set it; set it yourself if you use your own domain or host elsewhere. Leave it unset elsewhere and those links just don't appear (and a setup or sign-in link can't be built). |
 | `BACKGROUND_JOBS` | No | `on` or `off` to force the scheduled jobs and the WhatsApp connection on or off. Left unset they run when `NODE_ENV=production` and not otherwise, so a laptop pointed at a database with real email settings never sends anything on its own. |
 
 There's nothing to configure for the frontend separately — it's served by

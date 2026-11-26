@@ -27,10 +27,13 @@
 # nobody gets a surprise. Valid values: oregon, ohio, virginia, frankfurt,
 # singapore. The database and web service must use the same region.
 #
-# To deploy elsewhere, set it before your first deploy:
+# The "Deploy to Render" button in README.md deploys this file as it is, with
+# these default names and region -- nothing to edit, and that is what almost
+# everyone should do. Only a church that wants a different region or its own
+# service name needs the extra step, before its first deploy, from its own fork:
 #   npm run name-instance -- <your-church-name> <region>
-# Render's Blueprint UI has no region picker -- it only prompts for
-# `sync: false` env vars -- so it has to be in this file beforehand.
+# Render's Blueprint UI has no region or name picker -- it only prompts for
+# `sync: false` env vars -- so those have to be in this file beforehand.
 #
 # WARNING: changing this on an instance that is ALREADY DEPLOYED does not
 # move anything. Render's spec: "You can't modify this value after
