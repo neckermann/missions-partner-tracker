@@ -14,6 +14,7 @@ import {
 } from "../api/client.js";
 import MfaAppGuide from "../components/MfaAppGuide.jsx";
 import CopyButton from "../components/shared/CopyButton.jsx";
+import { passkeyErrorMessage } from "../utils/passkeyError.js";
 
 // Where to land after login. `next` (from requireAuth's redirect, an /api path) and `from` (from
 // RequireAdminAuth, an SPA route) round-trip through the URL/state, so both are validated here
@@ -153,9 +154,7 @@ export default function Login() {
       await registerPasskey("", setupToken);
       goToDestination();
     } catch (err) {
-      setError(
-        err.response?.data?.error || "Couldn't add a passkey. Try again, or use an authenticator app."
-      );
+      setError(`${passkeyErrorMessage(err, "Couldn't add a passkey")} Or use an authenticator app instead.`);
     }
   }
 
