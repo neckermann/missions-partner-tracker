@@ -68,15 +68,17 @@ const publicTripParticipantRoutes = require("./routes/publicTripParticipants");
 const prisma = require("./prismaClient");
 const { backgroundJobsEnabled, startBackgroundJobs, stopBackgroundJobs } = require("./utils/backgroundJobs");
 const { assertSchemaMatches } = require("./utils/schemaCheck");
+const { readTrustProxy, trustProxySetting, describeTrustProxy } = require("./utils/trustProxy");
 
 const app = express();
 const PORT = process.env.PORT || 4000;
 
-// Exactly one proxy sits in front of this process, so X-Forwarded-For must be
-// read or every rate limiter shares a single bucket for the whole instance.
-// Must be 1, never `true`: `true` trusts the whole header chain, letting a
-// client mint itself a private bucket.
-app.set("trust proxy", 1);
+// How many proxies sit in front of this process (utils/trustProxy.js): one by default (Render, nginx),
+// settable with TRUST_PROXY. The rate limiters read the visitor's address from X-Forwarded-For, so the
+// number must be right: too low and every visitor shares one bucket, too high and a visitor can write
+// their own address into the header. Never `true`, which trusts the whole header chain.
+const trustProxy = readTrustProxy();
+app.set("trust proxy", trustProxySetting(trustProxy));
 
 // helmet's default CSP blocks the public map's basemap tiles. Photos and the
 // logo are same-origin and marker pins are data: URIs, so only tiles need widening.
@@ -299,6 +301,7 @@ if (require.main === module) {
 
     const server = app.listen(PORT, () => {
       console.log(`Missionary Tracker API listening on port ${PORT}`);
+      if (process.env.NODE_ENV === "production") console.log(describeTrustProxy(trustProxy));
     });
 
     if (backgroundJobsEnabled()) {
