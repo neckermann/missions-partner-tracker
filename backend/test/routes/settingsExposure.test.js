@@ -1,11 +1,8 @@
-// #327 Finding 9 -- GET /api/settings used a denylist (`omit` 6 secret
-// columns), so every other column went to any signed-in role, Trip
-// Leader included: inboundEmailWebhookUsername (half of the webhook
-// credential), inboundEmailAddress, GroupMe group/topic ids, WhatsApp
-// community/group JIDs. Switched to an explicit `select` -- this
-// confirms the specific fields the review flagged are genuinely gone
-// from the response, and that the route still returns real content
-// (not an accidentally-empty allowlist).
+// GET /api/settings must use an explicit `select`, not a denylist: with an `omit` of the
+// secret columns, every other column went to any signed-in role, Trip Leader included
+// (inboundEmailWebhookUsername, inboundEmailAddress, GroupMe group/topic ids, WhatsApp
+// community/group JIDs). This confirms those fields are gone from the response and that the
+// route still returns real content (not an accidentally empty allowlist).
 const { test, describe, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 require("dotenv").config({ quiet: true });

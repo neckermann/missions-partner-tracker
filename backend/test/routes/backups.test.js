@@ -21,15 +21,11 @@ before(async () => {
     client(),
   ]);
 
-  // The TripMeeting round-trip fixture below needs POST /api/trips and
-  // POST /api/trips/:id/meetings reachable -- `trips` defaults to off
-  // (see routes/tripMeetings.js's own requireFeature("trips")), and CI's
-  // e2e job deliberately enables it only *after* the whole backend
-  // route-test suite runs (see ci.yml's own comment on that ordering),
-  // so this can't rely on ambient state the way a purely local run might
-  // happen to have. Same save/restore convention as trips.test.js's own
-  // setFeatures -- restore to whatever existed when this file started,
-  // not unconditionally back to off.
+  // The TripMeeting round-trip fixture needs POST /api/trips and POST /api/trips/:id/meetings
+  // reachable, but `trips` defaults to off (routes/tripMeetings.js's requireFeature("trips"))
+  // and CI's e2e job only enables it after the whole route-test suite (see ci.yml), so this
+  // can't rely on ambient state. Save/restore like trips.test.js's setFeatures: restore whatever
+  // existed at the start, not unconditionally off.
   const settings = await prisma.churchSettings.findUnique({
     where: { id: "singleton" },
     select: { enabledFeatures: true },
@@ -114,8 +110,7 @@ describe("backup/restore round trip", () => {
     const { buffer } = await buildBackup(prisma);
     const text = zlib.gunzipSync(buffer).toString("utf8");
     const { rowsByModel } = parseBackup(text);
-    // The bytes themselves live in their own table now (#274's hardening
-    // follow-up) -- same shared id as the parent partnerFile row.
+    // The bytes live in their own table, with the same shared id as the parent partnerFile row.
     const exportedRow = rowsByModel.partnerFileBytes.find((r) => r.id === file.id);
     assert.ok(exportedRow, "the fixture file's bytes row should appear in the backup");
     assert.ok(Buffer.isBuffer(exportedRow.bytes), "decoded bytes should be a real Buffer");
@@ -143,15 +138,12 @@ describe("backup/restore round trip", () => {
     await prisma.partner.delete({ where: { id: created.body.id } });
   });
 
-  // #271 Finding 8's actual bug, not just MODELS containing the right
-  // strings: TripMeeting was one of the 25 models that fell off backup/
-  // restore entirely -- buildBackup never queried it, and parseBackup
-  // would have thrown "Unknown model in backup file" if a restore file
-  // somehow ever had one. This exercises the real round trip end to end:
-  // create it, back the whole database up through buildBackup/
-  // parseBackup (not a hand-built rowsByModel), delete it, restore, and
-  // confirm it -- and the trip it hangs off of -- both survive with their
-  // data intact.
+  // The actual bug, not just MODELS containing the right strings: TripMeeting was one of the
+  // models that fell off backup/restore entirely (buildBackup never queried it, and parseBackup
+  // would have thrown "Unknown model in backup file"). This exercises the real round trip:
+  // create it, back the database up through buildBackup/parseBackup (not a hand-built
+  // rowsByModel), delete it, restore, and confirm it and its trip survive with their data
+  // intact.
   test("a TripMeeting (one of the 25 models #271 Finding 8 found missing) survives a full backup/restore round trip", async () => {
     const partner = await admin("/api/partners", {
       method: "POST",

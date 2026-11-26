@@ -6,17 +6,10 @@ import ManualSendNotice from "../components/shared/ManualSendNotice.jsx";
 import { DEBRIEF_PROMPTS } from "./AdminTripWrapUp.jsx";
 import { formatDate } from "../utils/format.js";
 
-// The former "Trip setup" section of AdminTripDetail.jsx, now the
-// landing page for a trip (/admin/trips/:id index) and the first real
-// EditableSection use in this file -- retires its own slice of the
-// 22 onBlur-autosave sites the plan named.
 export default function AdminTripOverview() {
   const { trip, setTrip, enableTripBudgeting, canWrite } = useOutletContext();
-  // #310: set only when saving dates triggered sendTripDatesUpdateEmail
-  // with outbound email off. EditableSection's own onSave return value is
-  // ignored by design (it just reloads from the server after), so this
-  // lives outside it, same as AdminTripParticipantDetail.jsx's
-  // manualAccessLink -- shown next to the section, not inside its popup.
+  // Set when saving dates triggered sendTripDatesUpdateEmail with outbound email off.
+  // EditableSection ignores onSave's return value, so this lives outside it.
   const [manualDatesLink, setManualDatesLink] = useState(null); // [{ name, email, url }] | null
 
   const budgetTotal = (trip.budgetLines || []).reduce((sum, b) => sum + b.estimatedAmount, 0);
@@ -90,12 +83,12 @@ export default function AdminTripOverview() {
             {trip.partner?.isRestricted && (
               <div
                 style={{
-                  background: "#fbeee0",
-                  border: "1px solid #e3b183",
+                  background: "var(--warn-soft)",
+                  border: "1px solid var(--warn)",
                   borderRadius: 8,
                   padding: "0.6rem 0.9rem",
                   fontSize: "0.8rem",
-                  color: "#7a3e0c",
+                  color: "var(--warn)",
                   marginTop: "0.5rem",
                 }}
               >
@@ -156,7 +149,14 @@ export default function AdminTripOverview() {
                   onChange={(e) => set("supportRaisingGoal", e.target.value)}
                 />
                 {enableTripBudgeting && budgetTotal > 0 && (draft.teamSizeMax || draft.teamSizeMin) && (
-                  <span style={{ display: "block", color: "#888", fontSize: "0.75rem", marginTop: "0.3rem" }}>
+                  <span
+                    style={{
+                      display: "block",
+                      color: "var(--muted)",
+                      fontSize: "0.75rem",
+                      marginTop: "0.3rem",
+                    }}
+                  >
                     Suggested: ~${Math.ceil(budgetTotal / Number(draft.teamSizeMax || draft.teamSizeMin))}
                     /person, based on ${budgetTotal} budgeted ÷ a {draft.teamSizeMax || draft.teamSizeMin}
                     -person team.
@@ -190,9 +190,7 @@ export default function AdminTripOverview() {
   );
 }
 
-// What the team said when the trip was wrapped up (#358): one plain-text answer under each fixed
-// prompt. Nothing is shown for a trip that has none; staff and a trip leader can open the wizard
-// again to edit it.
+// What the team said when the trip was wrapped up: one plain-text answer under each fixed prompt.
 function TripDebrief({ trip, canWrite }) {
   const answers = DEBRIEF_PROMPTS.map((p) => ({
     ...p,
@@ -234,7 +232,7 @@ const STATUS_LABELS = {
 function Field({ label, value }) {
   return (
     <div>
-      <div style={{ fontSize: "0.75rem", color: "#888", fontWeight: 600 }}>{label}</div>
+      <div style={{ fontSize: "0.75rem", color: "var(--muted)", fontWeight: 600 }}>{label}</div>
       <div>{value}</div>
     </div>
   );

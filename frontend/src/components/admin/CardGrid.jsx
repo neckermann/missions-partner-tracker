@@ -1,12 +1,8 @@
 import React from "react";
 import { Link } from "react-router-dom";
 
-// A labeled grid of link cards, each pointing at one page. `sections` is
-// `[{ to, title, description, category?, icon? }]`. `category`, when
-// present, renders as a small eyebrow label above the title (e.g.
-// "Communications", "Trips"). `icon` renders inline before the title,
-// matching AdminSidebar.jsx's own icon per destination. Both optional so
-// existing call sites don't have to pass them.
+// A labeled grid of link cards. `sections` is `[{ to, title, description, category?, icon? }]`;
+// `category` renders as an eyebrow label, `icon` inline before the title (matching AdminSidebar).
 export default function CardGrid({ sections }) {
   return (
     <div className="admin-card-grid">

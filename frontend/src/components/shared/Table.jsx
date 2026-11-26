@@ -1,59 +1,26 @@
 import React, { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { formatCurrency, formatDate } from "../../utils/format.js";
 
-// Generic resource-agnostic table, resource-agnostic sibling of
-// FilterBar.jsx -- lifted out of AdminReports.jsx's Cell/alignClass
-// helpers plus the admin-table markup every resource list page
-// (AdminTrips.jsx, AdminPartners.jsx, ...) had been rebuilding by hand.
-//
-// A column is `{ key, label, type?, align?, render?(row) }`. `type`
-// picks a default formatter ("date"/"currency"; anything else prints
-// the raw value); `render`, when present, overrides that entirely and
-// gets the whole row, for a cell that's a link, a badge, or several
-// stacked lines rather than plain text. `align` forces left/right
-// regardless of `type` -- by default currency/number right-align and
-// everything else left-aligns, same rule AdminReports.jsx used.
-//
-// `renderActions(row)`, when present, appends one trailing unlabeled
-// header-less column of row actions (buttons, links) -- `onCellClick`
-// isn't needed there since callers putting interactive controls in that
-// column already stop propagation themselves where it matters.
-//
-// `stopRowClick: true` on a column stops its cell's click from reaching
-// the row's own `onRowClick` -- for a cell with its own link/control
-// (e.g. a partner name linking elsewhere) that would otherwise also
-// trigger the row's navigation.
-//
-// `expandedRowId` + `renderExpanded(row)` support the inline
-// edit-row-below-the-row pattern several resource lists use (a trip's
-// "Edit" button opening a form in a colSpan'd row directly beneath it)
-// without each page re-deriving the colSpan or the <tr> wrapping by
-// hand.
-//
-// `rowAttrs(row)`, when present, spreads extra DOM attributes onto each
-// <tr> -- e.g. `data-partner-id` for an e2e spec's locator. Added in
-// Phase 2 of the UX-rebuild plan after AdminMonthlySupport.jsx's own
-// migration silently dropped the attribute its e2e spec depended on.
-//
-// `sortable: true` on a column makes its header clickable, sorting rows by
-// that column (asc, then desc, then back to asc -- never "unsorted", since
-// a caller's own default row order is already a deliberate choice and isn't
-// worth a third click state to get back to). Opt-in per column: a caller
-// that never sets it keeps its own row order untouched, same as before this
-// existed. Sort state lives in this component, not the caller -- there's
-// nothing a caller needs to react to, it only ever reorders what's already
-// fetched.
+// Generic resource table, the sibling of FilterBar.jsx.
+// Column: `{ key, label, type?, align?, render?(row), stopRowClick?, sortable?, sortBy?(row) }`.
+// `type` picks a default formatter ("date"/"currency", else raw); `render` overrides it and gets
+// the whole row. Currency/number right-align by default; `align` overrides.
+// `stopRowClick` keeps a cell's own link/control from also triggering `onRowClick`.
+// `renderActions(row)` appends a header-less actions column.
+// `expandedRowId` + `renderExpanded(row)` render an inline edit row (colSpan'd) under a row.
+// `rowHref(row)` makes the first cell a real link to that row's own page (a string, or nothing for a
+// row without one): it opens in a new tab and copies like any link, and the whole row still opens it.
+// `rowAttrs(row)` spreads attributes onto each <tr> (e.g. data-partner-id for e2e locators).
+// `sortable` makes a header clickable: asc, desc, back to asc, never "unsorted", because the
+// caller's own row order is a deliberate default. Sort state lives here.
 function alignClass(column) {
   if (column.align) return column.align === "right" ? "num" : undefined;
   return column.type === "currency" || column.type === "number" ? "num" : undefined;
 }
 
-// A real icon, not a Unicode glyph -- ⇅/▲/▼ render inconsistently (and
-// bluntly) across platforms/fonts. `direction` is "asc"/"desc" for the
-// active column, or null for every other sortable header, which gets the
-// muted up+down pair. `currentColor` is deliberate: the `<th>`'s own CSS
-// already sets the right color per state (muted/hover/sorted in
-// index.css), so this never needs its own color logic.
+// A real icon, not a glyph (⇅/▲/▼ render inconsistently across fonts). `direction` is "asc"/"desc"
+// for the active column, null otherwise. currentColor: the <th> CSS sets the color per state.
 function SortIcon({ direction }) {
   if (direction === "asc") {
     return (
@@ -90,13 +57,9 @@ function defaultCell(column, row) {
   }
 }
 
-// A sort key, not a display value -- dates/numbers compare numerically
-// regardless of `render` overriding what's actually shown, and booleans
-// group false-before-true. Anything else falls back to a lowercased
-// string compare so case doesn't affect ordering. A column whose cell is
-// computed from something other than a plain `row[key]` (e.g. "Last
-// Visit" sorting by the first of a `churchVisits` array) supplies its own
-// `sortBy(row)` instead, which takes over entirely.
+// A sort key, not a display value: dates/numbers compare numerically whatever `render` shows,
+// booleans sort false first, anything else is a case-insensitive string compare. A column computed
+// from something other than row[key] supplies its own `sortBy(row)`.
 function sortValue(column, row) {
   if (column.sortBy) return column.sortBy(row) ?? null;
   const value = row[column.key];
@@ -112,6 +75,7 @@ export default function Table({
   rows,
   rowKey = (row) => row.id,
   onRowClick,
+  rowHref,
   isRowClickable,
   renderActions,
   expandedRowId,
@@ -149,13 +113,8 @@ export default function Table({
     });
   }
 
-  // Always wrapped in .table-scroll (index.css) -- a table with enough
-  // columns to not fit a narrow viewport scrolls horizontally within its
-  // own box instead of forcing the whole page wider. Harmless for a
-  // table that already fits (overflow-x: auto does nothing when there's
-  // nothing to scroll), so every caller gets it for free rather than
-  // needing to remember the wrapper -- two pages already added it by
-  // hand before this was moved in here.
+  // Always wrapped in .table-scroll (index.css) so a wide table scrolls within its own box instead of
+  // widening the page.
   return (
     <div className="table-scroll" style={style}>
       <table className={className}>
@@ -196,19 +155,52 @@ export default function Table({
             return (
               <React.Fragment key={key}>
                 <tr
-                  onClick={clickable ? () => onRowClick(row) : undefined}
-                  style={clickable ? { cursor: "pointer" } : undefined}
+                  className={clickable ? "row-clickable" : undefined}
+                  onClick={
+                    clickable
+                      ? (e) => {
+                          // The first-cell link navigates on its own.
+                          if (e.target.closest?.("a")) return;
+                          onRowClick(row);
+                        }
+                      : undefined
+                  }
+                  // Reachable and openable from the keyboard, like a link. Only when the row
+                  // itself has focus, so a button or link inside it keeps its own Enter and Space.
+                  tabIndex={clickable ? 0 : undefined}
+                  onKeyDown={
+                    clickable
+                      ? (e) => {
+                          if (e.target !== e.currentTarget) return;
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            onRowClick(row);
+                          }
+                        }
+                      : undefined
+                  }
                   {...(rowAttrs ? rowAttrs(row) : null)}
                 >
-                  {columns.map((c) => (
-                    <td
-                      key={c.key}
-                      className={alignClass(c)}
-                      onClick={c.stopRowClick ? (e) => e.stopPropagation() : undefined}
-                    >
-                      {c.render ? c.render(row) : defaultCell(c, row)}
-                    </td>
-                  ))}
+                  {columns.map((c, i) => {
+                    const content = c.render ? c.render(row) : defaultCell(c, row);
+                    const href = i === 0 && rowHref ? rowHref(row) : null;
+                    return (
+                      <td
+                        key={c.key}
+                        className={alignClass(c)}
+                        onClick={c.stopRowClick ? (e) => e.stopPropagation() : undefined}
+                      >
+                        {href ? (
+                          // Not a tab stop: the row itself is focusable and opens the page.
+                          <Link to={href} className="row-link" tabIndex={-1}>
+                            {content}
+                          </Link>
+                        ) : (
+                          content
+                        )}
+                      </td>
+                    );
+                  })}
                   {renderActions && (
                     <td className="table-actions" onClick={(e) => e.stopPropagation()}>
                       {renderActions(row)}

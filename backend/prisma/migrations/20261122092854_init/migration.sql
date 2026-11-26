@@ -16,15 +16,22 @@ CREATE TABLE "Partner" (
     "overviewShort" TEXT,
     "focusArea" TEXT,
     "supportingSince" DATE,
+    "commissionedAt" DATE,
     "lastPrayedWithCongregationAt" DATE,
-    "preferredContactMethod" TEXT,
-    "contactSafe" BOOLEAN NOT NULL DEFAULT true,
+    "contactLevel" TEXT NOT NULL DEFAULT 'normal',
+    "contactChannels" TEXT[] DEFAULT ARRAY[]::TEXT[],
     "contactInstructions" TEXT,
+    "contactViaName" TEXT,
+    "contactViaRole" TEXT,
+    "contactViaPhone" TEXT,
+    "contactViaEmail" TEXT,
     "sentByOurChurch" BOOLEAN NOT NULL DEFAULT false,
     "contactFirstName" TEXT,
     "contactLastName" TEXT,
     "contactPhone" TEXT,
     "contactEmail" TEXT,
+    "contactMethod" TEXT,
+    "contactMethodNote" TEXT,
     "orgType" TEXT,
     "anniversary" DATE,
     "emergencyContactName" TEXT,
@@ -56,6 +63,8 @@ CREATE TABLE "Adult" (
     "email" TEXT,
     "birthday" DATE,
     "isPrimaryContact" BOOLEAN NOT NULL DEFAULT false,
+    "contactMethod" TEXT,
+    "contactMethodNote" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "lastEditedById" TEXT,
     "lastEditedByName" TEXT,
@@ -94,6 +103,7 @@ CREATE TABLE "Address" (
     "gpsLng" DOUBLE PRECISION,
     "receiveMail" BOOLEAN,
     "receivePackages" BOOLEAN,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "lastEditedById" TEXT,
     "lastEditedByName" TEXT,
     "lastEditedAt" TIMESTAMP(3),
@@ -336,6 +346,7 @@ CREATE TABLE "TripBudgetLine" (
     "tripId" TEXT NOT NULL,
     "label" TEXT NOT NULL,
     "estimatedAmount" INTEGER NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "lastEditedById" TEXT,
     "lastEditedByName" TEXT,
     "lastEditedAt" TIMESTAMP(3),
@@ -353,6 +364,7 @@ CREATE TABLE "TripFlightSegment" (
     "departureAt" TIMESTAMP(3),
     "arrivalAirport" TEXT,
     "arrivalAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "lastEditedById" TEXT,
     "lastEditedByName" TEXT,
     "lastEditedAt" TIMESTAMP(3),
@@ -403,6 +415,8 @@ CREATE TABLE "ContactLog" (
     "followUpDate" DATE,
     "prayerRequestId" TEXT,
     "supportNeedId" TEXT,
+    "supportOptionId" TEXT,
+    "supportOptionLabel" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "lastEditedById" TEXT,
@@ -440,9 +454,23 @@ CREATE TABLE "KeyDateReminder" (
     "kind" TEXT NOT NULL,
     "subjectId" TEXT NOT NULL DEFAULT '',
     "occurrenceDate" DATE NOT NULL,
+    "tier" INTEGER NOT NULL DEFAULT 0,
     "sentAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "KeyDateReminder_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "CareChatPost" (
+    "id" TEXT NOT NULL,
+    "partnerId" TEXT NOT NULL,
+    "type" TEXT NOT NULL,
+    "subjectKey" TEXT NOT NULL DEFAULT '',
+    "occurrenceDate" DATE NOT NULL,
+    "tier" INTEGER NOT NULL DEFAULT 0,
+    "postedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "CareChatPost_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -503,6 +531,7 @@ CREATE TABLE "SendingParty" (
     "stateProvinceRegion" TEXT,
     "postalCode" TEXT,
     "country" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "lastEditedById" TEXT,
     "lastEditedByName" TEXT,
     "lastEditedAt" TIMESTAMP(3),
@@ -744,6 +773,8 @@ CREATE TABLE "ChurchSettings" (
     "groupmeOneTimeNeedTopicName" TEXT,
     "groupmeNewsletterTopicId" TEXT,
     "groupmeNewsletterTopicName" TEXT,
+    "groupmeCareTopicId" TEXT,
+    "groupmeCareTopicName" TEXT,
     "whatsappPhoneNumber" TEXT,
     "whatsappPairedAt" TIMESTAMP(3),
     "whatsappLastError" TEXT,
@@ -758,6 +789,8 @@ CREATE TABLE "ChurchSettings" (
     "whatsappOneTimeNeedGroupName" TEXT,
     "whatsappNewsletterGroupId" TEXT,
     "whatsappNewsletterGroupName" TEXT,
+    "whatsappCareGroupId" TEXT,
+    "whatsappCareGroupName" TEXT,
     "joshuaProjectApiKey" TEXT,
     "anthropicApiKey" TEXT,
     "extractionModel" TEXT,
@@ -769,7 +802,9 @@ CREATE TABLE "ChurchSettings" (
     "backupReminderDisabled" BOOLEAN NOT NULL DEFAULT false,
     "auditRetentionDays" INTEGER NOT NULL DEFAULT 90,
     "requireTwoFactor" BOOLEAN NOT NULL DEFAULT false,
+    "demoMode" BOOLEAN NOT NULL DEFAULT false,
     "requirePasswordless" BOOLEAN NOT NULL DEFAULT false,
+    "allowPasskeySignIn" BOOLEAN NOT NULL DEFAULT false,
     "emailDispatchDayOfWeek" INTEGER,
     "emailDispatchDayOfMonth" INTEGER,
     "emailDispatchHour" INTEGER,
@@ -783,10 +818,15 @@ CREATE TABLE "ChurchSettings" (
     "chatDispatchPrayerRequests" BOOLEAN NOT NULL DEFAULT true,
     "chatDispatchOneTimeNeeds" BOOLEAN NOT NULL DEFAULT true,
     "chatDispatchNewsletters" BOOLEAN NOT NULL DEFAULT true,
+    "chatDispatchKeyDates" BOOLEAN NOT NULL DEFAULT false,
+    "chatDispatchQuietPartners" BOOLEAN NOT NULL DEFAULT false,
+    "chatDispatchUpdatesToPass" BOOLEAN NOT NULL DEFAULT false,
     "allowRestrictedPartnerDispatch" BOOLEAN NOT NULL DEFAULT false,
     "restrictedPartnerInitialsEnabled" BOOLEAN NOT NULL DEFAULT true,
-    "defaultCareLeadUserId" TEXT,
+    "ownerGroupName" TEXT,
+    "defaultDigestCadence" TEXT,
     "keyDateLeadDays" INTEGER NOT NULL DEFAULT 7,
+    "keyDateAdvanceDays" INTEGER[] DEFAULT ARRAY[90, 30]::INTEGER[],
     "contactStaleDays" INTEGER NOT NULL DEFAULT 90,
     "emailDispatchSubjectTemplate" TEXT,
     "emailDispatchSignature" TEXT,
@@ -827,6 +867,8 @@ CREATE TABLE "User" (
     "email" TEXT NOT NULL,
     "firstName" TEXT,
     "lastName" TEXT,
+    "phone" TEXT,
+    "profile" TEXT,
     "passwordHash" TEXT,
     "authProvider" TEXT NOT NULL DEFAULT 'local',
     "role" TEXT NOT NULL DEFAULT 'editor',
@@ -839,8 +881,9 @@ CREATE TABLE "User" (
     "mfaLastTimeStep" INTEGER,
     "mfaSetupRequired" BOOLEAN NOT NULL DEFAULT false,
     "keyDateEmailOptOut" BOOLEAN NOT NULL DEFAULT false,
+    "onMissionsTeam" BOOLEAN NOT NULL DEFAULT false,
     "cadence" TEXT,
-    "allPartners" BOOLEAN NOT NULL DEFAULT true,
+    "digestScope" TEXT NOT NULL DEFAULT 'all',
     "lastEditedById" TEXT,
     "lastEditedByName" TEXT,
     "lastEditedAt" TIMESTAMP(3),
@@ -912,6 +955,7 @@ CREATE TABLE "SupportOption" (
     "allowOther" BOOLEAN NOT NULL DEFAULT false,
     "sortOrder" INTEGER NOT NULL DEFAULT 0,
     "active" BOOLEAN NOT NULL DEFAULT true,
+    "staffOnly" BOOLEAN NOT NULL DEFAULT false,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "lastEditedById" TEXT,
@@ -951,6 +995,7 @@ CREATE TABLE "ApplicationQuestion" (
     "required" BOOLEAN NOT NULL DEFAULT false,
     "type" TEXT NOT NULL DEFAULT 'text',
     "options" TEXT[],
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "ApplicationQuestion_pkey" PRIMARY KEY ("id")
 );
@@ -1044,6 +1089,122 @@ CREATE TABLE "WhatsAppAuthEntry" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "WhatsAppAuthEntry_pkey" PRIMARY KEY ("key")
+);
+
+-- CreateTable
+CREATE TABLE "Survey" (
+    "id" TEXT NOT NULL,
+    "title" TEXT NOT NULL,
+    "intro" TEXT,
+    "status" TEXT NOT NULL DEFAULT 'draft',
+    "closesAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "lastEditedById" TEXT,
+    "lastEditedByName" TEXT,
+    "lastEditedAt" TIMESTAMP(3),
+
+    CONSTRAINT "Survey_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "SurveyQuestion" (
+    "id" TEXT NOT NULL,
+    "surveyId" TEXT NOT NULL,
+    "position" INTEGER NOT NULL DEFAULT 0,
+    "kind" TEXT NOT NULL DEFAULT 'text',
+    "label" TEXT NOT NULL,
+    "choices" TEXT[],
+    "allowOther" BOOLEAN NOT NULL DEFAULT false,
+    "required" BOOLEAN NOT NULL DEFAULT false,
+    "field" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "SurveyQuestion_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "SurveyInvite" (
+    "id" TEXT NOT NULL,
+    "surveyId" TEXT NOT NULL,
+    "partnerId" TEXT NOT NULL,
+    "tokenHash" TEXT NOT NULL,
+    "expiresAt" TIMESTAMP(3) NOT NULL,
+    "sentAt" TIMESTAMP(3),
+    "sentById" TEXT,
+    "sentByName" TEXT,
+    "openedAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "SurveyInvite_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "SurveyResponse" (
+    "id" TEXT NOT NULL,
+    "surveyId" TEXT NOT NULL,
+    "partnerId" TEXT NOT NULL,
+    "submittedAt" TIMESTAMP(3),
+    "enteredById" TEXT,
+    "enteredByName" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "lastEditedById" TEXT,
+    "lastEditedByName" TEXT,
+    "lastEditedAt" TIMESTAMP(3),
+
+    CONSTRAINT "SurveyResponse_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "SurveyAnswer" (
+    "id" TEXT NOT NULL,
+    "responseId" TEXT NOT NULL,
+    "questionId" TEXT,
+    "position" INTEGER NOT NULL DEFAULT 0,
+    "label" TEXT NOT NULL,
+    "kind" TEXT NOT NULL,
+    "value" TEXT,
+    "values" TEXT[],
+    "other" TEXT,
+
+    CONSTRAINT "SurveyAnswer_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "SurveyUpload" (
+    "id" TEXT NOT NULL,
+    "responseId" TEXT NOT NULL,
+    "partnerId" TEXT NOT NULL,
+    "questionId" TEXT,
+    "contentType" TEXT NOT NULL,
+    "fileSize" INTEGER NOT NULL,
+    "bytes" BYTEA NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "SurveyUpload_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "SurveyProposal" (
+    "id" TEXT NOT NULL,
+    "surveyId" TEXT NOT NULL,
+    "responseId" TEXT NOT NULL,
+    "partnerId" TEXT NOT NULL,
+    "questionId" TEXT,
+    "field" TEXT NOT NULL,
+    "fieldLabel" TEXT NOT NULL,
+    "currentValue" TEXT,
+    "proposedValue" TEXT,
+    "uploadId" TEXT,
+    "status" TEXT NOT NULL DEFAULT 'pending',
+    "appliedValue" TEXT,
+    "decidedAt" TIMESTAMP(3),
+    "decidedById" TEXT,
+    "decidedByName" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "SurveyProposal_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -1166,7 +1327,10 @@ CREATE INDEX "AuditLog_entityType_entityId_idx" ON "AuditLog"("entityType", "ent
 CREATE INDEX "KeyDateReminder_partnerId_idx" ON "KeyDateReminder"("partnerId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "KeyDateReminder_userId_partnerId_kind_subjectId_occurrenceD_key" ON "KeyDateReminder"("userId", "partnerId", "kind", "subjectId", "occurrenceDate");
+CREATE UNIQUE INDEX "KeyDateReminder_userId_partnerId_kind_subjectId_occurrenceD_key" ON "KeyDateReminder"("userId", "partnerId", "kind", "subjectId", "occurrenceDate", "tier");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "CareChatPost_partnerId_type_subjectKey_occurrenceDate_tier_key" ON "CareChatPost"("partnerId", "type", "subjectKey", "occurrenceDate", "tier");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "PartnerLink_partnerId_type_key" ON "PartnerLink"("partnerId", "type");
@@ -1298,6 +1462,39 @@ CREATE INDEX "PublicSubscriber_confirmedAt_idx" ON "PublicSubscriber"("confirmed
 CREATE INDEX "PublicSubscriberPartner_partnerId_idx" ON "PublicSubscriberPartner"("partnerId");
 
 -- CreateIndex
+CREATE INDEX "SurveyQuestion_surveyId_position_idx" ON "SurveyQuestion"("surveyId", "position");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "SurveyInvite_tokenHash_key" ON "SurveyInvite"("tokenHash");
+
+-- CreateIndex
+CREATE INDEX "SurveyInvite_partnerId_idx" ON "SurveyInvite"("partnerId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "SurveyInvite_surveyId_partnerId_key" ON "SurveyInvite"("surveyId", "partnerId");
+
+-- CreateIndex
+CREATE INDEX "SurveyResponse_partnerId_idx" ON "SurveyResponse"("partnerId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "SurveyResponse_surveyId_partnerId_key" ON "SurveyResponse"("surveyId", "partnerId");
+
+-- CreateIndex
+CREATE INDEX "SurveyAnswer_responseId_idx" ON "SurveyAnswer"("responseId");
+
+-- CreateIndex
+CREATE INDEX "SurveyUpload_responseId_idx" ON "SurveyUpload"("responseId");
+
+-- CreateIndex
+CREATE INDEX "SurveyProposal_status_createdAt_idx" ON "SurveyProposal"("status", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "SurveyProposal_partnerId_idx" ON "SurveyProposal"("partnerId");
+
+-- CreateIndex
+CREATE INDEX "SurveyProposal_responseId_idx" ON "SurveyProposal"("responseId");
+
+-- CreateIndex
 CREATE INDEX "_TripFlightSegmentToTripParticipant_B_index" ON "_TripFlightSegmentToTripParticipant"("B");
 
 -- AddForeignKey
@@ -1388,6 +1585,9 @@ ALTER TABLE "KeyDateReminder" ADD CONSTRAINT "KeyDateReminder_userId_fkey" FOREI
 ALTER TABLE "KeyDateReminder" ADD CONSTRAINT "KeyDateReminder_partnerId_fkey" FOREIGN KEY ("partnerId") REFERENCES "Partner"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "CareChatPost" ADD CONSTRAINT "CareChatPost_partnerId_fkey" FOREIGN KEY ("partnerId") REFERENCES "Partner"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "PartnerLink" ADD CONSTRAINT "PartnerLink_partnerId_fkey" FOREIGN KEY ("partnerId") REFERENCES "Partner"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -1437,9 +1637,6 @@ ALTER TABLE "Photo" ADD CONSTRAINT "Photo_partnerId_fkey" FOREIGN KEY ("partnerI
 
 -- AddForeignKey
 ALTER TABLE "PhotoBytes" ADD CONSTRAINT "PhotoBytes_id_fkey" FOREIGN KEY ("id") REFERENCES "Photo"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "ChurchSettings" ADD CONSTRAINT "ChurchSettings_defaultCareLeadUserId_fkey" FOREIGN KEY ("defaultCareLeadUserId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "ChurchSettingsLogo" ADD CONSTRAINT "ChurchSettingsLogo_id_fkey" FOREIGN KEY ("id") REFERENCES "ChurchSettings"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -1494,6 +1691,51 @@ ALTER TABLE "PublicSubscriberPartner" ADD CONSTRAINT "PublicSubscriberPartner_su
 
 -- AddForeignKey
 ALTER TABLE "PublicSubscriberPartner" ADD CONSTRAINT "PublicSubscriberPartner_partnerId_fkey" FOREIGN KEY ("partnerId") REFERENCES "Partner"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SurveyQuestion" ADD CONSTRAINT "SurveyQuestion_surveyId_fkey" FOREIGN KEY ("surveyId") REFERENCES "Survey"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SurveyInvite" ADD CONSTRAINT "SurveyInvite_surveyId_fkey" FOREIGN KEY ("surveyId") REFERENCES "Survey"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SurveyInvite" ADD CONSTRAINT "SurveyInvite_partnerId_fkey" FOREIGN KEY ("partnerId") REFERENCES "Partner"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SurveyResponse" ADD CONSTRAINT "SurveyResponse_surveyId_fkey" FOREIGN KEY ("surveyId") REFERENCES "Survey"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SurveyResponse" ADD CONSTRAINT "SurveyResponse_partnerId_fkey" FOREIGN KEY ("partnerId") REFERENCES "Partner"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SurveyAnswer" ADD CONSTRAINT "SurveyAnswer_responseId_fkey" FOREIGN KEY ("responseId") REFERENCES "SurveyResponse"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SurveyAnswer" ADD CONSTRAINT "SurveyAnswer_questionId_fkey" FOREIGN KEY ("questionId") REFERENCES "SurveyQuestion"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SurveyUpload" ADD CONSTRAINT "SurveyUpload_responseId_fkey" FOREIGN KEY ("responseId") REFERENCES "SurveyResponse"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SurveyUpload" ADD CONSTRAINT "SurveyUpload_partnerId_fkey" FOREIGN KEY ("partnerId") REFERENCES "Partner"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SurveyUpload" ADD CONSTRAINT "SurveyUpload_questionId_fkey" FOREIGN KEY ("questionId") REFERENCES "SurveyQuestion"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SurveyProposal" ADD CONSTRAINT "SurveyProposal_surveyId_fkey" FOREIGN KEY ("surveyId") REFERENCES "Survey"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SurveyProposal" ADD CONSTRAINT "SurveyProposal_responseId_fkey" FOREIGN KEY ("responseId") REFERENCES "SurveyResponse"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SurveyProposal" ADD CONSTRAINT "SurveyProposal_partnerId_fkey" FOREIGN KEY ("partnerId") REFERENCES "Partner"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SurveyProposal" ADD CONSTRAINT "SurveyProposal_questionId_fkey" FOREIGN KEY ("questionId") REFERENCES "SurveyQuestion"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SurveyProposal" ADD CONSTRAINT "SurveyProposal_uploadId_fkey" FOREIGN KEY ("uploadId") REFERENCES "SurveyUpload"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "_TripFlightSegmentToTripParticipant" ADD CONSTRAINT "_TripFlightSegmentToTripParticipant_A_fkey" FOREIGN KEY ("A") REFERENCES "TripFlightSegment"("id") ON DELETE CASCADE ON UPDATE CASCADE;

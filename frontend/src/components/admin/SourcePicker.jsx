@@ -2,15 +2,9 @@ import React from "react";
 import { formatDate } from "../../utils/format.js";
 import { fileKindLabel } from "../../utils/fileKinds.js";
 
-// Optional "which file did this come from" dropdown for a manually-added
-// prayer request or one-time need -- the explicit counterpart to the
-// automatic link a "Scan for requests" suggestion gets (see
-// SourceLink.jsx, which renders identically either way), for the case
-// where someone read a file themselves and typed the request in rather
-// than running the scan.
-// `files` is whatever the caller has already loaded for the relevant
-// partner. Renders nothing if the partner has no files on file yet --
-// nothing to pick from.
+// Optional "which file did this come from" dropdown for a manually added prayer request or need,
+// the explicit counterpart to the automatic link a scan suggestion gets (see SourceLink.jsx).
+// `files` is what the caller already loaded for the partner; renders nothing if there are none.
 export default function SourcePicker({ files, sourceFileId, onChange }) {
   if (!files?.length) return null;
 

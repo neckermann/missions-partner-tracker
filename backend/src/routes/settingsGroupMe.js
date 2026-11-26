@@ -5,12 +5,8 @@ const { requireAuth, requireRole } = require("../middleware/requireAuth");
 const { encryptField, decryptField } = require("../utils/crypto");
 const { listGroups, listTopics } = require("../utils/groupmeChannel");
 
-// #271 Finding: split out of the former settings.js, which had grown to
-// cover 6 separate sub-resources in one file -- same reasoning as
-// trips.js's own split. Mounted at the same /api/settings prefix as
-// settings.js, not a separate API surface.
 const router = express.Router();
-router.use(requireAuth); // everything below requires a logged-in user
+router.use(requireAuth);
 
 const groupmeSettingsSelect = {
   groupmeAccessToken: true,
@@ -22,6 +18,8 @@ const groupmeSettingsSelect = {
   groupmeOneTimeNeedTopicName: true,
   groupmeNewsletterTopicId: true,
   groupmeNewsletterTopicName: true,
+  groupmeCareTopicId: true,
+  groupmeCareTopicName: true,
 };
 function shapeGroupMeSettings(settings) {
   return {
@@ -34,13 +32,13 @@ function shapeGroupMeSettings(settings) {
     oneTimeNeedTopicName: settings?.groupmeOneTimeNeedTopicName || null,
     newsletterTopicId: settings?.groupmeNewsletterTopicId || null,
     newsletterTopicName: settings?.groupmeNewsletterTopicName || null,
+    careTopicId: settings?.groupmeCareTopicId || null,
+    careTopicName: settings?.groupmeCareTopicName || null,
   };
 }
 
 const groupmeSchema = z.object({
-  // Omitted/blank leaves the stored token untouched -- the same
-  // write-only-field UX as a password-change form, since there is no
-  // "current value" to show back and nothing to merge it against.
+  // Omitted/blank leaves the stored token untouched (write-only; nothing to show back or merge).
   accessToken: z.string().trim().min(1).optional(),
   // Set together from the admin's picks in the live GET /groupme/groups
   // and GET /groupme/groups/:id/topics lists below, never hand-typed.
@@ -52,6 +50,8 @@ const groupmeSchema = z.object({
   oneTimeNeedTopicName: z.string().trim().optional().nullable(),
   newsletterTopicId: z.string().trim().optional().nullable(),
   newsletterTopicName: z.string().trim().optional().nullable(),
+  careTopicId: z.string().trim().optional().nullable(),
+  careTopicName: z.string().trim().optional().nullable(),
 });
 
 // GET /api/settings/groupme (admin only -- not folded into GET /, which
@@ -69,11 +69,7 @@ router.get("/groupme", requireRole("admin"), async (req, res, next) => {
   }
 });
 
-// PUT /api/settings/groupme (admin only) -- a plain partial update, same
-// shape as PUT / on settings.js: the frontend sends whichever fields it's
-// changing (just accessToken when first connecting; groupId/groupName
-// once a group's picked; *TopicId/*TopicName once a topic is, one
-// notification type at a time).
+// PUT /api/settings/groupme (admin only) -- a plain partial update, as PUT / in settings.js.
 router.put("/groupme", requireRole("admin"), async (req, res, next) => {
   try {
     const {
@@ -86,6 +82,8 @@ router.put("/groupme", requireRole("admin"), async (req, res, next) => {
       oneTimeNeedTopicName,
       newsletterTopicId,
       newsletterTopicName,
+      careTopicId,
+      careTopicName,
     } = groupmeSchema.parse(req.body);
     const fields = {
       groupmeGroupId: groupId,
@@ -96,6 +94,8 @@ router.put("/groupme", requireRole("admin"), async (req, res, next) => {
       groupmeOneTimeNeedTopicName: oneTimeNeedTopicName,
       groupmeNewsletterTopicId: newsletterTopicId,
       groupmeNewsletterTopicName: newsletterTopicName,
+      groupmeCareTopicId: careTopicId,
+      groupmeCareTopicName: careTopicName,
     };
     if (accessToken) fields.groupmeAccessToken = encryptField(accessToken);
 
@@ -126,12 +126,9 @@ router.get("/groupme/groups", requireRole("admin"), async (req, res, next) => {
     try {
       res.json(await listGroups(decryptField(settings.groupmeAccessToken)));
     } catch (err) {
-      // A GroupMe-side failure (bad token, GroupMe down) is routine here
-      // -- this is exactly the call an admin makes to find out their
-      // token doesn't work. The generic error handler collapses
-      // unexpected errors to "Server error" on purpose (see
-      // middleware/errors.js); groupmeRequest's own message is already
-      // safe to show, so it's surfaced directly instead of being lost.
+      // A GroupMe-side failure is routine here (this call exists to test the token). The generic error
+      // handler collapses unexpected errors to "Server error" (middleware/errors.js); groupmeRequest's
+      // message is safe to show, so it is surfaced.
       res.status(502).json({ error: err.message });
     }
   } catch (err) {

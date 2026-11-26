@@ -1,8 +1,8 @@
-// #386: passkeys as a second sign-in factor. A software authenticator (softAuthenticator.js)
+// Passkeys as a second sign-in factor. A software authenticator (softAuthenticator.js)
 // produces real WebAuthn messages, so registration and sign-in run the real verification:
-// adding one, signing in with it, a replayed or wrongly-signed assertion, a response for another
-// site, the limit of five, removing one (and not the last while two-factor is required), the admin
-// reset, and forced enrolment finishing with a passkey instead of a code.
+// adding one, signing in with it, a replayed or wrongly-signed assertion, a response for
+// another site, the limit of five, removing one (and not the last while two-factor is
+// required), the admin reset, and forced enrolment finishing with a passkey instead of a code.
 const { test, describe, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 require("dotenv").config({ quiet: true });
@@ -26,7 +26,7 @@ const cookieOf = (res) =>
     .map((c) => c.split(";")[0])
     .join("; ");
 // Like a browser: keeps the latest session cookie a response sets (enrolling the first passkey
-// re-issues it, #408).
+// re-issues it).
 const as = (cookie) => {
   let current = cookie;
   return async (path, options = {}) => {
@@ -240,7 +240,7 @@ describe("signing in with a passkey", () => {
     const user = await makeUser("purpose");
     const a = newAuthenticator();
     const { cookie } = await login(user.email);
-    const who = as(cookie); // keeps the cookie the enrolment re-issues (#408)
+    const who = as(cookie); // keeps the cookie the enrolment re-issues
     await addPasskey(who, a);
     const reg = await who("/api/auth/passkeys/register/options", { method: "POST" });
     const pending = (await login(user.email)).body.pendingToken;
@@ -399,20 +399,34 @@ describe("admin reset and forced enrolment", () => {
 });
 
 describe("the public demo", () => {
-  test("can't add a passkey (its logins are shared), and the list says so", async () => {
+  test("lets a visitor add and remove a passkey, but never asks for one at sign-in", async () => {
     const user = await makeUser("demo");
-    const who = as((await login(user.email)).cookie);
     process.env.DEMO_RESET_TOKEN = "test-demo-token";
     try {
-      assert.equal((await who("/api/auth/passkeys/register/options", { method: "POST" })).status, 403);
-      assert.equal(
-        (await who("/api/auth/passkeys/register/verify", { method: "POST", body: {} })).status,
-        403
-      );
-      assert.equal((await who("/api/auth/passkeys")).body.demo, true);
+      const first = await login(user.email);
+      const who = as(first.cookie);
+      const a = newAuthenticator();
+      assert.equal((await addPasskey(who, a, "Try it")).status, 200);
+      const list = await who("/api/auth/passkeys");
+      assert.equal(list.body.demo, true);
+      assert.equal(list.body.passkeys.length, 1);
+
+      // The login is shared, so someone else signing in is not asked for the passkey...
+      const second = await login(user.email);
+      assert.equal(second.body.mfaRequired, undefined);
+      assert.ok(second.cookie.includes("="), "a normal session");
+      // ...and adding one didn't end the sessions that were already open.
+      assert.equal((await as(first.cookie)("/api/auth/me")).status, 200);
+
+      const id = list.body.passkeys[0].id;
+      const removed = await who(`/api/auth/passkeys/${id}`, {
+        method: "DELETE",
+        body: { password: PASSWORD },
+      });
+      assert.equal(removed.status, 200, JSON.stringify(removed.body));
     } finally {
       delete process.env.DEMO_RESET_TOKEN;
     }
-    assert.equal((await who("/api/auth/passkeys")).body.demo, false);
+    assert.equal((await as((await login(user.email)).cookie)("/api/auth/passkeys")).body.demo, false);
   });
 });

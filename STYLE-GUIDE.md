@@ -143,6 +143,18 @@ per page) — those are gone, not alternatives.
   round-tripped to the server (confirmed, not assumed — e.g. `GET
   /groupme/groups` 400s with "Save a GroupMe access token first" until
   the token is actually persisted).
+  **Opening things from the partner page**: anything that already
+  exists opens when you click it: a scalar section (`EditableSection`),
+  a row (`RecordList`), a contact-log entry, the Contact card and the
+  Care team. There is no "Edit" button beside it; the title is a
+  keyboard-reachable button for the same action. A collection card
+  (`PartnerSummaryCard`) opens each record on click and its **title**
+  links to the full, partner-filtered page when one exists (no "View
+  all" button). **Delete lives inside the edit popup**
+  (`QuickActionModal`'s `onDelete`, which confirms first), never on a
+  row. The only buttons left are for creating ("+ Add", "+ Record") and
+  for actions that aren't editing ("Send a greeting", "Log a
+  thank-you").
   **Section-level editing**: `EditableSection`
   (`frontend/src/components/admin/EditableSection.jsx`) is the save
   standard for grouped scalar fields on a detail page — explicit Edit
@@ -161,6 +173,8 @@ per page) — those are gone, not alternatives.
   cross-record admin list (not scoped to one parent record) uses `Table`
   + `Modal`, below, instead — `RecordList` is specifically for a small
   parent-scoped list embedded on that parent's own detail page.
+  A list whose rows open a page passes `rowHref` to `Table`, which makes the first cell a real link
+  (new tab, copy link) while the whole row still opens it; rows that open a dialog have no page to link to.
   **Accessibility gotcha, easy to reintroduce**: a clickable card/row's
   header often has its own action buttons (e.g. a "Sync" button inside
   an `EditableSection` title row) that must not also trigger the
@@ -210,7 +224,10 @@ per page) — those are gone, not alternatives.
   `SettingsPageHeader` (`frontend/src/components/admin/SettingsPageHeader.jsx`)
   for its own back-link + title, matching the "← Back to X" convention
   `TripDetailLayout.jsx` established for a split detail page's
-  sub-pages. A page gated by a feature flag uses `RequireAdminFeature`
+  sub-pages. An admin list page opens with `PageHeader`
+  (`frontend/src/components/shared/PageHeader.jsx`): title, an optional
+  count line, the main buttons on the right, an optional short
+  description. A page gated by a feature flag uses `RequireAdminFeature`
   client-side as a UX convenience only — the real enforcement is
   backend `requireFeature` (404, not a UI state). See
   [SPEC.md § 3.3](SPEC.md) and § 4 for the feature flag registry.

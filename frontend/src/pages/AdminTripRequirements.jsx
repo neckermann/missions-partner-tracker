@@ -26,12 +26,7 @@ const emptyRequirementForm = {
   minorsOnly: false,
 };
 
-// Converted from onBlur-autosave onto click-row-opens-popup, same as
-// AdminTripMeetings.jsx -- label/kind are fixed at creation (never were
-// editable after the fact in the old inline form either), so the edit
-// popup shows them as plain read-only context and only the fields that
-// were genuinely editable (due date, reminder lead time, minors-only,
-// the e-signature agreement text) become form inputs.
+// Label/kind are fixed at creation, so the edit popup shows them read-only.
 export default function AdminTripRequirements() {
   const { trip, reload, requirementLibrary, confirmDialog, canWrite } = useOutletContext();
   const [error, setError] = useState("");
@@ -91,10 +86,7 @@ export default function AdminTripRequirements() {
     }
     reload();
     setManualEmailRecipients(manual);
-    // Stay open with the link in view instead of auto-closing behind it --
-    // same reasoning as AdminUserForm.jsx's wizard. QuickActionModal's own
-    // "Saved" state/auto-close only fires when onSubmit doesn't return
-    // false, so this is the one case that opts out of it.
+    // Stay open with the link in view. QuickActionModal's "Saved" auto-close fires unless onSubmit returns false.
     if (manual?.length > 0) return false;
   }
 
@@ -126,13 +118,15 @@ export default function AdminTripRequirements() {
       confirmLabel: "Remove",
       danger: true,
     });
-    if (!confirmed) return;
+    if (!confirmed) return false;
     try {
       await deleteTripRequirement(r.id);
       reload();
       setError("");
+      return true;
     } catch (err) {
       reportError(err, "Couldn't remove this requirement.");
+      return false;
     }
   }
 
@@ -182,7 +176,7 @@ export default function AdminTripRequirements() {
 
       <div className="admin-section">
         <h3>Trip Requirements</h3>
-        <p style={{ color: "#888", fontSize: "0.85rem" }}>
+        <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
           What this trip needs from each participant -- a document to upload, or a plain task an admin checks
           off (e.g. "Attended orientation call"). Give one a due date to see it flagged once overdue; add a
           reminder lead time to have anyone who hasn't fulfilled it emailed automatically before it's due.
@@ -211,10 +205,7 @@ export default function AdminTripRequirements() {
             </button>
           </div>
         )}
-        {/* Only the library quick-add's own notice renders here -- the
-            reqModal's version of this same state renders inside that
-            modal instead (below), right next to the action that produced
-            it, not up here disconnected from either one. */}
+        {/* The reqModal's version of this notice renders inside that modal. */}
         {!reqModal && manualEmailRecipients?.length > 0 && (
           <ManualSendNotice recipients={manualEmailRecipients} />
         )}
@@ -222,10 +213,8 @@ export default function AdminTripRequirements() {
           bare
           items={trip.requirements || []}
           canEdit={canWrite}
-          canDelete={canWrite}
           onAdd={openAddRequirement}
           onEdit={openEditRequirement}
-          onDelete={handleDeleteRequirement}
           emptyMessage="No requirements yet."
           renderItem={(r) => {
             const overdue = r.dueAt && new Date(r.dueAt) < new Date();
@@ -247,7 +236,7 @@ export default function AdminTripRequirements() {
 
       <div className="admin-section">
         <h3>Trip-wide documents</h3>
-        <p style={{ color: "#888", fontSize: "0.85rem" }}>
+        <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
           Shared with the whole team -- an itinerary, packing list, or anything else that isn't specific to
           one person.
         </p>
@@ -256,7 +245,10 @@ export default function AdminTripRequirements() {
             <li key={d.id} style={{ marginBottom: "0.3rem" }}>
               {d.title || d.fileName}
               {d.fileSize != null && (
-                <span style={{ color: "#888", fontSize: "0.8rem" }}> ({formatFileSize(d.fileSize)})</span>
+                <span style={{ color: "var(--muted)", fontSize: "0.8rem" }}>
+                  {" "}
+                  ({formatFileSize(d.fileSize)})
+                </span>
               )}{" "}
               <button type="button" className="btn secondary small" onClick={() => handleViewDocument(d)}>
                 View
@@ -268,7 +260,7 @@ export default function AdminTripRequirements() {
               )}
             </li>
           ))}
-          {tripWideDocs.length === 0 && <p style={{ color: "#888" }}>No trip-wide documents yet.</p>}
+          {tripWideDocs.length === 0 && <p style={{ color: "var(--muted)" }}>No trip-wide documents yet.</p>}
         </ul>
         {canWrite && (
           <>
@@ -308,6 +300,7 @@ export default function AdminTripRequirements() {
             setManualEmailRecipients(null);
           }}
           onSubmit={submitReqModal}
+          onDelete={reqModal.id != null ? () => handleDeleteRequirement(reqModal) : undefined}
         >
           {manualEmailRecipients?.length > 0 && <ManualSendNotice recipients={manualEmailRecipients} />}
           {reqModal.id == null ? (
@@ -340,7 +333,7 @@ export default function AdminTripRequirements() {
                   onChange={(e) => setReqModalForm((f) => ({ ...f, dueAt: e.target.value }))}
                 />
               </label>
-              <label style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}>
+              <label className="checkbox-option">
                 <input
                   type="checkbox"
                   checked={reqModal.form.minorsOnly}
@@ -382,7 +375,7 @@ export default function AdminTripRequirements() {
                   />
                 </label>
               )}
-              <label style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}>
+              <label className="checkbox-option">
                 <input
                   type="checkbox"
                   checked={reqModal.form.minorsOnly}

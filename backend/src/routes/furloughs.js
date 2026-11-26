@@ -10,11 +10,10 @@ const {
 const { partnerRefSelect } = require("../utils/prismaIncludes");
 
 const router = express.Router();
-router.use(requireAuth); // everything below requires a logged-in user
+router.use(requireAuth);
 
-// The only writer for Furlough -- see routes/adults.js for the full
-// reasoning, same shape, no consolidated cross-partner list. endDate is
-// optional/nullable for an open-ended/ongoing furlough.
+// The only writer for Furlough; same shape as routes/adults.js. A null endDate
+// means an open-ended furlough.
 const furloughSchema = z.object({
   partnerId: z.string(),
   startDate: z.coerce.date(),
@@ -24,7 +23,6 @@ const furloughSchema = z.object({
 
 const furloughInclude = { partner: partnerRefSelect };
 
-// GET /api/furloughs?partnerId=
 router.get("/", requirePartnerQueryScope, async (req, res, next) => {
   try {
     const where = {};
@@ -41,7 +39,6 @@ router.get("/", requirePartnerQueryScope, async (req, res, next) => {
   }
 });
 
-// POST /api/furloughs  (create — editor or admin)
 router.post("/", requirePartnerWriter({ body: true }), async (req, res, next) => {
   try {
     const data = furloughSchema.parse(req.body);
@@ -52,7 +49,6 @@ router.post("/", requirePartnerWriter({ body: true }), async (req, res, next) =>
   }
 });
 
-// PUT /api/furloughs/:id  (update — editor or admin)
 router.put("/:id", requirePartnerWriter({ model: "furlough" }), async (req, res, next) => {
   try {
     const data = furloughSchema.partial().parse(req.body);
@@ -67,7 +63,6 @@ router.put("/:id", requirePartnerWriter({ model: "furlough" }), async (req, res,
   }
 });
 
-// DELETE /api/furloughs/:id  (admin only)
 router.delete("/:id", requireRole("admin"), async (req, res, next) => {
   try {
     await prisma.furlough.delete({ where: { id: req.params.id } });

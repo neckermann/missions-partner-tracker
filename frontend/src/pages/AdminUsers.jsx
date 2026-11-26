@@ -29,6 +29,9 @@ const emptyForm = {
   email: "",
   firstName: "",
   lastName: "",
+  phone: "",
+  profile: "",
+  onMissionsTeam: false,
   role: "editor",
   authProvider: "local",
   active: true,
@@ -55,24 +58,8 @@ const INACTIVE_LABELS = {
   no_access: "No trips left",
 };
 
-// A user record list, same shape as every other consolidated list page
-// (Table, onRowClick -> a QuickActionModal with the edit form) -- not
-// EditableSection, which is for sections *within* one record, not a
-// collection of many.
-//
-// Create is the one exception, and lives on its own page
-// (AdminUserForm.jsx, "/admin/settings/users/new") rather than a modal
-// here: once the welcome-email/password/MFA options (#285) were added on
-// top of the basic who-is-this fields, Add User crossed the same "~6
-// fields, 2+ conceptual groups" bar Wizard exists for (see
-// STYLE-GUIDE.md -- Multi-step creation, and AdminPartnerForm.jsx's own
-// field-count survey comment), and a Wizard reads as its own page --
-// breadcrumb, title, Cancel/Next pinned to the viewport bottom -- not a
-// dialog floating over this list (a popup-modal version shipped briefly
-// and was corrected in review for exactly that mismatch with "New
-// Partner"). Edit stays the plain QuickActionModal here: it never had the
-// welcome-email step, and resetting a password or changing a role is a
-// single-topic action.
+// A user list like the other consolidated list pages (Table, row opens a QuickActionModal edit form).
+// Create lives on its own Wizard page (AdminUserForm.jsx); edit stays a modal since it has no welcome-email step.
 export default function AdminUsers() {
   const location = useLocation();
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
@@ -80,16 +67,14 @@ export default function AdminUsers() {
   const [currentUser, setCurrentUser] = useState(null);
   const [trips, setTrips] = useState([]);
   const [partners, setPartners] = useState([]);
-  const { enabledFeatures } = useSettings();
+  const { enabledFeatures, ownerGroupName } = useSettings();
   const careEnabled = !!enabledFeatures?.careTeam;
   const [error, setError] = useState("");
   const [editingUser, setEditingUser] = useState(null); // { id, form } for edit
   const [formError, setFormError] = useState("");
   const [notice, setNotice] = useState(location.state?.notice || "");
   const [manualSetupLink, setManualSetupLink] = useState(null); // { name, email, url } | null
-  // Guests whose access has lapsed or been removed, so an admin can reach
-  // out and clean up (#356). Filtered here from the list's own
-  // `inactiveReason` rather than refetching.
+  // Guests whose access has lapsed or been removed, filtered from the list's own `inactiveReason`.
   const [inactiveOnly, setInactiveOnly] = useState(false);
 
   function reportError(err, fallback) {
@@ -124,9 +109,8 @@ export default function AdminUsers() {
     }
   }
 
-  // The church-wide two-factor requirement (#385). Turning it on signs out everyone who has not
-  // enrolled (they set it up at their next sign-in), so it asks first; the server refuses unless
-  // the admin doing it has enrolled themselves, and says why.
+  // The church-wide two-factor requirement. Turning it on signs out everyone who has not enrolled,
+  // so it asks first; the server refuses unless the admin has enrolled themselves.
   async function handleToggleTwoFactor(notEnrolled) {
     setError("");
     const turningOn = !currentUser?.twoFactorRequired;
@@ -155,9 +139,8 @@ export default function AdminUsers() {
     }
   }
 
-  // Passwordless sign-in (#386 Layer 2). Turning it on ends password sign-in for everyone, so it
-  // says who will sign in by emailed link first; the server refuses, with the reason, unless
-  // email works and the admin turning it on has a passkey.
+  // Passwordless sign-in. Turning it on ends password sign-in for everyone, so it says who will sign
+  // in by emailed link first; the server refuses unless email works and the admin has a passkey.
   async function handleTogglePasswordless(withoutPasskey) {
     setError("");
     const turningOn = !currentUser?.passwordlessRequired;
@@ -184,6 +167,17 @@ export default function AdminUsers() {
       reload();
     } catch (err) {
       reportError(err, "Couldn't change passwordless sign-in");
+    }
+  }
+
+  // Offers "Sign in with a passkey" on the sign-in page beside the password form. Passwords keep working.
+  async function handleTogglePasskeySignIn(allow) {
+    setError("");
+    try {
+      await updateChurchSettings({ allowPasskeySignIn: allow });
+      setCurrentUser(await fetchCurrentUser());
+    } catch (err) {
+      reportError(err, "Couldn't change passkey sign-in");
     }
   }
 
@@ -224,18 +218,8 @@ export default function AdminUsers() {
 
   async function openEdit(u) {
     setFormError("");
-    // `loaded: false` keeps the modal's real, interactive form from
-    // rendering at all until fetchUser resolves -- this used to render
-    // the form immediately against `emptyForm` as a loading stand-in, but
-    // emptyForm is a real, editable form, not an inert placeholder: a
-    // change made in that window (role, name, ...) was silently
-    // overwritten the moment the fetch below landed and replaced the
-    // whole form with the server's own data, discarding whatever was just
-    // typed/selected with no error or indication anything was lost. Confirmed
-    // as the actual cause of this suite's own "edit sticks" test going
-    // flaky in CI (never locally, where the fetch resolves long before a
-    // person or Playwright could react) -- not a timing issue to paper
-    // over in the test, a real bug any slow connection could hit.
+    // `loaded: false` keeps the form from rendering until fetchUser resolves: edits made against
+    // `emptyForm` in that window would be silently overwritten when the server data landed.
     setEditingUser({ id: u.id, form: emptyForm, loaded: false });
     try {
       const full = await fetchUser(u.id);
@@ -325,7 +309,10 @@ export default function AdminUsers() {
           {u.role === "guest" ? "Guest" : u.role}
           {u.role === "guest" &&
             u.tripAccess?.map((g) => (
-              <div key={g.id} style={{ fontSize: "0.75rem", color: g.active ? "#888" : "var(--danger)" }}>
+              <div
+                key={g.id}
+                style={{ fontSize: "0.75rem", color: g.active ? "var(--muted)" : "var(--danger)" }}
+              >
                 {[g.trip.partner?.displayName, g.trip.name || g.trip.type].filter(Boolean).join(" — ") ||
                   "Trip"}
                 {g.effectiveExpiresAt &&
@@ -333,7 +320,7 @@ export default function AdminUsers() {
               </div>
             ))}
           {u.careTeamSeats?.map((seat) => (
-            <div key={seat.id} style={{ fontSize: "0.75rem", color: "#888" }}>
+            <div key={seat.id} style={{ fontSize: "0.75rem", color: "var(--muted)" }}>
               Care team: {seat.partner.displayName}
               {seat.isLead ? " (Lead)" : ""}
             </div>
@@ -387,11 +374,13 @@ export default function AdminUsers() {
   // Why the passwordless switch can't be used yet, if it can't (the server checks the same).
   const passwordlessBlocker = passwordlessOn
     ? null
-    : !currentUser?.emailReady
-      ? "Turn on outbound email and finish setting it up first (Settings → Email): people without a passkey sign in through an emailed link."
-      : !currentUser?.passkeyCount
-        ? "Add a passkey to your own account first (My Account), so turning this on doesn't lock you out."
-        : null;
+    : currentUser?.passwordlessBlockedByDemo
+      ? "Passwordless sign-in is switched off on this demo: it would end password sign-in for the shared logins and lock every visitor out until the next reset. A real install can turn it on here."
+      : !currentUser?.emailReady
+        ? "Turn on outbound email and finish setting it up first (Settings → Email): people without a passkey sign in through an emailed link."
+        : !currentUser?.passkeyCount
+          ? "Add a passkey to your own account first (My Account), so turning this on doesn't lock you out."
+          : null;
 
   return (
     <div className="admin-shell">
@@ -413,7 +402,7 @@ export default function AdminUsers() {
       {notice && <p role="status">{notice}</p>}
       {manualSetupLink && <ManualSendNotice recipients={manualSetupLink} />}
 
-      <div className="admin-section" style={{ marginBottom: "1rem" }}>
+      <div className="admin-section" style={{ margin: "1rem 0" }}>
         <h3 style={{ marginTop: 0 }}>Two-factor sign-in</h3>
         <p style={{ margin: "0.25rem 0 0.75rem" }}>
           {twoFactorRequired ? (
@@ -438,6 +427,26 @@ export default function AdminUsers() {
             Set up two-factor on your own account first (My Account), so turning this on doesn't lock you out.
           </p>
         )}
+      </div>
+
+      <div className="admin-section" style={{ marginBottom: "1rem" }}>
+        <h3 style={{ marginTop: 0 }}>Passkey sign-in</h3>
+        <div className="admin-checkbox-row">
+          <label className="checkbox-option">
+            <input
+              type="checkbox"
+              checked={passwordlessOn || !!currentUser?.allowPasskeySignIn}
+              disabled={passwordlessOn}
+              onChange={(e) => handleTogglePasskeySignIn(e.target.checked)}
+            />
+            Show "Sign in with a passkey" on the sign-in page
+          </label>
+        </div>
+        <p style={{ fontSize: "0.85rem", color: "var(--muted)", marginBottom: 0 }}>
+          {passwordlessOn
+            ? "On while passwordless sign-in is on."
+            : "People who have added a passkey (My account) can use their fingerprint, face or screen lock instead of typing a password. Passwords keep working."}
+        </p>
       </div>
 
       <div className="admin-section" style={{ marginBottom: "1rem" }}>
@@ -479,7 +488,7 @@ export default function AdminUsers() {
               checked={inactiveOnly}
               onChange={(e) => setInactiveOnly(e.target.checked)}
             />
-            Inactive accounts only ({inactiveCount}) -- guests whose access has ended or been removed
+            Inactive accounts only ({inactiveCount}) — guests whose access has ended or been removed
           </label>
         </div>
       )}
@@ -521,7 +530,7 @@ export default function AdminUsers() {
           submitDisabled={!editingUser.loaded}
         >
           {!editingUser.loaded ? (
-            <p style={{ color: "#888" }}>Loading…</p>
+            <p style={{ color: "var(--muted)" }}>Loading…</p>
           ) : (
             <>
               <div className="form-grid">
@@ -544,6 +553,15 @@ export default function AdminUsers() {
                   />
                 </label>
                 <label>
+                  Phone
+                  <input
+                    type="tel"
+                    value={editingUser.form.phone || ""}
+                    onChange={(e) => updateForm("phone", e.target.value)}
+                    maxLength={40}
+                  />
+                </label>
+                <label>
                   Role
                   <select value={editingUser.form.role} onChange={(e) => updateForm("role", e.target.value)}>
                     <option value="admin">Admin</option>
@@ -553,6 +571,29 @@ export default function AdminUsers() {
                   </select>
                 </label>
               </div>
+
+              <label style={{ display: "block", marginTop: "1rem" }}>
+                About them
+                <textarea
+                  rows={2}
+                  value={editingUser.form.profile || ""}
+                  maxLength={1000}
+                  onChange={(e) => updateForm("profile", e.target.value)}
+                />
+              </label>
+
+              {editingUser.form.role !== "guest" && (
+                <div className="admin-checkbox-row" style={{ marginTop: "1rem" }}>
+                  <label className="checkbox-option">
+                    <input
+                      type="checkbox"
+                      checked={!!editingUser.form.onMissionsTeam}
+                      onChange={(e) => updateForm("onMissionsTeam", e.target.checked)}
+                    />
+                    On the {ownerGroupName} (looks after partners that have no care team)
+                  </label>
+                </div>
+              )}
 
               {editingUser.form.role === "guest" && (
                 <div style={{ marginTop: "1rem" }}>
@@ -576,7 +617,7 @@ export default function AdminUsers() {
                       />
                     </div>
                   )}
-                  <p style={{ fontSize: "0.85rem", color: "#555", marginTop: "0.5rem" }}>
+                  <p style={{ fontSize: "0.85rem", color: "var(--muted)", marginTop: "0.5rem" }}>
                     A guest can work on these trips and see their partners, nothing else in the app. Changes
                     to an existing guest's trips save immediately.
                   </p>
@@ -602,7 +643,7 @@ export default function AdminUsers() {
                 </label>
               </div>
               {editingUser.form.mfaEnabled && (
-                <p style={{ fontSize: "0.85rem", color: "#555", marginTop: "0.5rem" }}>
+                <p style={{ fontSize: "0.85rem", color: "var(--muted)", marginTop: "0.5rem" }}>
                   This user already has two-factor authentication enabled. Use "Reset MFA" on their row if
                   they need to re-enroll.
                 </p>

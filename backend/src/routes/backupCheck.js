@@ -6,11 +6,8 @@ const { detectProvider } = require("../utils/backupCheck");
 const router = express.Router();
 router.use(requireRole("admin"));
 
-// GET /api/backup-check
-// Backs the admin-dashboard backup reminder (see BackupReminder.jsx).
-// backupReminderDisabled is the deliberate, permanent opt-out set on the
-// Backups settings page (AdminSettingsBackups.jsx) -- distinct from that
-// component's own per-browser dismiss-for-30-days.
+// backupReminderDisabled is the permanent opt-out from the Backups settings
+// page, distinct from the reminder's per-browser 30-day dismiss.
 router.get("/", async (req, res, next) => {
   try {
     const settings = await prisma.churchSettings.findUnique({

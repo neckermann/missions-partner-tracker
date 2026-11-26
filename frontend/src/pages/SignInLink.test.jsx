@@ -1,4 +1,4 @@
-// #386 Layer 2: where the emailed sign-in link lands.
+// Where the emailed sign-in link lands.
 import React from "react";
 import { describe, test, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";

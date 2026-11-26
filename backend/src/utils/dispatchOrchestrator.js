@@ -1,13 +1,10 @@
-// Two cross-channel operations that don't belong to any single
-// channel's file: clearDispatchRecords() (deleting a row needs every
-// channel's state at once) and sendUrgentDispatch() (an immediate,
-// cadence-bypassing send across all four channels for one row).
-//
-// One-way dependency on groupmeChannel.js/emailDispatchDelivery.js, never the
-// reverse -- emailDispatchScheduler.js composes "run a pass, then clear" for
-// both triggers, so neither pass's file needs to call back into this one.
+// Cross-channel operations that belong to no single channel: clearDispatchRecords()
+// (deleting a row needs every channel's state) and sendUrgentDispatch() (an
+// immediate, cadence-bypassing send across all four channels for one row).
+// One-way dependency on groupmeChannel.js/emailDispatchDelivery.js, never the reverse.
 const prisma = require("../prismaClient");
-const { DIGEST_ROLES } = require("./digestRoles");
+const { DIGEST_RECIPIENT_ROLES } = require("./digestRoles");
+const { resolveDigestScope, digestCovers } = require("./digestScope");
 const { isFeatureEnabled } = require("./features");
 const { CHANNELS, isEligibleForChannel, needsReview, getChurchSettings } = require("./dispatchEligibility");
 const { postToGroupMe } = require("./groupmeChannel");
@@ -22,13 +19,10 @@ const TIER_STAMP_COLUMN = {
   quarterly: "quarterlyEmailDispatchSentAt",
 };
 
-// Reads every row's current stamp columns across all channels and
-// deletes whatever is now fully resolved. A toggle/feature being off
-// counts as *permanent* for that channel here, not "could still change"
-// -- re-enabling it later only affects events recorded after that
-// point. The one universal exception: needsReview blocks every channel
-// at once, so a restricted-and-unreviewed row never clears regardless
-// of toggle state.
+// Reads every row's stamp columns across all channels and deletes whatever is
+// fully resolved. A toggle/feature being off counts as *permanent* for that
+// channel (re-enabling only affects later events). Exception: needsReview blocks
+// every channel, so a restricted-and-unreviewed row never clears.
 async function clearDispatchRecords() {
   const rows = await prisma.dispatchRecord.findMany({ orderBy: { createdAt: "asc" } });
   if (rows.length === 0) return { cleared: 0 };
@@ -45,13 +39,11 @@ async function clearDispatchRecords() {
   const emailOn = isFeatureEnabled(settings?.enabledFeatures, "outboundEmail");
   const publicDigestOn = isFeatureEnabled(settings?.enabledFeatures, "publicPrayerDigest");
 
-  // Per-tier subscriber counts, computed once -- a tier "applies" to a
-  // row depends on both its type (Rule 2) and whether anyone's
-  // currently subscribed on that tier.
+  // Per-tier subscriber counts, computed once: a tier applies depending on the row's type (Rule 2) and whether anyone is subscribed.
   const [adminTierCounts, publicTierCounts] = await Promise.all([
     prisma.user.groupBy({
       by: ["cadence"],
-      where: { cadence: { not: null }, active: true, role: { in: DIGEST_ROLES } },
+      where: { cadence: { not: null }, active: true, role: { in: DIGEST_RECIPIENT_ROLES } },
       _count: true,
     }),
     prisma.publicSubscriber.groupBy({ by: ["cadence"], where: { confirmedAt: { not: null } }, _count: true }),
@@ -83,22 +75,17 @@ async function clearDispatchRecords() {
 
       const groupmeApplies =
         groupmeOn && isEligibleForChannel(row, CHANNELS.GROUPME, partner, settings, true);
-      // WhatsApp only "applies" once this row's type resolves to some
-      // group -- its own pick or the community's Announcements fallback
-      // (see whatsappChannel.js's hasWhatsAppTarget) -- otherwise the
-      // row would wait forever for a channel that can never take it.
-      // Deliberately not gated on live pairing state here -- see
-      // hasWhatsAppTarget's own comment on why that would wrongly treat
-      // a momentary reconnect the same as a permanent "off."
+      // WhatsApp "applies" once this row's type resolves to some group (own pick
+      // or Announcements fallback), else the row would wait forever. Not gated on
+      // live pairing; see hasWhatsAppTarget.
       const whatsappApplies =
         whatsappOn &&
         hasWhatsAppTarget(row, settings) &&
         isEligibleForChannel(row, CHANNELS.WHATSAPP, partner, settings, true);
       const tiers = Object.fromEntries(TIERS.map((tier) => [tier, tierApplies(row, tier, partner)]));
 
-      // Guards the vacuous case: with every channel off/unsubscribed,
-      // every "!applies" term below is trivially true, which would
-      // delete a row that never actually reached anyone.
+      // Guards the vacuous case: with every channel off, every "!applies" term is
+      // trivially true and would delete a row that never reached anyone.
       if (!(groupmeApplies || whatsappApplies || Object.values(tiers).some(Boolean))) return false;
 
       return (
@@ -116,14 +103,21 @@ async function clearDispatchRecords() {
   return { cleared: clearableIds.length, remaining: rows.length - clearableIds.length };
 }
 
-// How many admins and confirmed public subscribers would be notified
-// about this partner right now, cadence-blind -- populates the confirm
-// dialog's numbers before an urgent send fires. Approximate on purpose
-// (scoped by partner only, not the row's exact type/settings) -- the
-// dialog's job is to convey real scale, not predict eligibility
-// exactly. Both counts are 0 when outboundEmail is off, matching
-// sendUrgentDispatch()'s own gating, so these numbers never overstate
-// what will actually happen.
+// How many admins and confirmed public subscribers would be notified about this
+// partner now, cadence-blind, for the urgent-send confirm dialog. Approximate on
+// purpose (scoped by partner only). Both are 0 when outboundEmail is off, matching
+// sendUrgentDispatch(), so the numbers never overstate.
+// Active logins whose digest scope covers this partner (all, followed, or looked after; a guest only for
+// partners they hold a seat on).
+async function countAdminsCovering(partnerId) {
+  const users = await prisma.user.findMany({
+    where: { active: true, role: { in: DIGEST_RECIPIENT_ROLES } },
+    select: { id: true, role: true, digestScope: true, followedPartners: { select: { partnerId: true } } },
+  });
+  const covered = await Promise.all(users.map((u) => digestCovers(u, partnerId)));
+  return covered.filter(Boolean).length;
+}
+
 async function countUrgentRecipients(partnerId) {
   const settings = await getChurchSettings();
   if (!isFeatureEnabled(settings?.enabledFeatures, "outboundEmail")) {
@@ -131,9 +125,7 @@ async function countUrgentRecipients(partnerId) {
   }
   const publicDigestOn = isFeatureEnabled(settings?.enabledFeatures, "publicPrayerDigest");
   const [adminCount, publicCount] = await Promise.all([
-    prisma.user.count({
-      where: { active: true, OR: [{ allPartners: true }, { followedPartners: { some: { partnerId } } }] },
-    }),
+    countAdminsCovering(partnerId),
     publicDigestOn
       ? prisma.publicSubscriber.count({
           where: {
@@ -146,18 +138,9 @@ async function countUrgentRecipients(partnerId) {
   return { adminCount, publicCount };
 }
 
-// The two chat-channel branches of sendUrgentDispatch below, split out
-// so they can run concurrently (Promise.all) rather than one after the
-// other -- they're already fully independent (separate settings gate,
-// separate dispatchedAt column), so there's no reason an urgent send
-// should pay the sum of GroupMe's HTTP round trip and WhatsApp's
-// anti-ban-delayed socket send instead of the max of the two. Each one
-// also now catches its own failure: previously neither call had a
-// try/catch at all, so a GroupMe error (a revoked token, a network
-// blip) would throw out of sendUrgentDispatch entirely and silently
-// skip WhatsApp and email too -- exactly the "a provider failure must
-// not block the other" guarantee #242's own acceptance criteria call
-// for, which this function wasn't actually providing.
+// The two chat-channel branches of sendUrgentDispatch, run concurrently since
+// they are independent. Each catches its own failure so a GroupMe error (revoked
+// token, network blip) can't skip WhatsApp and email: a provider failure must not block the others.
 async function sendGroupMeUrgent(row, partner, partnerById, settings, now) {
   if (
     !isFeatureEnabled(settings?.enabledFeatures, "groupme") ||
@@ -208,18 +191,14 @@ async function sendWhatsAppUrgent(row, partner, partnerById, settings, now) {
   }
 }
 
-// Immediate, cadence-bypassing send for one row, across all four
-// channels -- still calls isEligibleForChannel per channel like every
-// scheduled pass; only Rule 3's cadence-tier matching is bypassed (a
-// cadence-blind recipient query instead). Rules 1 and 2 run unchanged:
-// a restricted-and-unreviewed row still never sends, a muted chat-channel
-// content-type still suppresses an urgent post, an urgent one-time need
-// still never reaches the public email dispatch.
+// Immediate send for one row across all four channels. Still calls
+// isEligibleForChannel per channel; only Rule 3's cadence-tier matching is
+// bypassed. Rules 1 and 2 hold: a restricted-and-unreviewed row never sends, a
+// muted chat content type still suppresses, an urgent one-time need never
+// reaches the public email dispatch.
 //
-// Re-fetches isRestricted/isPublic fresh by id rather than trusting the
-// caller's partner shape -- dispatchRecording.js only has a route's
-// partnerRefSelect on hand ({ id, kind, displayName }), not these two
-// safety-critical fields.
+// Re-fetches isRestricted/isPublic by id rather than trusting the caller's
+// partner shape, which lacks these safety-critical fields.
 async function sendUrgentDispatch(row, { id: partnerId }) {
   const [settings, partner] = await Promise.all([
     getChurchSettings(),
@@ -236,14 +215,10 @@ async function sendUrgentDispatch(row, { id: partnerId }) {
     sendWhatsAppUrgent(row, partner, partnerById, settings, now),
   ]);
 
-  // Cadence-blind: every active admin and confirmed public subscriber,
-  // regardless of tier or whether that tier's schedule fired today --
-  // reuses emailDispatchDelivery.js's recipient-normalization and send/chunking,
-  // just fed an unfiltered recipient query. sendToRecipients has no
-  // awareness of feature flags, so this call site gates outboundEmail/
-  // publicPrayerDigest itself, the same two gates the scheduled path
-  // checks before ever calling it -- otherwise an urgent send would
-  // keep emailing with either feature turned off.
+  // Every active admin and confirmed public subscriber regardless of tier,
+  // reusing emailDispatchDelivery.js's normalization and chunking. sendToRecipients
+  // ignores feature flags, so this call site gates outboundEmail/publicPrayerDigest
+  // itself, like the scheduled path.
   const emailOn = isFeatureEnabled(settings?.enabledFeatures, "outboundEmail");
   const publicDigestOn = isFeatureEnabled(settings?.enabledFeatures, "publicPrayerDigest");
   let admins = [];
@@ -252,15 +227,16 @@ async function sendUrgentDispatch(row, { id: partnerId }) {
   if (emailOn) {
     [admins, publicSubscribers] = await Promise.all([
       prisma.user.findMany({
-        // Never a guest (#407): an urgent send is the whole church's content.
-        where: { active: true, role: { in: DIGEST_ROLES } },
+        // A guest only through the partners they hold a seat on (digestScope is forced to "owned").
+        where: { active: true, role: { in: DIGEST_RECIPIENT_ROLES } },
         select: {
           id: true,
           email: true,
           firstName: true,
           lastName: true,
+          role: true,
           cadence: true,
-          allPartners: true,
+          digestScope: true,
           followedPartners: { select: { partnerId: true } },
         },
       }),
@@ -277,8 +253,11 @@ async function sendUrgentDispatch(row, { id: partnerId }) {
           })
         : [],
     ]);
+    const adminRecipients = await Promise.all(
+      admins.map(async (u) => normalizeRecipient(u, CHANNELS.EMAIL_ADMIN, await resolveDigestScope(u)))
+    );
     const recipients = [
-      ...admins.map((u) => normalizeRecipient(u, CHANNELS.EMAIL_ADMIN)),
+      ...adminRecipients,
       ...publicSubscribers.map((s) => normalizeRecipient(s, CHANNELS.EMAIL_PUBLIC)),
     ];
     const consideredIds = await sendToRecipients([row], partnerById, recipients, settings);

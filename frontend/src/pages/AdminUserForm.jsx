@@ -13,6 +13,9 @@ const initialValues = {
   email: "",
   firstName: "",
   lastName: "",
+  phone: "",
+  profile: "",
+  onMissionsTeam: false,
   role: "editor",
   authProvider: "local",
   password: "",
@@ -24,27 +27,16 @@ const initialValues = {
   careTeam: [],
 };
 
-// Create only -- a dedicated page, same shape as AdminPartnerForm.jsx's
-// "New Partner" (its own field-count survey comment explains why that one
-// earned the Wizard shell; the welcome-email/password/MFA options added in
-// #285/#286 put Add User past that same bar). A popup-modal version of
-// this previously shipped and was corrected in review: the Wizard shell is
-// meant to read as its own page -- breadcrumb, page title, Cancel/Next
-// pinned to the viewport bottom -- not a dialog floating over the list,
-// which is what every other "+Add X" quick-action already looks like and
-// this is deliberately not. Edit stays on AdminUsers.jsx's own list page
-// (a plain QuickActionModal) -- it never had the welcome-email step, and
-// resetting a password or changing a role is a single-topic action.
+// Create only; a dedicated Wizard page (breadcrumb, title, pinned Cancel/Next), not a popup.
+// Edit stays a QuickActionModal on AdminUsers.jsx: it has no welcome-email step.
 export default function AdminUserForm() {
   const navigate = useNavigate();
-  // The trip page's "Invite a new guest" link lands here with ?tripId= so
-  // the wizard opens as a guest already given that trip (#356).
+  // The trip page's "Invite a new guest" link lands here with ?tripId=, opening as a guest on that trip.
   const [searchParams] = useSearchParams();
   const presetTripId = searchParams.get("tripId");
-  // ...and a partner's Care team panel links here with ?partnerId= so the
-  // wizard opens as a guest already on that partner's care team (#289).
+  // ...and a partner's Care team panel links here with ?partnerId=.
   const presetPartnerId = searchParams.get("partnerId");
-  const { enabledFeatures } = useSettings();
+  const { enabledFeatures, ownerGroupName } = useSettings();
   const careEnabled = !!enabledFeatures.careTeam;
   const startingValues = presetTripId
     ? { ...initialValues, role: "guest", tripAccess: [{ tripId: presetTripId, expiresAt: null }] }
@@ -55,9 +47,7 @@ export default function AdminUserForm() {
   const [trips, setTrips] = useState([]);
   const [saving, setSaving] = useState(false);
   const [submitError, setSubmitError] = useState("");
-  // Set only when the account just created needs a manual setup link
-  // (outbound email is off) -- shown in place of the wizard, not after
-  // navigating away, so the link is never on a screen nobody's looking at.
+  // Set when outbound email is off; shown in place of the wizard so the link is never on an unseen screen.
   const [manualLink, setManualLink] = useState(null); // { email, url } | null
 
   useEffect(() => {
@@ -76,6 +66,8 @@ export default function AdminUserForm() {
       const payload = { ...values };
       // Only a guest takes trip access.
       if (values.role !== "guest") delete payload.tripAccess;
+      // A guest can't be on the missions team.
+      if (values.role === "guest") delete payload.onMissionsTeam;
       if (!careEnabled || values.role !== "guest" || values.careTeam.length === 0) delete payload.careTeam;
       if (!payload.password) delete payload.password;
 
@@ -127,6 +119,15 @@ export default function AdminUserForm() {
               <input value={values.lastName} onChange={(e) => setValue("lastName", e.target.value)} />
             </label>
             <label>
+              Phone (optional)
+              <input
+                type="tel"
+                value={values.phone}
+                onChange={(e) => setValue("phone", e.target.value)}
+                maxLength={40}
+              />
+            </label>
+            <label>
               Role
               <select value={values.role} onChange={(e) => setValue("role", e.target.value)}>
                 <option value="admin">Admin</option>
@@ -137,6 +138,30 @@ export default function AdminUserForm() {
             </label>
           </div>
 
+          <label style={{ display: "block", marginTop: "1rem" }}>
+            About them (optional)
+            <textarea
+              rows={2}
+              value={values.profile}
+              maxLength={1000}
+              placeholder="How they help, or when they are easiest to reach"
+              onChange={(e) => setValue("profile", e.target.value)}
+            />
+          </label>
+
+          {values.role !== "guest" && (
+            <div className="admin-checkbox-row" style={{ marginTop: "1rem" }}>
+              <label className="checkbox-option">
+                <input
+                  type="checkbox"
+                  checked={values.onMissionsTeam}
+                  onChange={(e) => setValue("onMissionsTeam", e.target.checked)}
+                />
+                On the {ownerGroupName} (looks after partners that have no care team)
+              </label>
+            </div>
+          )}
+
           {values.role === "guest" && (
             <div style={{ marginTop: "1rem" }}>
               <TripGrantPicker
@@ -144,7 +169,7 @@ export default function AdminUserForm() {
                 value={values.tripAccess}
                 onChange={(next) => setValue("tripAccess", next)}
               />
-              <p style={{ fontSize: "0.85rem", color: "#555", marginTop: "0.5rem" }}>
+              <p style={{ fontSize: "0.85rem", color: "var(--muted)", marginTop: "0.5rem" }}>
                 A guest can work on the trips you choose and see those trips' partners, nothing else in the
                 app. They sign in with a password and two-factor authentication.
               </p>
@@ -165,7 +190,7 @@ export default function AdminUserForm() {
             show: (values) => values.role === "guest",
             render: ({ values, setValue }) => (
               <>
-                <p style={{ marginTop: 0, color: "#555" }}>
+                <p style={{ marginTop: 0, color: "var(--muted)" }}>
                   Optional: which partners will this person keep in touch with? They'll join each partner's
                   care team.
                 </p>
@@ -183,8 +208,7 @@ export default function AdminUserForm() {
       key: "access",
       label: "Account Setup",
       validate: (values) => {
-        // Checked on the last step so it sees everything: a guest reaches
-        // something only through a trip or a care team seat (#289).
+        // Checked on the last step so it sees everything: a guest reaches something only through a trip or care team seat.
         const seats = careEnabled && values.role === "guest" ? values.careTeam.length : 0;
         if (values.role === "guest" && values.tripAccess.length === 0 && seats === 0) {
           return careEnabled
@@ -216,7 +240,7 @@ export default function AdminUserForm() {
               Require two-factor authentication at first sign-in
             </label>
           </div>
-          <p style={{ fontSize: "0.85rem", color: "#555", marginTop: "0.5rem" }}>
+          <p style={{ fontSize: "0.85rem", color: "var(--muted)", marginTop: "0.5rem" }}>
             {values.sendWelcomeEmail
               ? "They'll get a one-time link to choose their own password. Nobody else ever sees it."
               : 'No email is sent. Set a password below, or leave it blank and use "Send setup link" on their row later. Until a password is set they can\'t sign in.'}
@@ -247,7 +271,7 @@ export default function AdminUserForm() {
         ]}
       />
       <h2>Add User</h2>
-      <p style={{ color: "#666", marginTop: "-0.5rem" }}>
+      <p style={{ color: "var(--muted)", marginTop: "-0.5rem" }}>
         Just enough to create the account — they can fill in the rest later.
       </p>
 
@@ -275,7 +299,7 @@ export default function AdminUserForm() {
           />
         )}
         {submitError && (
-          <p style={{ color: "#b91c1c" }} role="alert">
+          <p style={{ color: "var(--danger)" }} role="alert">
             {submitError}
           </p>
         )}

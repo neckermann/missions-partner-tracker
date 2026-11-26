@@ -1,21 +1,13 @@
-// Shared by both places a TripParticipant photo gets written -- the
-// participant's own self-service edit (publicTrips.js) and an admin
-// editing on their behalf (trips.js) -- so the two don't drift into
-// different size/type rules over time.
+// Shared by both places a TripParticipant photo is written (the participant's
+// self-service edit in publicTrips.js and an admin edit in trips.js) so the size/type rules can't drift.
 const { matchesFileSignature } = require("./fileSignature");
 
 const PHOTO_CONTENT_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 
-// `photo` is a base64 data URL ("data:image/png;base64,...."), same
-// shape the e-signature canvas already uses for a drawn signature.
-//
-// #327 Finding 8: this used to check photoContentType against the
-// allowlist and stop there -- the actual decoded bytes were never
-// verified against it, so a caller could declare image/png while
-// sending arbitrary bytes, which publicTripParticipants.js's own
-// unauthenticated GET /participants/:id/photo then served back with
-// that unverified type.
+// `photo` is a base64 data URL ("data:image/png;base64,...."), like the e-signature
+// canvas. The decoded bytes are verified against the declared type: the
+// unauthenticated GET /participants/:id/photo serves it back with that type.
 function decodePhotoDataUrl(photo, photoContentType) {
   const base64 = photo.replace(/^data:image\/\w+;base64,/, "");
   const bytes = Buffer.from(base64, "base64");

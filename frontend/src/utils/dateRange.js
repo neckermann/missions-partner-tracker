@@ -1,9 +1,5 @@
-// Quick time-range filtering shared by the consolidated admin list pages
-// (One-Time Needs, Prayer Requests, Newsletters & Docs) -- a lighter
-// alternative to a full From/To picker for "what came in recently," which
-// is what most look-ups on these pages actually want. The Reports page's
-// "Quick Range" fields (see resolveQuickRangeDates below) use this same
-// preset vocabulary, now that a few reports offer it too.
+// Quick time-range filtering for the admin list pages, a lighter alternative to a From/To picker.
+// The Reports "Quick Range" fields (resolveQuickRangeDates below) use the same preset vocabulary.
 import { dateOnlyParts, nowParts, lastDayOfMonth } from "./format.js";
 
 export const DATE_RANGE_OPTIONS = [
@@ -13,20 +9,15 @@ export const DATE_RANGE_OPTIONS = [
   { value: "lastYear", label: "Last Year" },
 ];
 
-// Furlough looks forward, not back -- "when's the next person leaving"
-// matters more than a past month/year here, so its own Quick Range field
-// uses this set instead of DATE_RANGE_OPTIONS above.
+// Furlough looks forward ("when's the next person leaving"), so it uses this set instead.
 export const UPCOMING_DATE_RANGE_OPTIONS = [
   { value: "all", label: "All Time" },
   { value: "year", label: "This Year" },
   { value: "nextYear", label: "Next Year" },
 ];
 
-// Compares plain {year, month} integers, never a reconstructed Date -- a
-// date-only API value is a UTC-midnight string, and new Date(dateValue)
-// read back with a local getter silently shifts to the previous calendar
-// day for anyone west of UTC. See format.js's header comment for the full
-// story (this was that exact bug, caught and fixed here).
+// Compares plain {year, month} integers, never a reconstructed Date: new Date(dateValue) read
+// with a local getter shifts back a day west of UTC (see format.js).
 export function inDateRange(dateValue, range) {
   if (range === "all" || !dateValue) return true;
   const d = dateOnlyParts(dateValue);
@@ -47,11 +38,8 @@ export function inDateRange(dateValue, range) {
   return true;
 }
 
-// Resolves a Quick Range preset into concrete from/to date strings
-// (YYYY-MM-DD, matching <input type="date">) -- unlike inDateRange above,
-// a client-side predicate for the list pages, a report's Quick Range field
-// has to produce real boundary dates since from/to travel to the server as
-// actual query params.
+// Resolves a Quick Range preset into from/to date strings (YYYY-MM-DD); unlike inDateRange, a
+// report needs real boundary dates because from/to travel to the server as query params.
 export function resolveQuickRangeDates(preset, now = new Date()) {
   const { year, month: m } = nowParts(now);
   const pad = (n) => String(n).padStart(2, "0");

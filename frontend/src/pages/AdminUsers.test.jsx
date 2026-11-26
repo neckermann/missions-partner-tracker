@@ -13,9 +13,8 @@ import {
 } from "../api/client.js";
 import { waitFor } from "@testing-library/react";
 
-// #356: the Users list shows what a guest can reach and when it lapses,
-// flags accounts that can't currently sign in, and filters down to just
-// those so an admin can reach out and clean up.
+// The Users list shows what a guest can reach and when it lapses, flags accounts that can't
+// currently sign in, and filters down to just those so an admin can reach out and clean up.
 vi.mock("../api/client.js", () => ({
   fetchUsers: vi.fn(),
   fetchUser: vi.fn(),
@@ -131,8 +130,8 @@ describe("AdminUsers -- guests (#356)", () => {
   });
 });
 
-// Promoting an existing editor to a guest: a guest reaches something only
-// through a trip or a care team seat (#289), so the modal offers both.
+// Promoting an existing editor to a guest: a guest reaches something only through a trip or a
+// care team seat, so the modal offers both.
 describe("AdminUsers -- promote to guest with a care team seat (#289)", () => {
   const EDITOR = { ...base, id: "e1", email: "pat@example.test", role: "editor", tripAccess: [] };
 

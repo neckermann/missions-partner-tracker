@@ -1,8 +1,6 @@
-// #327 Finding 10 -- the digest email's photo-tile header (shared by
-// admin and public-subscriber recipients) used to leak a restricted
-// partner's real household shape (silhouette varied by single/couple/
-// family) and supportingSinceYear unconditionally. Covered directly here
-// since no test exercised partnerTileDetails() at all before this.
+// The digest email's photo-tile header (shared by admin and public-subscriber recipients) must
+// not leak a restricted partner's real household shape (silhouette varies by
+// single/couple/family) or supportingSinceYear.
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { partnerTileDetails } = require("../src/utils/emailDispatchShell");

@@ -1,4 +1,4 @@
-// #291: the pure key-date rule. No database.
+// The pure key-date rule. No database.
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const {
@@ -109,4 +109,13 @@ test("a key-date contact log entry within the lead days clears it; other topics 
     "last year's card isn't this year's"
   );
   assert.equal(isHandled(item, []), false);
+});
+
+test("a commissioning anniversary is a key date, with the years", () => {
+  const p = partner({ commissionedAt: day("2016-11-25") });
+  const out = upcomingKeyDates([p], TODAY);
+  assert.deepEqual(
+    out.map((i) => [i.kind, i.occasion, i.turning]),
+    [["commissioned", "Commissioned", 10]]
+  );
 });

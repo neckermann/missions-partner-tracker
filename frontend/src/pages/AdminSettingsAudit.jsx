@@ -1,15 +1,17 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { fetchAuditLog, fetchAuditMeta, setAuditRetention, auditExportUrl } from "../api/client.js";
 import SettingsPageHeader from "../components/admin/SettingsPageHeader.jsx";
 import EditableSection from "../components/admin/EditableSection.jsx";
 import Field from "../components/admin/Field.jsx";
+import FilterBar from "../components/shared/FilterBar.jsx";
+import Table from "../components/shared/Table.jsx";
+import useFilterState from "../hooks/useFilterState.js";
 
-// The audit log (#341): who did what, when, for the sensitive actions --
-// sign-ins, role and access changes, settings changes, deletes, backups, views
-// of restricted partners. Admin only. Events are kept for the retention window
-// below and then pruned; who last edited a record is kept separately, on the
-// record itself, and never expires.
-const EMPTY = { q: "", category: "", from: "", to: "" };
+// The audit log: who did what, when, for sensitive actions (sign-ins, role and access
+// changes, settings changes, deletes, backups, views of restricted partners). Admin only.
+// Events are pruned after the retention window; who last edited a record is kept on the
+// record itself and never expires.
+const EMPTY = { search: "", category: "all", from: "", to: "" };
 
 // Date over time, so the column stays narrow and the details have room.
 function When({ iso }) {
@@ -38,13 +40,40 @@ function Person({ p }) {
 }
 
 export default function AdminSettingsAudit() {
-  const [filters, setFilters] = useState(EMPTY);
-  const [applied, setApplied] = useState(EMPTY);
   const [rows, setRows] = useState(null);
   const [cursor, setCursor] = useState(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState("");
   const [meta, setMeta] = useState(null);
+
+  const fields = useMemo(
+    () => [
+      { name: "search", label: "Search name, email, record or IP address", type: "text" },
+      {
+        name: "category",
+        label: "What",
+        type: "select",
+        options: [
+          { value: "all", label: "Everything" },
+          ...(meta?.categories || []).map((c) => ({ value: c, label: c })),
+        ],
+      },
+      { name: "from", label: "From", type: "date" },
+      { name: "to", label: "To", type: "date" },
+    ],
+    [meta]
+  );
+  const { values: filters, setValue: updateFilter, reset: resetFilters } = useFilterState(fields, EMPTY);
+  // The log and the CSV export take the filters in their own shape.
+  const applied = useMemo(
+    () => ({
+      q: filters.search || "",
+      category: filters.category === "all" ? "" : filters.category,
+      from: filters.from || "",
+      to: filters.to || "",
+    }),
+    [filters.search, filters.category, filters.from, filters.to]
+  );
 
   const loadMeta = useCallback(() => fetchAuditMeta().then(setMeta).catch(console.error), []);
   useEffect(() => {
@@ -80,15 +109,6 @@ export default function AdminSettingsAudit() {
     }
   }
 
-  const set = (key) => (e) => setFilters((f) => ({ ...f, [key]: e.target.value }));
-  const apply = (e) => {
-    e.preventDefault();
-    setApplied(filters);
-  };
-  const clear = () => {
-    setFilters(EMPTY);
-    setApplied(EMPTY);
-  };
   const filtered = Object.values(applied).some(Boolean);
 
   return (
@@ -101,7 +121,7 @@ export default function AdminSettingsAudit() {
           </a>
         }
       />
-      <p style={{ color: "#555" }}>
+      <p style={{ color: "var(--muted)" }}>
         Who did what, and when, for sign-ins, role and access changes, settings changes, deletes, backups and
         views of restricted partners. Routine edits are not listed; each record shows who last edited it.
       </p>
@@ -121,7 +141,7 @@ export default function AdminSettingsAudit() {
                 value={meta ? `${meta.retentionDays} days` : "Loading…"}
                 showEmpty
               />
-              <p style={{ color: "#555", marginTop: "0.5rem" }}>
+              <p style={{ color: "var(--muted)", marginTop: "0.5rem" }}>
                 Older entries are deleted each night.
                 {meta?.total != null && ` ${meta.total} ${meta.total === 1 ? "entry" : "entries"} held now.`}
               </p>
@@ -144,55 +164,7 @@ export default function AdminSettingsAudit() {
 
       <div className="admin-section-group">
         <h2 className="admin-group-heading">Log</h2>
-        <form
-          onSubmit={apply}
-          style={{
-            display: "flex",
-            gap: "0.75rem",
-            flexWrap: "wrap",
-            alignItems: "flex-end",
-            marginBottom: "1rem",
-          }}
-        >
-          <label style={{ flex: "2 1 14rem" }}>
-            Search
-            <input
-              type="search"
-              value={filters.q}
-              onChange={set("q")}
-              placeholder="Name, email, record or IP address"
-            />
-          </label>
-          <label style={{ flex: "1 1 10rem" }}>
-            What
-            <select value={filters.category} onChange={set("category")}>
-              <option value="">Everything</option>
-              {(meta?.categories || []).map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label style={{ flex: "1 1 9rem" }}>
-            From
-            <input type="date" value={filters.from} onChange={set("from")} />
-          </label>
-          <label style={{ flex: "1 1 9rem" }}>
-            To
-            <input type="date" value={filters.to} onChange={set("to")} />
-          </label>
-          <div style={{ display: "flex", gap: "0.5rem" }}>
-            <button type="submit" className="btn">
-              Filter
-            </button>
-            {filtered && (
-              <button type="button" className="btn secondary" onClick={clear}>
-                Clear
-              </button>
-            )}
-          </div>
-        </form>
+        <FilterBar fields={fields} values={filters} onChange={updateFilter} onReset={resetFilters} />
 
         {error && (
           <p className="form-error" role="alert">
@@ -206,45 +178,39 @@ export default function AdminSettingsAudit() {
           </p>
         )}
         {rows && rows.length > 0 && (
-          <div style={{ overflowX: "auto" }}>
-            <table className="admin-table">
-              <thead>
-                <tr>
-                  <th>When</th>
-                  <th>Who</th>
-                  <th>What</th>
-                  <th>About</th>
-                  <th>Details</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((r) => (
-                  <tr key={r.id}>
-                    <td style={{ whiteSpace: "nowrap", verticalAlign: "top" }}>
-                      <When iso={r.createdAt} />
-                    </td>
-                    <td>
-                      <Person p={r.actor} />
-                    </td>
-                    <td>{r.label}</td>
-                    <td>
-                      {r.target ? <Person p={r.target} /> : null}
-                      {r.entity && (
-                        <div style={r.target ? { color: "var(--muted)", fontSize: "0.8rem" } : undefined}>
-                          {r.entity.label || r.entity.type}
-                        </div>
-                      )}
-                      {!r.target && !r.entity && <span style={{ color: "var(--muted)" }}>—</span>}
-                    </td>
-                    <td style={{ minWidth: "13rem" }}>
-                      {r.summary}
-                      {r.ip && <div style={{ color: "var(--muted)", fontSize: "0.8rem" }}>from {r.ip}</div>}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <Table
+            rows={rows}
+            columns={[
+              { key: "createdAt", label: "When", render: (r) => <When iso={r.createdAt} /> },
+              { key: "actor", label: "Who", render: (r) => <Person p={r.actor} /> },
+              { key: "label", label: "What" },
+              {
+                key: "about",
+                label: "About",
+                render: (r) => (
+                  <>
+                    {r.target ? <Person p={r.target} /> : null}
+                    {r.entity && (
+                      <div style={r.target ? { color: "var(--muted)", fontSize: "0.8rem" } : undefined}>
+                        {r.entity.label || r.entity.type}
+                      </div>
+                    )}
+                    {!r.target && !r.entity && <span style={{ color: "var(--muted)" }}>—</span>}
+                  </>
+                ),
+              },
+              {
+                key: "summary",
+                label: "Details",
+                render: (r) => (
+                  <div style={{ minWidth: "13rem" }}>
+                    {r.summary}
+                    {r.ip && <div style={{ color: "var(--muted)", fontSize: "0.8rem" }}>from {r.ip}</div>}
+                  </div>
+                ),
+              },
+            ]}
+          />
         )}
         {cursor && (
           <p>

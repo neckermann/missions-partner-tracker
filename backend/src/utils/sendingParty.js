@@ -1,22 +1,15 @@
-// Shared between routes/partners.js and routes/publicPartners.js -- both
-// query the same Partner.sendingParties relation and need to reshape it
-// back into the sendingChurch/sendingOrg object pair every caller (admin
-// UI, maskData.js, AdminBooklet.jsx, the public site) has always expected.
-// See SendingParty in schema.prisma for why this reshaping exists: two
-// formerly-separate 1:1 relations (SendingChurch, SendingOrg) were merged
-// into one type-discriminated to-many relation, and this is what makes
-// that change invisible outside these two files. Missionary-only -- an
-// organization has no sending party, so both fields come back null.
+// Shared by routes/partners.js and routes/publicPartners.js: reshapes the
+// Partner.sendingParties relation into the sendingChurch/sendingOrg pair every
+// caller expects (see SendingParty in schema.prisma). Missionary-only: an
+// organization has no sending party, so both come back null.
 
-// API -> DB: unpacks the nested `mailingAddress` object into the flat
-// columns SendingParty actually stores.
+// API -> DB: unpacks the nested `mailingAddress` into SendingParty's flat columns.
 function flattenSendingParty(sp, type) {
   const { mailingAddress, ...rest } = sp;
   return { type, ...rest, ...(mailingAddress || {}) };
 }
 
-// DB -> API: repacks a SendingParty row's flat address columns back into
-// the nested `mailingAddress` shape the frontend has always expected.
+// DB -> API: repacks the flat address columns into the nested `mailingAddress` shape.
 function nestSendingParty(sp) {
   if (!sp) return null;
   const {
@@ -37,10 +30,8 @@ function nestSendingParty(sp) {
   };
 }
 
-// DB -> API: a missionary record's `sendingParties` array is reshaped
-// back into the `sendingChurch`/`sendingOrg` object pair. Safe to call on
-// a record that didn't include `sendingParties` at all (e.g. a query that
-// never fetched it) -- both fields just come back null in that case.
+// DB -> API: reshapes `sendingParties` into the sendingChurch/sendingOrg pair; both
+// come back null if the record didn't include `sendingParties`.
 function shapeSendingParties(record) {
   if (!record) return record;
   const { sendingParties, ...rest } = record;

@@ -1,46 +1,25 @@
-// #291: the daily key-date email -- ONE message per person listing everything
-// coming up for the partners they look after (never one per partner), sent
-// only on a day something is due. Pure: no I/O, so the wording and the
-// masking are unit-testable. Rendered in the same branded shell as the other
-// transactional mail (emailTemplate.js).
+// The daily key-date email: ONE message per person listing everything coming up
+// for the partners they look after, sent only on a day something is due. Pure
+// (no I/O) so wording and masking are unit-testable; uses the branded
+// transactional shell (emailTemplate.js).
 //
-// Masking. This leaves the app, so a restricted partner is named the way every
-// other outbound message names one (maskedDisplayName: initials, or the
-// field/generic label), and a restricted family's own names are left out
-// entirely. A partner marked not safe to contact gets a pointer to the
-// special instructions on their page -- never the instructions themselves --
-// so a reminder to "send a card" can't read as "call them".
+// Masking: this leaves the app, so a restricted partner is named as elsewhere
+// outbound (maskedDisplayName) and a restricted family's own names are left out.
+// A partner marked not safe to contact gets a pointer to the special instructions
+// on their page, never the instructions themselves, so "send a card" can't read as "call them".
 
 const { renderEmail, blocks } = require("./emailTemplate");
 const { maskedDisplayName } = require("./maskData");
-
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
-function when(item) {
-  const d = new Date(`${item.date}T00:00:00Z`);
-  const date = `${WEEKDAYS[d.getUTCDay()]} ${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}`;
-  if (item.daysUntil === 0) return `Today · ${date}`;
-  if (item.daysUntil === 1) return `Tomorrow · ${date}`;
-  return `In ${item.daysUntil} days · ${date}`;
-}
+const { keyDateWhat, when } = require("./keyDateText");
 
 function describe(item, settings) {
   const partner = item.partner;
   const name = maskedDisplayName(partner, settings) || "A partner";
-  const restricted = !!partner.isRestricted;
-  let what;
-  if (item.kind === "anniversary") {
-    what = `wedding anniversary${item.turning ? ` (${item.turning} years)` : ""}`;
-  } else if (item.kind === "supportingSince") {
-    what = `${item.turning} ${item.turning === 1 ? "year" : "years"} of our support`;
-  } else {
-    // Birthdays: a restricted family's own names stay out of the email.
-    const who = restricted || !item.who ? "a birthday" : `${item.who}'s birthday`;
-    what = item.turning ? `${who} (turning ${item.turning})` : who;
-  }
+  const what = keyDateWhat(item, !!partner.isRestricted);
   const care =
-    partner.contactSafe === false ? " — special communication instructions apply, see their page" : "";
+    partner.contactLevel && partner.contactLevel !== "normal"
+      ? " — special communication instructions apply, see their page"
+      : "";
   return `${name}: ${what}${care}`;
 }
 
@@ -66,8 +45,8 @@ function buildKeyDateEmail({ user, items, settings, appUrl }) {
       ),
     ],
     footerNote:
-      "You get this because you're on these partners' care teams (or the default lead for partners without one).",
+      "You get this because you look after these partners (on their care team, or on the team that looks after partners without one).",
   });
 }
 
-module.exports = { buildKeyDateEmail, describe, when };
+module.exports = { buildKeyDateEmail, describe, when, keyDateWhat };

@@ -6,18 +6,19 @@ import {
   updateSupportOption,
   deleteSupportOption,
   renameSupportGroup,
-  addSupportExampleSet,
 } from "../api/client.js";
+import { Link } from "react-router-dom";
+import TemplatePackButtons from "../components/admin/TemplatePackButtons.jsx";
+import SuggestInput from "../components/SuggestInput.jsx";
 import SettingsPageHeader from "../components/admin/SettingsPageHeader.jsx";
 import QuickActionModal from "../components/shared/QuickActionModal.jsx";
 import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
 import { groupOptions } from "../components/admin/SupportPreferencesCard.jsx";
 
-// The church's menu of ways to support a partner (#374). It is data the church owns, edited
-// here, never code: each option has a group (plain text, so it can be renamed), a label, and a
-// kind (something we offer, pick one, pick any, free text). An option no longer wanted is
-// retired, which stops it being offered and keeps the answers already given; deleting it
-// removes those answers too. Admin only.
+// The church's menu of ways to support a partner: data the church owns, never code. Each
+// option has a group (plain text, renamable), a label, and a kind (offer, pick one, pick any,
+// free text). Retiring an option stops it being offered but keeps answers already given;
+// deleting it removes those answers too. Admin only.
 export default function AdminSettingsSupportPreferences() {
   const [options, setOptions] = useState(null);
   const [kinds, setKinds] = useState([]);
@@ -73,7 +74,23 @@ export default function AdminSettingsSupportPreferences() {
 
   return (
     <div className="admin-shell">
-      <SettingsPageHeader title="Support Preferences" />
+      <SettingsPageHeader
+        title="Support Preferences"
+        actions={
+          <>
+            <TemplatePackButtons
+              importLabel="Import a menu…"
+              exportKind={options?.length ? "supportMenu" : undefined}
+              onImported={reload}
+            />
+            {options?.some((o) => o.active) && (
+              <Link to="/admin/settings/support-preferences/print" className="btn secondary">
+                Print menu
+              </Link>
+            )}
+          </>
+        }
+      />
       <p style={{ color: "var(--muted)" }}>
         The menu of ways your church and a partner&apos;s care team can support them. Each partner&apos;s
         choices from it are recorded on their page, and are only ever seen by staff and their care team.
@@ -87,13 +104,10 @@ export default function AdminSettingsSupportPreferences() {
       {options && options.length === 0 && (
         <div className="admin-section">
           <p style={{ marginTop: 0 }}>
-            There are no options yet. Start from an example set (housing, transportation, prayer, care
-            packages and so on) and edit it, or build your own.
+            There are no options yet. Import an example menu (housing, transportation, prayer, care packages
+            and so on) with <strong>Import a menu…</strong> above and edit it, or build your own.
           </p>
           <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-            <button type="button" className="btn" onClick={() => act(addSupportExampleSet)}>
-              Add an example set
-            </button>
             <button type="button" className="btn secondary" onClick={() => setEditing({})}>
               + Add an option
             </button>
@@ -120,7 +134,14 @@ export default function AdminSettingsSupportPreferences() {
             </button>
           </div>
           <div className="admin-section" style={{ overflowX: "auto" }}>
-            <table className="admin-table">
+            {/* Fixed columns, so every group's table lines up with the others. */}
+            <table className="admin-table" style={{ tableLayout: "fixed" }}>
+              <colgroup>
+                <col />
+                <col style={{ width: "28%" }} />
+                <col style={{ width: "5.5rem" }} />
+                <col style={{ width: "13.5rem" }} />
+              </colgroup>
               <thead>
                 <tr>
                   <th>Option</th>
@@ -135,6 +156,7 @@ export default function AdminSettingsSupportPreferences() {
                     <td>
                       {o.label}
                       {!o.active && <span style={{ color: "var(--muted)" }}> · retired</span>}
+                      {o.staffOnly && <span style={{ color: "var(--muted)" }}> · staff only</span>}
                       {o.choices.length > 0 && (
                         <div style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
                           {o.choices.join(" · ")}
@@ -155,7 +177,7 @@ export default function AdminSettingsSupportPreferences() {
                       >
                         {o.active ? "Retire" : "Restore"}
                       </button>{" "}
-                      <button type="button" className="btn secondary small" onClick={() => remove(o)}>
+                      <button type="button" className="btn danger small" onClick={() => remove(o)}>
                         Delete
                       </button>
                     </td>
@@ -190,6 +212,7 @@ function OptionModal({ option, kinds, groupNames, onClose, onSaved }) {
     kind: option.kind ?? "offer",
     choicesText: (option.choices ?? []).join("\n"),
     allowOther: option.allowOther ?? false,
+    staffOnly: option.staffOnly ?? false,
   });
   const set = (patch) => setForm((f) => ({ ...f, ...patch }));
   const isChoice = form.kind === "single" || form.kind === "multiple";
@@ -206,6 +229,7 @@ function OptionModal({ option, kinds, groupNames, onClose, onSaved }) {
             .filter(Boolean)
         : [],
       allowOther: isChoice ? form.allowOther : false,
+      staffOnly: form.staffOnly,
     };
     if (isNew) await createSupportOption(body);
     else await updateSupportOption(option.id, body);
@@ -221,17 +245,7 @@ function OptionModal({ option, kinds, groupNames, onClose, onSaved }) {
     >
       <label>
         Group
-        <input
-          list="support-group-names"
-          value={form.group}
-          onChange={(e) => set({ group: e.target.value })}
-          required
-        />
-        <datalist id="support-group-names">
-          {groupNames.map((n) => (
-            <option key={n} value={n} />
-          ))}
-        </datalist>
+        <SuggestInput value={form.group} onChange={(v) => set({ group: v })} options={groupNames} required />
       </label>
       <label>
         What it says
@@ -277,6 +291,15 @@ function OptionModal({ option, kinds, groupNames, onClose, onSaved }) {
           </label>
         </>
       )}
+      <label style={{ flexDirection: "row", gap: "0.6rem", alignItems: "center", fontWeight: "normal" }}>
+        <input
+          type="checkbox"
+          style={{ width: "auto" }}
+          checked={form.staffOnly}
+          onChange={(e) => set({ staffOnly: e.target.checked })}
+        />
+        Staff only: hide this option and its answers from care team guests
+      </label>
     </QuickActionModal>
   );
 }

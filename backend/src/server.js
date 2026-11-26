@@ -1,6 +1,5 @@
 require("dotenv").config({ quiet: true });
-// Before anything else: refuse to boot on a configuration that isn't safe --
-// most importantly a SESSION_SECRET still set to the published example value.
+// Refuse to boot on an unsafe configuration (e.g. the published example SESSION_SECRET).
 require("./config/env").assertValidEnv();
 
 const path = require("path");
@@ -29,8 +28,14 @@ const partnerLanguageRoutes = require("./routes/partnerLanguages");
 const tripTypeRoutes = require("./routes/tripTypes");
 const tripRoutes = require("./routes/trips");
 const careTeamRoutes = require("./routes/careTeams");
+const partnerCareRoutes = require("./routes/partnerCare");
+const keyDateRoutes = require("./routes/keyDates");
 const auditRoutes = require("./routes/audit");
 const supportPreferencesRoutes = require("./routes/supportPreferences");
+const surveyRoutes = require("./routes/surveys");
+const publicSurveyRoutes = require("./routes/publicSurveys");
+const surveyUpdateRoutes = require("./routes/surveyUpdates");
+const templatePackRoutes = require("./routes/templatePacks");
 const contactLogRoutes = require("./routes/contactLog");
 const tripMeetingRoutes = require("./routes/tripMeetings");
 const tripRequirementRoutes = require("./routes/tripRequirements");
@@ -65,42 +70,21 @@ const prisma = require("./prismaClient");
 const app = express();
 const PORT = process.env.PORT || 4000;
 
-// Render (and Fly, Heroku, a typical nginx setup) puts exactly one proxy in
-// front of this process, so `req.ip` is the proxy's address unless Express is
-// told to read X-Forwarded-For. Without this every rate limiter below shares
-// one bucket for the whole instance, which means anyone can burn the login
-// limit and lock the entire church out.
-//
-// It must be 1 -- the number of proxies to trust -- and never `true`. `true`
-// trusts the whole X-Forwarded-For chain, so a client could send a header of
-// its own and mint itself a private bucket, which is worse than the bug.
+// Exactly one proxy sits in front of this process, so X-Forwarded-For must be
+// read or every rate limiter shares a single bucket for the whole instance.
+// Must be 1, never `true`: `true` trusts the whole header chain, letting a
+// client mint itself a private bucket.
 app.set("trust proxy", 1);
 
-// helmet()'s default CSP is `img-src 'self' data:`, which blocks the public
-// map's basemap tiles. Missionary/organization photos and the church logo
-// need no widening — they come from this app's own origin (routes/photos.js,
-// publicSettings.js), already covered by 'self'. Marker pins don't either:
-// they're bundled as data: URIs (see PublicMap.jsx).
-//
-// This is about what THIS app's own pages may load (CSP). The opposite
-// direction -- what OTHER origins may embed FROM this app, e.g. a webmail
-// client rendering a digest email's <img> tags -- is helmet()'s separate
-// `Cross-Origin-Resource-Policy` default (`same-origin`, left as-is here
-// for defense-in-depth everywhere else), relaxed per-route instead on
-// photos.js's /:id/raw, silhouette.js, and publicSettings.js's /logo/raw
-// specifically, the only three routes meant to be embedded cross-origin
-// (#246).
-//
-// These MUST cover every entry in TILE_SOURCES in PublicMap.jsx, which
-// the map falls through in order when a provider blocks a visitor. That
-// coupling is the trap: a tile URL lives in the frontend and its
-// permission lives here,
-// nothing checks that the two agree, and when they disagree the browser
-// blocks every tile *silently* -- no server error, no failed request in
-// the app's own logs, just a blank map. Changing the tile provider without
-// changing this line produced exactly that, and it is why moving the tile
-// URL into Church Settings has to derive this directive from the
-// configured hosts rather than leaving a second place to remember.
+// helmet's default CSP blocks the public map's basemap tiles. Photos and the
+// logo are same-origin and marker pins are data: URIs, so only tiles need widening.
+// These hosts MUST cover every entry in TILE_SOURCES in PublicMap.jsx: nothing
+// checks the two agree, and a mismatch makes the browser block every tile
+// silently (blank map, no server error).
+// Cross-origin embedding of our own images is governed by helmet's separate
+// Cross-Origin-Resource-Policy default (same-origin); only photos.js /:id/raw,
+// silhouette.js and publicSettings.js /logo/raw relax it, so digest emails can
+// show them in webmail.
 const TILE_HOSTS = ["https://tile.openstreetmap.org", "https://server.arcgisonline.com"];
 
 app.use(
@@ -111,80 +95,43 @@ app.use(
         "img-src": ["'self'", "data:", ...TILE_HOSTS],
       },
     },
-    // helmet's default here is `no-referrer`, which OpenStreetMap's tile
-    // usage policy explicitly prohibits: it lists restrictive
-    // Referrer-Policy headers that stop the Referer reaching them as
-    // forbidden, and requires a website's tile requests to carry an
-    // accurate one.
-    //
-    // It matters more than it looks. A browser will not let a page set its
-    // own User-Agent, so for a website the Referer is the *only* thing
-    // identifying whose map this is. Under `no-referrer` every tile request
-    // this app made arrived anonymous -- indistinguishable from a scraper
-    // -- which is the likeliest reason a 403 appeared after months of the
-    // same code working.
-    //
-    // `strict-origin-when-cross-origin` is the modern browser default and
-    // gives up nothing that matters: cross-origin it sends the origin only,
-    // so a tile server learns the site's hostname and never a path like
-    // /partners/<uuid>. Same-origin requests still carry the full URL, and
-    // an HTTPS->HTTP downgrade still sends nothing.
+    // helmet's default `no-referrer` violates OpenStreetMap's tile usage policy,
+    // which requires an accurate Referer (a browser page cannot set its own
+    // User-Agent, so Referer is the only way to identify this site). The
+    // origin-only cross-origin value leaks no path like /partners/<uuid>.
     referrerPolicy: { policy: "strict-origin-when-cross-origin" },
   })
 );
-// #327 Finding 6: in production, morgan's "combined" format logs the full
-// request URL -- and a real, usable bearer credential travels in the
-// query string on several routes (the unsubscribe link, password-setup
-// validation, every trip-participant-token route). Overriding morgan's
-// own built-in `:url` token (used by every format string, not just this
-// one) redacts the value of a `token` query param wherever it appears,
-// instead of writing it straight into the access log.
+// Redact `token` query params (unsubscribe, password-setup, trip-participant
+// links carry usable bearer credentials) from the access log. Overrides
+// morgan's built-in `:url` token, which every format uses.
 morgan.token("url", (req) => req.originalUrl.replace(/([?&]token=)[^&]*/gi, "$1[REDACTED]"));
 app.use(morgan(process.env.NODE_ENV === "production" ? "combined" : "dev"));
-// #327 Finding 4: this used to raise the limit to 15mb globally, for the
-// sake of one webhook -- every other route, including every unauthenticated
-// public one, inherited that same 15mb allowance. POST /api/public/trips/
-// :id/apply has no body-size limiter at all otherwise (just the shared
-// /api/public rate bucket), so that was up to ~1.8 GB/minute per IP into
-// Postgres against any trip accepting applications.
-//
-// Scoped larger parsers for the few routes that genuinely need one, each
-// mounted ahead of the blanket default below -- express.json() skips
-// re-parsing a request whose body a prior instance already consumed (it
-// checks req._body internally), so registration order here is what makes
-// layering these safely possible, not a coincidence.
+// Small default body limit, since unauthenticated public routes inherit it.
+// Larger parsers are scoped to the few routes that need them and must be
+// mounted first: express.json() skips a body an earlier instance consumed.
 app.use("/api/inbound-email/postmark", express.json({ limit: "15mb" })); // entire email, base64, attachments included
+app.use("/api/template-packs", express.json({ limit: "1mb" })); // a pasted or uploaded pack (admin only)
+app.use("/api/public/survey-uploads", express.json({ limit: "7mb" })); // base64 photo from a survey link
 app.use("/api/public/trips/participants/sign", express.json({ limit: "7mb" })); // base64 signature image
 app.use("/api/public/trips/participants/self-service", express.json({ limit: "7mb" })); // base64 participant photo
 app.use(express.json({ limit: "100kb" })); // everything else -- small form-field-sized payloads
 app.use(cookieParser());
 
-// Frontend and backend are one origin — this backend serves the built
-// frontend directly (below) in production, and Vite's dev proxy makes
-// local dev look same-origin to the browser too. No CORS needed.
+// Single origin: no CORS needed (the backend serves the built frontend; Vite's dev proxy mimics this).
 
-// Rate-limit auth endpoints against brute force. The MFA code-verify step
-// gets its own (tighter) limiter since a 6-digit TOTP code is a much
-// smaller search space than a password.
-//
-// /login is relaxed under NODE_ENV=test because the e2e suite logs in ~10
-// times per run against a 15-minute window, so two runs inside that window
-// used to fail on the limiter -- failures that look exactly like real
-// regressions and have cost real debugging time. Only this one endpoint is
-// relaxed; the others keep their production limits so they stay testable.
+// Rate-limit auth endpoints against brute force. MFA code verify is tighter
+// because a 6-digit code is a far smaller search space than a password.
+// /login is relaxed under NODE_ENV=test so repeated e2e runs inside the window
+// don't fail on the limiter; other endpoints keep production limits.
 app.use(
   "/api/auth/login",
   rateLimit({ windowMs: 15 * 60 * 1000, max: process.env.NODE_ENV === "test" ? 200 : 20 })
 );
 app.use("/api/auth/mfa/login-verify", rateLimit({ windowMs: 15 * 60 * 1000, max: 10 }));
-// /setup only ever succeeds once (see routes/auth.js), but it's
-// unauthenticated by necessity -- rate-limited for the same reason
-// /login is, for the brief window between a fresh deploy going live and
-// its owner actually completing setup.
+// /setup is unauthenticated by necessity (it only ever succeeds once).
 app.use("/api/auth/setup", rateLimit({ windowMs: 15 * 60 * 1000, max: 20 }));
-// Welcome-link redemption is public and guess-able in principle (the token
-// is 256-bit random, so not in practice) -- still capped, with a much
-// tighter cap on "email me a new link" since each call can send mail.
+// Welcome-link redemption is public; "email me a new link" is much tighter since each call sends mail.
 app.use(
   "/api/auth/password-setup/request",
   rateLimit({ windowMs: 15 * 60 * 1000, max: process.env.NODE_ENV === "test" ? 1000 : 5 })
@@ -194,23 +141,14 @@ app.use(
   rateLimit({ windowMs: 15 * 60 * 1000, max: process.env.NODE_ENV === "test" ? 1000 : 30 })
 );
 
-// Everything else under /api/auth that guesses at a secret. These sit
-// behind a session, which is why they were missed -- but a session is not
-// a guess limiter:
-//
-//   /mfa/verify-setup  a 6-digit code against a 20-minute setup token
-//   /mfa/disable       the account's current password
-//   /change-password   the account's current password
-//
-// Unlimited attempts at any of those defeats the point of the control. This
-// matters more since SSO was removed: email + password with optional TOTP
-// is the only way in, so these endpoints are the whole door.
+// Authenticated endpoints that still guess at a secret: a session is not a
+// guess limiter. /mfa/verify-setup (6-digit code), /mfa/disable and
+// /change-password (current password).
 const sensitiveAuthLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10 });
 app.use("/api/auth/mfa/verify-setup", sensitiveAuthLimiter);
 app.use("/api/auth/mfa/disable", sensitiveAuthLimiter);
-// #386: passkey sign-in is a guess against a pending token; removing one checks the password.
-// #386 Layer 2: the emailed-link request sends mail and the redeem step guesses a 256-bit token;
-// both tight, like the password-reset request above.
+// Passkey sign-in guesses a pending token; the emailed-link request sends mail
+// and redeem guesses a 256-bit token.
 app.use(
   "/api/auth/passwordless",
   rateLimit({ windowMs: 15 * 60 * 1000, max: process.env.NODE_ENV === "test" ? 1000 : 10 })
@@ -228,46 +166,28 @@ app.use(
   rateLimit({ windowMs: 15 * 60 * 1000, max: process.env.NODE_ENV === "test" ? 1000 : 20 })
 );
 app.use("/api/auth/change-password", sensitiveAuthLimiter);
-// Removing a passkey asks for the account password, so it is a password guess too (#408).
+// Removing a passkey asks for the account password, so it is a password guess too.
 app.use("/api/auth/passkeys", (req, res, next) =>
   req.method === "DELETE" ? sensitiveAuthLimiter(req, res, next) : next()
 );
 
-// The public site's own pages (directory, map, tour) legitimately fire many
-// requests per visitor, so this is deliberately generous — it's here to
-// blunt scripted scraping/abuse against these unauthenticated, DB-querying
-// endpoints, not to throttle normal browsing.
+// Generous: the public pages fire many requests per visitor; this only blunts scraping.
 app.use("/api/public", rateLimit({ windowMs: 60 * 1000, max: 120 }));
 
-// Building the whole database as a file is the heaviest single request
-// this app serves, and the result is the most sensitive file it can
-// produce (see routes/backups.js) — already behind requireRole("admin"),
-// this just keeps a compromised or careless admin session from being
-// used to pull it on a loop.
+// The backup file is the heaviest request and the most sensitive output (see
+// routes/backups.js); this stops a compromised admin session pulling it in a loop.
 app.use("/api/backups", rateLimit({ windowMs: 15 * 60 * 1000, max: 5 }));
 
-// Each call is a real, billable Anthropic API request (see
-// utils/extraction.js) — same "a compromised or careless session shouldn't
-// be able to run this on a loop" reasoning as /api/backups above, but with
-// a real dollar cost per request instead of just server load. Scoped to
-// the specific path rather than the whole router (app.use matches :id
-// patterns the same way a route handler does), so normal newsletter/
-// document CRUD stays unaffected.
-//
+// Each call is a billable Anthropic API request (utils/extraction.js). Scoped to
+// the path so normal document CRUD is unaffected.
 const extractionLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 30 });
 app.use("/api/partner-files/:id/extract", extractionLimiter);
 
-// The inbound-email webhook (see #72) isn't behind a login session --
-// Postmark calls it directly, authenticated by Basic Auth instead (see
-// routes/inboundEmail.js). That makes it a real target for someone
-// guessing at the password, same risk shape as the auth endpoints above
-// -- rate-limited for the same reason. Generous enough for genuine
-// inbound volume (a church isn't receiving hundreds of emails in 15
-// minutes) while still meaningfully throttling a brute-force attempt.
+// Postmark calls this webhook with Basic Auth rather than a session, so it
+// needs brute-force throttling like the auth endpoints.
 const inboundEmailWebhookLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 60 });
 app.use("/api/inbound-email/postmark", inboundEmailWebhookLimiter);
 
-// --- Routes ---
 app.use("/api/auth", authRoutes);
 app.use("/api/partners", partnerRoutes); // protected (admin) — session required
 app.use("/api/public/partners", publicPartnerRoutes); // open (public site)
@@ -284,15 +204,18 @@ app.use("/api/partner-links", partnerLinkRoutes); // protected (admin) — sessi
 app.use("/api/partner-languages", partnerLanguageRoutes); // protected (admin) — session required
 app.use("/api/trip-types", tripTypeRoutes); // protected (admin) — session required
 app.use("/api/trips", tripRoutes); // protected (admin) — session required
+app.use("/api/key-dates", keyDateRoutes); // protected; flag-gated (keyDates)
+app.use("/api/partner-care", partnerCareRoutes); // protected; the missions team (always on)
 app.use("/api/care-team", careTeamRoutes); // protected; flag-gated (careTeam) -- see that file's own comment
-app.use("/api/audit", auditRoutes); // protected (admin); flag-gated (auditTrail) -- the audit log (#341)
+app.use("/api/audit", auditRoutes); // protected (admin); flag-gated (auditTrail)
 app.use("/api/contact-log", contactLogRoutes); // protected; flag-gated (contactLog) -- see that file's own comment
+app.use("/api/surveys", surveyRoutes); // protected; flag-gated (surveys) -- see that file's own comment
+app.use("/api/public/survey-uploads", publicSurveyRoutes.uploadRouter); // no login: the link token is the credential
+app.use("/api/template-packs", templatePackRoutes); // protected; admin only; each kind needs its own feature
+app.use("/api/survey-updates", surveyUpdateRoutes); // protected; flag-gated (surveys), admin/editor
+app.use("/api/public/surveys", publicSurveyRoutes); // no login: the personal link token is the credential
 app.use("/api/support-preferences", supportPreferencesRoutes); // protected; flag-gated (supportPreferences + careTeam) -- see that file's own comment
-// #271 Finding 1: three sibling sub-resource routers, same prefix as
-// tripRoutes above (not a separate API surface) -- split out of a
-// single oversized trips.js. Each still gates independently
-// (requireAuth/requireFeature("trips") at its own router level), so
-// mount order among these four doesn't matter.
+// Sibling sub-resource routers under the same prefix; each gates itself, so mount order doesn't matter.
 app.use("/api/trips", tripMeetingRoutes);
 app.use("/api/trips", tripRequirementRoutes);
 app.use("/api/trips", tripParticipantRoutes);
@@ -300,13 +223,9 @@ app.use("/api/reports", reportsRoutes); // protected — read-only exports, any 
 app.use("/api/partner-files", partnerFileRoutes); // protected (admin) — session required
 app.use("/api/photos", photoRoutes); // open (public — same as when these were S3 public-read objects)
 app.use("/api/silhouette", silhouetteRoutes); // open (public — needs to load with no session cookie, e.g. in an email client)
-app.use("/api/settings", auditSettingsWrites); // audit trail for every settings write (#341)
+app.use("/api/settings", auditSettingsWrites); // audit trail for every settings write
 app.use("/api/settings", settingsRoutes); // protected (admin for write, any role for read)
-// #271 Finding: five sibling sub-resource routers, same prefix as
-// settingsRoutes above (not a separate API surface) -- split out of a
-// single oversized settings.js, same pattern as the trips.js split
-// above. Each still gates independently at its own router level, so
-// mount order among these doesn't matter.
+// Sibling sub-resource routers under the same prefix; each gates itself, so mount order doesn't matter.
 app.use("/api/settings", settingsGroupMeRoutes);
 app.use("/api/settings", settingsWhatsAppRoutes);
 app.use("/api/settings", settingsEmailRoutes);
@@ -324,68 +243,37 @@ app.use("/api/public/subscribe", publicSubscribeRoutes); // open (public, featur
 app.use("/api/public/unsubscribe", publicUnsubscribeRoutes); // open (public, feature-gated -- sibling of publicSubscribe, not nested under it)
 app.use("/api/scoped-digest", adminScopedDigestRoutes); // protected (any role for read)
 app.use("/api/public/trips", publicTripRoutes); // open (public, feature-gated -- see that file's own comment)
-// #271 Finding: two sibling sub-resource routers, same prefix as
-// publicTripRoutes above (not a separate API surface) -- split out of a
-// single oversized publicTrips.js, same pattern as the admin-side
-// trips.js/settings.js splits above. Each still gates independently
-// at its own router level, so mount order among these doesn't matter.
+// Sibling sub-resource routers under the same prefix; each gates itself, so mount order doesn't matter.
 app.use("/api/public/trips", publicTripApplicationRoutes);
 app.use("/api/public/trips", publicTripParticipantRoutes);
 
-// Only exists at all if DEMO_RESET_TOKEN is configured — absent in every
-// normal deployment. See ADMIN_GUIDE.md § Demo mode.
+// Only mounted when DEMO_RESET_TOKEN is set. See ADMIN_GUIDE.md § Demo mode.
 if (process.env.DEMO_RESET_TOKEN) {
   app.use("/api/demo", require("./routes/demo"));
 }
 
 app.get("/api/health", (req, res) => res.json({ ok: true }));
 
-// An unmatched /api/* path is a bug in the caller, not a page to render --
-// without this it falls through to the SPA catch-all below and comes back
-// as index.html with a 200, so a client calling a misspelled endpoint sees
-// a confusing JSON parse error instead of a clear 404. Note that mounting
-// order alone does NOT prevent this: being "after the API routes" is
-// exactly what lets the catch-all swallow them.
+// An unmatched /api path must 404 as JSON; otherwise the SPA catch-all below
+// would return index.html with a 200. Mount order alone doesn't prevent this.
 app.use("/api", (req, res) => res.status(404).json({ error: "Not found" }));
 
-// --- Frontend ---
-// This backend serves the built frontend directly, so the whole app is one
-// deployable origin. The build writes into backend/public (a sibling of
-// src/, not frontend/dist — see frontend/vite.config.js) specifically so
-// this path stays correct however the deploy bundle is packaged, since
-// it's always relative to this file, never to the repo root.
+// The build writes into backend/public (see frontend/vite.config.js), so this path is relative to this file.
 const frontendBuild = path.join(__dirname, "../public");
 app.use(express.static(frontendBuild));
 app.get("*splat", (req, res) => res.sendFile(path.join(frontendBuild, "index.html")));
 
-// --- Error handler ---
-// Every error becomes an HTTP response here, and `error` is always a string.
-// See middleware/errors.js for the full mapping and why routes shouldn't
-// catch-and-translate on their own.
+// Every error becomes an HTTP response here; see middleware/errors.js.
 app.use(errorHandler);
 
-// Guarded so this file can be require()'d by the route tests, which boot
-// the real app on an ephemeral port rather than mocking it -- same reason
-// prisma/seed.js has the same guard. Running it directly still listens
-// exactly as before.
-//
-// #271 Phase B: the dispatch/GroupMe/trip-reminder schedulers and the
-// WhatsApp connection used to start here too, under this same guard. They
-// now live in worker.js, their own process -- this process answers HTTP
-// requests only. See worker.js's own header comment for why that split
-// exists.
+// Guarded so route tests can require() the app and boot it on an ephemeral
+// port. Schedulers and the WhatsApp connection run in worker.js, not here.
 if (require.main === module) {
   (async () => {
-    // ChurchSettings.timezone (see that field's own schema.prisma
-    // comment) must be applied to process.env.TZ once, here, before any
-    // date-sensitive route (reports, birthdays) reads the clock --
-    // changing process.env.TZ after a Date-using module has already run
-    // is documented as unreliable. worker.js does this same read
-    // independently, for its own schedulers -- the two processes have no
-    // way to share this once computed. Falls back to UTC on a fresh
-    // deploy (no ChurchSettings row yet) or a transient DB hiccup,
-    // matching this field's own default and Render's own actual behavior
-    // today -- never blocks startup over this.
+    // Apply ChurchSettings.timezone to process.env.TZ once, before any
+    // date-sensitive route reads the clock (changing TZ later is unreliable).
+    // worker.js does the same independently. Falls back to UTC on a fresh
+    // deploy or transient DB error; never blocks startup.
     try {
       const settings = await prisma.churchSettings.findUnique({
         where: { id: "singleton" },

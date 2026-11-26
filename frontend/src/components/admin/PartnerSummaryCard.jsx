@@ -2,24 +2,11 @@ import React from "react";
 import { Link } from "react-router-dom";
 import LoadMoreButton from "../LoadMoreButton.jsx";
 
-// A lightweight stand-in for a full embedded CRUD widget on Partner
-// Detail, for a collection that already has its own real, filterable
-// admin page elsewhere (One-Time Needs, Trips, Prayer Requests,
-// Newsletters & Docs) -- managing those moves entirely to that page,
-// pre-filtered to this partner via "View all", omitted when there's no
-// `viewAllTo` (Monthly Support's consolidated page is being pulled out,
-// so everything for it now lives right here instead). `actions` (e.g.
-// "+ Add", "Mark Answered") open the real add/edit forms in a quick popup
-// right here instead -- see QuickActionModal.jsx -- so this still isn't a
-// second copy of those forms, just a faster way to reach the same ones.
-// `items`, when given, lists up to a few of the most recent entries (one
-// per line) instead of the single-line `summary`. An item is either a
-// pre-formatted string, or `{ text, onClick }` to make that one row open
-// something (a view/edit popup, say) -- this component doesn't know how
-// to summarize or act on a record, just how to lay out what it's handed.
-// `hasMore`/`remaining`/`onShowMore`, when given (straight from a caller's
-// own useLoadMore.js), render a "Load More" button under `items` -- for a
-// card whose everything lives right here instead of behind "View all".
+// A lightweight stand-in for an embedded CRUD widget on Partner Detail, for a collection with its
+// own admin page: the title links there pre-filtered (a plain title without `viewAllTo`), and `actions`
+// open the real add/edit forms in a QuickActionModal. `items` lists a few recent entries instead
+// of the one-line `summary`; each is a string or `{ text, onClick }`. `hasMore`/`remaining`/
+// `onShowMore` (from useLoadMore.js) render Load More under `items`. `empty` replaces "None on file."
 export default function PartnerSummaryCard({
   icon,
   title,
@@ -31,12 +18,20 @@ export default function PartnerSummaryCard({
   onShowMore,
   viewAllTo,
   actions,
+  empty = "None on file.",
 }) {
   return (
     <div className="admin-section partner-summary-card">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.5rem" }}>
         <h3 style={{ margin: 0 }}>
-          <span aria-hidden="true">{icon}</span> {title}
+          <span aria-hidden="true">{icon}</span>{" "}
+          {viewAllTo ? (
+            <Link to={viewAllTo} className="summary-item-link" title={`See all ${title.toLowerCase()}`}>
+              {title} →
+            </Link>
+          ) : (
+            title
+          )}
         </h3>
         <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", justifyContent: "flex-end" }}>
           {actions?.map((action) => (
@@ -44,17 +39,12 @@ export default function PartnerSummaryCard({
               {action.label}
             </button>
           ))}
-          {viewAllTo && (
-            <Link to={viewAllTo} className="btn secondary small">
-              View all →
-            </Link>
-          )}
         </div>
       </div>
-      {count === 0 && <p style={{ margin: "0.5rem 0 0", color: "#555" }}>None on file.</p>}
-      {count > 0 && summary && <p style={{ margin: "0.5rem 0 0", color: "#555" }}>{summary}</p>}
+      {count === 0 && <p style={{ margin: "0.5rem 0 0", color: "var(--muted)" }}>{empty}</p>}
+      {count > 0 && summary && <p style={{ margin: "0.5rem 0 0", color: "var(--muted)" }}>{summary}</p>}
       {count > 0 && items?.length > 0 && (
-        <ul style={{ margin: "0.5rem 0 0", paddingLeft: "1.25rem", color: "#555" }}>
+        <ul style={{ margin: "0.5rem 0 0", paddingLeft: "1.25rem", color: "var(--muted)" }}>
           {items.map((item, i) => {
             const isClickable = item && typeof item === "object";
             return (

@@ -1,0 +1,104 @@
+{
+  "format": "missions-partner-tracker-pack",
+  "version": 1,
+  "kind": "supportMenu",
+  "title": "Example support menu",
+  "description": "Ways a church and a partner's care team can support them (housing while home, transportation, prayer, care packages, how to send gifts). A starting list to edit.",
+  "data": {
+    "options": [
+      {
+        "group": "Logistics",
+        "label": "Help finding a place to stay while you are home",
+        "kind": "offer"
+      },
+      {
+        "group": "Logistics",
+        "label": "Help with transportation while you are home",
+        "kind": "offer"
+      },
+      {
+        "group": "Logistics",
+        "label": "Travel arrangements",
+        "kind": "offer"
+      },
+      {
+        "group": "Logistics",
+        "label": "Airport pick-up",
+        "kind": "offer"
+      },
+      {
+        "group": "Representing you",
+        "label": "Speak about you at a church gathering from time to time",
+        "kind": "offer"
+      },
+      {
+        "group": "Representing you",
+        "label": "Host a prayer or information evening while you are home",
+        "kind": "offer"
+      },
+      {
+        "group": "Representing you",
+        "label": "A display table with photos and what you are doing",
+        "kind": "offer"
+      },
+      {
+        "group": "Representing you",
+        "label": "People here who know your journey well",
+        "kind": "offer"
+      },
+      {
+        "group": "Communication and encouragement",
+        "label": "A safe, confidential person to be honest with",
+        "kind": "offer"
+      },
+      {
+        "group": "Communication and encouragement",
+        "label": "Personal letters, cards or mail",
+        "kind": "offer"
+      },
+      {
+        "group": "Communication and encouragement",
+        "label": "Visits from teams",
+        "kind": "offer"
+      },
+      {
+        "group": "Communication and encouragement",
+        "label": "What can and cannot be shared with others?",
+        "kind": "text",
+        "staffOnly": true
+      },
+      {
+        "group": "Prayer",
+        "label": "Individual prayer",
+        "kind": "offer"
+      },
+      {
+        "group": "Prayer",
+        "label": "Group prayer",
+        "kind": "offer"
+      },
+      {
+        "group": "Prayer",
+        "label": "Prayer by video call from time to time",
+        "kind": "offer"
+      },
+      {
+        "group": "Gifts",
+        "label": "Care packages",
+        "kind": "offer"
+      },
+      {
+        "group": "Gifts",
+        "label": "Money for special occasions such as birthdays and holidays",
+        "kind": "offer"
+      },
+      {
+        "group": "Gifts",
+        "label": "How should special financial gifts be sent?",
+        "kind": "single",
+        "choices": ["Bank transfer", "A transfer app", "Through an organization"],
+        "allowOther": true
+      }
+    ]
+  }
+}

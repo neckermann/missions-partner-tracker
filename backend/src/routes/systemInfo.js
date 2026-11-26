@@ -6,14 +6,9 @@ const { checkForUpdate, APP_VERSION } = require("../utils/versionCheck");
 const router = express.Router();
 router.use(requireRole("admin"));
 
-// Each package's own installed package.json -- the version actually
-// resolved into node_modules, not the semver range string in this app's
-// own package.json (e.g. "^7.10.1"). Only backend-side packages: a
-// deployed instance never ships frontend/package.json (see
-// versionCheck.js's own comment on why backend/package.json is the only
-// one that reaches production), so a frontend dependency's version has
-// to come from the frontend bundle itself at runtime (React.version),
-// not from here -- see AdminSystemInfo.jsx.
+// Each package's installed package.json (the resolved version, not the semver range). Backend
+// packages only: a deployed instance never ships frontend/package.json (see versionCheck.js), so
+// frontend versions come from the bundle at runtime (React.version; AdminSystemInfo.jsx).
 function installedVersion(pkg) {
   try {
     return require(`${pkg}/package.json`).version;
@@ -22,16 +17,10 @@ function installedVersion(pkg) {
   }
 }
 
-// GET /api/system-info (admin only) -- "what's actually running," for an
-// admin debugging something or a fork maintainer checking what they're
-// on before filing a bug, rather than needing shell/SSH access. Admin-
-// gated the same as everywhere else that exposes exact dependency
-// versions: not because the numbers are sensitive on their own, but
-// because they're a small vulnerability-scanning convenience for anyone
-// who's already gotten admin access (see the issue this closes). Never
-// returns the database connection string or any credential -- only
-// version numbers and the non-secret deployment metadata Render happens
-// to inject.
+// GET /api/system-info (admin only) -- "what's actually running", for debugging or a bug report.
+// Admin-only because exact dependency versions are a small vulnerability-scanning convenience. Never
+// returns the database connection string or any credential, only versions and the non-secret
+// deployment metadata Render injects.
 router.get("/", async (req, res, next) => {
   try {
     const [update, pgVersionRows, pgSizeRows] = await Promise.all([
@@ -56,17 +45,12 @@ router.get("/", async (req, res, next) => {
         prismaClient: installedVersion("@prisma/client"),
       },
       database: {
-        // Postgres reports this as "PostgreSQL 16.4 on x86_64-pc-linux-gnu,
-        // compiled by gcc ..." -- the frontend just displays it as-is,
-        // no parsing needed.
+        // Postgres reports e.g. "PostgreSQL 16.4 on x86_64-pc-linux-gnu, ..."; displayed as-is.
         version: pgVersionRows[0]?.version ?? null,
         sizeBytes: Number(pgSizeRows[0]?.bytes ?? 0),
       },
-      // Render auto-injects these on every service -- see
-      // https://render.com/docs/environment-variables#all-services. This
-      // app explicitly supports deploying elsewhere too (ADMIN_GUIDE.md §
-      // Deploying anywhere else), so `onRender: false` with everything
-      // else null is a real, expected response shape, not an error state.
+      // Render injects these on every service. Deploying elsewhere is supported (ADMIN_GUIDE.md §
+      // Deploying anywhere else), so `onRender: false` with the rest null is an expected shape.
       deployment: {
         onRender: !!process.env.RENDER_SERVICE_NAME,
         serviceName: process.env.RENDER_SERVICE_NAME || null,

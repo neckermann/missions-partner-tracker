@@ -96,9 +96,8 @@ describe("public partners: masking is applied by the route, not just available",
     assert.ok(body.photo.startsWith("data:image/svg+xml,"), "restricted records get a generic silhouette");
   });
 
-  // The rule changed during the rebuild: organizations used to keep their
-  // name when restricted. A named Christian organization in a hostile
-  // country is a fixed, locatable target, so both kinds are masked now.
+  // Organizations are masked when restricted: a named Christian organization in a hostile
+  // country is a fixed, locatable target, so both kinds are masked.
   test("a restricted organization is masked to initials, same as a missionary", async () => {
     const p = await createPartner({
       kind: "organization",
@@ -132,7 +131,6 @@ describe("public partners: masking is applied by the route, not just available",
     assert.ok(!("prayerRequests" in body), "prayer requests are admin-only on the public site");
   });
 
-  // #327 Finding 10
   test("a restricted partner never exposes supportingSince", async () => {
     const p = await createPartner({
       isPublic: true,

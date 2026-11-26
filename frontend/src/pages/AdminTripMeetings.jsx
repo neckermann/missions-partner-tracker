@@ -64,11 +64,7 @@ function MeetingFields({ form, setForm }) {
   );
 }
 
-// Converted from onBlur-autosave (no explicit boundary, no visible
-// confirmation) onto the same click-row-opens-popup RecordList pattern
-// used everywhere else -- Schedule/Edit both go through one explicit
-// Save, and Resend/Cancel live inside the edit popup since they're
-// meeting-specific actions, not generic Add/Edit/Delete.
+// Resend/Cancel live inside the edit popup since they are meeting-specific actions.
 export default function AdminTripMeetings() {
   const { trip, reload, confirmDialog, id, canWrite } = useOutletContext();
   const [error, setError] = useState("");
@@ -121,8 +117,7 @@ export default function AdminTripMeetings() {
     reload();
     const manual = result?.manualEmail || null;
     setManualEmailRecipients(manual);
-    // Stay open with the link in view instead of auto-closing behind it --
-    // same reasoning as AdminUserForm.jsx's wizard.
+    // Stay open with the link in view instead of auto-closing behind it.
     if (manual?.length > 0) return false;
   }
 
@@ -152,9 +147,7 @@ export default function AdminTripMeetings() {
       const result = await cancelTripMeeting(meetingId);
       reload();
       setError("");
-      // Stays open (reflecting the now-cancelled state in place, same as
-      // Resend) instead of closing behind the manual-cancellation-notice
-      // link -- see submitModal's own comment.
+      // Stays open (showing the cancelled state) so the manual-cancellation-notice link stays in view.
       setModalMeeting((d) => (d ? { ...d, cancelledAt: true } : d));
       setManualEmailRecipients(result?.manualEmail || null);
     } catch (err) {
@@ -174,13 +167,15 @@ export default function AdminTripMeetings() {
       confirmLabel: "Delete",
       danger: true,
     });
-    if (!confirmed) return;
+    if (!confirmed) return false;
     try {
       await deleteTripMeeting(m.id);
       reload();
       setError("");
+      return true;
     } catch (err) {
       reportError(err, "Couldn't delete this meeting.");
+      return false;
     }
   }
 
@@ -197,12 +192,10 @@ export default function AdminTripMeetings() {
         title="Meetings"
         items={trip.meetings || []}
         canEdit={canWrite}
-        canDelete={canWrite}
         emptyMessage="No meetings scheduled yet."
         addLabel="Schedule meeting"
         onAdd={openAdd}
         onEdit={openEdit}
-        onDelete={handleDeleteMeeting}
         renderItem={(m) => {
           const rsvps = m.rsvps || [];
           const tally = { yes: 0, no: 0, maybe: 0 };
@@ -241,6 +234,7 @@ export default function AdminTripMeetings() {
               setManualEmailRecipients(null);
             }}
             onSubmit={submitModal}
+            onDelete={modalMeeting.id != null ? () => handleDeleteMeeting(modalMeeting) : undefined}
             submitLabel={modalMeeting.id == null ? "Schedule meeting" : "Save"}
           >
             <MeetingFields form={modalMeeting.form} setForm={setModalForm} />
@@ -248,7 +242,7 @@ export default function AdminTripMeetings() {
             {modalMeeting.id != null && (
               <div className="table-actions" style={{ marginTop: "0.75rem" }}>
                 {modalMeeting.cancelledAt ? (
-                  <span style={{ fontSize: "0.8rem", color: "#888" }}>Cancelled</span>
+                  <span style={{ fontSize: "0.8rem", color: "var(--muted)" }}>Cancelled</span>
                 ) : (
                   <button
                     type="button"

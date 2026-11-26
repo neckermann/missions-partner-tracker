@@ -1,39 +1,25 @@
-// Channel-neutral dispatch text, shared by GroupMe, WhatsApp, and both
-// email dispatch audiences -- built once here instead of each channel
-// re-implementing its own wording. This is the load-bearing masking
-// authority in the system: groupmeChannel.js, whatsappChannel.js,
-// adminEmailDispatchContent.js, and publicEmailDispatchContent.js all
-// call buildBlurb() on every row before rendering anything, never
-// reading a raw DispatchRecord row's fields directly. A "blurb" turns
-// one row into everything any channel needs: GroupMe/WhatsApp want one
-// ready-to-pack message string per topic/group; both email dispatches
-// want structured fields so they can render real HTML and group by
-// partner.
+// Channel-neutral dispatch text shared by GroupMe, WhatsApp and both email
+// audiences. This is the load-bearing masking authority: those four channel
+// modules call buildBlurb() on every row and never read raw DispatchRecord
+// fields. A blurb gives GroupMe/WhatsApp a ready message string and the emails
+// structured fields.
 //
-// Masking: GroupMe, WhatsApp, and email dispatches all leave this app's
-// auth boundary (a GroupMe group or WhatsApp group can include
-// non-admins; a dispatch email can get forwarded) -- the same exposure
-// maskData.js's toPublicPartner() guards against for the public website,
-// so a restricted partner gets a masked name (maskedDisplayName() -- #327
-// Finding 10) and a generic "details withheld" line here too, and no link
-// to the actual file. isRestricted is read fresh from the partner at
-// build time, not the payload's frozen snapshot -- the flag can change
-// after a dispatch was already recorded.
+// Masking: these channels leave the auth boundary (non-admins in a group, forwarded
+// emails), the same exposure toPublicPartner() guards on the public site. So a
+// restricted partner gets a masked name (maskedDisplayName()), a generic
+// "details withheld" line and no file link. isRestricted is read fresh from the
+// partner, not the payload snapshot, because the flag can change after recording.
 const { maskedDisplayName } = require("./maskData");
+const { keyDateWhat, when: whenKeyDate } = require("./keyDateText");
 
 const RESTRICTED_NOTICE =
   "Specific details are withheld for security -- please pray for this partner's safety and ministry.";
 
-// The 4 "real content" event types -- the ones a restricted partner's
-// dispatch needs manual review for before it's eligible to send at
-// all (#187; see dispatchEligibility.js's needsReview()).
-// newsletterCreated is deliberately excluded: it already fully
-// suppresses for a restricted partner (bodyText/groupmeText both come
-// back masked-to-nothing below), so there's no real content there to
-// ever gate. Exported so dispatchEligibility.js's
-// isEligibleForChannel and routes/dispatches.js share this exact
-// list instead of each re-deriving "which types are real content" and
-// drifting apart.
+// The 4 "real content" event types: a restricted partner's dispatch of these
+// needs manual review before it can send (see dispatchEligibility.js
+// needsReview()). newsletterCreated is excluded because it already fully
+// suppresses for a restricted partner. Exported so dispatchEligibility.js and
+// routes/dispatches.js share one list.
 const REVIEW_GATED_TYPES = new Set([
   "prayerRequestCreated",
   "prayerRequestAnswered",
@@ -41,23 +27,21 @@ const REVIEW_GATED_TYPES = new Set([
   "supportNeedDecided",
 ]);
 
-// The subset of types eligible for the public email dispatch audience
-// specifically -- admin (User) recipients aren't restricted by this set
-// at all, they keep every type. See dispatchEligibility.js's
-// isEligibleForChannel for where this is used.
+// The chat-only partner care posts (utils/careChatDispatch.js). They go to GroupMe/WhatsApp under their own switches
+// and one shared topic/group; the email digest has its own key-date section and the bell has the rest, so they
+// never ride in an email dispatch.
+const CARE_DISPATCH_TYPES = new Set(["keyDateComing", "quietPartner", "updateToPassOn"]);
+
+// Types eligible for the public email audience; admin (User) recipients keep every type.
 const PUBLIC_EMAIL_DISPATCH_TYPES = new Set(["prayerRequestCreated", "prayerRequestAnswered"]);
 
-// Same reasoning/placement as groupmeChannel.js's own appBaseUrl():
-// resolves to "" when neither env var is set, so a link just isn't
-// built rather than pointing at nothing.
+// Like groupmeChannel.js's appBaseUrl(): "" when no env var is set, so no link is built.
 function appBaseUrl() {
   return (process.env.APP_BASE_URL || process.env.RENDER_EXTERNAL_URL || "").replace(/\/+$/, "");
 }
 
-// Same wording/behavior as groupmeChannel.js's own sourceLinkLine(),
-// operating on the payload's own sourceFileId instead of a live Prisma
-// include -- the row's payload is a frozen snapshot (see schema.prisma's
-// DispatchRecord comment).
+// Like groupmeChannel.js's sourceLinkLine(), but from the payload's sourceFileId
+// (the payload is a frozen snapshot; see DispatchRecord in schema.prisma).
 function sourceLinkLine(payload) {
   const base = appBaseUrl();
   if (!base || !payload.sourceFileId) return "";
@@ -70,30 +54,23 @@ function sourceLinkUrl(payload) {
   return `${base}/api/partner-files/${payload.sourceFileId}/download`;
 }
 
-// Same labels/thresholds as groupmeChannel.js's own
-// supportNeedOutcomeLabel() (matches statusFor() in
-// AdminOneTimeNeeds.jsx and needStatus() in
-// PartnerFinancialSection.jsx).
+// Same labels/thresholds as groupmeChannel.js supportNeedOutcomeLabel() (and
+// statusFor() in AdminOneTimeNeeds.jsx, needStatus() in PartnerFinancialSection.jsx).
 function supportNeedOutcomeLabel(payload) {
   if (payload.approvedAmount === 0) return "Declined";
   if (payload.approvedAmount < payload.requestedAmount) return "Partially Funded";
   return "Fully Funded";
 }
 
-// Builds one blurb from a DispatchRecord row. `partner` is the current
-// Partner record ({ displayName, isRestricted } is enough) -- pass
-// null/undefined when unavailable (e.g. deleted) and masking is simply
-// skipped. Returns null for an unrecognized type (defensive -- `type`
-// is only ever written by dispatchRecording.js) rather than
-// throwing and taking down a whole pass over one bad row.
+// Builds one blurb from a DispatchRecord row. `partner` is the current Partner
+// ({ displayName, isRestricted } suffices); null/undefined (e.g. deleted) skips
+// masking. Returns null for an unrecognized type (only dispatchRecording.js
+// writes `type`) rather than failing a whole pass over one bad row.
 //
-// row.dispatchReviewedAt/row.dispatchReviewedText (#187): once set, an
-// admin's saved edit is the authoritative body text, overriding
-// whatever would otherwise be computed -- for a restricted row this is
-// also what "reveals" real content in place of RESTRICTED_NOTICE.
-// Whether an un-reviewed restricted row is allowed to *send* yet is a
-// separate question this function has no opinion on -- see
-// dispatchEligibility.js's needsReview().
+// Once row.dispatchReviewedAt/dispatchReviewedText are set, the admin's saved
+// edit is the authoritative body text (for a restricted row it also replaces
+// RESTRICTED_NOTICE). Whether an un-reviewed restricted row may *send* is
+// dispatchEligibility.js's needsReview(), not decided here.
 function buildBlurb(row, partner, settings) {
   const { type, payload } = row;
   const restricted = !!partner?.isRestricted;
@@ -103,9 +80,7 @@ function buildBlurb(row, partner, settings) {
         settings
       )
     : payload.partnerName || "A partner";
-  // Masked out for a restricted partner regardless of type -- never a
-  // working link to the actual file, even though the download routes
-  // are auth-gated (see the file-header comment above).
+  // Masked out for a restricted partner regardless of type, even though downloads are auth-gated.
   const maskedSourceFileId = restricted ? null : payload.sourceFileId || null;
   const maskedSourceLinkUrl = restricted ? null : sourceLinkUrl(payload);
   const maskedSourceLinkLine = restricted ? "" : sourceLinkLine(payload);
@@ -166,16 +141,10 @@ function buildBlurb(row, partner, settings) {
         : restricted
           ? RESTRICTED_NOTICE
           : payload.description;
-      // One-time needs never reach the public digest -- not in
-      // PUBLIC_EMAIL_DISPATCH_TYPES above, admin-only on every channel -- so the
-      // requested amount is safe to surface here the same way the
-      // approved amount already is on the decided case below.
-      // Restricted-partner masking still applies to the partner's
-      // name/description; the dollar figure itself was never treated as
-      // identifying. Guarded against a missing requestedAmount (a real
-      // SupportNeed always has one -- the column is non-nullable -- but
-      // a test fixture or a future caller that doesn't is safer showing
-      // nothing than "$NaN").
+      // One-time needs never reach the public digest (admin-only on every channel),
+      // so the requested amount is safe to show like the approved amount below.
+      // Restricted masking still applies to name/description. Guards a missing
+      // requestedAmount (non-nullable in the schema, but fixtures may omit it) to avoid "$NaN".
       const amount =
         payload.requestedAmount != null ? `$${Number(payload.requestedAmount).toLocaleString()}` : null;
       return {
@@ -208,9 +177,7 @@ function buildBlurb(row, partner, settings) {
         : restricted
           ? RESTRICTED_NOTICE
           : `"${payload.description}"`;
-      // Documents *why* the decision came out this way -- same
-      // admin-only reasoning as the amount above, so no masking beyond
-      // what restricted already does to bodyText/partnerName.
+      // Why the decision came out this way; admin-only like the amount above.
       const decisionNote = payload.decisionNote?.trim() || null;
       const decisionNoteLine = decisionNote ? `\n\n${decisionNote}` : "";
       return {
@@ -236,11 +203,8 @@ function buildBlurb(row, partner, settings) {
     case "newsletterCreated": {
       const base = appBaseUrl();
       const link = restricted || !base ? null : `${base}/api/partner-files/${payload.newsletterId}/download`;
-      // The newsletter's real title (new) -- masked to null for a
-      // restricted partner's newsletter, same as every other
-      // identifying field on this row. Often genuinely null in
-      // practice too (PartnerFile.title is optional) -- that's fine,
-      // not a bug, there's just nothing to show for that row.
+      // The newsletter's real title, null for a restricted partner (like every
+      // identifying field). Also null when PartnerFile.title is unset; that is fine.
       const title = restricted ? null : payload.title || null;
       return {
         id: row.id,
@@ -256,13 +220,80 @@ function buildBlurb(row, partner, settings) {
         newsletterId: restricted ? null : payload.newsletterId,
         sourceFileId: null,
         sourceLinkUrl: link,
-        // No link, no message -- a newsletter notification with
-        // nothing to point at isn't worth sending at all. A restricted
-        // partner's newsletter never gets a link in the first place, so
-        // it's never worth a GroupMe post either, same reasoning.
+        // No link, no message: nothing to point at isn't worth sending (a
+        // restricted partner's newsletter never gets a link).
         groupmeText: link
           ? `📰 New newsletter from ${partnerName}${title ? `: ${title}` : ""}:\n${link}`
           : null,
+      };
+    }
+
+    case "keyDateComing": {
+      const item = { ...payload, daysUntil: payload.daysUntil };
+      const what = keyDateWhat(item, restricted);
+      const when = whenKeyDate(item);
+      const instructions =
+        payload.specialInstructions && !restricted
+          ? " Special communication instructions apply: see their page."
+          : "";
+      return {
+        id: row.id,
+        type,
+        partnerId: row.partnerId,
+        partnerName,
+        topicKey: "groupmeCareTopicId",
+        emoji: "🎂",
+        summary: "Key date coming up",
+        bodyText: `${what}: ${when}.${instructions}`,
+        amount: null,
+        sourceFileId: null,
+        sourceLinkUrl: null,
+        groupmeText: `🎂 Coming up for ${partnerName}: ${what}, ${when}. A card or a call would mean a lot.${instructions}`,
+      };
+    }
+
+    case "quietPartner": {
+      const never = !payload.lastContactDate;
+      const days = payload.daysQuiet;
+      const bodyText = never
+        ? "Nobody has logged contact with them yet."
+        : `It has been ${days} days since we last heard from them.`;
+      return {
+        id: row.id,
+        type,
+        partnerId: row.partnerId,
+        partnerName,
+        topicKey: "groupmeCareTopicId",
+        emoji: "🤝",
+        summary: "Time to reach out",
+        bodyText,
+        amount: null,
+        sourceFileId: null,
+        sourceLinkUrl: null,
+        groupmeText: `🤝 Time to reach out to ${partnerName}. ${bodyText} Could someone get in touch?`,
+      };
+    }
+
+    case "updateToPassOn": {
+      // The need or prayer text is withheld for a restricted partner, like the prayer and need posts themselves.
+      const label = restricted || !payload.label ? "" : ` (“${payload.label}”)`;
+      const bodyText =
+        payload.kind === "need"
+          ? `The church's decision on their need${label} is ready to pass on.`
+          : `Their prayer request${label} was answered, and they would love to hear it.`;
+      return {
+        id: row.id,
+        type,
+        partnerId: row.partnerId,
+        partnerName,
+        topicKey: "groupmeCareTopicId",
+        emoji: "📣",
+        summary: "News to pass on",
+        bodyText,
+        amount: null,
+        sourceFileId: null,
+        sourceLinkUrl: null,
+        groupmeText: `📣 News to pass on to ${partnerName}: ${bodyText} Could someone let them know?`,
       };
     }
 
@@ -271,4 +302,10 @@ function buildBlurb(row, partner, settings) {
   }
 }
 
-module.exports = { buildBlurb, appBaseUrl, REVIEW_GATED_TYPES, PUBLIC_EMAIL_DISPATCH_TYPES };
+module.exports = {
+  buildBlurb,
+  appBaseUrl,
+  REVIEW_GATED_TYPES,
+  PUBLIC_EMAIL_DISPATCH_TYPES,
+  CARE_DISPATCH_TYPES,
+};

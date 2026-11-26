@@ -1,10 +1,8 @@
 const { test, describe } = require("node:test");
 const assert = require("node:assert/strict");
-// dispatchEligibility.js transitively requires prismaClient.js (via
-// getChurchSettings), which reads DATABASE_URL eagerly at require time
-// -- same reason emailDispatchScheduler.test.js needs this. needsReview()/
-// isEligibleForChannel() themselves are pure, no DB touched by anything
-// this file actually calls.
+// dispatchEligibility.js transitively requires prismaClient.js (via getChurchSettings), which
+// reads DATABASE_URL eagerly at require time, as in emailDispatchScheduler.test.js.
+// needsReview()/isEligibleForChannel() themselves are pure; nothing here touches the DB.
 require("dotenv").config({ quiet: true });
 const {
   CHANNELS,
@@ -86,10 +84,8 @@ describe("isEligibleForChannel", () => {
   test("REGRESSION: a restricted partner's unreviewed newsletter is NOT held the same way -- buildBlurb already fully suppresses it, nothing left to gate", () => {
     const newsletterRow = { type: "newsletterCreated", dispatchReviewedAt: null };
     const prayerRow = { type: "prayerRequestCreated", dispatchReviewedAt: null };
-    // Same restricted, unreviewed partner -- the newsletter type must
-    // pass Rule 1 where the prayer-request type does not. A type-blind
-    // implementation of Rule 1 would make both false, which is exactly
-    // the bug this plan found and fixed.
+    // Same restricted, unreviewed partner: the newsletter type must pass Rule 1 where the
+    // prayer-request type does not. A type-blind implementation of Rule 1 would make both false.
     assert.equal(
       isEligibleForChannel(newsletterRow, CHANNELS.EMAIL_ADMIN, restrictedUnreviewed, onSettings, true),
       true
@@ -172,11 +168,10 @@ describe("isEligibleForChannel", () => {
   });
 });
 
-// #289: a record made from a care team member's prayer request or need is
-// held for staff review whatever the partner, on every channel -- the admin
-// email digest and the chat channels as well as the public email -- and the
-// one release is the same dispatchReviewedAt that releases a restricted
-// partner's content.
+// A record made from a care team member's prayer request or need is held for staff review
+// whatever the partner, on every channel (the admin email digest and the chat channels as well
+// as the public email), and the one release is the same dispatchReviewedAt that releases a
+// restricted partner's content.
 describe("reviewRequired (care team submissions)", () => {
   const ordinary = { isRestricted: false, isPublic: true };
   const held = (type, extra = {}) => ({ type, reviewRequired: true, dispatchReviewedAt: null, ...extra });
@@ -224,7 +219,7 @@ describe("reviewRequired (care team submissions)", () => {
       ),
       false
     );
-    // unchanged from #187: restricted partner, staff-made newsletter -> not held
+    // Restricted partner, staff-made newsletter -> not held.
     assert.equal(needsReview({ type: "newsletterCreated" }, { isRestricted: true }), false);
   });
 });

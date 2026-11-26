@@ -1,15 +1,8 @@
-// Trip meetings (#252/#267) -- split out of trips.test.js to mirror
-// #271's route split (routes/tripMeetings.js). Meetings uplift
-// (agenda/meetingLink as real fields, explicit resend, soft-cancel that
-// notifies instead of silently vanishing), one-click RSVP, and the
-// "add to calendar" .ics download.
-//
-// What's deliberately NOT here: the late-joiner catch-up tests for
-// "adding a participant to a trip that already has meetings" live in
-// tripParticipants.test.js instead -- the endpoint under test there is
-// tripParticipants.js's own add/approve routes, not this file's, even
-// though the email body they trigger is about an existing meeting. See
-// that file's own header comment for the full reasoning.
+// Trip meetings: agenda/meetingLink as real fields, explicit resend, soft-cancel that notifies
+// instead of silently vanishing, one-click RSVP, and the "add to calendar" .ics download. The
+// late-joiner catch-up tests (adding a participant to a trip that already has meetings) live
+// in tripParticipants.test.js: the endpoint under test there is tripParticipants.js's
+// add/approve routes.
 const { test, describe, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 require("dotenv").config({ quiet: true });
@@ -23,10 +16,9 @@ const {
   FIXTURE_TAG,
 } = require("./helpers");
 
-// Same mock-the-whole-domain technique publicSubscribe.test.js/
-// dispatches.test.js already use for Postmark -- monkey-patch
-// global.fetch, matching only the Postmark host, so no real email ever
-// sends in this suite.
+// Same mock-the-whole-domain technique as publicSubscribe.test.js/dispatches.test.js for
+// Postmark: patch global.fetch, matching only the Postmark host, so no real email ever sends
+// in this suite.
 const realFetch = global.fetch;
 global.fetch = (url, options) => {
   if (String(url).startsWith("https://api.postmarkapp.com")) {
@@ -100,14 +92,12 @@ async function createPartner(overrides = {}) {
   return res.body;
 }
 
-// Meetings uplift -- agenda/meetingLink as real fields (not a free-text
-// "notes" column nothing ever surfaced), an explicit resend, and a
-// soft-cancel that notifies instead of silently vanishing.
+// Agenda/meetingLink as real fields, an explicit resend, and a soft-cancel that notifies
+// instead of silently vanishing.
 describe("Trips: meetings", () => {
-  // Wraps a block of calls, capturing every Postmark send attempted
-  // during it -- same local-override-then-restore idiom
-  // emailDispatchDelivery.test.js already uses for this, scoped to one
-  // test at a time rather than a whole-file capture.
+  // Wraps a block of calls, capturing every Postmark send attempted during it (the local
+  // override-then-restore idiom from emailDispatchDelivery.test.js), scoped to one test at a
+  // time.
   async function captureEmails(run) {
     const captured = [];
     const prevFetch = global.fetch;
@@ -194,8 +184,8 @@ describe("Trips: meetings", () => {
       assert.equal(res.status, 201);
     });
     assert.equal(sent.length, 1);
-    // trip.name is unset in createTripWithParticipant -- falls through to
-    // trip.type ("Construction"), same as before this field existed.
+    // trip.name is unset in createTripWithParticipant, so it falls through to trip.type
+    // ("Construction").
     assert.equal(sent[0].Subject, "Meeting: Construction");
     const ics = sent[0].Attachments?.find((a) => a.Name === "meeting.ics");
     const decoded = Buffer.from(ics.Content, "base64").toString();
@@ -342,18 +332,14 @@ describe("Trips: meetings", () => {
   });
 });
 
-// One-click RSVP (issue #267's design decision) -- link-based only, no
-// inbound email. Each link is a plain GET, verified by the exact same
-// signed access token the self-service page already uses, so this
-// suite leans on buildTripParticipantAccessToken directly rather than
-// a parallel token mechanism.
+// One-click RSVP: link-based only, no inbound email. Each link is a plain GET verified by the
+// same signed access token the self-service page uses, so this suite leans on
+// buildTripParticipantAccessToken directly.
 describe("Trips: meeting RSVP", () => {
   const { buildTripParticipantAccessToken } = require("../../src/utils/tripAccessToken");
 
-  // Same capture idiom as the "Trips: meetings" describe block above,
-  // duplicated locally rather than hoisted to file scope -- each
-  // describe block's own helper, same precedent emailDispatchDelivery.
-  // test.js already follows for this.
+  // Same capture idiom as the "Trips: meetings" describe above, duplicated locally rather than
+  // hoisted to file scope, as in emailDispatchDelivery.test.js.
   async function captureEmails(run) {
     const captured = [];
     const prevFetch = global.fetch;
@@ -402,10 +388,9 @@ describe("Trips: meeting RSVP", () => {
     assert.match(body, /\/meetings\/.+\/rsvp\?token=.+&response=no/);
     assert.match(body, /\/meetings\/.+\/rsvp\?token=.+&response=maybe/);
 
-    // The token in the email must actually work -- not just look right.
-    // #327 Finding 6: GET only renders a confirm page now; POST is what
-    // actually records the RSVP (same path a mail client's own one-click
-    // button, or clicking the rendered Confirm button, would take).
+    // The token in the email must actually work, not just look right. GET only renders a confirm
+    // page; POST is what records the RSVP (the path a mail client's one-click button, or the
+    // rendered Confirm button, takes).
     const yesLink = body.match(/(https?:\/\/\S*\/rsvp\?token=\S*&response=yes)/)[1];
     const res = await anon(yesLink.replace(/^https?:\/\/[^/]*/, ""), { method: "POST" });
     assert.equal(res.status, 200);
@@ -437,10 +422,9 @@ describe("Trips: meeting RSVP", () => {
     assert.doesNotMatch(sent[0].TextBody, /\/rsvp\?/);
   });
 
-  // #327 Finding 6: this used to record the RSVP the moment the link was
-  // *fetched* -- a mail security scanner pre-fetching all three yes/no/
-  // maybe links in an inbox would record (and overwrite) whichever one
-  // it requested last, never the recipient's real choice.
+  // GET must not record the RSVP: a mail security scanner pre-fetching all three yes/no/maybe
+  // links in an inbox would record (and overwrite) whichever it requested last, never the
+  // recipient's real choice.
   test("GET renders a confirm page for that one response, without recording anything yet", async () => {
     const { trip, participant } = await createTripWithParticipant();
     const meeting = await prisma.tripMeeting.create({
@@ -465,8 +449,7 @@ describe("Trips: meeting RSVP", () => {
     });
     const token = buildTripParticipantAccessToken(participant);
 
-    // #327 Finding 6: GET only renders a confirm page now; POST is what
-    // actually records the RSVP.
+    // GET only renders a confirm page; POST is what records the RSVP.
     const yesRes = await anon(`/api/public/trips/meetings/${meeting.id}/rsvp?token=${token}&response=yes`, {
       method: "POST",
     });
@@ -606,8 +589,8 @@ describe("Trips: meeting RSVP", () => {
   });
 });
 
-// "Add to calendar" for the self-service page -- same token/ownership
-// pattern as meeting RSVP above, reusing buildMeetingIcs unchanged.
+// "Add to calendar" for the self-service page: same token/ownership pattern as meeting RSVP
+// above, reusing buildMeetingIcs.
 describe("Trips: meeting .ics download", () => {
   const { buildTripParticipantAccessToken } = require("../../src/utils/tripAccessToken");
 

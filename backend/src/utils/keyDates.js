@@ -1,26 +1,30 @@
-// #291: which birthdays, anniversaries and supported-since milestones are
-// coming up. Pure -- no database -- so the rule is testable on its own and the
-// bell, the daily email and anything else read one definition. The date math
-// is reporting/definitions.js's nextAnnual (the "Families & key dates" report
-// uses the same one), so Feb 29 and the turning-age rule can't drift.
+// Which birthdays, anniversaries and supported-since milestones are coming up.
+// Pure (no database), so the bell, the daily email and anything else read one
+// definition. Date math is reporting/definitions.js's nextAnnual (shared with the
+// "Families & key dates" report), so Feb 29 and the turning-age rule can't drift.
 
 const { nextAnnual, daysBetween } = require("../reporting/definitions");
 
-// How far ahead a key date becomes "due". A fixed default in v1 (not a
-// setting): a card needs about a week to arrive, and one number keeps the bell
-// and the email agreeing.
+// How far ahead a key date becomes "due": a fixed default (a card needs about a week), so bell and email agree.
 const KEY_DATE_LEAD_DAYS = 7;
 
-// "Supporting since" is a milestone, not a yearly event: the first year, then
-// every fifth. (Year-only start dates are stored as Jan 1, so a yearly nudge
-// would just say "Jan 1" every year.)
+// "Partnering since" is a milestone: the first year, then every fifth (year-only
+// start dates are stored as Jan 1, so yearly would always say "Jan 1").
 const isSupportMilestone = (years) => years >= 1 && (years === 1 || years % 5 === 0);
+
+// Which heads-up a key date is at: 0 inside the final window (leadDays), else the smallest advance threshold
+// that still covers it (90 for 45 days out, 30 for 20), or null while it is further out than every threshold.
+function reminderTier(daysUntil, leadDays, advanceDays = []) {
+  if (daysUntil <= leadDays) return 0;
+  const covering = advanceDays.filter((d) => d >= daysUntil).sort((a, b) => a - b);
+  return covering.length ? covering[0] : null;
+}
 
 const ymd = (d) => d.toISOString().slice(0, 10);
 const fullName = (p) => [p.firstName, p.lastName].filter(Boolean).join(" ");
 
 // partners: [{ id, displayName, adults:[{id,firstName,lastName,birthday}],
-//   children:[...], anniversary, supportingSince }]. Everything within
+//   children:[...], anniversary, supportingSince, commissionedAt }]. Everything within
 // `leadDays` of `today` (inclusive of today), soonest first.
 function upcomingKeyDates(partners, today, leadDays = KEY_DATE_LEAD_DAYS) {
   const out = [];
@@ -52,18 +56,18 @@ function upcomingKeyDates(partners, today, leadDays = KEY_DATE_LEAD_DAYS) {
       add(p, c.birthday, { kind: "childBirthday", subjectId: c.id, who: fullName(c), occasion: "Birthday" })
     );
     add(p, p.anniversary, { kind: "anniversary", occasion: "Wedding anniversary" });
+    add(p, p.commissionedAt, { kind: "commissioned", occasion: "Commissioned" });
     add(p, p.supportingSince, {
       kind: "supportingSince",
-      occasion: "Supported since",
+      occasion: "Partnering since",
       keep: isSupportMilestone,
     });
   }
   return out.sort((a, b) => a.daysUntil - b.daysUntil || a.partnerId.localeCompare(b.partnerId));
 }
 
-// An occurrence is handled once someone logged a contact for the partner with
-// the "key date" topic within `leadDays` either side of it -- the card was
-// sent (or the call made), so the reminder is done. Per partner, not per
+// An occurrence is handled once someone logged a contact for the partner with the
+// "key date" topic within `leadDays` either side of it. Per partner, not per
 // person: one card goes to the family.
 function isHandled(item, logs, leadDays = KEY_DATE_LEAD_DAYS) {
   return logs.some(
@@ -73,4 +77,4 @@ function isHandled(item, logs, leadDays = KEY_DATE_LEAD_DAYS) {
   );
 }
 
-module.exports = { KEY_DATE_LEAD_DAYS, upcomingKeyDates, isHandled, isSupportMilestone };
+module.exports = { KEY_DATE_LEAD_DAYS, reminderTier, upcomingKeyDates, isHandled, isSupportMilestone };

@@ -68,16 +68,20 @@ use `DEMO_ADMIN_PASSWORD`. Set the
 optional `DEMO_GUEST_PASSWORD` only if you want them to differ (the banner then
 shows each one's password); never reuse any of these anywhere real.
 
-## Passkeys and passwordless sign-in are off on a demo
+## Passkeys can be tried on a demo; passwordless sign-in is off
 
-For the same reason, a demo can't use **passkeys** (#386): a passkey added to a shared login would
-make every visitor's sign-in ask for it. The server refuses to register one while
-`DEMO_RESET_TOKEN` is set, My account says passkeys are off on the demo, and the church-wide
-**Passwordless sign-in** switch is refused and ignored there too (it also needs working email,
-which a demo never has). Both are shown in the documentation screenshots, captured from a
-fixture install, rather than on the demo itself.
+A visitor can add and remove a **passkey** (#386) or an authenticator app on a demo, to see how it
+works. Because the logins are shared, a demo never asks anyone for a second factor at sign-in, even
+when one has been added, and adding or removing one doesn't end the sessions other visitors have
+open. My account says so. The next reset removes whatever was added.
 
-What a visitor can try instead: the seed leaves a finished trip that hasn't been wrapped up
+The one exception is the owner's own test deployment (the dev demo): set `DEMO_ALLOW_PASSWORDLESS=true` on its web service and an admin can switch it on there to try it (it needs an account with a passkey and working email, and the next reset turns it off again). **Never set it on a demo the public can reach**: it would end password sign-in for the shared logins.
+
+The church-wide **Passwordless sign-in** switch is still refused and ignored on a demo (it also
+needs working email, which a demo never has). It is shown in the documentation screenshots,
+captured from a fixture install, rather than on the demo itself.
+
+The seed leaves a finished trip that hasn't been wrapped up
 ("Harvest Week team"), so **Trips ready to wrap up** is on the bell and the **Wrap up trip**
 wizard can be walked end to end; the older completed trips carry debriefs; partners carry support
 preferences; the care team's contact timeline, updates to pass on and key-date alerts are
@@ -90,7 +94,8 @@ the mail only bounces and spends the email plan). Two things guarantee that. The
 reset script and the seed turn every feature on **except** the list in
 `backend/src/utils/demoMode.js`, which is where a scheduled-email feature would
 be kept off (today the list is empty). And the daily key-date job returns early
-whenever `DEMO_RESET_TOKEN` is set, so it can never email a demo's team members
+on a demo (`DEMO_RESET_TOKEN`, or the `demoMode` flag the reset writes, which is what the worker
+process sees), as do the other scheduled emails, so no schedule can email a demo's team members
 even though **Key-date reminders are on**: a visitor sees the "Key dates coming
 up" alert on the bell and Home page, but nothing is ever sent. To keep another
 scheduled-email feature off a demo, add its key to that list.

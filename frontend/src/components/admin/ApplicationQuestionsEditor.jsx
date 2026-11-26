@@ -1,21 +1,8 @@
 import React, { useState } from "react";
 
-// Shared editor for an application-question list -- used for a trip's own
-// applicationQuestions (AdminTripTeam.jsx), the church-wide
-// tripApplicationTemplate, and the tripQuestionLibrary picker source
-// (both AdminSettingsTrips.jsx). One component so all three stay in sync
-// as the question shape evolves, instead of three hand-copied UIs.
-//
-// Redesigned for clarity (flagged as confusing from a real screenshot):
-// every control is now a labeled, stacked field instead of one dense
-// unlabeled row, and the two ways to add a question ("from your saved
-// questions" vs. "a brand-new one") are visually separated sections with
-// their own headings, not two forms running together.
-//
-// Fully controlled: the parent owns persistence. `onAdd`/`onUpdate`/
-// `onRemove` are called with the new full intent; what happens next
-// (save immediately, or just update local form state until a page-level
-// Save button is clicked) is entirely up to the caller.
+// Shared editor for an application-question list: a trip's own questions, the church-wide template
+// and the question library. Fully controlled: `onAdd`/`onUpdate`/`onRemove` get the new intent and
+// the caller decides when to persist.
 const QUESTION_TYPES = [
   { value: "text", label: "Short text" },
   { value: "textarea", label: "Long text" },
@@ -24,12 +11,8 @@ const QUESTION_TYPES = [
   { value: "date", label: "Date" },
 ];
 
-// One choice per line, not comma-separated -- a comma-joined single line
-// can't round-trip losslessly once any one choice contains a comma of its
-// own (e.g. "No, but I can apply in time"), which would otherwise silently
-// re-split into extra choices the next time this field is edited. A
-// newline can't appear inside a single typed choice at all, so this has
-// no equivalent failure mode.
+// One choice per line, not comma-separated: a comma-joined line can't round-trip a choice that
+// contains a comma ("No, but I can apply in time").
 function optionsToText(options) {
   return (options || []).join("\n");
 }
@@ -43,9 +26,7 @@ function needsOptionsFor(type) {
   return type === "select" || type === "checkboxes";
 }
 
-// Move-up/move-down, not drag-and-drop -- this app has no existing
-// drag-and-drop precedent anywhere, and a new library dependency isn't
-// worth it for a list that's realistically a handful of questions long.
+// Move-up/move-down rather than drag-and-drop: the lists are short and the app has no dnd dependency.
 function moveItem(list, index, delta) {
   const target = index + delta;
   if (target < 0 || target >= list.length) return list;
@@ -55,10 +36,7 @@ function moveItem(list, index, delta) {
   return next;
 }
 
-// One labeled "Answer choices" field, shared by an existing question's
-// editor and the two add-a-question forms below -- same markup, same
-// helper text, so a select/checkboxes question never looks different
-// depending on where it's being edited.
+// One "Answer choices" field shared by the editor and the add-a-question forms.
 function OptionsField({ defaultValue, value, onChange, onBlur }) {
   return (
     <label style={{ display: "block", marginTop: "0.6rem", fontWeight: 400, fontSize: "0.85rem" }}>
@@ -72,7 +50,7 @@ function OptionsField({ defaultValue, value, onChange, onBlur }) {
         onBlur={onBlur}
         placeholder={"One per line, e.g.\nYes\nNo"}
       />
-      <span style={{ display: "block", color: "#888", fontSize: "0.78rem", marginTop: "0.15rem" }}>
+      <span style={{ display: "block", color: "var(--muted)", fontSize: "0.78rem", marginTop: "0.15rem" }}>
         One choice per line -- a choice can safely contain its own comma this way.
       </span>
     </label>
@@ -128,14 +106,21 @@ export default function ApplicationQuestionsEditor({
             <li
               key={q.id}
               style={{
-                border: "1px solid #e1dfdb",
+                border: "1px solid var(--border)",
                 borderRadius: 6,
                 padding: "0.7rem 0.8rem",
                 marginBottom: "0.6rem",
               }}
             >
               <div style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem" }}>
-                <span style={{ color: "#888", fontSize: "0.85rem", fontWeight: 600, paddingTop: "1.6rem" }}>
+                <span
+                  style={{
+                    color: "var(--muted)",
+                    fontSize: "0.85rem",
+                    fontWeight: 600,
+                    paddingTop: "1.6rem",
+                  }}
+                >
                   {index + 1}.
                 </span>
                 <label style={{ flex: 1, fontWeight: 400, fontSize: "0.85rem" }}>
@@ -244,19 +229,28 @@ export default function ApplicationQuestionsEditor({
                 </div>
               )}
 
-              <p style={{ margin: "0.5rem 0 0", paddingLeft: "1.4rem", color: "#888", fontSize: "0.78rem" }}>
+              <p
+                style={{
+                  margin: "0.5rem 0 0",
+                  paddingLeft: "1.4rem",
+                  color: "var(--muted)",
+                  fontSize: "0.78rem",
+                }}
+              >
                 Shown as a "{typeLabel}" question{q.required ? ", required" : ", optional"}.
               </p>
             </li>
           );
         })}
-        {questions.length === 0 && <p style={{ color: "#888" }}>No questions yet -- add one below.</p>}
+        {questions.length === 0 && (
+          <p style={{ color: "var(--muted)" }}>No questions yet -- add one below.</p>
+        )}
       </ul>
 
       {library && library.length > 0 && (
         <div className="admin-section" style={{ marginBottom: "0.75rem" }}>
           <h4 style={{ margin: "0 0 0.3rem" }}>Add from your saved questions</h4>
-          <p style={{ margin: "0 0 0.5rem", color: "#888", fontSize: "0.8rem" }}>
+          <p style={{ margin: "0 0 0.5rem", color: "var(--muted)", fontSize: "0.8rem" }}>
             Reuse a question you've already saved instead of retyping it.
           </p>
           <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>

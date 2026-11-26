@@ -5,19 +5,12 @@ const prisma = require("../../src/prismaClient");
 const { encryptField } = require("../../src/utils/crypto");
 const { sendDigestTier } = require("../../src/utils/emailDispatchDelivery");
 
-// Same mock-the-whole-domain technique test/routes/dispatches.test.js
-// and test/routes/publicSubscribe.test.js each already use for Postmark
-// -- no real email ever sends in this suite. No Express server is
-// started here at all -- sendDigestTier() only ever touches Prisma and
-// utils/email.js's sendEmailBatch(), so fixtures are built directly via
-// Prisma rather than through the HTTP routes those other files use.
-//
-// sendEmailBatch sends every recipient's message in ONE call to
-// POST /email/batch (an array body), not one call per recipient -- the
-// mock below flattens every batch call's array into one list of
-// individual messages (`postmarkMessages`) so assertions below can
-// still reason per-recipient without caring how many underlying HTTP
-// calls that took.
+// Same mock-the-whole-domain technique as dispatches.test.js and publicSubscribe.test.js for
+// Postmark; no real email ever sends. No Express server is started: sendDigestTier() only
+// touches Prisma and utils/email.js's sendEmailBatch(), so fixtures are built directly via
+// Prisma. sendEmailBatch sends every recipient's message in ONE call to POST /email/batch (an
+// array body); the mock flattens every batch into one list of messages (`postmarkMessages`) so
+// assertions can reason per recipient.
 const realFetch = global.fetch;
 let postmarkMessages = [];
 function mockPostmark() {
@@ -49,19 +42,10 @@ global.fetch = (url, options) => {
 const FIXTURE_TAG = "ZZTEST-emailDispatchDelivery";
 
 async function cleanup() {
-  // Unconditional, not scoped to this file's own fixture partners --
-  // sendDigestTier() processes the *entire* DispatchRecord queue by
-  // design (that's its actual job in production), so any row left over
-  // from seed data (e.g. the demo's own "sample pending-dispatches
-  // queue") or another test file leaks into every exact-count/exact-
-  // array assertion in this file. Safe to wipe unconditionally: this is
-  // the local/CI test database only, tests run with
-  // --test-concurrency=1 (sequential, never overlapping another file),
-  // and every other test file that touches DispatchRecord
-  // (dispatches.test.js, groupme.test.js) always scopes its own
-  // assertions to its own partnerId and cleans up after itself in its
-  // own after() -- none of them depend on a pre-existing row surviving
-  // across files.
+  // Unconditional, not scoped to this file's fixture partners: sendDigestTier() processes the
+  // entire DispatchRecord queue by design, so any leftover row (seed data, another test file)
+  // would leak into every exact-count assertion. Safe because this is the test database only and
+  // tests run with --test-concurrency=1.
   await prisma.dispatchRecord.deleteMany({});
   await prisma.userFollowedPartner.deleteMany({
     where: { partner: { displayName: { contains: FIXTURE_TAG } } },
@@ -90,7 +74,7 @@ function createAdminUser(overrides) {
       email: `digest-delivery-test-${Math.random().toString(36).slice(2)}@example.test`,
       role: "editor",
       active: true,
-      allPartners: true,
+      digestScope: "all",
       ...overrides,
     },
   });
@@ -111,15 +95,11 @@ async function getSettings() {
   return prisma.churchSettings.findUnique({ where: { id: "singleton" } });
 }
 
-// Every test in this file uses tier "biweekly" -- the seeded demo admin
-// (demo@missionspartnertracker.com) defaults to exactly that cadence
-// with allPartners: true, so without neutralizing it first, it's an
-// eligible recipient for every row any test here creates, same class
-// of leak as the unscoped DispatchRecord rows above. Captured and
-// restored, same "remember the real value, put it back after" pattern
-// reports.test.js/collections.test.js/partners.test.js already use for
-// ChurchSettings.enabledFeatures -- this is shared global state too,
-// just on User instead.
+// Every test here uses tier "biweekly", the seeded demo admin's default cadence (allPartners:
+// true), so unless neutralized it is an eligible recipient for every row any test creates, the
+// same leak as the unscoped DispatchRecord rows above. Captured and restored like
+// ChurchSettings.enabledFeatures in reports.test.js/collections.test.js, since this is shared
+// global state too.
 let originalUserCadences;
 
 before(async () => {
@@ -130,9 +110,8 @@ before(async () => {
     where: { id: "singleton" },
     update: {
       enabledFeatures: { outboundEmail: true, publicPrayerDigest: true },
-      // Defaults off now -- this file's own restricted-partner review-gate
-      // tests need it on, same as dispatches.test.js/groupme.test.js
-      // already set explicitly rather than relying on the schema default.
+      // Defaults off; this file's restricted-partner review-gate tests need it on, so it is set
+      // explicitly rather than relying on the schema default.
       allowRestrictedPartnerDispatch: true,
       postmarkServerToken: encryptField("pm-test-token"),
       emailFromAddress: "updates@example.test",
@@ -174,10 +153,9 @@ after(async () => {
   });
 });
 
-// #327 Finding 6: RFC 8058 one-click unsubscribe -- a mail client that
-// supports it can show its own native "Unsubscribe" button that POSTs
-// straight to the unsubscribe URL, no page ever shown. Requires both
-// headers together (some clients won't trust List-Unsubscribe alone).
+// RFC 8058 one-click unsubscribe: a mail client that supports it shows a native "Unsubscribe"
+// button that POSTs straight to the unsubscribe URL, no page shown. Requires both headers
+// together (some clients won't trust List-Unsubscribe alone).
 describe("sendDigestTier -- List-Unsubscribe headers (#327 Finding 6)", () => {
   test("an admin digest recipient's message carries both headers, with the real unsubscribe URL", async () => {
     const partner = await createPartner({});
@@ -422,12 +400,12 @@ describe("sendDigestTier -- no source link for public, source link preserved for
 });
 
 describe("sendDigestTier -- allPartners / scoped-partner filtering", () => {
-  test("User.allPartners: false -- only followed partners' rows are included", async () => {
+  test('User.digestScope "followed" -- only followed partners\' rows are included', async () => {
     const followed = await createPartner({ displayName: `${FIXTURE_TAG} Followed` });
     const notFollowed = await createPartner({ displayName: `${FIXTURE_TAG} Not Followed` });
     const admin = await createAdminUser({
       cadence: "biweekly",
-      allPartners: false,
+      digestScope: "followed",
       followedPartners: { create: [{ partnerId: followed.id }] },
     });
     await createRow(followed.id, "supportNeedCreated", {
@@ -445,6 +423,77 @@ describe("sendDigestTier -- allPartners / scoped-partner filtering", () => {
       assert.ok(!postmarkMessages[0].HtmlBody.includes("NOT-FOLLOWED-NEED"));
     } finally {
       await prisma.user.delete({ where: { id: admin.id } });
+    }
+  });
+
+  test('User.digestScope "owned" -- the partners they look after: their care team seats, plus teamless partners for the missions team', async () => {
+    await prisma.churchSettings.update({
+      where: { id: "singleton" },
+      data: { enabledFeatures: { ...((await getSettings()).enabledFeatures || {}), careTeam: true } },
+    });
+    const seated = await createPartner({ displayName: `${FIXTURE_TAG} Seated` });
+    const teamless = await createPartner({ displayName: `${FIXTURE_TAG} Teamless` });
+    const other = await createPartner({ displayName: `${FIXTURE_TAG} Other Team` });
+    const teammate = await createAdminUser({ cadence: null });
+    await prisma.careTeamMember.create({ data: { partnerId: other.id, userId: teammate.id } });
+    const member = await createAdminUser({ cadence: "biweekly", digestScope: "owned" });
+    await prisma.careTeamMember.create({ data: { partnerId: seated.id, userId: member.id } });
+    const missions = await createAdminUser({
+      cadence: "biweekly",
+      digestScope: "owned",
+      onMissionsTeam: true,
+    });
+    for (const [p, text] of [
+      [seated, "SEATED-NEED"],
+      [teamless, "TEAMLESS-NEED"],
+      [other, "OTHER-TEAM-NEED"],
+    ]) {
+      await createRow(p.id, "supportNeedCreated", { partnerName: p.displayName, description: text });
+    }
+    try {
+      await sendDigestTier("biweekly", await getSettings());
+      const bodyFor = (user) => postmarkMessages.find((m) => m.To === user.email)?.HtmlBody || "";
+      const memberBody = bodyFor(member);
+      assert.ok(memberBody.includes("SEATED-NEED"), "their own partner");
+      assert.ok(
+        !memberBody.includes("TEAMLESS-NEED"),
+        "a teamless partner is the missions team's, not theirs"
+      );
+      assert.ok(!memberBody.includes("OTHER-TEAM-NEED"));
+      const missionsBody = bodyFor(missions);
+      assert.ok(missionsBody.includes("TEAMLESS-NEED"), "the missions team looks after teamless partners");
+      assert.ok(!missionsBody.includes("SEATED-NEED"), "a partner with a team isn't the missions team's");
+      assert.ok(!missionsBody.includes("OTHER-TEAM-NEED"));
+    } finally {
+      await prisma.user.deleteMany({ where: { id: { in: [teammate.id, member.id, missions.id] } } });
+    }
+  });
+
+  test("a care team guest's digest holds only their own partner, whatever scope is stored", async () => {
+    await prisma.churchSettings.update({
+      where: { id: "singleton" },
+      data: { enabledFeatures: { ...((await getSettings()).enabledFeatures || {}), careTeam: true } },
+    });
+    const mine = await createPartner({ displayName: `${FIXTURE_TAG} Guest Own` });
+    const notMine = await createPartner({ displayName: `${FIXTURE_TAG} Guest Not Own` });
+    // "all" is stored on purpose: a guest's digest is forced to their own partners at send time.
+    const guest = await createAdminUser({ role: "guest", cadence: "biweekly", digestScope: "all" });
+    await prisma.careTeamMember.create({ data: { partnerId: mine.id, userId: guest.id } });
+    await createRow(mine.id, "supportNeedCreated", {
+      partnerName: mine.displayName,
+      description: "GUEST-OWN-NEED",
+    });
+    await createRow(notMine.id, "supportNeedCreated", {
+      partnerName: notMine.displayName,
+      description: "GUEST-NOT-OWN-NEED",
+    });
+    try {
+      await sendDigestTier("biweekly", await getSettings());
+      const body = postmarkMessages.find((m) => m.To === guest.email)?.HtmlBody || "";
+      assert.ok(body.includes("GUEST-OWN-NEED"));
+      assert.ok(!body.includes("GUEST-NOT-OWN-NEED"), "a guest never gets another partner's content");
+    } finally {
+      await prisma.user.delete({ where: { id: guest.id } });
     }
   });
 

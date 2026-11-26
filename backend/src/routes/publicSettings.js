@@ -6,16 +6,12 @@ const { FEATURE_KEYS, isFeatureEnabled } = require("../utils/features");
 const router = express.Router();
 
 // GET /api/public/settings
-// Always returns a fixed-shape object with safe defaults, even before the
-// church has configured anything, so an unconfigured instance renders
-// identically to a hardcoded single-church app. Address/phone/contact
-// fields are deliberately withheld here — those stay admin-only, same
-// principle as toPublicMissionary/toPublicOrganization in maskData.js.
+// Always a fixed-shape object with safe defaults, so an unconfigured instance renders like a
+// hardcoded single-church app. Address/phone/contact fields are deliberately withheld (admin-only),
+// same principle as toPublicMissionary/toPublicOrganization in maskData.js.
 router.get("/", async (req, res, next) => {
   try {
-    // logoContentType (not the logo's bytes) signals presence — see the
-    // comment on shapeSettings in routes/settings.js for why. The bytes
-    // live in their own table now, never selected here at all.
+    // logoContentType (not the logo's bytes) signals presence; see shapeSettings in routes/settings.js.
     const settings = await prisma.churchSettings.findUnique({
       where: { id: "singleton" },
     });
@@ -29,41 +25,29 @@ router.get("/", async (req, res, next) => {
       partnerTermSingular: settings?.partnerTermSingular || "Missionary",
       partnerTermPlural: settings?.partnerTermPlural || "Missionaries",
       usePartnerTermInAdmin: settings?.usePartnerTermInAdmin || false,
+      // What this church calls the group that looks after partners with no care team ("Missions team").
+      ownerGroupName: settings?.ownerGroupName || "Missions team",
       publicTagline: settings?.publicTagline || null,
       aboutText: settings?.aboutText || null,
-      // Which of the three email-digest cadence tiers an admin has chosen
-      // to offer (#209) -- exposed here, unauthenticated, specifically so
-      // the public Subscribe page / "follow this partner" form (both
-      // reached by a logged-out visitor) can filter their own cadence
-      // picker down to only these, same reasoning enabledFeatures below
-      // is public. Defaults mirror ChurchSettings' own column defaults so
-      // an unconfigured instance behaves identically to one that's
-      // explicitly saved these settings once.
+      // The email-digest cadence tiers an admin offers (#209). Public so the logged-out Subscribe page
+      // and "follow this partner" form can filter their cadence picker. Defaults mirror ChurchSettings'
+      // column defaults.
       cadenceTiersEnabled: {
         biweekly: settings?.cadenceBiweeklyEnabled ?? false,
         monthly: settings?.cadenceMonthlyEnabled ?? true,
         quarterly: settings?.cadenceQuarterlyEnabled ?? true,
       },
-      // Demo-mode banner, kept entirely separate from the real About
-      // Church content above -- DEMO_RESET_TOKEN existing is already what
-      // decides whether POST /api/demo/reset is even mounted (see
-      // server.js), so it's reused here rather than adding a second
-      // signal. The login credentials are the ones reset-demo-data.js
-      // just (re)created, published on purpose: the whole point of a
-      // public demo is letting a visitor actually try the admin
-      // dashboard. Never set on a real deployment, since DEMO_RESET_TOKEN
-      // never is.
+      // Demo-mode banner, separate from the real About Church content. DEMO_RESET_TOKEN existing
+      // already decides whether POST /api/demo/reset is mounted (server.js), so it is reused as the
+      // signal. The logins are published on purpose so visitors can try the admin dashboard; never set
+      // on a real deployment, since DEMO_RESET_TOKEN never is.
       isDemo: Boolean(process.env.DEMO_RESET_TOKEN),
       demoLoginEmail: process.env.DEMO_RESET_TOKEN ? process.env.DEMO_ADMIN_EMAIL || null : null,
       demoLoginPassword: process.env.DEMO_RESET_TOKEN ? process.env.DEMO_ADMIN_PASSWORD || null : null,
-      // The other published logins (a care team member, a trip leader) -- see
-      // utils/demoLogins.js. Same demo-only gate; [] everywhere else.
+      // The other published demo logins (utils/demoLogins.js). Same demo-only gate; [] elsewhere.
       demoGuestLogins: process.env.DEMO_RESET_TOKEN ? demoGuestLogins() : [],
-      // Resolved (not raw) per-feature booleans -- reflects the registry
-      // default, not just what's stored. Not sensitive (whether a feature
-      // is on isn't a secret), and this is the one settings endpoint the
-      // frontend always has access to (see context/SettingsContext.jsx),
-      // so it's the natural place for it.
+      // Resolved (not raw) per-feature booleans, reflecting the registry default. Not sensitive, and
+      // this is the one settings endpoint the frontend always has access to (SettingsContext.jsx).
       enabledFeatures: Object.fromEntries(
         FEATURE_KEYS.map((key) => [key, isFeatureEnabled(settings?.enabledFeatures, key)])
       ),
@@ -73,9 +57,8 @@ router.get("/", async (req, res, next) => {
   }
 });
 
-// GET /api/public/settings/logo/raw — public, unauthenticated, same
-// reasoning as GET /api/photos/:id/raw (see routes/photos.js). No :id
-// needed since there's only ever one church's logo (the singleton row).
+// GET /api/public/settings/logo/raw — public, unauthenticated, same reasoning as
+// GET /api/photos/:id/raw (routes/photos.js). No :id: there is one logo (the singleton row).
 router.get("/logo/raw", async (req, res, next) => {
   try {
     const settings = await prisma.churchSettings.findUnique({
@@ -84,11 +67,11 @@ router.get("/logo/raw", async (req, res, next) => {
     });
     if (!settings?.logoRow) return res.status(404).end();
 
-    // Same reasoning as photos.js's /:id/raw -- without this, helmet()'s
-    // global same-origin Cross-Origin-Resource-Policy blocks a webmail
-    // client from embedding this inline (#246).
+    // Same reason as photos.js /:id/raw: helmet()'s same-origin CORP would block webmail clients
+    // from embedding this (#246).
     res.set("Cross-Origin-Resource-Policy", "cross-origin");
-    res.set("Cache-Control", "public, max-age=60"); // short TTL -- unlike a Photo row, this one row's logo can change in place
+    // Short TTL: unlike a Photo row, the logo can change in place.
+    res.set("Cache-Control", "public, max-age=60");
     res.set("Content-Type", settings.logoContentType || "application/octet-stream");
     res.send(settings.logoRow.logoBytes);
   } catch (err) {

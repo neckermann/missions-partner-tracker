@@ -1,22 +1,15 @@
 import { test, expect } from "@playwright/test";
 import { login, firstSelectablePartner } from "./helpers.js";
 
-// A failed save must show a message. It must never blank the page.
+// A failed save must show a message and must never blank the page. The backend once returned
+// Zod's array of issue objects as `error`; pages rendered `<p>{error}</p>`, React threw
+// "Objects are not valid as a React child", and with no error boundary the whole app
+// unmounted.
 //
-// That second half is not theoretical. The backend returned Zod's array of
-// issue objects as `error`, pages did `setError(err.response.data.error)` and
-// rendered `<p>{error}</p>`, so React threw "Objects are not valid as a React
-// child" -- and with no error boundary anywhere, the whole app unmounted. The
-// user saw white. Every form in the app behaved this way on any validation
-// error, and the test suite never noticed because it only asserted status
-// codes.
-//
-// Two layers now stop that, and this file checks both:
-//   1. the backend guarantees `error` is a string (middleware/errors.js)
-//   2. an ErrorBoundary catches a render error if anything slips through
-//
-// Layer 2 is tested by forcing the old broken shape back onto the wire, since
-// the backend can no longer produce it.
+// Two layers now stop that, and this file checks both: (1) the backend guarantees `error` is a
+// string (middleware/errors.js); (2) an ErrorBoundary catches a render error if anything slips
+// through. Layer 2 is tested by forcing the broken shape onto the wire, since the backend can
+// no longer produce it.
 
 const SUPPORT_ENTRIES = "**/api/support-entries";
 
@@ -58,10 +51,8 @@ test.describe("error handling", () => {
   test("even an object error body cannot blank the page", async ({ page }) => {
     await login(page);
 
-    // The exact shape that used to white-screen the app: an array of Zod
-    // issue objects where a string belongs. The backend can't emit this any
-    // more, so it's injected here to prove the boundary holds if some future
-    // endpoint regresses.
+    // The shape that white-screened the app: an array of Zod issue objects where a string
+    // belongs. Injected here to prove the boundary holds if a future endpoint regresses.
     await page.route(SUPPORT_ENTRIES, (route) =>
       route.request().method() === "POST"
         ? route.fulfill({
@@ -77,10 +68,8 @@ test.describe("error handling", () => {
     await openAddSupportEntry(page);
     await page.click('button[type="submit"]:has-text("Save Entry")');
 
-    // Either the page survived, or the boundary caught it and offered a way
-    // out. What must never happen is an empty document -- which is precisely
-    // what used to happen. (Measured: today the render does throw and the
-    // boundary is what catches it.)
+    // Either the page survived or the boundary caught it and offered a way out. What must never
+    // happen is an empty document.
     const stillOnPage = page.locator("h2:has-text('Monthly Support')");
     const boundaryCard = page.getByRole("alert").filter({ hasText: /Something went wrong/ });
     await expect(stillOnPage.or(boundaryCard).first()).toBeVisible();

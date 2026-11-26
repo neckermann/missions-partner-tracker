@@ -7,11 +7,10 @@ const {
   maskedDisplayName,
 } = require("../src/utils/maskData");
 
-// Missionary and Organization merged into a single Partner model with a
-// `kind` discriminator, so both fixtures below feed the same serializer.
-// The describe blocks stay split by kind because the masking rules
-// genuinely differ between them (initials vs. name, silhouette vs.
-// building icon, missionary-only fields).
+// Missionary and organization are one Partner model with a `kind` discriminator, so both
+// fixtures feed the same serializer. The describe blocks stay split by kind because the
+// masking rules differ (initials vs. name, silhouette vs. building icon, missionary-only
+// fields).
 
 function isSilhouetteDataUri(value) {
   return typeof value === "string" && value.startsWith("data:image/svg+xml,");
@@ -36,10 +35,9 @@ describe("toInitials", () => {
   });
 });
 
-// #327 Finding 10 -- shared by the public API, dispatch blurbs (GroupMe/
-// WhatsApp/email), email digest tiles, trip pages, and shared report
-// exports, so it's unit-tested directly rather than only indirectly
-// through each of those callers.
+// Shared by the public API, dispatch blurbs (GroupMe/WhatsApp/email), email digest tiles, trip
+// pages and shared report exports, so it is unit-tested directly rather than only through each
+// caller.
 describe("maskedDisplayName", () => {
   test("a non-restricted partner's real name passes through unchanged", () => {
     assert.equal(maskedDisplayName({ isRestricted: false, displayName: "Jordan Rivera" }), "Jordan Rivera");
@@ -165,21 +163,17 @@ describe("toPublicPartner — missionary", () => {
     assert.equal(result.isRestricted, undefined);
   });
 
-  // Regression test: this field was only ever set on the isRestricted
-  // branch, so every non-restricted record (the majority of real data)
-  // came back with country === undefined — silently breaking the public
-  // directory's continent/country filters and search, since they rely on
-  // this field for every record, not just restricted ones.
+  // Regression test: this field was only set on the isRestricted branch, so every non-restricted
+  // record came back with country === undefined, silently breaking the public directory's
+  // continent/country filters and search.
   test("public, non-restricted: still exposes the country field", () => {
     const result = toPublicPartner(baseMissionary());
     assert.equal(result.country, "Thailand");
   });
 
-  // fipsCountryCode is for Joshua Project lookups only, deliberately not a
-  // fallback for this field -- a record with no address country shows as
-  // uncategorized on the public directory's filters rather than silently
-  // inheriting whatever FIPS code happens to still be on the record (e.g.
-  // left over from before the address country was cleared).
+  // fipsCountryCode is for Joshua Project lookups only, deliberately not a fallback for this
+  // field: a record with no address country shows as uncategorized in the public filters rather
+  // than inheriting a stale FIPS code.
   test("public, non-restricted: country is null when the address has no country, even with a FIPS code on file", () => {
     const result = toPublicPartner(
       baseMissionary({ addresses: [{ type: "physical", gpsLat: 13.75, gpsLng: 100.5 }] })
@@ -225,11 +219,8 @@ describe("toPublicPartner — missionary", () => {
     assert.equal(result.displayName, "J.R.");
   });
 
-  // #327 Finding 10 -- this used to assert the OPPOSITE: that a
-  // restricted missionary's silhouette varied by real household
-  // composition. That composition is itself identifying info, so every
-  // restricted missionary now gets the same plain single-person shape
-  // regardless of their actual household.
+  // A restricted missionary's silhouette must not vary with real household composition (that is
+  // itself identifying): every restricted missionary gets the same plain single-person shape.
   test("restricted: silhouette photo is always the plain single-person shape, regardless of real household composition", () => {
     const single = toPublicPartner(
       baseMissionary({ isRestricted: true, adults: [{ name: "Jordan" }], children: [] })
@@ -242,10 +233,8 @@ describe("toPublicPartner — missionary", () => {
     assert.equal(couple.photo, family.photo);
   });
 
-  // #327 Finding 10 -- supportingSince used to be returned unmasked even
-  // for a restricted record, which combined with country and the masked
-  // name narrows down a small country's expat community further than it
-  // needs to.
+  // supportingSince is masked for a restricted record: unmasked, combined with country and the
+  // masked name, it narrows down a small country's expat community further than needed.
   test("restricted: never exposes supportingSince", () => {
     const result = toPublicPartner(baseMissionary({ isRestricted: true, supportingSince: "2014-01-01" }));
     assert.equal(result.supportingSince, null);
@@ -256,10 +245,8 @@ describe("toPublicPartner — missionary", () => {
     assert.equal(result.supportingSince, "2014-01-01");
   });
 
-  // #327 Finding 10 -- restrictedPartnerInitialsEnabled defaults true
-  // (opt-out), so omitting settings entirely (as every test above does)
-  // must still produce initials, not silently fall back to a generic
-  // label because settings was undefined.
+  // restrictedPartnerInitialsEnabled defaults true (opt-out), so omitting settings entirely (as
+  // every test above does) must still produce initials, not fall back to a generic label.
   test("restricted: still reduces the name to initials with no settings object passed at all", () => {
     const result = toPublicPartner(baseMissionary({ isRestricted: true }), undefined);
     assert.equal(result.displayName, "J.R.");
@@ -346,10 +333,9 @@ describe("toPublicPartner — organization", () => {
     assert.equal(toPublicPartner(baseOrganization({ archived: true })), null);
   });
 
-  // A named Christian organization in a hostile country is a fixed,
-  // physically locatable target, so it gets the same name masking a
-  // restricted missionary does. An earlier version left org names visible;
-  // see the note on toPublicPartner for why that was the wrong call.
+  // A named Christian organization in a hostile country is a fixed, physically locatable target,
+  // so it gets the same name masking a restricted missionary does (see the note on
+  // toPublicPartner).
   test("restricted: reduces the org name to initials, same as a missionary", () => {
     const result = toPublicPartner(baseOrganization({ isRestricted: true }));
     assert.equal(result.displayName, "E.R.O.");

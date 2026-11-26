@@ -5,9 +5,9 @@ import { MemoryRouter } from "react-router-dom";
 import AdminTripParticipantDetail from "./AdminTripParticipantDetail.jsx";
 import { fetchTrip, fetchTripsSettings, createUser } from "../api/client.js";
 
-// useParams() only resolves params from an actual matched <Route>; rather
-// than wire up a full <Routes> tree just for that, override it directly and
-// keep every other react-router-dom export (Link, MemoryRouter) real.
+// useParams() only resolves params from a matched <Route>; override it directly instead of
+// wiring a full <Routes> tree, keeping every other react-router-dom export (Link,
+// MemoryRouter) real.
 vi.mock("react-router-dom", async () => {
   const actual = await vi.importActual("react-router-dom");
   return {
@@ -16,11 +16,9 @@ vi.mock("react-router-dom", async () => {
   };
 });
 
-// #356: the roster's "Team Leader" checkbox is gone -- who leads a trip is
-// now decided by who holds a guest grant for it, which the trip's Guest
-// access section and this page's "Give guest access" action manage. #309
-// had renamed the flag to avoid confusing it with the old tripLeader login;
-// removing it ends that confusion for good.
+// The roster has no "Team Leader" checkbox: who leads a trip is decided by who holds a guest
+// grant for it, managed by the trip's Guest access section and this page's "Give guest access"
+// action.
 vi.mock("../api/client.js", () => ({
   fetchTrip: vi.fn(),
   fetchTripsSettings: vi.fn(),

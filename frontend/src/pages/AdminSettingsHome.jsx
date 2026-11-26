@@ -35,19 +35,24 @@ function buildSections(enabledFeatures) {
       icon: "✈️",
       description: "Question library, requirement templates, and budgeting.",
     },
-    enabledFeatures.careTeam && {
-      to: "/admin/settings/care-team",
-      title: "Care Teams",
+    (enabledFeatures.careTeam || enabledFeatures.keyDates || enabledFeatures.contactLog) && {
+      to: "/admin/settings/partner-care",
+      title: "Partner Care",
       icon: "🤝",
-      description: "The default lead for partners without a care team, and key-date reminders.",
+      description: "Who looks after partners with no care team, and when reminders and quiet alerts fire.",
     },
-    enabledFeatures.supportPreferences &&
-      enabledFeatures.careTeam && {
-        to: "/admin/settings/support-preferences",
-        title: "Support Preferences",
-        icon: "💛",
-        description: "The menu of ways your church and a partner's care team can support them.",
-      },
+    enabledFeatures.supportPreferences && {
+      to: "/admin/settings/support-preferences",
+      title: "Support Preferences",
+      icon: "💛",
+      description: "The menu of ways your church can support partners.",
+    },
+    enabledFeatures.surveys && {
+      to: "/admin/settings/surveys",
+      title: "Surveys",
+      icon: "📝",
+      description: "Build surveys, send partners a personal link to answer, and see the results.",
+    },
     (enabledFeatures.outboundEmail || enabledFeatures.inboundEmail) && {
       to: "/admin/settings/email",
       title: "Email",
@@ -94,7 +99,7 @@ export default function AdminSettingsHome() {
   return (
     <div className="admin-shell">
       <h2>Settings</h2>
-      <p style={{ color: "#555" }}>Configuration for this church's instance of the app.</p>
+      <p style={{ color: "var(--muted)" }}>Configuration for this church's instance of the app.</p>
       <CardGrid sections={sections} />
     </div>
   );

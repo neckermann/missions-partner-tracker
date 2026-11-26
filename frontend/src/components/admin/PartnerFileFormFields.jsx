@@ -1,14 +1,9 @@
 import React from "react";
 import { FILE_KINDS } from "../../utils/fileKinds.js";
 
-// The Kind/Title/Received Date/Notes field set shared by AdminPartnerFiles.jsx's
-// add form and its own inline edit row, and now also the Partner Detail
-// quick-upload modal. Deliberately doesn't own the file input itself
-// (only the add form has one, and it needs its own onChange producing a
-// File object rather than form state) or the Partner picker (only the
-// consolidated page's add form needs one -- the embedded contexts already
-// have a fixed partnerId) -- both are injected as slots so each caller
-// places them exactly where it wants.
+// The Kind/Title/Received Date/Notes fields shared by AdminPartnerFiles.jsx's add form and inline
+// edit row and the Partner Detail quick-upload modal. The file input and Partner picker are
+// injected as slots so each caller places them.
 export default function PartnerFileFormFields({ form, setForm, partnerPicker, fileInput }) {
   return (
     <div className="form-grid">

@@ -3,12 +3,12 @@
 //   - a relative link to a file points at a file that exists;
 //   - a `#anchor` (same file, or `OTHER.md#anchor`) matches a heading in that file;
 //   - every `user-guide.html#...` / `admin-guide.html#...` link hard-coded in the app's source
-//     (see CONTRIBUTING.md "Hardcoded links into the docs site") matches a heading in the guide.
+// (see CONTRIBUTING.md "Hardcoded links into the docs site") matches a heading in the guide.
 // No dependencies. Exits 1 with a list of problems. Run with `npm run check:docs`.
 //
-// Anchors use GitHub's heading-slug rule, the same one docs/assets/guide.js reimplements for the
-// docs site: lower-case, drop everything but letters, digits, spaces, hyphens and underscores,
-// spaces become hyphens, and a repeated heading gets -1, -2 ...
+// Anchors use GitHub's heading-slug rule, which docs/assets/guide.js reimplements: lower-case,
+// drop everything but letters, digits, spaces, hyphens and underscores, spaces become hyphens,
+// and a repeated heading gets -1, -2 ...
 const fs = require("node:fs");
 const path = require("node:path");
 

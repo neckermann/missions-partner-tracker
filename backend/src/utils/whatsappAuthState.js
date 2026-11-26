@@ -1,21 +1,16 @@
-// A Baileys auth state backed by the WhatsAppAuthEntry table instead of
-// files -- Baileys' own useMultiFileAuthState is documented as not for
-// production, and on Render the web service's disk is wiped on every
-// deploy, which would force a re-pair each time. One row per key ("creds"
-// plus "<category>-<id>" per Signal key), and every value is an
-// encryptField() ciphertext of the BufferJSON-serialized JSON, so the
-// table never holds session material in plaintext (the same AES-256-GCM,
-// FIELD_ENCRYPTION_KEY protection as the GroupMe access token). Losing
-// that key means re-pairing, exactly like losing the GroupMe token.
+// A Baileys auth state backed by the WhatsAppAuthEntry table, not files: Baileys'
+// useMultiFileAuthState isn't for production and Render wipes the disk on every
+// deploy. One row per key ("creds" plus "<category>-<id>" per Signal key), each
+// value an encryptField() ciphertext of the BufferJSON-serialized JSON, so the
+// table never holds session material in plaintext (AES-256-GCM, FIELD_ENCRYPTION_KEY,
+// like the GroupMe token). Losing that key means re-pairing.
 //
-// Nothing here is ever returned from an API route -- see
-// routes/settings.js, which only ever reports a status derived from the
-// live socket, never these rows.
+// Nothing here is returned from an API route; routes/settings.js reports only a
+// status derived from the live socket.
 //
-// `baileys` is an ES module and this backend is CommonJS, so the pieces
-// that come from it (BufferJSON, initAuthCreds, proto) are passed in by
-// whatsappClient.js after its dynamic import() rather than required here;
-// that also keeps this file unit-testable against a fake in-memory table.
+// `baileys` is ESM and this backend is CommonJS, so BufferJSON, initAuthCreds and
+// proto are passed in by whatsappClient.js after its dynamic import(); that also
+// keeps this file unit-testable against a fake in-memory table.
 const defaultPrisma = require("../prismaClient");
 const { encryptField, decryptField } = require("./crypto");
 
@@ -35,10 +30,8 @@ async function useDbAuthState({ BufferJSON, initAuthCreds, proto }, table = defa
     try {
       return deserialize(row.value);
     } catch {
-      // An undecryptable row (FIELD_ENCRYPTION_KEY rotated since it was
-      // written) is treated as absent: for "creds" that means a fresh
-      // unpaired state (the admin re-pairs); for a Signal key, Baileys
-      // simply renegotiates that session.
+      // An undecryptable row (FIELD_ENCRYPTION_KEY rotated) is treated as absent:
+      // "creds" becomes a fresh unpaired state, a Signal key is renegotiated.
       console.error(`WhatsApp auth entry "${key.split("-")[0]}" couldn't be decrypted; treating as missing.`);
       return null;
     }
@@ -108,8 +101,7 @@ async function useDbAuthState({ BufferJSON, initAuthCreds, proto }, table = defa
   };
 }
 
-// Wipes the whole session -- used on unlink / a server-side logout, so a
-// stale half-session never lingers to confuse the next pairing.
+// Wipes the whole session (unlink / server-side logout) so no stale half-session confuses the next pairing.
 async function clearAuthState(table = defaultPrisma.whatsAppAuthEntry) {
   await table.deleteMany({});
 }

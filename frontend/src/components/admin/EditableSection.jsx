@@ -4,35 +4,12 @@ import useUnsavedChangesGuard from "../../hooks/useUnsavedChangesGuard.js";
 import { mapServerErrorMessage } from "../../utils/friendlyError.js";
 import { onClickUnlessSelecting } from "../../utils/clickableRow.js";
 
-// A section of the partner page that can be edited via a popup.
-//
-// The partner record used to be edited through one ~1,000-line form holding
-// every field at once, which meant scrolling past fifteen sections to fix a
-// typo and re-submitting the whole record to do it. Each section now saves
-// only its own fields: PUT /api/partners/:id is a partial update, so a body
-// of { overview } touches `overview` and nothing else.
-//
-// The whole card is the click target -- same convention as a Table row --
-// opening a popup with the edit form (or, when `canEdit` is false, the same
-// read-only view content in a plain Modal). This used to swap the view for
-// an inline edit form directly on the page; that's exactly the
-// no-explicit-boundary shape that made onBlur-autosave's silent-failure bug
-// possible elsewhere, so every section now has a hard open/close boundary
-// instead.
-//
-// Usage:
-//   <EditableSection
-//     title="Ministry Overview"
-//     value={{ overview: p.overview }}
-//     onSave={(draft) => updatePartner(p.id, draft)}
-//     view={(v) => <Field label="Overview" value={v.overview} />}
-//     edit={(draft, set) => <textarea value={draft.overview} onChange={e => set("overview", e.target.value)} />}
-//   />
-//
-// `onSave` receives the draft and should return a promise. Whatever it
-// resolves to is ignored -- the parent reloads the record afterwards via
-// `onSaved`, so the page always reflects what the server actually stored
-// rather than what the form believed it sent.
+// A partner-page section edited in a popup (a plain Modal view when `canEdit` is false). The whole
+// card is the click target, like a Table row. Each section saves only its own fields: PUT
+// /api/partners/:id is a partial update. `onSave(draft)` returns a promise whose result is
+// ignored; the parent reloads via `onSaved` so the page shows what the server stored.
+//   <EditableSection title value={{ overview }} onSave={(d) => ...} view={(v) => ...}
+//     edit={(draft, set) => ...} />
 export default function EditableSection({
   title,
   value,
@@ -101,9 +78,7 @@ export default function EditableSection({
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <h3 style={{ flex: 1, marginBottom: 0 }}>{title}</h3>
           {actions && (
-            // Not itself interactive -- just stops clicks/keydowns on the
-            // real buttons inside from bubbling into the card's own
-            // open-on-activate handler above.
+            // Not interactive itself: stops clicks/keydowns on the inner buttons bubbling to the card handler.
             // eslint-disable-next-line jsx-a11y/no-static-element-interactions
             <div
               className="table-actions"

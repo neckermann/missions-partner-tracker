@@ -240,8 +240,8 @@ test("summary tiles can carry a click-through filter that the report honours", (
   assert.strictEqual(filtered.rows.length, 1);
 });
 
-// #288: a logged contact counts as hearing from a partner, alongside a
-// newsletter, but only while the contact log is on.
+// A logged contact counts as hearing from a partner, alongside a newsletter, but only while
+// the contact log is on.
 test("last heard from counts a logged contact as hearing from them, when the contact log is on", () => {
   const p = (name, newsletterDates, contactDates) => ({
     displayName: name,
@@ -268,7 +268,7 @@ test("last heard from counts a logged contact as hearing from them, when the con
   assert.strictEqual(on.rows.find((r) => r.partnerName === "Old both").contact, "2026-01-15");
   assert.match(on.notes[0], /logged contact/);
 
-  // off: contact data is ignored even if rows carry it, exactly as before
+  // off: contact data is ignored even if rows carry it
   const off = run("last-heard-from", {}, { partners, contactLogOn: false });
   assert.deepStrictEqual(
     off.rows.map((r) => r.partnerName),
@@ -381,4 +381,76 @@ test("last heard from counts a church visit, and defaults to the church's quiet 
   // An explicit threshold on the report still wins over the church's setting.
   const explicit = run("last-heard-from", { staleDays: "10" }, data(30));
   assert.deepStrictEqual(explicit.rows.map((r) => r.partnerName).sort(), ["Never", "Visited"]);
+});
+
+test("survey responses lists who is waiting, who answered and who has not been sent", () => {
+  const data = {
+    surveys: [
+      { id: "s1", title: "Check-in", status: "open" },
+      { id: "s2", title: "Old poll", status: "closed" },
+    ],
+    partners: [
+      {
+        id: "a",
+        displayName: "Ann",
+        surveyInvites: [{ surveyId: "s1", sentAt: day("2026-11-10") }],
+        surveyResponses: [{ surveyId: "s1", submittedAt: day("2026-11-12") }],
+      },
+      {
+        id: "b",
+        displayName: "Bob",
+        surveyInvites: [{ surveyId: "s1", sentAt: day("2026-11-10") }],
+        surveyResponses: [],
+      },
+      { id: "c", displayName: "Cy", surveyInvites: [], surveyResponses: [] },
+    ],
+  };
+  const waiting = run("survey-progress", {}, data);
+  assert.deepEqual(
+    waiting.rows.map((r) => [r.partnerName, r.survey]),
+    [["Bob", "Check-in"]]
+  );
+  const answered = run("survey-progress", { show: "answered" }, data);
+  assert.deepEqual(
+    answered.rows.map((r) => r.partnerName),
+    ["Ann"]
+  );
+  const notSent = run("survey-progress", { show: "not-sent" }, data);
+  assert.deepEqual(
+    notSent.rows.map((r) => r.partnerName),
+    ["Cy"],
+    "a closed survey isn't offered for sending"
+  );
+});
+
+test("last heard from: a prayer request received counts as hearing from a partner", () => {
+  const partner = (name, dateReceived) => ({
+    displayName: name,
+    isRestricted: false,
+    files: [],
+    photos: [],
+    prayerRequests: dateReceived ? [{ dateReceived }] : [],
+    churchVisits: [],
+    contactLogs: [],
+  });
+  const out = run(
+    "last-heard-from",
+    {},
+    {
+      contactLogOn: false,
+      defaultStaleDays: 90,
+      partners: [
+        partner("Recent prayer request", day("2026-11-10")),
+        partner("Old prayer request", day("2026-01-10")),
+        partner("Future prayer request", day("2026-12-25")),
+        partner("Nothing", null),
+      ],
+    }
+  );
+  assert.deepStrictEqual(
+    out.rows.map((r) => r.partnerName).sort(),
+    ["Future prayer request", "Nothing", "Old prayer request"],
+    "a recent request means not quiet; one dated after the as-of day doesn't count"
+  );
+  assert.match(out.notes[0], /prayer request/);
 });

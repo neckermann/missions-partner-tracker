@@ -32,10 +32,8 @@ await page.getByLabel("Report").selectOption(report);
 await page.getByRole("button", { name: "Run report" }).click();
 await page.locator(".report-output").waitFor();
 
-// Screen first, for comparison.
 await page.screenshot({ path: path.join(outDir, "report-screen.png"), fullPage: true });
 
-// Then the thing that matters.
 await page.emulateMedia({ media: "print" });
 await page.screenshot({ path: path.join(outDir, "report-print.png"), fullPage: true });
 await page.pdf({

@@ -20,13 +20,10 @@ after(async () => {
 });
 
 describe("POST /api/users", () => {
-  // Regression: sendWelcomeEmail defaults to true, so any caller that
-  // supplies a password without also sending sendWelcomeEmail: false (every
-  // caller that predates this field, e.g. the e2e suite's own user-creation
-  // helper) used to get a silently passwordless account -- the password was
-  // discarded with no error, and the account could never sign in. An
-  // explicitly-given password must always be used, regardless of
-  // sendWelcomeEmail's default.
+  // Regression: sendWelcomeEmail defaults to true, so a caller that supplied a password without
+  // sendWelcomeEmail: false (e.g. the e2e suite's user-creation helper) got a silently
+  // passwordless account: the password was discarded and the account could never sign in. An
+  // explicitly-given password must always be used.
   test("a password is used even when sendWelcomeEmail isn't explicitly set to false", async () => {
     const email = `created-${Date.now()}@example.test`;
     const password = "CreatedUserPassword123!";
@@ -42,6 +39,37 @@ describe("POST /api/users", () => {
       const self = await loggedIn("/api/auth/me");
       assert.equal(self.status, 200);
       assert.equal(self.body.user.email, email);
+    } finally {
+      await prisma.user.deleteMany({ where: { email } });
+    }
+  });
+
+  test("phone and profile are saved on create, edited by the person themselves, and cleared when blank", async () => {
+    const email = `profile-${Date.now()}@example.test`;
+    const password = "ProfileUserPassword123!";
+    const res = await admin("/api/users", {
+      method: "POST",
+      body: {
+        email,
+        role: "viewer",
+        password,
+        phone: " 555-0100 ",
+        profile: "Retired nurse, best after 6pm.",
+      },
+    });
+    try {
+      assert.equal(res.status, 201);
+      assert.equal(res.body.phone, "555-0100");
+      const me = await client({ email, password });
+      assert.equal((await me("/api/auth/me")).body.user.profile, "Retired nurse, best after 6pm.");
+      const upd = await me("/api/auth/profile", { method: "PUT", body: { phone: "555-0199", profile: "" } });
+      assert.equal(upd.status, 200);
+      assert.equal(upd.body.user.phone, "555-0199");
+      assert.equal(upd.body.user.profile, null);
+      assert.equal(
+        (await me("/api/auth/profile", { method: "PUT", body: { phone: "x".repeat(41) } })).status,
+        400
+      );
     } finally {
       await prisma.user.deleteMany({ where: { email } });
     }

@@ -1,11 +1,9 @@
 import React from "react";
 
-// Chooses the trips a guest login will be given access to, before the
-// account exists (the Add User wizard) or when promoting an existing
-// account to a guest (#356). Value is `[{ tripId, expiresAt }]` -- the
-// shape POST/PUT /api/users take as `tripAccess`; expiresAt is only an
-// optional override of the automatic "30 days after the trip ends".
-// Managing grants on an account that already exists is TripAccessList.
+// Chooses the trips a guest login gets, before the account exists (Add User wizard) or when
+// promoting one. Value is `[{ tripId, expiresAt }]` (the `tripAccess` shape of POST/PUT
+// /api/users); expiresAt optionally overrides "30 days after the trip ends". Existing grants are
+// managed in TripAccessList.
 export function tripOptionLabel(t) {
   return [t.partner?.displayName, t.name || t.type, t.startDate?.slice(0, 10)].filter(Boolean).join(" — ");
 }

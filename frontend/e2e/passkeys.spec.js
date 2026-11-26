@@ -1,9 +1,9 @@
 import { test, expect } from "@playwright/test";
 import { login, createAccountUnsignedIn } from "./helpers.js";
 
-// #386: passkeys as a second sign-in factor, driven in a real browser with a virtual
-// authenticator (Chrome's WebAuthn test device, over CDP): add one on My account, sign out, and
-// sign in with the password and then the passkey; and remove it again.
+// Passkeys as a second sign-in factor, driven in a real browser with a virtual authenticator
+// (Chrome's WebAuthn test device, over CDP): add one on My account, sign out, sign in with the
+// password and then the passkey, and remove it again.
 test.describe("Passkeys", () => {
   let adminContext;
   let admin;

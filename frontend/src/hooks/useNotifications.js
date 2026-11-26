@@ -2,15 +2,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { fetchNotificationSummary, markNotificationSeen } from "../api/client.js";
 
-// Refresh on nav/focus, plus a lightweight interval poll while the tab is
-// actually visible -- paused via document.visibilityState when
-// backgrounded. Deliberately not websockets/push: this app is forked and
-// self-hosted by individual churches on modest hosting, and a persistent
-// connection would add real operational surface (reverse-proxy timeout
-// tuning, reconnect handling) every forking church inherits, for a need
-// that doesn't require faster than "within a couple minutes." See the
-// in-app notifications plan's own Architecture section for the full
-// reasoning.
+// Refresh on nav/focus plus an interval poll paused while the tab is hidden. Deliberately not
+// websockets/push: forks are self-hosted on modest hosting, and a persistent connection adds
+// operational surface (proxy timeouts, reconnects) for a need that tolerates a couple of minutes.
 const POLL_MS = 90 * 1000;
 
 export default function useNotifications() {

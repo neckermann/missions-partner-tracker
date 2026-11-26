@@ -4,31 +4,18 @@ import { revealPendingDispatch, updatePendingDispatch } from "../../api/client.j
 import ApproveRestrictedTextConfirmBody from "./ApproveRestrictedTextConfirmBody.jsx";
 import ApproveCareTeamTextConfirmBody from "./ApproveCareTeamTextConfirmBody.jsx";
 
-// Lets an admin see the real (unmasked) text behind a queued dispatch
-// and edit it before it sends (#187) -- available on any row, not just
-// a restricted partner's. For a restricted row that's still
-// `needsReview`, saving here is what clears it to send (see
-// dispatchEligibility.js's own needsReview()); for everything else it's
-// purely a content edit with no effect on whether/when it sends.
-//
-// `blurb` is the row object as already loaded in AdminPendingDispatches.jsx's
-// `pending` list (needs at least `id`, `isRestricted`, `needsReview`) --
-// the real text itself is fetched fresh on mount via
-// revealPendingDispatch rather than trusting the already-masked
-// `bodyText` the list carries.
+// Shows the real (unmasked) text behind a queued dispatch and lets an admin edit it before it
+// sends. For a restricted row still `needsReview`, saving clears it to send
+// (dispatchEligibility.js needsReview()). `blurb` is the row from the pending list (needs `id`,
+// `isRestricted`, `needsReview`); the real text is fetched on mount, not taken from the masked
+// `bodyText`.
 export default function DispatchReviewModal({ blurb, onSaved, onClose }) {
   const [status, setStatus] = useState("loading"); // loading | ready | error
   const [text, setText] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
-  // Confirming the exact text swaps this modal's own body in place,
-  // rather than opening a second Modal on top of this one -- two Modal
-  // instances would both register their own document-level Escape
-  // listener, and neither's stopPropagation() stops the other's handler
-  // from also firing (they're both listeners on the same document
-  // target), so Escape would close both at once. One dialog, two steps,
-  // is correct here even though the other three approve flows (which
-  // aren't already inside a Modal) use the shared useConfirmDialog hook.
+  // Confirming swaps this modal's body in place instead of opening a second Modal: two Modals each
+  // register a document-level Escape listener and Escape would close both.
   const [confirmingApproval, setConfirmingApproval] = useState(false);
 
   useEffect(() => {
@@ -48,11 +35,8 @@ export default function DispatchReviewModal({ blurb, onSaved, onClose }) {
       setError("Enter some text before saving");
       return;
     }
-    // Same real-world consequence as the row's own "Approve" button --
-    // for a held restricted row, saving here is what clears it to send,
-    // so it gets the same confirm gate and the same "here's the exact
-    // text" framing, even though it's already visible above -- the
-    // confirm step should stand on its own as the final checkpoint.
+    // Saving a held restricted row clears it to send, so it gets the same confirm gate and exact-text
+    // framing as the row's Approve button.
     if (blurb.needsReview && !confirmingApproval) {
       setConfirmingApproval(true);
       return;
@@ -72,9 +56,9 @@ export default function DispatchReviewModal({ blurb, onSaved, onClose }) {
 
   return (
     <Modal title="Edit dispatch" onClose={onClose}>
-      {status === "loading" && <p style={{ color: "#555" }}>Loading...</p>}
+      {status === "loading" && <p style={{ color: "var(--muted)" }}>Loading...</p>}
       {status === "error" && (
-        <p style={{ color: "#b91c1c" }} role="alert">
+        <p style={{ color: "var(--danger)" }} role="alert">
           {error}
         </p>
       )}
@@ -88,7 +72,7 @@ export default function DispatchReviewModal({ blurb, onSaved, onClose }) {
           )}
 
           {error && (
-            <p style={{ color: "#b91c1c" }} role="alert">
+            <p style={{ color: "var(--danger)" }} role="alert">
               {error}
             </p>
           )}
@@ -112,19 +96,19 @@ export default function DispatchReviewModal({ blurb, onSaved, onClose }) {
       {status === "ready" && !confirmingApproval && (
         <>
           {blurb.isRestricted ? (
-            <p style={{ color: "#555", fontSize: "0.9rem" }}>
+            <p style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
               This partner is restricted -- their name, photo, and any link back to the source file stay
               masked no matter what. Review the text below for anything else that could identify them or their
               location before saving.
               {blurb.needsReview && " Saving is what clears this to send -- it won't go out until you do."}
             </p>
           ) : blurb.reviewRequired && blurb.needsReview ? (
-            <p style={{ color: "#555", fontSize: "0.9rem" }}>
+            <p style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
               A care team member entered this, so it hasn't gone out. Edit the text if it needs it, then save
               -- saving is what clears it to send.
             </p>
           ) : (
-            <p style={{ color: "#555", fontSize: "0.9rem" }}>Edit the text that will go out.</p>
+            <p style={{ color: "var(--muted)", fontSize: "0.9rem" }}>Edit the text that will go out.</p>
           )}
 
           <textarea
@@ -136,7 +120,7 @@ export default function DispatchReviewModal({ blurb, onSaved, onClose }) {
           />
 
           {error && (
-            <p style={{ color: "#b91c1c" }} role="alert">
+            <p style={{ color: "var(--danger)" }} role="alert">
               {error}
             </p>
           )}

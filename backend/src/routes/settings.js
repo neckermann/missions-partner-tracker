@@ -10,25 +10,21 @@ const { isPasswordlessOn, passwordlessBlocker } = require("../utils/passwordless
 const { isDemoDeployment } = require("../utils/demoMode");
 const { makeExtResolver, uploadFilteredBy } = require("../utils/upload");
 
-// #271 Finding: general/logo settings only now -- GroupMe, WhatsApp,
-// Email, Trips, and Dispatches settings each moved into their own sibling
-// file (settingsGroupMe.js, settingsWhatsApp.js, settingsEmail.js,
-// settingsTrips.js, settingsDispatches.js), all mounted at this same
-// /api/settings prefix from server.js. This file had grown to cover all
-// six sub-resources in one place -- same anti-pattern trips.js had, same
-// fix.
+// General/logo settings. GroupMe, WhatsApp, Email, Trips and Dispatches settings live in sibling
+// settings*.js files mounted at the same /api/settings prefix from server.js.
 const { loadChurchLists } = require("../utils/tripTemplates");
-const { KEY_DATE_LEAD_RANGE, CONTACT_STALE_RANGE } = require("../utils/careSettings");
+const {
+  KEY_DATE_LEAD_RANGE,
+  CONTACT_STALE_RANGE,
+  ADVANCE_DAYS_MAX,
+  ADVANCE_DAYS_COUNT,
+} = require("../utils/careSettings");
 const router = express.Router();
-router.use(requireAuth); // everything below requires a logged-in user
+router.use(requireAuth);
 
-// The logo's bytes live in their own one-to-one table (ChurchSettingsLogo
-// -- see schema.prisma), never selected by anything below; every response
-// synthesizes this `{ url } | null` shape instead — the frontend just
-// needs a fetchable URL, never the raw bytes inline. Presence is read off
-// logoContentType (always set together with the bytes — see POST /logo
-// below) rather than the bytes themselves, so checking "is there a logo"
-// never requires fetching the image data at all.
+// The logo's bytes live in their own table (ChurchSettingsLogo), never selected below; responses
+// synthesize `{ url } | null`. Presence is read off logoContentType (always set with the bytes), so
+// checking for a logo never fetches image data.
 function shapeSettings(settings) {
   if (!settings) return settings;
   const { logoContentType, ...rest } = settings;
@@ -41,11 +37,8 @@ const IMAGE_MIME_TO_EXT = {
   "image/webp": "webp",
 };
 
-// webp's Content-Type isn't always reliably reported by the uploading
-// client -- confirmed directly (a plain multipart upload with no explicit
-// Content-Type gets rejected even for a genuinely valid .webp file).
-// Recognized by extension as a fallback, same approach HEIC/HEIF gets in
-// routes/partners.js.
+// webp's Content-Type isn't reliably reported by uploading clients (a plain multipart upload gets
+// rejected), so it is recognized by extension, as HEIC/HEIF in routes/partners.js.
 const resolveImageExt = makeExtResolver(IMAGE_MIME_TO_EXT, {
   test: (name) => /\.webp$/i.test(name),
   ext: "webp",
@@ -56,15 +49,10 @@ const upload = uploadFilteredBy(resolveImageExt, {
   message: "Only JPEG, PNG, or WebP images are allowed",
 });
 
-// #327 Finding 11.4: these three used to accept any string at all, stored
-// verbatim and later dropped straight into a `background-color:${...}` or
-// `border-top:3px solid ${...}` style attribute in every rendered email
-// and confirm page (emailDispatchShell.js, subscriberPage.js, auth.js) --
-// an admin account (or a compromised one) could've broken out of the
-// attribute into arbitrary HTML/CSS, or worse, an inline event handler,
-// in every email sent. The color inputs are native HTML `<input
-// type="color">` pickers (AdminSettingsAbout.jsx), which only ever emit
-// `#rrggbb`, so that's the full legitimate range.
+// #327 Finding 11.4: these values land in `background-color:${...}` / `border-top:3px solid ${...}`
+// style attributes in every email and confirm page (emailDispatchShell.js, subscriberPage.js,
+// auth.js), so they must be strictly `#rrggbb` (all <input type="color"> emits) to prevent
+// attribute/HTML/CSS injection.
 const HEX_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
 function brandColorSchema() {
   return z
@@ -74,12 +62,8 @@ function brandColorSchema() {
     .refine((v) => !v || HEX_COLOR_PATTERN.test(v), "Must be a #rrggbb hex color");
 }
 
-// Same vulnerability, same fix, for the font-family value -- except there's
-// no native input to constrain it the way the color picker does, so this
-// is an explicit allowlist instead of a pattern. Mirrors
-// frontend/src/pages/AdminSettingsAbout.jsx's FONT_OPTIONS exactly (its
-// <select> is the only way an admin sets this today) -- keep the two in
-// sync if that list ever changes.
+// Same injection risk for font-family, with no native input to constrain it: an explicit allowlist
+// mirroring FONT_OPTIONS in AdminSettingsAbout.jsx. Keep the two in sync.
 const BRAND_FONT_OPTIONS = new Set([
   "",
   '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -96,8 +80,7 @@ const brandFontSchema = z
 
 const settingsSchema = z.object({
   churchName: z.string().optional().nullable(),
-  // #271 Finding 3: flat columns, not a nested address object -- matches
-  // SendingParty's own flat address columns directly now.
+  // Flat columns, matching SendingParty's flat address columns.
   addressLine1: z.string().optional().nullable(),
   addressLine2: z.string().optional().nullable(),
   city: z.string().optional().nullable(),
@@ -111,6 +94,8 @@ const settingsSchema = z.object({
   websiteLink: z.string().optional().nullable(),
   partnerTermSingular: z.string().optional().nullable(),
   partnerTermPlural: z.string().optional().nullable(),
+  ownerGroupName: z.string().trim().max(60).optional().nullable(),
+  defaultDigestCadence: z.enum(["biweekly", "monthly", "quarterly"]).optional().nullable(),
   usePartnerTermInAdmin: z.boolean().optional(),
   publicTagline: z.string().optional().nullable(),
   aboutText: z.string().optional().nullable(),
@@ -118,35 +103,32 @@ const settingsSchema = z.object({
   headerColor: brandColorSchema(),
   highlightColor: brandColorSchema(),
   brandFont: brandFontSchema,
-  // Sets are normally via POST /logo (below), same as missionary/org
-  // photos — this is here so PUT can also clear it (form sets logo: null).
+  // Set via POST /logo; present here so PUT can also clear it (the form sends logo: null).
   logo: z.any().optional().nullable(),
-  // Same whole-object-replace semantics as every other field here -- the
-  // frontend always PUTs its complete current map, not just the one key
-  // that changed (see AdminChurchSettings.jsx's mergeFetchedRecord).
-  // partialRecord (not record) -- a plain z.record(z.enum(...), ...) in Zod
-  // 4 requires every enum key present, rejecting a sparse map like
-  // { aiExtraction: true } with the other three keys just absent.
+  // Whole-object replace: the frontend PUTs its complete current map. partialRecord, not record: in
+  // Zod 4 a plain z.record(z.enum(...)) requires every key, rejecting a sparse map like
+  // { aiExtraction: true }.
   enabledFeatures: z.partialRecord(z.enum(FEATURE_KEYS), z.boolean()).optional(),
-  // See the field's comment in schema.prisma -- a deliberate, permanent
-  // opt-out of BackupReminder.jsx, distinct from that component's own
-  // dismiss-for-30-days.
+  // A deliberate, permanent opt-out of BackupReminder.jsx (see schema.prisma), distinct from its
+  // 30-day dismiss.
   backupReminderDisabled: z.boolean().optional(),
   // Require two-factor for every account (#385); see the field's comment in schema.prisma.
   // Turning it on has guards in PUT / below.
   requireTwoFactor: z.boolean().optional(),
   requirePasswordless: z.boolean().optional(),
+  allowPasskeySignIn: z.boolean().optional(),
   // How far ahead a key date is raised, and how long without a logged contact makes a partner
   // "quiet" (#365); see utils/careSettings.js for the bounds.
   keyDateLeadDays: z.number().int().min(KEY_DATE_LEAD_RANGE.min).max(KEY_DATE_LEAD_RANGE.max).optional(),
+  // Earlier heads-ups (days before a key date) that ride in the email digest, e.g. [90, 30].
+  keyDateAdvanceDays: z
+    .array(z.number().int().min(2).max(ADVANCE_DAYS_MAX))
+    .max(ADVANCE_DAYS_COUNT)
+    .optional(),
   contactStaleDays: z.number().int().min(CONTACT_STALE_RANGE.min).max(CONTACT_STALE_RANGE.max).optional(),
-  // This church's own IANA timezone -- see the field's own comment in
-  // schema.prisma for why this exists and what it drives. Validated
-  // against the real, current list of valid zone names (the same list
-  // AdminSettingsAbout.jsx's <select> is populated from via
-  // Intl.supportedValuesOf("timeZone")) rather than just "any non-empty
-  // string" -- a typo'd zone would otherwise silently fall back to UTC
-  // at server startup with no feedback to anyone.
+  // This church's IANA timezone (see schema.prisma). Validated against Intl.supportedValuesOf(
+  // "timeZone"), as AdminSettingsAbout.jsx's <select>, since a typo'd zone would silently fall back
+  // to UTC at startup.
   timezone: z
     .string()
     .refine((tz) => Intl.supportedValuesOf("timeZone").includes(tz), "Not a valid IANA timezone")
@@ -157,22 +139,11 @@ const settingsSchema = z.object({
 router.get("/", async (req, res, next) => {
   try {
     const [settings, sentByOurChurchCount] = await Promise.all([
-      // #327 Finding 9: was `omit` (a denylist) -- every column *except*
-      // the 6 listed there went to any signed-in role, Trip Leader
-      // included, so the next secret column added to this model would be
-      // exposed by default until someone remembered to list it here too.
-      // Explicit `select` instead: a field has to be deliberately added
-      // below to ever reach this response. Excludes the 6 original
-      // secrets, the one partial-secret the review specifically flagged
-      // (inboundEmailWebhookUsername -- half of the webhook credential),
-      // every GroupMe/WhatsApp internal id/name/connection-state field
-      // (admin-only integration detail, already served by the dedicated
-      // settingsGroupMe.js/settingsWhatsApp.js routes, not read by this
-      // general endpoint's own consumers), inboundEmailAddress (same
-      // reasoning -- settingsEmail.js's own route serves it), the 5
-      // scheduler bookkeeping timestamps, and updatedById -- confirmed
-      // none of these are read by any of this general endpoint's actual
-      // frontend consumers (useChurchSettings.js's callers).
+      // #327 Finding 9: explicit `select`, not an `omit` denylist, so a newly added secret column is never
+      // exposed to every signed-in role (Trip Leader included) by default. Deliberately excluded: the
+      // original secrets, inboundEmailWebhookUsername (half the webhook credential), GroupMe/WhatsApp
+      // internals and inboundEmailAddress (served by their own admin routes), scheduler timestamps and
+      // updatedById.
       prisma.churchSettings.findUnique({
         where: { id: "singleton" },
         select: {
@@ -182,6 +153,8 @@ router.get("/", async (req, res, next) => {
           publicTagline: true,
           partnerTermSingular: true,
           partnerTermPlural: true,
+          ownerGroupName: true,
+          defaultDigestCadence: true,
           usePartnerTermInAdmin: true,
           addressLine1: true,
           addressLine2: true,
@@ -205,7 +178,9 @@ router.get("/", async (req, res, next) => {
           // /api/auth/me (#402).
           requireTwoFactor: true,
           requirePasswordless: true,
+          allowPasskeySignIn: true,
           keyDateLeadDays: true,
+          keyDateAdvanceDays: true,
           contactStaleDays: true,
           extractionModel: true,
           allowRestrictedPartnerDispatch: true,
@@ -232,13 +207,14 @@ router.get("/", async (req, res, next) => {
           chatDispatchPrayerRequests: true,
           chatDispatchOneTimeNeeds: true,
           chatDispatchNewsletters: true,
+          chatDispatchKeyDates: true,
+          chatDispatchQuietPartners: true,
+          chatDispatchUpdatesToPass: true,
           createdAt: true,
           updatedAt: true,
         },
       }),
-      // Backs the bulk "Sync from Church Settings" action on the About
-      // Church page (AdminSettingsAbout.jsx) -- cheap enough to include on
-      // every settings fetch rather than a dedicated endpoint.
+      // Backs the bulk "Sync from Church Settings" action (AdminSettingsAbout.jsx).
       prisma.partner.count({ where: { sentByOurChurch: true } }),
     ]);
     // Registry metadata (label/description) travels with the response
@@ -250,6 +226,9 @@ router.get("/", async (req, res, next) => {
       defaultEnabled: FEATURES[key].defaultEnabled,
       group: FEATURES[key].group,
       section: FEATURES[key].section,
+      requires: FEATURES[key].requires || [],
+      setupNeeds: FEATURES[key].setupNeeds || [],
+      withoutEmail: FEATURES[key].withoutEmail || null,
     }));
     res.json({
       ...shapeSettings(settings),
@@ -297,13 +276,9 @@ router.put("/", requireRole("admin"), async (req, res, next) => {
         error: "Outbound email can't be turned off while passwordless sign-in is on: turn that off first",
       });
     }
-    // `logo` isn't a real column (see schema.prisma) — the only thing the
-    // frontend ever sends it as is `null`, to clear an existing logo (a
-    // set goes through POST /logo below instead). Anything else about it
-    // in the request is ignored, same as before this was split into two
-    // columns. The bytes row itself is deleted via a plain deleteMany --
-    // a no-op if there was never a logo set, unlike a nested `delete`,
-    // which throws if the related row doesn't already exist.
+    // `logo` isn't a real column (see schema.prisma); the frontend sends only `null`, to clear it (a
+    // set goes through POST /logo). The bytes row is removed via deleteMany, a no-op when absent,
+    // unlike a nested `delete`, which throws.
     if (logo === null) {
       await prisma.churchSettingsLogo.deleteMany({ where: { id: "singleton" } });
     }
@@ -334,13 +309,9 @@ router.post("/logo", requireRole("admin"), upload.single("image"), async (req, r
     if (!req.file) return res.status(400).json({ error: "No image file provided" });
 
     const ext = resolveImageExt(req.file);
-    // Verified against the canonical type for the resolved extension, not
-    // req.file.mimetype directly -- same reasoning as the HEIC photo
-    // upload in routes/partners.js: a browser's own reported Content-Type
-    // for this file isn't always trustworthy, and the signature check
-    // needs to know what it's actually supposed to be. Also what actually
-    // gets stored, so GET /logo/raw later serves the correct header
-    // regardless of what the upload itself claimed.
+    // Verified against the canonical type for the resolved extension, not req.file.mimetype (browsers'
+    // Content-Type is unreliable, as with HEIC in partners.js). Also what is stored, so GET /logo/raw
+    // serves the right header.
     const signatureMime = ext === "webp" ? "image/webp" : req.file.mimetype;
     if (!matchesFileSignature(req.file.buffer, signatureMime)) {
       return res.status(400).json({ error: "File content doesn't match its declared image type" });
@@ -380,25 +351,15 @@ router.post("/logo", requireRole("admin"), upload.single("image"), async (req, r
   }
 });
 
-// A write-only "one API key, admin-only, GET returns { configured }"
-// settings sub-resource -- the exact same shape Joshua Project and AI
-// Request Scanning each need below, differing only in which ChurchSettings
-// column holds the key (see #135). Registers GET/PUT /api/settings/:path
-// on this router. GroupMe (settingsGroupMe.js) stays hand-written -- it
-// has several fields (token, group, three topic ids), not one key, so
-// this shape doesn't fit it.
+// A write-only "one API key, admin-only, GET returns { configured }" sub-resource, as Joshua Project
+// and AI Request Scanning need, differing only in which ChurchSettings column holds the key.
+// Registers GET/PUT /api/settings/:path. GroupMe (settingsGroupMe.js) stays hand-written: it has
+// several fields.
 //
-// `textField` (optional, see #324) rides alongside the write-only key for a
-// registration that also has exactly one plain-text, non-secret companion
-// field -- AI Request Scanning's model id is the first of these. Unlike
-// `field` above, a text field is never write-only: GET echoes it back as-is
-// (it's not a secret) under `textField.key`, and PUT updates it whenever
-// that key is present in the body at all (including explicit `null`/""` to
-// clear it back to "use the app's default"), independently of whether
-// `apiKey` was also sent. Passing nothing here (Joshua Project's call below)
-// leaves this function's behavior and response shape completely unchanged --
-// this is additive, not a reshape of the write-only contract every other
-// caller relies on.
+// `textField` (optional) adds one plain, non-secret companion field (AI Request Scanning's model
+// id). Unlike the key it is never write-only: GET echoes it under `textField.key`, and PUT updates
+// it whenever that key is present in the body (explicit null/"" clears it to the app default),
+// independent of `apiKey`.
 function registerApiKeySetting(path, field, textField) {
   const select = { [field]: true, ...(textField ? { [textField.column]: true } : {}) };
   function shape(settings) {
@@ -407,8 +368,7 @@ function registerApiKeySetting(path, field, textField) {
     return result;
   }
   const schema = z.object({
-    // Omitted/blank leaves the stored key untouched -- same write-only-field
-    // UX as settingsGroupMe.js's own accessToken.
+    // Omitted/blank leaves the stored key untouched (write-only, as settingsGroupMe.js's accessToken).
     apiKey: z.string().trim().min(1).optional(),
     ...(textField ? { [textField.key]: z.string().trim().optional().nullable() } : {}),
   });
@@ -428,11 +388,8 @@ function registerApiKeySetting(path, field, textField) {
     try {
       const body = schema.parse(req.body);
       const fields = body.apiKey ? { [field]: encryptField(body.apiKey) } : {};
-      // Checked against the raw request body, not `body[textField.key]` --
-      // that key is present (as `undefined`) on the parsed object either
-      // way once it's declared on the schema, so this is the only way to
-      // tell "the admin didn't touch this field" (leave the stored value
-      // alone) apart from "the admin cleared it" (blank/null -> store null).
+      // Checked against the raw body: once declared on the schema the key is present (as undefined)
+      // either way, so this is the only way to tell "untouched" from "cleared" (blank/null -> store null).
       if (textField && textField.key in req.body) {
         fields[textField.column] = body[textField.key]?.trim() || null;
       }
@@ -451,10 +408,8 @@ function registerApiKeySetting(path, field, textField) {
 }
 
 registerApiKeySetting("joshua-project", "joshuaProjectApiKey");
-// `model` (ChurchSettings.extractionModel) rides alongside the write-only
-// anthropicApiKey -- see this field's own comment in schema.prisma for why
-// it's plain text here rather than going through encryptField like the key
-// above.
+// `model` (ChurchSettings.extractionModel) rides alongside the write-only anthropicApiKey; plain
+// text, not encrypted (see schema.prisma).
 registerApiKeySetting("ai-extraction", "anthropicApiKey", { key: "model", column: "extractionModel" });
 
 module.exports = router;

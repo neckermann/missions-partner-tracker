@@ -8,20 +8,16 @@ const { recordAudit } = require("../utils/auditLog");
 
 const personLabel = (u) => (u ? [u.firstName, u.lastName].filter(Boolean).join(" ") || u.email : null);
 
-// #289: a partner's care team -- one lead plus any number of members, all of
-// them logins. Gated by the `careTeam` feature (404 when off, data kept).
+// A partner's care team: one lead plus any number of members, all logins.
+// Gated by the `careTeam` feature (404 when off, data kept).
 //
-// Reading is open to every login that can read the partner (a guest only for
-// partners they hold a grant for); setting the team is admin/editor, like
-// every other write on a partner -- "assignments" are staff's call, and a
-// care team member gains no extra visibility from being on one (there is one
-// partner page for every role; roles gate what you can change, not what you
-// can see).
+// Reading is open to any login that can read the partner; setting the team is
+// admin/editor. Being on a team grants no extra visibility.
 const router = express.Router();
 router.use(requireAuth);
 router.use(requireFeature("careTeam"));
 
-// A guest only sees teammates' names, never their email addresses: they
+// A guest only sees teammates' names, never their email, phone or profile: they
 // can't see the Users list, and a teammate's address isn't theirs to take.
 function shapeMember(m, viewerRole) {
   const { user } = m;
@@ -31,13 +27,23 @@ function shapeMember(m, viewerRole) {
     firstName: user.firstName,
     lastName: user.lastName,
     role: user.role,
-    ...(viewerRole === "guest" ? {} : { email: user.email }),
+    ...(viewerRole === "guest" ? {} : { email: user.email, phone: user.phone, profile: user.profile }),
   };
 }
 
 const memberSelect = {
   isLead: true,
-  user: { select: { id: true, email: true, firstName: true, lastName: true, role: true } },
+  user: {
+    select: {
+      id: true,
+      email: true,
+      phone: true,
+      profile: true,
+      firstName: true,
+      lastName: true,
+      role: true,
+    },
+  },
 };
 
 async function loadTeam(partnerId, viewerRole) {
@@ -65,63 +71,6 @@ router.get("/candidates", requireRole("admin", "editor"), async (req, res, next)
   }
 });
 
-// #291: the church's default lead -- who key-date reminders go to for a partner
-// with no care team. Read by admin/editor (they manage teams); set by admin.
-// Lives here rather than in the generic settings route so it only exists while
-// care teams do. Registered before "/:partnerId" so it isn't read as an id.
-const defaultLeadView = (u) =>
-  u ? { userId: u.id, name: [u.firstName, u.lastName].filter(Boolean).join(" ") || u.email } : null;
-const defaultLeadSelect = { select: { id: true, email: true, firstName: true, lastName: true } };
-
-router.get("/default-lead", requireRole("admin", "editor"), async (req, res, next) => {
-  try {
-    const settings = await prisma.churchSettings.findUnique({
-      where: { id: "singleton" },
-      select: { defaultCareLead: defaultLeadSelect },
-    });
-    res.json({ defaultLead: defaultLeadView(settings?.defaultCareLead) });
-  } catch (err) {
-    next(err);
-  }
-});
-
-router.put("/default-lead", requireRole("admin"), async (req, res, next) => {
-  try {
-    const { userId } = z.object({ userId: z.string().min(1).nullable() }).parse(req.body);
-    if (userId) {
-      const user = await prisma.user.findFirst({ where: { id: userId, active: true }, select: { id: true } });
-      if (!user) return res.status(400).json({ error: "The default lead needs an active login" });
-    }
-    const previous = await prisma.churchSettings.findUnique({
-      where: { id: "singleton" },
-      select: { defaultCareLead: defaultLeadSelect },
-    });
-    const settings = await prisma.churchSettings.upsert({
-      where: { id: "singleton" },
-      update: { defaultCareLeadUserId: userId },
-      create: { id: "singleton", defaultCareLeadUserId: userId },
-      select: { defaultCareLead: defaultLeadSelect },
-    });
-    if ((previous?.defaultCareLead?.id ?? null) !== (settings.defaultCareLead?.id ?? null)) {
-      await recordAudit(null, {
-        action: "settings.updated",
-        actor: req.user,
-        entity: { type: "settings", label: "Default care team lead" },
-        req,
-        details: {
-          defaultCareLead: {
-            from: personLabel(previous?.defaultCareLead),
-            to: personLabel(settings.defaultCareLead),
-          },
-        },
-      });
-    }
-    res.json({ defaultLead: defaultLeadView(settings.defaultCareLead) });
-  } catch (err) {
-    next(err);
-  }
-});
-
 router.get("/:partnerId", async (req, res, next) => {
   try {
     if (!canReadPartner(req.user, req.params.partnerId)) {
@@ -143,10 +92,9 @@ const setTeamSchema = z.object({
   memberUserIds: z.array(z.string().min(1)),
 });
 
-// Replaces the whole team in one go -- what the assignment wizards send --
-// rather than patching rows, so the one-lead rule is checked against the
-// final set. A person is on a team once: naming the lead among the members
-// too is just the lead.
+// Replaces the whole team rather than patching rows, so the one-lead rule is
+// checked against the final set. A person is on a team once: naming the lead
+// among the members too is just the lead.
 router.put("/:partnerId", requireRole("admin", "editor"), async (req, res, next) => {
   try {
     const { leadUserId, memberUserIds } = setTeamSchema.parse(req.body);

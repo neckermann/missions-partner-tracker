@@ -1,12 +1,10 @@
 import { test, expect } from "@playwright/test";
 import { login, setFeatures, restoreFeatures } from "./helpers.js";
 
-// Creates its own trip rather than clicking "the first row" of the
-// Existing Trips list -- CI seeds zero trips (SEED_DEMO_EXTRAS=false),
-// so that row only existed if some other spec file's parallel test
-// happened to create one first. Genuine race under fullyParallel/2
-// workers, not something to depend on; same self-contained
-// beforeAll/afterAll pattern trip-team-table-modal.spec.js already uses.
+// Creates its own trip rather than clicking the first row of the Existing Trips list: CI seeds
+// zero trips (SEED_DEMO_EXTRAS=false), so that row only existed if another spec's parallel
+// test created one first, a race under fullyParallel. Same self-contained beforeAll/afterAll
+// pattern as trip-team-table-modal.spec.js.
 let tripId;
 let previousFeatures;
 
@@ -57,12 +55,13 @@ test("trip detail sub-pages render without errors", async ({ page }) => {
     );
   }
 
-  // A participant's own detail page, reached from the Team tab -- the
-  // other half of this phase's onBlur -> EditableSection migration.
+  // A participant's own detail page, reached from the Team tab.
   await page.getByRole("link", { name: /^Team/ }).click();
-  const viewDetails = page.getByRole("link", { name: "View details" }).first();
-  if (await viewDetails.count()) {
-    await viewDetails.click();
+  const participantRow = page.locator("table tbody tr.row-clickable").first();
+  if (await participantRow.count()) {
+    // A clickable row opens from the keyboard too: focus it and press Enter.
+    await participantRow.focus();
+    await page.keyboard.press("Enter");
     await expect(page.getByText("Contact & access")).toBeVisible();
     await expect(page.locator("body")).not.toContainText(
       /cannot read|undefined is not|something went wrong/i

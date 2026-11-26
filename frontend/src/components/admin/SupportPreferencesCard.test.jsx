@@ -5,7 +5,7 @@ import { MemoryRouter } from "react-router-dom";
 import SupportPreferencesCard, { groupOptions, describeResponse } from "./SupportPreferencesCard.jsx";
 import { fetchPartnerSupportPreferences, savePartnerSupportPreferences } from "../../api/client.js";
 
-// #374: a partner's support preferences, recorded by staff or the care team.
+// A partner's support preferences, recorded by staff or the care team.
 vi.mock("../../api/client.js", () => ({
   fetchPartnerSupportPreferences: vi.fn(),
   savePartnerSupportPreferences: vi.fn(),
@@ -81,13 +81,17 @@ describe("SupportPreferencesCard", () => {
       ],
     });
     renderCard();
-    expect(await screen.findByText("Support preferences")).toBeInTheDocument();
-    expect(screen.getByText("Logistics")).toBeInTheDocument();
+    expect(await screen.findByText("Support Preferences")).toBeInTheDocument();
+    expect(screen.getByText(/2 preferences recorded/)).toBeInTheDocument();
+    expect(screen.queryByText("Early flights")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /preferences recorded/ }));
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByText("Logistics", { selector: "div" })).toBeInTheDocument();
     expect(screen.getByText(/Airport pick-up/)).toBeInTheDocument();
     expect(screen.getByText("Early flights")).toBeInTheDocument();
     expect(screen.getByText("Bank transfer")).toBeInTheDocument();
     expect(screen.queryByText(/Care packages/)).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Edit preferences" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Edit" })).toBeInTheDocument();
   });
 
   it("renders nothing for someone who can't reach it (a trip leader) or when the feature is off", async () => {
@@ -108,7 +112,7 @@ describe("SupportPreferencesCard", () => {
     fetchPartnerSupportPreferences.mockResolvedValue({ options, canEdit: false, preferences: [] });
     renderCard();
     expect(await screen.findByText(/Nothing recorded yet/)).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Record preferences/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Record/ })).not.toBeInTheDocument();
   });
 
   it("points an admin at Settings when no menu exists", async () => {
@@ -123,7 +127,7 @@ describe("SupportPreferencesCard", () => {
   it("records a choice: ticks an offer, picks an answer, and saves every option", async () => {
     fetchPartnerSupportPreferences.mockResolvedValue({ options, canEdit: true, preferences: [] });
     renderCard();
-    fireEvent.click(await screen.findByRole("button", { name: "+ Record preferences" }));
+    fireEvent.click(await screen.findByRole("button", { name: "+ Record" }));
     fireEvent.click(screen.getByLabelText("Airport pick-up"));
     fireEvent.change(screen.getByLabelText("How should gifts be sent?"), {
       target: { value: "A transfer app" },

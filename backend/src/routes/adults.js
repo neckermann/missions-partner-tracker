@@ -1,5 +1,6 @@
 const express = require("express");
 const { z } = require("zod");
+const { CONTACT_METHODS } = require("../utils/contactMethods");
 const prisma = require("../prismaClient");
 const {
   requireAuth,
@@ -10,13 +11,10 @@ const {
 const { partnerRefSelect } = require("../utils/prismaIncludes");
 
 const router = express.Router();
-router.use(requireAuth); // everything below requires a logged-in user
+router.use(requireAuth);
 
-// The only writer for Adult, same shape as routes/prayerRequests.js.
-// Backs both the "Add Adult" quick-add popup and the standalone edit of an
-// existing one on a single partner's page -- there's no consolidated
-// cross-partner list for this resource, unlike Prayer Requests/One-Time
-// Needs/Monthly Support.
+// The only writer for Adult, same shape as routes/prayerRequests.js. There is
+// no cross-partner list; adults are only managed on a partner's page.
 const adultSchema = z.object({
   partnerId: z.string(),
   firstName: z.string().min(1),
@@ -25,9 +23,10 @@ const adultSchema = z.object({
   phone2: z.string().optional().nullable(),
   email: z.string().optional().nullable(),
   birthday: z.coerce.date().optional().nullable(),
-  // #288: the adult to reach first -- at most one per partner. Setting it
-  // here clears it from the others in the same write (below).
+  // At most one per partner; setting it clears it from the others (clearPrimary).
   isPrimaryContact: z.boolean().optional(),
+  contactMethod: z.enum(CONTACT_METHODS).optional().nullable(),
+  contactMethodNote: z.string().trim().max(200).optional().nullable(),
 });
 
 const adultInclude = { partner: partnerRefSelect };
@@ -41,7 +40,6 @@ async function clearPrimary(db, partnerId) {
   });
 }
 
-// GET /api/adults?partnerId=
 router.get("/", requirePartnerQueryScope, async (req, res, next) => {
   try {
     const where = {};
@@ -58,7 +56,6 @@ router.get("/", requirePartnerQueryScope, async (req, res, next) => {
   }
 });
 
-// POST /api/adults  (create — editor or admin)
 router.post("/", requirePartnerWriter({ body: true }), async (req, res, next) => {
   try {
     const data = adultSchema.parse(req.body);
@@ -72,7 +69,6 @@ router.post("/", requirePartnerWriter({ body: true }), async (req, res, next) =>
   }
 });
 
-// PUT /api/adults/:id  (update — editor or admin)
 router.put("/:id", requirePartnerWriter({ model: "adult" }), async (req, res, next) => {
   try {
     const data = adultSchema.partial().parse(req.body);
@@ -92,7 +88,6 @@ router.put("/:id", requirePartnerWriter({ model: "adult" }), async (req, res, ne
   }
 });
 
-// DELETE /api/adults/:id  (admin only)
 router.delete("/:id", requireRole("admin"), async (req, res, next) => {
   try {
     await prisma.adult.delete({ where: { id: req.params.id } });

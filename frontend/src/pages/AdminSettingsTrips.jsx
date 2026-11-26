@@ -1,18 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { fetchTripsSettings, updateTripsSettings } from "../api/client.js";
 import ApplicationQuestionsEditor from "../components/admin/ApplicationQuestionsEditor.jsx";
+import TemplatePackButtons from "../components/admin/TemplatePackButtons.jsx";
 import SettingsPageHeader from "../components/admin/SettingsPageHeader.jsx";
 import EditableSection from "../components/admin/EditableSection.jsx";
 
-// New (#252) -- church-wide settings for the whole Trips feature area.
-// Not per-trip (so it doesn't belong on any single trip's own pages --
-// AdminTripOverview.jsx etc.) and not general church info (so it doesn't
-// belong on the About Church page either). Each concern below is its own
-// EditableSection card -- same click-card -> popup -> edit -> save
-// boundary every other editable page in this app uses, grouped under
-// .admin-section-group/.admin-group-heading the same way
-// AdminPartnerDetail.jsx groups its own cards, with that same page's
-// jump-rail pattern reused here for the 4 groups.
+// Church-wide settings for the Trips feature area (not per-trip, not general church info).
+// Each concern is its own EditableSection card, grouped under .admin-section-group like
+// AdminPartnerDetail.jsx, with the same jump-rail for the 4 groups.
 const emptyForm = {
   onlineGivingUrl: "",
   onlineGivingInstructions: "",
@@ -28,14 +23,9 @@ const emptyForm = {
   tripRequirementLibrary: [],
 };
 
-// Inline, not a shared component -- ApplicationQuestionsEditor.jsx's
-// fields (required/options) don't fit a requirement (kind/bodyText/
-// reminderLeadDays instead). Two call sites on this same page now
-// (tripRequirementTemplate below, and tripRequirementLibrary further
-// down) -- both just want the same {items, onChange} controlled list,
-// no library-picker prop needed here the way the question editor has
-// one, since neither of this component's own two consumers is itself
-// a library being picked *from*.
+// Inline rather than shared: ApplicationQuestionsEditor.jsx's fields (required/options) don't
+// fit a requirement (kind/bodyText/reminderLeadDays). Both consumers on this page just want a
+// controlled {items, onChange} list.
 function RequirementTemplateEditor({ items, onChange }) {
   const [draft, setDraft] = useState({
     label: "",
@@ -51,13 +41,8 @@ function RequirementTemplateEditor({ items, onChange }) {
   function remove(index) {
     onChange(items.filter((_, i) => i !== index));
   }
-  // Move-up/move-down, not drag-and-drop -- matches
-  // ApplicationQuestionsEditor.jsx's own reasoning (no drag-and-drop
-  // precedent anywhere in this app, not worth a new dependency for a
-  // realistically-short list). This editor never had reorder at all
-  // before; order matters here (it's the literal sequence a participant
-  // sees requirements in), so it gets the same move buttons the question
-  // editor already has, not a new pattern.
+  // Move-up/move-down, not drag-and-drop (no drag precedent in the app, like
+  // ApplicationQuestionsEditor.jsx). Order matters: it's the sequence a participant sees.
   function move(index, delta) {
     const target = index + delta;
     if (target < 0 || target >= items.length) return;
@@ -222,9 +207,7 @@ export default function AdminSettingsTrips() {
     setSettings({ ...emptyForm, ...s });
   }
 
-  // Each card's onSave sends only the fields it owns -- PUT /settings/trips
-  // is a partial update (every field on the schema is optional), so one
-  // card's save never touches another card's own data.
+  // Each card's onSave sends only the fields it owns; PUT /settings/trips is a partial update.
   async function savePartial(patch) {
     await updateTripsSettings(patch);
   }
@@ -313,7 +296,7 @@ export default function AdminSettingsTrips() {
                 onChange={(v) => set("collectDonorContactInfo", v)}
                 label="Collect donor email/phone when logging a contribution"
               />
-              <p style={{ color: "#888", fontSize: "0.85rem" }}>
+              <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
                 Never shown on the public support-raising page regardless of this setting — only on the
                 participant's own self-service page and to admins.
               </p>
@@ -324,7 +307,7 @@ export default function AdminSettingsTrips() {
                 onChange={(v) => set("enableTripBudgeting", v)}
                 label="Track a planned budget per trip"
               />
-              <p style={{ color: "#888", fontSize: "0.85rem" }}>
+              <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
                 Adds a Financial section to each trip's own page for logging estimated costs (flights,
                 lodging, etc.) and seeing how much is still needed against what's been raised. Turned off, the
                 budget half of that section doesn't appear at all.
@@ -340,7 +323,14 @@ export default function AdminSettingsTrips() {
         style={{ marginTop: "2rem", scrollMarginTop: "1rem" }}
       >
         <h2 className="admin-group-heading">Application Form</h2>
-        <p style={{ color: "#888", fontSize: "0.85rem", margin: "-0.5rem 0 1rem" }}>
+        <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", margin: "-0.25rem 0 0.75rem" }}>
+          <TemplatePackButtons
+            importLabel="Import questions…"
+            exportKind="applicationQuestions"
+            onImported={reload}
+          />
+        </div>
+        <p style={{ color: "var(--muted)", fontSize: "0.85rem", margin: "-0.5rem 0 1rem" }}>
           Everything below is part of what a person fills out when applying — before they're ever a confirmed
           participant.
         </p>
@@ -459,7 +449,7 @@ export default function AdminSettingsTrips() {
                   onChange={(v) => set("collectApplicantAddress", v)}
                   label="Collect applicant mailing address"
                 />
-                <p style={{ color: "#888", fontSize: "0.85rem" }}>
+                <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
                   Shown as a real structured address block on the public application form — street, city,
                   state, postal code, country. Turned off, the block doesn't appear on the form at all.
                 </p>
@@ -470,7 +460,7 @@ export default function AdminSettingsTrips() {
                   onChange={(v) => set("collectEmergencyContact", v)}
                   label="Collect applicant emergency contact info"
                 />
-                <p style={{ color: "#888", fontSize: "0.85rem" }}>
+                <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
                   Shown as a real structured name/phone/email block on the public application form. Turned
                   off, the block doesn't appear on the form at all.
                 </p>
@@ -486,7 +476,14 @@ export default function AdminSettingsTrips() {
         style={{ marginTop: "2rem", scrollMarginTop: "1rem" }}
       >
         <h2 className="admin-group-heading">Trip Requirements</h2>
-        <p style={{ color: "#888", fontSize: "0.85rem", margin: "-0.5rem 0 1rem" }}>
+        <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", margin: "-0.25rem 0 0.75rem" }}>
+          <TemplatePackButtons
+            importLabel="Import requirements…"
+            exportKind="tripRequirements"
+            onImported={reload}
+          />
+        </div>
+        <p style={{ color: "var(--muted)", fontSize: "0.85rem", margin: "-0.5rem 0 1rem" }}>
           What's needed <strong>after</strong> someone is accepted onto the team — a different phase from the
           application form above.
         </p>
@@ -505,7 +502,7 @@ export default function AdminSettingsTrips() {
           )}
           edit={(d, set) => (
             <>
-              <p style={{ color: "#888", fontSize: "0.85rem" }}>
+              <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
                 Editing this later only affects trips created afterward; it never changes an already-created
                 trip's own copy.
               </p>

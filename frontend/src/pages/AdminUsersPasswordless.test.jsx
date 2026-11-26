@@ -5,8 +5,8 @@ import { MemoryRouter } from "react-router-dom";
 import AdminUsers from "./AdminUsers.jsx";
 import { fetchUsers, fetchCurrentUser, fetchTrips, updateChurchSettings } from "../api/client.js";
 
-// #386 Layer 2: the Passwordless sign-in switch on Manage Users: when it is usable, why it isn't,
-// who will sign in by emailed link, and turning it on and off.
+// The Passwordless sign-in switch on Manage Users: when it is usable, why it isn't, who will
+// sign in by emailed link, and turning it on and off.
 vi.mock("../api/client.js", () => ({
   fetchUsers: vi.fn(),
   fetchUser: vi.fn(),
@@ -115,6 +115,13 @@ describe("Manage Users: passwordless sign-in", () => {
     renderPage();
     expect(await button("Turn on passwordless sign-in")).toBeDisabled();
     expect(screen.getByText(/Add a passkey to your own account first/)).toBeInTheDocument();
+  });
+
+  it("on the public demo is disabled and says it would lock visitors out until the next reset", async () => {
+    fetchCurrentUser.mockResolvedValue(me({ passwordlessBlockedByDemo: true }));
+    renderPage();
+    expect(await button("Turn on passwordless sign-in")).toBeDisabled();
+    expect(screen.getByText(/lock every visitor out until the next reset/)).toBeInTheDocument();
   });
 
   it("when on, says so and turns off without a confirmation", async () => {

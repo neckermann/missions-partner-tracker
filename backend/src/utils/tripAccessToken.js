@@ -1,32 +1,18 @@
-// Signed, stateless tokens for Trips (#252) -- mirrors
-// emailDispatchShell.js's buildSubscriberUnsubscribeToken() pattern: a
-// server-signed JWT, never a DB session, never a password.
+// Signed, stateless Trips tokens, like emailDispatchShell.js's
+// buildSubscriberUnsubscribeToken(): a server-signed JWT, never a DB session or password.
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const prisma = require("../prismaClient");
 const { sendEmail } = require("./email");
 
-// #327 Finding 6: no expiresIn at all before this -- the token opened a
-// minor's record, donor emails/phone numbers, flights, and documents,
-// and stayed valid years after the trip, revoked only by bumping
-// accessTokenVersion (an explicit admin action nobody has a reason to
-// take once a trip is over). The real lifetime this token needs is
-// bounded by the trip itself: trip end date + 90 days, matching the
-// review's own recommendation, with a 1-year floor as a safety margin
-// for a backfilled historical trip's own dates already being long past
-// (re-issuable through the existing lost-link recovery flow either way,
-// so an overly-short expiry here is a minor inconvenience, not a dead
-// end). Participant.trip isn't loaded at every call site of this
-// function, so the fallback (no trip dates available at all) is simply
-// a flat 1 year -- still a real, finite bound, just not trip-dated.
 const NINETY_DAYS_MS = 90 * 24 * 60 * 60 * 1000;
 const ONE_YEAR_SECONDS = 365 * 24 * 60 * 60;
-// The 1-year fallback is NOT a floor under the trip-dated value -- a trip
-// a few months out should get a tokens whose real lifetime is a few
-// months, tighter than a year, which is the whole point. It only
-// substitutes when there's no usable trip-dated value at all: trip dates
-// missing, or a backfilled historical trip whose end date + 90 days has
-// already passed (a negative/zero remaining duration).
+// The token opens a minor's record, donor contact details, flights and documents,
+// so it must expire: trip end date + 90 days. The 1-year fallback applies only
+// when there is no usable trip-dated value (no trip dates loaded at the call
+// site, or a historical trip whose end + 90 days has already passed); it is not
+// a floor under the trip-dated value. Lost links are re-issuable via the
+// lost-link recovery flow, so a short expiry is an inconvenience, not a dead end.
 function tripAccessTokenTtlSeconds(participant) {
   const basis = participant.trip?.endDate || participant.trip?.startDate;
   if (!basis) return ONE_YEAR_SECONDS;
@@ -34,8 +20,7 @@ function tripAccessTokenTtlSeconds(participant) {
   return remaining > 0 ? remaining : ONE_YEAR_SECONDS;
 }
 
-// Encodes the participant's id + accessTokenVersion, so bumping that
-// column invalidates every previously-issued link at once.
+// Encodes the participant's id + accessTokenVersion; bumping that column invalidates every issued link.
 function buildTripParticipantAccessToken(participant) {
   return jwt.sign(
     { id: participant.id, v: participant.accessTokenVersion, tripParticipantAccess: true },
@@ -54,14 +39,9 @@ function verifyTripParticipantAccessToken(token) {
   }
 }
 
-// Same resolution as dispatchBlurbs.js's own base-URL helper -- found via
-// a real bug report (a trip-access email's link had no domain at all).
-// This file reinvented a narrower version that only checked APP_BASE_URL,
-// missing RENDER_EXTERNAL_URL (set automatically by Render for every web
-// service, no config needed -- see ADMIN_GUIDE.md's own APP_BASE_URL
-// entry). That's exactly why a real production deployment would have hit
-// this too, not just local dev: APP_BASE_URL is optional and almost
-// never set explicitly, since Render already provides the equivalent.
+// Same resolution as dispatchBlurbs.js's base-URL helper. Must also check
+// RENDER_EXTERNAL_URL: APP_BASE_URL is optional and rarely set, and Render provides
+// the equivalent (see ADMIN_GUIDE.md's APP_BASE_URL entry).
 function appBaseUrl() {
   return (process.env.APP_BASE_URL || process.env.RENDER_EXTERNAL_URL || "").replace(/\/+$/, "");
 }
@@ -71,24 +51,18 @@ function buildTripParticipantAccessUrl(participant) {
   return `${base}/my-trip?token=${encodeURIComponent(buildTripParticipantAccessToken(participant))}`;
 }
 
-// A short random secret, same shape/length as every other share-token in
-// this app (participant.shareToken, Trip.applicationShareToken) -- not a
-// JWT, since this one has no claims to encode, just needs to be
-// unguessable and @unique-constraint-checkable directly.
+// A short random secret like the other share tokens (participant.shareToken,
+// Trip.applicationShareToken); not a JWT since it has no claims, just needs to be
+// unguessable and checkable against its @unique column.
 function generateShareToken() {
   return crypto.randomBytes(18).toString("base64url");
 }
 
-// §4a lost-link recovery: looks up every TripParticipant row matching an
-// email (case-insensitive), across every trip, with none of the public-
-// discovery/restricted-partner exclusion rules applied -- this is an
-// already-legitimate participant recovering their own access, not a
-// stranger trying to discover or apply to a hidden trip. One combined
-// email per request, listing every match, regardless of how many trips
-// it found -- never one email per trip. Always resolves the same way
-// whether anything matched or not, so the caller can't tell them apart
-// (same enumeration-prevention precedent as publicSubscribe.js's
-// applySubscription()).
+// Lost-link recovery: finds every TripParticipant matching an email
+// (case-insensitive) across all trips, with none of the public-discovery/
+// restricted-partner exclusions (this is a legitimate participant recovering their
+// own access). One combined email per request, however many trips. Resolves the
+// same whether or not anything matched, to prevent enumeration (as publicSubscribe.js applySubscription()).
 async function sendTripParticipantAccessLinks(email) {
   const participants = await prisma.tripParticipant.findMany({
     where: { email: { equals: email, mode: "insensitive" } },

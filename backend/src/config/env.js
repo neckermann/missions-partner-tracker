@@ -1,21 +1,16 @@
 // Startup configuration validation.
 //
-// This app is meant to be forked and self-hosted, and the documented setup
-// path is `cp .env.example .env`. That makes a plausible-looking placeholder
-// genuinely dangerous: a fork that edits only DATABASE_URL and deploys would
-// run with a SESSION_SECRET printed in a public repo, and anyone who has read
-// that repo could forge an admin session cookie. There is no second line of
-// defence behind it -- any valid session can read every partner's full record
-// (see ADMIN_GUIDE.md § Who can see what).
+// This app is forked and self-hosted via `cp .env.example .env`, so a
+// plausible-looking placeholder is dangerous: a fork that edits only DATABASE_URL
+// would run with a SESSION_SECRET printed in a public repo, letting anyone forge
+// an admin session cookie (any valid session reads every partner's full record;
+// see ADMIN_GUIDE.md § Who can see what).
 //
-// So a bad SESSION_SECRET is fatal: the process refuses to start rather than
-// serving with a known key. Everything else that can only break a feature
-// (rather than expose data) warns loudly and keeps serving, because taking a
-// running deployment down over a misconfigured optional feature is worse than
-// the feature being broken.
+// So a bad SESSION_SECRET is fatal. Anything that only breaks a feature warns
+// loudly and keeps serving: taking a running deployment down over a misconfigured
+// optional feature is worse.
 
-// Values shipped in .env.example and other obvious stand-ins. Anyone who
-// reaches this list has copied an example file without reading it.
+// Values shipped in .env.example and other obvious stand-ins.
 const PLACEHOLDER_SECRETS = new Set([
   "change-me-to-a-long-random-string",
   "change-me-to-a-real-generated-key",
@@ -26,16 +21,14 @@ const PLACEHOLDER_SECRETS = new Set([
   "password",
 ]);
 
-// Long enough that brute-forcing the HMAC key is not the weakest link. 48
-// bytes of base64 (`openssl rand -base64 48`) is 64 chars, comfortably over.
+// Long enough that brute-forcing the HMAC key isn't the weakest link (`openssl rand -base64 48`, 64 chars).
 const MIN_SECRET_LENGTH = 32;
 
 function isPlaceholder(value) {
   return PLACEHOLDER_SECRETS.has(String(value).trim().toLowerCase());
 }
 
-// Pure: takes an env-shaped object, returns what's wrong with it. Kept free of
-// process.exit and console so it can be unit-tested directly.
+// Pure (no process.exit or console) so it can be unit-tested directly.
 function validateEnv(env = process.env) {
   const fatal = [];
   const warnings = [];
@@ -63,15 +56,10 @@ function validateEnv(env = process.env) {
     );
   }
 
-  // Not fatal: a bad key makes crypto.js throw at first use, so every
-  // reversibly-encrypted secret (MFA enrollment, plus every integration
-  // credential it protects -- Postmark, GroupMe, Joshua Project, the
-  // WhatsApp session) fails loudly right there, and nothing is ever
-  // written under a weak key. Refusing to boot over it would take a
-  // running deployment offline to protect a feature that already fails
-  // closed. #327 Finding 11.8: this used to say only MFA enrollment would
-  // fail, which stopped being true once this key started protecting
-  // every integration credential too.
+  // Not fatal: a bad key makes crypto.js throw at first use, so every reversibly
+  // encrypted secret (MFA enrollment and the Postmark, GroupMe, Joshua Project and
+  // WhatsApp credentials) fails loudly and nothing is written under a weak key.
+  // Refusing to boot would take a deployment offline to protect a feature that already fails closed.
   const key = env.FIELD_ENCRYPTION_KEY;
   if (!key || !String(key).trim()) {
     warnings.push(
@@ -89,14 +77,9 @@ function validateEnv(env = process.env) {
     );
   }
 
-  // Not fatal, same reasoning as FIELD_ENCRYPTION_KEY above -- this is the
-  // one env var every deploy sets automatically (Render, most PaaS
-  // platforms) but a self-hoster running their own server/container could
-  // easily never think to set at all. utils/jwt.js's setSessionCookie only
-  // marks the session cookie `secure` (HTTPS-only) when this is exactly
-  // "production" -- anything else (including unset) means the session
-  // cookie is sent over plain HTTP too, where it can be read by anyone on
-  // the same network path. #327 Finding 11.6.
+  // Not fatal, as above. Most platforms set this automatically but a self-hoster
+  // may not. utils/jwt.js setSessionCookie marks the cookie `secure` only when this
+  // is exactly "production"; otherwise it travels over plain HTTP.
   if (env.NODE_ENV !== "production") {
     warnings.push(
       `NODE_ENV is "${env.NODE_ENV || "unset"}", not "production". If this is a real deployment ` +
@@ -108,8 +91,7 @@ function validateEnv(env = process.env) {
   return { fatal, warnings };
 }
 
-// Prints the findings and exits(1) if anything is fatal. Separated from
-// validateEnv so tests never risk killing the test runner.
+// Prints findings and exits(1) if anything is fatal; separate from validateEnv so tests can't kill the runner.
 function assertValidEnv(env = process.env, { log = console } = {}) {
   const { fatal, warnings } = validateEnv(env);
 

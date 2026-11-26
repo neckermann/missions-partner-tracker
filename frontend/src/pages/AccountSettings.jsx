@@ -7,24 +7,25 @@ import {
   disableMfa,
   updateNotifyByEmail,
   setKeyDateEmailOptOut,
+  updateMyProfile,
   fetchPartners,
   fetchPasskeys,
   registerPasskey,
   removePasskey,
   browserSupportsWebAuthn,
 } from "../api/client.js";
+import { passkeyErrorMessage } from "../utils/passkeyError.js";
 import { passwordsMatch } from "../utils/password.js";
 import { useSettings } from "../context/SettingsContext.jsx";
 import EditableSection from "../components/admin/EditableSection.jsx";
 import MfaAppGuide from "../components/MfaAppGuide.jsx";
 import ThemeToggle from "../components/shared/ThemeToggle.jsx";
+import CopyButton from "../components/shared/CopyButton.jsx";
 
 const emptyPasswordDraft = { currentPassword: "", newPassword: "", confirmPassword: "" };
 
-// A client-side validation failure (mismatch/too-short) is thrown in the
-// same { response: { data: { error } } } shape EditableSection's catch
-// block already expects from a real API error, so it renders through the
-// same friendly-error path instead of a second, parallel error UI.
+// Client-side validation failures are thrown in the API-error shape so
+// EditableSection renders them through its normal error path.
 function validationError(message) {
   return { response: { data: { error: message } } };
 }
@@ -60,6 +61,8 @@ export default function AccountSettings() {
           Signed in as <strong>{user.email}</strong> ({isGuest ? "Guest" : user.role})
         </p>
       )}
+
+      {user && <ProfileSection user={user} onChange={reloadUser} />}
 
       {!user ? null : (
         <EditableSection
@@ -106,17 +109,18 @@ export default function AccountSettings() {
 
       {user?.authProvider === "local" && <MfaSection user={user} onChange={reloadUser} />}
       {user?.authProvider === "local" && <PasskeysSection onChange={reloadUser} />}
-      {/* A guest sees password and MFA only (#356). The admin digest is
-          church-wide content, not something a scoped login subscribes to. */}
-      {user && !isGuest && enabledFeatures.outboundEmail && (
+      {/* The digest is church-wide content, so a guest gets it only for the partners they hold a seat on. */}
+      {user && enabledFeatures.outboundEmail && (!isGuest || user.careTeamSeats?.length > 0) && (
         <EmailDispatchSection user={user} onChange={reloadUser} />
       )}
-      {/* Everyone on a care team may get the daily key-date email, a guest included (#365). */}
+      {/* Anyone who looks after partners may get the daily key-date email: a care team member (a guest
+          included) or someone on the missions team. */}
       {user &&
-        enabledFeatures.careTeam &&
         enabledFeatures.keyDates &&
         enabledFeatures.outboundEmail &&
-        user.careTeamSeats?.length > 0 && <KeyDateEmailSection user={user} onChange={reloadUser} />}
+        (user.careTeamSeats?.length > 0 || user.onMissionsTeam) && (
+          <KeyDateEmailSection user={user} onChange={reloadUser} />
+        )}
 
       <div className="admin-section">
         <h3>Appearance</h3>
@@ -130,8 +134,51 @@ export default function AccountSettings() {
   );
 }
 
-// The daily key-date email (#365): one message on a day a birthday, anniversary or milestone is due
-// for a partner you look after. Turning it off here stops the email only; the bell alert stays.
+// Your phone and a line about yourself, so the church can reach you for an update.
+function ProfileSection({ user, onChange }) {
+  return (
+    <EditableSection
+      title="Your details"
+      value={{ phone: user.phone || "", profile: user.profile || "" }}
+      onSave={async (draft) => {
+        await updateMyProfile({ phone: draft.phone, profile: draft.profile });
+        await onChange();
+      }}
+      view={(v) => (
+        <div style={{ color: "var(--muted)" }}>
+          <div>Phone: {v.phone || "not added"}</div>
+          <div style={{ whiteSpace: "pre-wrap" }}>{v.profile || "No note about you yet."}</div>
+        </div>
+      )}
+      edit={(draft, set) => (
+        <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+          <label>
+            Phone
+            <input
+              type="tel"
+              value={draft.phone}
+              maxLength={40}
+              onChange={(e) => set("phone", e.target.value)}
+            />
+          </label>
+          <label>
+            About you
+            <textarea
+              rows={3}
+              value={draft.profile}
+              maxLength={1000}
+              placeholder="How you help, or when you are easiest to reach"
+              onChange={(e) => set("profile", e.target.value)}
+            />
+          </label>
+        </div>
+      )}
+    />
+  );
+}
+
+// The daily key-date email: one message on a day a birthday, anniversary or milestone is due
+// for a partner you look after. Turning it off stops the email only; the bell alert stays.
 function KeyDateEmailSection({ user, onChange }) {
   const optedOut = user.keyDateEmailOptOut === true;
   return (
@@ -166,14 +213,9 @@ function KeyDateEmailSection({ user, onChange }) {
   );
 }
 
-// Self-service opt-in for the admin digest email -- same self-service-
-// from-Account-Settings pattern as MFA above. Turning the cadence to
-// "No automatic digest" here does the same thing clicking "Unsubscribe"
-// in a digest email's own footer does -- this is just the in-app
-// equivalent for someone who's already logged in. Besides whatever
-// cadence is picked below, this account may also receive an urgent
-// dispatch immediately, bypassing this schedule entirely -- see the
-// "Marking something urgent" note in USER_GUIDE.md.
+// Self-service opt-in for the admin digest email. "No automatic digest" matches the
+// "Unsubscribe" link in the email footer. An urgent dispatch can still arrive immediately,
+// regardless of this schedule (see USER_GUIDE.md, "Marking something urgent").
 const CADENCE_LABELS = {
   "": "No automatic digest",
   biweekly: "Biweekly",
@@ -181,20 +223,25 @@ const CADENCE_LABELS = {
   quarterly: "Quarterly",
 };
 
+const SCOPE_LABELS = {
+  owned: "the partners you look after",
+  all: "all partners",
+  followed: "the partners you pick",
+};
+
 function EmailDispatchSection({ user, onChange }) {
-  const { cadenceTiersEnabled } = useSettings();
+  const { cadenceTiersEnabled, ownerGroupName } = useSettings();
   const [partners, setPartners] = useState([]);
+  // A guest's digest is always the partners they look after; they get no choice of scope.
+  const isGuest = user.role === "guest";
   const value = {
     cadence: user.cadence || "",
-    allPartners: user.allPartners !== false,
+    digestScope: isGuest ? "owned" : user.digestScope || "owned",
     partnerIds: user.followedPartnerIds || [],
   };
 
-  // "" (no automatic digest) is always offered, and so is this admin's
-  // own already-saved cadence even if it's since been disabled (#209) --
-  // don't silently hide someone's current choice from them, same
-  // reasoning PublicSubscribeForm.jsx's own comment gives for why *it*
-  // needs no such exception (new-subscriber-only, nothing saved yet).
+  // "" (no automatic digest) is always offered, plus this admin's own saved cadence even if
+  // it has since been disabled, so their current choice is never hidden.
   const cadenceLabelEntries = Object.entries(CADENCE_LABELS).filter(
     ([tierValue]) => tierValue === "" || tierValue === value.cadence || cadenceTiersEnabled[tierValue]
   );
@@ -206,7 +253,7 @@ function EmailDispatchSection({ user, onChange }) {
   async function save(draft) {
     await updateNotifyByEmail({
       cadence: draft.cadence || null,
-      allPartners: draft.allPartners,
+      digestScope: draft.digestScope,
       partnerIds: draft.partnerIds,
     });
     await onChange();
@@ -221,9 +268,9 @@ function EmailDispatchSection({ user, onChange }) {
         <p style={{ color: "var(--muted)" }}>
           {CADENCE_LABELS[v.cadence]}
           {v.cadence
-            ? v.allPartners
-              ? ", all partners"
-              : `, ${v.partnerIds.length} selected partner${v.partnerIds.length === 1 ? "" : "s"}`
+            ? v.digestScope === "followed"
+              ? `, ${v.partnerIds.length} selected partner${v.partnerIds.length === 1 ? "" : "s"}`
+              : `, ${SCOPE_LABELS[v.digestScope] || SCOPE_LABELS.all}`
             : ""}
           . A summary of new prayer requests, one-time needs, and newsletters -- plus, occasionally, an urgent
           item an admin or editor marks for immediate sending, which arrives right away regardless of this
@@ -247,26 +294,44 @@ function EmailDispatchSection({ user, onChange }) {
             </select>
           </label>
 
+          {draft.cadence && !isGuest && (
+            <fieldset style={{ border: 0, padding: 0, margin: "0 0 0.5rem" }}>
+              <legend style={{ fontWeight: 600 }}>What the digest covers</legend>
+              {[
+                [
+                  "owned",
+                  `The partners I look after${user.onMissionsTeam ? ` (my care teams, and the ${ownerGroupName}'s partners)` : ""}`,
+                ],
+                ["all", "All partners"],
+                ["followed", "Only partners I pick"],
+              ].map(([scope, label]) => (
+                <label key={scope} className="checkbox-option">
+                  <input
+                    type="radio"
+                    name="digestScope"
+                    checked={draft.digestScope === scope}
+                    onChange={() => set("digestScope", scope)}
+                  />
+                  {label}
+                </label>
+              ))}
+            </fieldset>
+          )}
+          {draft.cadence && isGuest && (
+            <p style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
+              Your digest covers the partners you look after, and only them.
+            </p>
+          )}
+
           {draft.cadence && (
             <div style={{ marginBottom: "0.75rem" }}>
-              <div className="admin-checkbox-row">
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={draft.allPartners}
-                    onChange={(e) => set("allPartners", e.target.checked)}
-                  />
-                  Include all partners
-                </label>
-              </div>
-
-              {!draft.allPartners && (
+              {draft.digestScope === "followed" && !isGuest && (
                 <div
                   style={{
                     marginTop: "0.5rem",
                     maxHeight: 200,
                     overflowY: "auto",
-                    border: "1px solid #ddd",
+                    border: "1px solid var(--border)",
                     borderRadius: 4,
                     padding: "0.5rem",
                   }}
@@ -306,14 +371,8 @@ function EmailDispatchSection({ user, onChange }) {
   );
 }
 
-// Deliberately not an EditableSection: this isn't "edit a field, save" --
-// it's a multi-step security flow with three distinct shapes (enabled with
-// a disable-confirmation form, mid-setup with a QR code and a confirm
-// step, or disabled with a start button) that doesn't reduce to a single
-// view/edit toggle. Keeps its own try/catch-per-action error handling,
-// which already shows a plain-language message per action.
-// #386: passkeys, the other second factor. Listed with when each was added and last used, added
-// from this device (the browser asks for the fingerprint or screen lock), removed with the password.
+// Passkeys, the other second factor: added from this device, removed with the password.
+// Deliberately not an EditableSection: a multi-step flow with its own per-action error handling.
 function PasskeysSection({ onChange }) {
   const [list, setList] = useState(null); // { passkeys, max }
   const [label, setLabel] = useState("");
@@ -344,13 +403,7 @@ function PasskeysSection({ onChange }) {
       await load();
       await onChange();
     } catch (err) {
-      // The person closing the browser's prompt is not an error worth shouting about.
-      setError(
-        err.response?.data?.error ||
-          (err.name === "NotAllowedError"
-            ? "That was cancelled. Try again when you're ready."
-            : "Couldn't add a passkey on this device.")
-      );
+      setError(passkeyErrorMessage(err));
     } finally {
       setBusy(false);
     }
@@ -446,11 +499,13 @@ function PasskeysSection({ onChange }) {
         </ul>
       )}
 
-      {list.demo ? (
+      {list.demo && (
         <p style={{ color: "var(--muted)" }}>
-          Passkeys are turned off on the public demo, because its logins are shared.
+          This is the public demo: try adding and removing a passkey. The login is shared, so it never changes
+          how anyone signs in here.
         </p>
-      ) : !supported ? (
+      )}
+      {!supported ? (
         <p style={{ color: "var(--muted)" }}>This browser can't create passkeys.</p>
       ) : full ? (
         <p style={{ color: "var(--muted)" }}>You have the most passkeys allowed ({list.max}).</p>
@@ -601,7 +656,8 @@ function MfaSection({ user, onChange }) {
             <p>Scan this QR code with your authenticator app (Google Authenticator, Authy, etc.):</p>
             <img src={setupData.qrCode} alt="MFA QR code" style={{ width: 200, height: 200 }} />
             <p style={{ fontSize: "0.85rem", color: "var(--muted)" }}>
-              Can't scan it? Enter this code manually: <code>{setupData.secret}</code>
+              Can't scan it? Enter this code manually: <code>{setupData.secret}</code>{" "}
+              <CopyButton text={setupData.secret} label="Copy the setup key" />
             </p>
             <label>
               Enter the 6-digit code from the app to confirm

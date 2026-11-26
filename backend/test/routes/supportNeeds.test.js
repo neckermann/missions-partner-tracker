@@ -11,15 +11,11 @@ const {
   FIXTURE_TAG,
 } = require("./helpers");
 
-// Role gating, zod validation, and the notify-only-on-genuine-transition
-// behavior for /api/support-needs -- no dedicated test file existed before
-// (#276). Unlike prayerRequests.test.js, approveNow and the restricted-
-// partner recording block are tested directly here too: dispatches.test.js
-// only ever exercises those two behaviors through POST /api/prayer-requests,
-// never through this route, so support needs had zero coverage of either
-// one. isUrgent's actual cross-channel send behavior stays owned by
-// dispatchOrchestrator.test.js's direct unit tests -- this file only
-// confirms the field is accepted and awaited.
+// Role gating, zod validation, and the notify-only-on-genuine-transition behavior for
+// /api/support-needs. Unlike prayerRequests.test.js, approveNow and the restricted-partner
+// recording block are tested directly here: dispatches.test.js only exercises those through
+// POST /api/prayer-requests. isUrgent's cross-channel send behavior stays owned by
+// dispatchOrchestrator.test.js; this file only confirms the field is accepted and awaited.
 
 let admin;
 let editor;

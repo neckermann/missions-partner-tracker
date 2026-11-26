@@ -1,10 +1,7 @@
 import React from "react";
 
-// A trip-participant picker, grouped by trip -- same shape as
-// PartnerSelect.jsx, but for assigning something (an unmatched inbound
-// email) to a specific TripParticipant instead of a Partner. `trips` is
-// whatever fetchTrips() returned (each trip including its own
-// `participants` array already).
+// A trip-participant picker, grouped by trip, like PartnerSelect.jsx. `trips` is whatever
+// fetchTrips() returned (each with its `participants`).
 export default function TripParticipantSelect({ trips, value, onChange, required, ...rest }) {
   const withParticipants = trips.filter((t) => (t.participants || []).length > 0);
 

@@ -9,29 +9,22 @@ process.env.SESSION_SECRET = "test-secret-not-for-production";
 
 const { requireAuth, requireRole, requireAuthOrMfaSetup } = require("../src/middleware/requireAuth");
 
-// These cover everything the middleware decides **before** it looks anything
-// up: a missing, malformed, expired, wrong-secret, or wrong-kind token is
-// rejected on the token alone. That is worth pinning on its own -- a
-// rejected request should never cost a database query.
-//
-// The accepting paths moved to test/routes/, because requireAuth now reads
-// the user on every request so that deactivating, deleting or demoting
-// someone takes effect immediately instead of at token expiry. A valid
-// token is no longer sufficient by itself, so "accepts a valid token"
-// cannot be asserted without a real row. See test/routes/revocation.test.js
-// for that side, including that req.user.role comes from the database
-// rather than the token's claims.
+// These cover everything the middleware decides before it looks anything up: a missing,
+// malformed, expired, wrong-secret or wrong-kind token is rejected on the token alone, so a
+// rejected request never costs a database query. The accepting paths are in
+// test/routes/revocation.test.js: requireAuth reads the user on every request (so
+// deactivating, deleting or demoting someone takes effect immediately), which means a valid
+// token alone is not sufficient and "accepts a valid token" can't be asserted without a real
+// row; that file also checks req.user.role comes from the database, not the token's claims.
 
 function signToken(claims, opts = {}) {
   return jwt.sign(claims, process.env.SESSION_SECRET, opts);
 }
 
-// Minimal fake req/res — just enough surface for these middleware
-// functions. The session lives in an httpOnly cookie now, so this builds
-// req.cookies (what cookie-parser would populate), not an Authorization
-// header — except fakeReqBearer, for the one remaining bearer-token case
-// (the forced-MFA-setup token, passed explicitly since there's no session
-// cookie yet at that point in the flow).
+// Minimal fake req/res, just enough surface for these middleware functions. The session lives
+// in an httpOnly cookie, so this builds req.cookies (what cookie-parser would populate);
+// fakeReqBearer is the one bearer-token case (the forced-MFA-setup token, since there's no
+// session cookie yet at that point).
 function fakeReq(token, opts = {}) {
   return {
     cookies: token ? { session: token } : {},
@@ -137,15 +130,11 @@ describe("requireAuth", () => {
     assert.equal(next.calls.length, 0);
   });
 
-  // #327 Finding 1: utils/emailDispatchShell.js signs a digest email's
-  // unsubscribe link as { id, unsubscribe: true } with this exact same
-  // SESSION_SECRET. Before this check existed, that token had a valid
-  // signature, a real user id, and neither mfaPending nor mfaSetup set --
-  // so it sailed through as a completely normal, fully-privileged session
-  // for that id (role read fresh from the DB), bypassing password and MFA
-  // entirely. This pins the fix: the exact token shape
-  // buildUnsubscribeToken() produces must never be accepted as a session,
-  // no matter how real the id or how valid the signature.
+  // utils/emailDispatchShell.js signs a digest email's unsubscribe link as { id, unsubscribe:
+  // true } with this same SESSION_SECRET. That token has a valid signature and a real user id
+  // with neither mfaPending nor mfaSetup set, so without an explicit check it would be accepted
+  // as a fully-privileged session for that id (role read from the DB), bypassing password and
+  // MFA. The exact shape buildUnsubscribeToken() produces must never be accepted as a session.
   test("rejects an unsubscribe token presented as a session cookie (#327)", () => {
     const token = signToken({ id: "real-admin-uuid", unsubscribe: true });
     const req = fakeReq(token);
@@ -167,10 +156,9 @@ describe("requireAuth", () => {
   });
 });
 
-// #124: a real browser clicking a direct link to a requireAuth-gated route
-// (a GroupMe notification, etc.) with no session should land on a login
-// form, not bare JSON -- but every existing SPA/API caller above must keep
-// getting plain JSON, since nothing in the frontend expects a redirect.
+// A browser clicking a direct link to a requireAuth-gated route (a GroupMe notification, etc.)
+// with no session should land on a login form, not bare JSON, while every SPA/API caller above
+// keeps getting plain JSON, since nothing in the frontend expects a redirect.
 describe("requireAuth — browser navigation redirects", () => {
   test("no cookie, a real browser's Accept header -- redirects to /login with the original URL preserved", () => {
     const req = fakeReq(null, {
@@ -244,10 +232,8 @@ describe("requireRole", () => {
     assert.equal(res.statusCode, 401);
   });
 
-  // #124: requireRole wraps requireAuth, so a role-gated route (e.g.
-  // backups.js's requireRole("admin")) inherits the browser-redirect
-  // behavior for the "no session at all" case with zero code change of
-  // its own.
+  // requireRole wraps requireAuth, so a role-gated route (e.g. backups.js's
+  // requireRole("admin")) inherits the browser-redirect behavior for the no-session case.
   test("no cookie, browser GET through a role-gated route -- redirects the same as requireAuth alone", async () => {
     const req = fakeReq(null, {
       headers: { accept: "text/html" },
@@ -259,10 +245,9 @@ describe("requireRole", () => {
     assert.equal(res.redirectedTo, "/login?next=%2Fapi%2Fbackups%2Fdownload");
   });
 
-  // #327 Finding 1: requireRole wraps requireAuth and reads role from the
-  // DB, so an unsubscribe token for a real admin id would otherwise grant
-  // real admin access -- confirm the rejection happens before role is
-  // ever consulted.
+  // requireRole wraps requireAuth and reads role from the DB, so an unsubscribe token for a real
+  // admin id would otherwise grant admin access: confirm the rejection happens before role is
+  // consulted.
   test("rejects an unsubscribe token before ever reaching the role check (#327)", async () => {
     const token = signToken({ id: "real-admin-uuid", unsubscribe: true });
     const req = fakeReq(token);
@@ -285,10 +270,9 @@ describe("requireAuthOrMfaSetup", () => {
     assert.equal(next.calls.length, 0);
   });
 
-  // #327 Finding 1: this function accepts the session cookie OR a bearer
-  // token, and ends (via /mfa/setup + /mfa/verify-setup -> completeLogin)
-  // in a brand-new real session cookie -- a second path to the exact same
-  // bypass if the unsubscribe token weren't rejected here too.
+  // This function accepts the session cookie or a bearer token and ends (via /mfa/setup +
+  // /mfa/verify-setup -> completeLogin) in a real session cookie, so it would be a second path
+  // to the same bypass if the unsubscribe token weren't rejected here too.
   test("rejects an unsubscribe token presented as a session cookie (#327)", () => {
     const token = signToken({ id: "real-admin-uuid", unsubscribe: true });
     const req = fakeReq(token);

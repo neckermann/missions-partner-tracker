@@ -1,9 +1,8 @@
-// #288: the partner contact log. Covers the feature gate (404 off, data
-// kept), who may log / fix / delete (anyone who can see the partner logs; a
-// guest only through a care team seat, never through a trip grant alone;
-// admin/editor fix and delete), validation, the references an entry may point
-// at, the My partners read model, the prayer-request auto-log, and the
-// single primary contact per partner.
+// The partner contact log. Covers the feature gate (404 off, data kept), who may log / fix /
+// delete (anyone who can see the partner logs; a guest only through a care team seat, never
+// through a trip grant alone; admin/editor fix and delete), validation, the references an
+// entry may point at, the My partners read model, the prayer-request auto-log, and the single
+// primary contact per partner.
 const { test, describe, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 require("dotenv").config({ quiet: true });
@@ -211,6 +210,69 @@ describe("contact log: logging and reading", () => {
     await prisma.user.update({ where: { id: gone.user.id }, data: { active: false } });
     assert.equal((await log(admin, entry(partnerA.id, { contactedById: gone.user.id }))).status, 400);
   });
+
+  test("an entry can name the support option it was about, kept as a label even if the option is later deleted", async () => {
+    const option = await prisma.supportOption.create({
+      data: { group: `${FIXTURE_TAG} tag`, label: "Airport pick-up", kind: "offer" },
+    });
+    const secret = await prisma.supportOption.create({
+      data: { group: `${FIXTURE_TAG} tag`, label: "Staff only", kind: "offer", staffOnly: true },
+    });
+    try {
+      const made = await log(admin, entry(partnerA.id, { supportOptionId: option.id }));
+      assert.equal(made.status, 201);
+      assert.equal(made.body.supportOptionId, option.id);
+      assert.equal(made.body.supportOptionLabel, "Airport pick-up");
+      assert.equal((await log(admin, entry(partnerA.id, { supportOptionId: "nope" }))).status, 400);
+
+      const guest = await member.login();
+      assert.equal((await log(guest, entry(partnerA.id, { supportOptionId: secret.id }))).status, 400);
+      assert.equal((await log(guest, entry(partnerA.id, { supportOptionId: option.id }))).status, 201);
+
+      await prisma.supportOption.delete({ where: { id: option.id } });
+      const row = await prisma.contactLog.findUnique({ where: { id: made.body.id } });
+      assert.equal(row.supportOptionLabel, "Airport pick-up", "history survives the option");
+    } finally {
+      await prisma.supportOption.deleteMany({ where: { group: `${FIXTURE_TAG} tag` } });
+    }
+  });
+});
+
+describe("contact log: the all-entries listing", () => {
+  test("pages newest first, filters, and a guest only sees their own partners", async () => {
+    for (let i = 0; i < 3; i++) {
+      assert.equal(
+        (
+          await log(
+            admin,
+            entry(partnerA.id, { contactType: i === 0 ? "visit" : "call", contactDate: `2026-03-0${i + 1}` })
+          )
+        ).status,
+        201
+      );
+    }
+    await log(admin, entry(partnerB.id, { contactType: "card", contactDate: "2026-03-10" }));
+
+    const mine = await admin(`/api/contact-log/all?partnerId=${partnerA.id}&limit=2`);
+    assert.equal(mine.status, 200);
+    assert.equal(mine.body.rows.length, 2);
+    assert.ok(mine.body.total >= 3 && mine.body.hasMore);
+    assert.equal(mine.body.rows[0].partner.id, partnerA.id);
+    const page2 = await admin(`/api/contact-log/all?partnerId=${partnerA.id}&limit=2&offset=2`);
+    assert.ok(page2.body.rows.length >= 1);
+    assert.ok(mine.body.rows[0].contactDate >= mine.body.rows[1].contactDate, "newest first");
+
+    const visits = await admin(`/api/contact-log/all?partnerId=${partnerA.id}&contactType=visit`);
+    assert.ok(visits.body.rows.length >= 1 && visits.body.rows.every((r) => r.contactType === "visit"));
+    assert.equal((await admin("/api/contact-log/all?limit=999")).status, 400);
+
+    const guest = await member.login();
+    const asGuest = await guest("/api/contact-log/all");
+    assert.equal(asGuest.status, 200);
+    assert.ok(asGuest.body.rows.length > 0 && asGuest.body.rows.every((r) => r.partner.id === partnerA.id));
+    assert.equal((await guest(`/api/contact-log/all?partnerId=${partnerB.id}`)).status, 403);
+    assert.equal((await viewer("/api/contact-log/all")).status, 200);
+  });
 });
 
 describe("contact log: fixing and deleting", () => {
@@ -294,8 +356,11 @@ describe("contact log: My partners", () => {
     );
     await setFeatures({ careTeam: false });
     try {
+      // Care teams off is not an error: seats are ignored, so someone on no missions team looks after nothing.
       // (a seat-only guest has no way in at all while care teams are off, so ask as staff)
-      assert.equal((await admin("/api/contact-log/assigned")).status, 404);
+      const none = await admin("/api/contact-log/assigned");
+      assert.equal(none.status, 200);
+      assert.deepEqual(none.body, []);
     } finally {
       await setFeatures({ careTeam: true });
     }
@@ -441,13 +506,95 @@ describe("contact card: primary contact and instructions", () => {
   test("special communication instructions save with the partner", async () => {
     const res = await editor(`/api/partners/${partnerA.id}`, {
       method: "PUT",
-      body: { contactSafe: false, contactInstructions: "  Email only; never call after 8pm.  " },
+      body: { contactLevel: "no_direct", contactInstructions: "  Email only; never call after 8pm.  " },
     });
     assert.equal(res.status, 200);
-    assert.equal(res.body.contactSafe, false);
+    assert.equal(res.body.contactLevel, "no_direct");
     assert.equal(res.body.contactInstructions, "Email only; never call after 8pm.");
     const read = await viewer(`/api/partners/${partnerA.id}`);
     assert.equal(read.body.contactInstructions, "Email only; never call after 8pm.");
+  });
+});
+
+describe("the contact card: how to reach a partner", () => {
+  const adult = (extra = {}) => ({ partnerId: partnerA.id, firstName: "Sam", ...extra });
+
+  test("an adult carries the way they like to be reached, and only a known way is accepted", async () => {
+    const made = await editor("/api/adults", {
+      method: "POST",
+      body: adult({ firstName: "Methodical", contactMethod: "signal" }),
+    });
+    assert.equal(made.status, 201, JSON.stringify(made.body));
+    assert.equal(made.body.contactMethod, "signal");
+    const other = await editor(`/api/adults/${made.body.id}`, {
+      method: "PUT",
+      body: adult({ firstName: "Methodical", contactMethod: "other", contactMethodNote: "  Telegram  " }),
+    });
+    assert.equal(other.status, 200, JSON.stringify(other.body));
+    assert.equal(other.body.contactMethod, "other");
+    assert.equal(other.body.contactMethodNote, "Telegram");
+    const bad = await editor(`/api/adults/${made.body.id}`, {
+      method: "PUT",
+      body: adult({ firstName: "Methodical", contactMethod: "carrier-pigeon" }),
+    });
+    assert.equal(bad.status, 400);
+  });
+
+  test("caution keeps the partner reachable but limits the ways, no_direct names who to go through", async () => {
+    const caution = await editor(`/api/partners/${partnerA.id}`, {
+      method: "PUT",
+      body: {
+        contactLevel: "caution",
+        contactChannels: ["email", "whatsapp"],
+        contactInstructions: "Please don't say 'mission' in the subject.",
+      },
+    });
+    assert.equal(caution.status, 200, JSON.stringify(caution.body));
+    assert.equal(caution.body.contactLevel, "caution");
+    assert.deepEqual(caution.body.contactChannels, ["email", "whatsapp"]);
+
+    const via = await editor(`/api/partners/${partnerA.id}`, {
+      method: "PUT",
+      body: {
+        contactLevel: "no_direct",
+        contactChannels: [],
+        contactViaName: "Mission office",
+        contactViaRole: "Sending organization",
+        contactViaPhone: "555-0100",
+        contactViaEmail: "office@example.org",
+      },
+    });
+    assert.equal(via.status, 200, JSON.stringify(via.body));
+    const read = await viewer(`/api/partners/${partnerA.id}`);
+    assert.equal(read.body.contactLevel, "no_direct");
+    assert.equal(read.body.contactViaName, "Mission office");
+    assert.equal(read.body.contactViaEmail, "office@example.org");
+
+    for (const body of [{ contactLevel: "kinda" }, { contactChannels: ["pigeon"] }]) {
+      const res = await editor(`/api/partners/${partnerA.id}`, { method: "PUT", body });
+      assert.equal(res.status, 400, JSON.stringify(body));
+    }
+    await editor(`/api/partners/${partnerA.id}`, {
+      method: "PUT",
+      body: { contactLevel: "normal", contactChannels: [], contactViaName: null, contactInstructions: null },
+    });
+  });
+
+  test("an organization's named contact carries its own way to be reached", async () => {
+    const org = await admin("/api/partners", {
+      method: "POST",
+      body: {
+        kind: "organization",
+        displayName: `${FIXTURE_TAG} Org ${Date.now()}`,
+        contactFirstName: "Olive",
+        contactEmail: "olive@example.org",
+        contactMethod: "email",
+        contactMethodNote: "mornings",
+      },
+    });
+    assert.equal(org.status, 201, JSON.stringify(org.body));
+    assert.equal(org.body.contactMethod, "email");
+    assert.equal(org.body.contactMethodNote, "mornings");
   });
 });
 

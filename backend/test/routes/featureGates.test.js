@@ -14,15 +14,14 @@ const {
   FIXTURE_TAG,
 } = require("./helpers");
 
-// GET /api/partners?include=full is the booklet's data source: every partner
-// with every relation, including prayer requests. It sat on a router with no
-// feature gate at all, so turning off Print booklet did nothing server-side,
-// and a church that had turned Prayer Requests off still served every
-// request through this one query -- private and situational ones included.
+// GET /api/partners?include=full is the booklet's data source: every partner with every
+// relation, prayer requests included. It sat on a router with no feature gate, so turning off
+// Print booklet did nothing server-side, and a church that turned Prayer Requests off still
+// served every request through this query, private ones included.
 //
-// Feature toggles live in a single settings row, so these tests mutate
-// global state. They restore it in after(), and `npm run test:routes` runs
-// with --test-concurrency=1 so nothing else reads it mid-flight.
+// Feature toggles live in a single settings row, so these tests mutate global state. They
+// restore it in after(), and `npm run test:routes` runs with --test-concurrency=1 so nothing
+// else reads it mid-flight.
 
 let admin;
 let originalFeatures;

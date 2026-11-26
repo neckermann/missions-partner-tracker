@@ -1,22 +1,15 @@
-// The one place an error becomes an HTTP response.
+// The one place an error becomes an HTTP response. Two invariants:
 //
-// Two invariants hold for every response this produces:
+//   1. `error` is ALWAYS a string. The frontend renders it straight into JSX, so
+//      an array/object (e.g. Zod's `err.issues`) throws "Objects are not valid as
+//      a React child" and unmounts the page.
 //
-//   1. `error` is ALWAYS a string. Never an array, never an object. The
-//      frontend renders it straight into JSX, so anything else throws
-//      "Objects are not valid as a React child" and unmounts the page. That
-//      is exactly what used to happen: routes returned Zod's `err.issues`
-//      array, and every form that hit a validation error white-screened.
+//   2. Only deliberate, controlled errors say anything specific; an unexpected
+//      exception becomes "Server error", since a raw Prisma or JS message can
+//      leak schema and column names, even to unauthenticated public callers.
 //
-//   2. Only deliberate, controlled errors say anything specific. An
-//      unexpected exception collapses to "Server error", because a raw
-//      Prisma or JS message can leak schema and column names to any caller,
-//      including unauthenticated ones on the public API.
-//
-// Routes should not catch errors just to translate them. Express 5 forwards
-// a rejected promise from an async handler here automatically, so a route
-// that lets Zod or Prisma throw gets the right status for free. Catch only
-// when you have something to add.
+// Routes shouldn't catch errors just to translate them: Express 5 forwards a
+// rejected async handler here, so Zod or Prisma throws get the right status free.
 
 const multer = require("multer");
 
@@ -24,10 +17,7 @@ const multer = require("multer");
 const MAX_ISSUES_SHOWN = 3;
 
 // "displayName: Required; addresses.physical.gpsLat: Expected number"
-//
-// Naming the field is the whole point -- it's what makes a validation error
-// actionable. An earlier convention used only `issues[0].message`, which
-// produced a bare "Required" with no indication of what was required.
+// Naming the field makes a validation error actionable (a bare "Required" isn't).
 function formatZodIssues(issues = []) {
   if (!issues.length) return "That doesn't look right — please check the form.";
 
@@ -51,9 +41,7 @@ function uniqueTargetLabel(err) {
 // Maps a thrown error to { status, message }. Pure and exported so the shape
 // can be unit-tested without standing up a request.
 function classify(err, req = {}) {
-  // A status the route set on purpose wins over everything below -- that's
-  // the route saying it already knows what this is (utils/extraction.js sets
-  // 400 and 422 this way, as do the multer fileFilters).
+  // A status the route set on purpose wins (utils/extraction.js sets 400/422, as do the multer fileFilters).
   if (err?.status && err.status < 500) {
     return { status: err.status, message: err.message || "Bad request" };
   }
@@ -101,16 +89,14 @@ function classify(err, req = {}) {
 }
 
 function errorHandler(err, req, res, next) {
-  // Blob routes (photos, newsletter/document downloads, the church logo)
-  // stream their response, so a mid-send failure arrives here with headers
-  // already flushed. Calling res.status() then would throw inside the error
-  // handler itself; hand it to Express's default, which destroys the socket.
+  // Blob routes stream their response, so a mid-send failure arrives with headers
+  // already flushed; res.status() would throw inside the handler. Hand it to
+  // Express's default, which destroys the socket.
   if (res.headersSent) return next(err);
 
   const { status, message } = classify(err, req);
 
-  // Only genuine server faults are worth a log line. Logging every 400 buries
-  // the 500s that actually need attention.
+  // Only genuine server faults get a log line; logging every 400 buries the 500s.
   if (status >= 500) console.error(err);
 
   res.status(status).json({ error: message });

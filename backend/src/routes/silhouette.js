@@ -3,21 +3,12 @@ const { silhouetteMarkup } = require("../utils/silhouette");
 
 const router = express.Router();
 
-// GET /api/silhouette/:category.svg — public, unauthenticated, same
-// reasoning as photos.js's /raw route: this needs to work with no
-// session cookie at all, since an email client fetches it directly.
-// utils/silhouette.js's own `silhouetteFor()` returns a data: URI, fine
-// for the public site's own <img> tags (browsers render those inline
-// with no extra request) but most email clients (Outlook chief among
-// them) strip or refuse to render a data: URI in an <img src> for
-// security reasons -- so the email digests (see emailDispatchShell.js's
-// partnerTileDetails) need an actual reachable URL instead, which is
-// what this route exists to provide. Deterministic per category/color,
-// so safe to cache aggressively like a real photo.
+// GET /api/silhouette/:category.svg — public, unauthenticated, like photos.js /raw: email clients
+// fetch it with no session. silhouetteFor() returns a data: URI, which most email clients (Outlook
+// especially) refuse in <img src>, so email digests (emailDispatchShell.js partnerTileDetails) need
+// a real URL. Deterministic per category/color, so safe to cache aggressively.
 router.get("/:category.svg", (req, res) => {
-  // Same reasoning as photos.js's /:id/raw -- without this, helmet()'s
-  // global same-origin Cross-Origin-Resource-Policy blocks a webmail
-  // client from embedding this inline (#246).
+  // Same as photos.js /:id/raw: helmet()'s same-origin CORP would block webmail embedding (#246).
   res.set("Cross-Origin-Resource-Policy", "cross-origin");
   res.set("Cache-Control", "public, max-age=31536000, immutable");
   res.set("Content-Type", "image/svg+xml");

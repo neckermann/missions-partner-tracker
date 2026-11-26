@@ -116,6 +116,8 @@ describe("GET/PUT /api/settings/groupme -- admin gate", () => {
       oneTimeNeedTopicName: null,
       newsletterTopicId: null,
       newsletterTopicName: null,
+      careTopicId: null,
+      careTopicName: null,
     });
     assert.ok(!("accessToken" in res.body) && !("groupmeAccessToken" in res.body));
   });
@@ -247,16 +249,11 @@ describe("GET /api/settings/groupme/groups and /groups/:id/topics", () => {
   });
 });
 
-// Record creation/outcome events never post to GroupMe live -- they
-// write a DispatchRecord row instead (see utils/dispatchRecording.js),
-// delivered later by groupmeChannel.js's own daily pass. The actual
-// GroupMe posting (topic routing, packing, truncation) is tested
-// separately; this file stays focused on GroupMe's own settings routes.
-// What's left to verify here is just the dispatcher's own recording
-// behavior: a row gets written with the right type/partner/payload, and
-// that a GroupMe-only content-type mute never blocks recording itself
-// (only allowRestrictedPartnerDispatch does that, and only for a
-// restricted partner).
+// Record creation/outcome events never post to GroupMe live; they write a DispatchRecord row
+// (see utils/dispatchRecording.js), delivered later by groupmeChannel.js's daily pass. GroupMe
+// posting is tested separately; here the dispatcher's recording is verified: a row gets the
+// right type/partner/payload, and a GroupMe-only content-type mute never blocks recording
+// (only allowRestrictedPartnerDispatch does that, and only for a restricted partner).
 describe("prayer request creation enqueues a DispatchRecord instead of posting live", () => {
   let partnerId;
 
@@ -300,13 +297,10 @@ describe("prayer request creation enqueues a DispatchRecord instead of posting l
     }
   });
 
-  // This is the exact live bug the notification redesign fixed: under
-  // the old model, this GroupMe-only mute also blocked *recording*,
-  // which silently also starved the public digest of prayer requests
-  // (they share the same row). Under the current model, a GroupMe
-  // content-type mute only ever affects GroupMe's own delivery -- see
-  // dispatchEligibility.js's isEligibleForChannel -- recording
-  // itself only ever depends on allowRestrictedPartnerDispatch.
+  // A GroupMe-only content-type mute only affects GroupMe's own delivery (see
+  // isEligibleForChannel in dispatchEligibility.js); recording depends only on
+  // allowRestrictedPartnerDispatch. Guards a live bug where this mute also blocked recording,
+  // starving the public digest of prayer requests (they share the row).
   test("chatDispatchPrayerRequests: false still records the event -- it only affects GroupMe's own delivery, not recording", async () => {
     await prisma.churchSettings.update({
       where: { id: "singleton" },
@@ -423,10 +417,9 @@ describe("support need creation enqueues a DispatchRecord instead of posting liv
   });
 });
 
-// #127: notifications on answering a prayer request / deciding a
-// one-time need. Routed through utils/notifications.js's channel-neutral
-// dispatch -- same enqueue-not-post-live behavior as creation above, and
-// still only on a genuine transition (not a repeat PUT).
+// Notifications on answering a prayer request / deciding a one-time need, routed through
+// utils/notifications.js's channel-neutral dispatch: enqueued, not posted live, and only on a
+// genuine transition (not a repeat PUT).
 describe("recording a prayer request's answer enqueues, same transition-only rule as before", () => {
   let partnerId;
 

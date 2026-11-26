@@ -11,16 +11,11 @@ const {
   FIXTURE_TAG,
 } = require("./helpers");
 
-// Role gating, zod validation, and the notify-only-on-genuine-transition
-// behavior for /api/prayer-requests -- none of which had a dedicated test
-// file before (#276). The approveNow/restricted-partner-blocks-recording
-// wiring this route also owns is already covered thoroughly by
-// dispatches.test.js (which uses this exact route as its own fixture
-// trigger), and isUrgent's actual cross-channel send behavior is covered
-// by dispatchOrchestrator.test.js's direct unit tests -- neither is
-// re-tested here, to avoid exactly the kind of redundant coverage #276
-// also asks to watch for. This file only confirms isUrgent is accepted
-// and awaited without the route itself ever throwing.
+// Role gating, zod validation, and the notify-only-on-genuine-transition behavior for
+// /api/prayer-requests. The approveNow/restricted-partner wiring is covered by
+// dispatches.test.js and isUrgent's cross-channel send behavior by
+// dispatchOrchestrator.test.js, so neither is re-tested here; this file only confirms isUrgent
+// is accepted and awaited without the route throwing.
 
 let admin;
 let editor;

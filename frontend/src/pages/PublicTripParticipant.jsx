@@ -16,6 +16,7 @@ import {
 import { formatDate, formatFileSize } from "../utils/format.js";
 import SignatureCapture from "../components/SignatureCapture.jsx";
 import { buildCalendarLinks, meetingDescription } from "../utils/calendarLinks.js";
+import CopyButton from "../components/shared/CopyButton.jsx";
 
 // Same wording as the email invite's own RSVP links (backend/src/utils/tripEmails.js).
 const RSVP_LABELS = { yes: "Yes", no: "No", maybe: "Maybe" };
@@ -29,16 +30,12 @@ function readFileAsDataUrl(file) {
   });
 }
 
-// New (#252) -- serves both the plain public support-raising view (by
-// shareToken, route /trip-support-raising/:shareToken) and the participant's
-// own self-service view (by signed access token, route /my-trip?token=...)
-// -- one page, two render modes. The public view never shows
-// flightSegments or donor contact info; the self-service view shows both.
+// Serves the public support-raising view (by shareToken, /trip-support-raising/:shareToken) and the
+// participant's self-service view (by signed access token, /my-trip?token=...). The public view never
+// shows flightSegments or donor contact info; the self-service view shows both.
 
-// Per-meeting "add to calendar" links: direct web links for Google /
-// Outlook / Yahoo (work even on a phone with no app registered for .ics
-// files) plus the .ics download, which Apple Calendar and most other apps
-// still need.
+// Per-meeting "add to calendar" links: web links for Google/Outlook/Yahoo (work on a phone with no .ics
+// handler) plus the .ics download for Apple Calendar and others.
 function AddToCalendar({ meeting, accessToken }) {
   const links = buildCalendarLinks({
     title: meeting.title,
@@ -49,7 +46,7 @@ function AddToCalendar({ meeting, accessToken }) {
   const external = { target: "_blank", rel: "noreferrer" };
   return (
     <div style={{ fontSize: "0.85rem", display: "flex", gap: "0.8rem", flexWrap: "wrap" }}>
-      <span style={{ color: "#555" }}>Add to calendar:</span>
+      <span style={{ color: "var(--muted)" }}>Add to calendar:</span>
       {links && (
         <>
           <a href={links.google} {...external}>
@@ -82,9 +79,7 @@ export default function PublicTripParticipant() {
   const [submittingSignature, setSubmittingSignature] = useState(false);
   const [uploadingRequirementId, setUploadingRequirementId] = useState(null);
   const [uploadError, setUploadError] = useState("");
-  // Explicit edit -> save/cancel for the story/photo section below --
-  // nothing saves until Save is clicked, matching every other editable
-  // section in this app (no onBlur/fire-on-select autosave).
+  // Nothing saves until Save is clicked (no autosave).
   const [editingPage, setEditingPage] = useState(false);
   const [pageDraftStory, setPageDraftStory] = useState("");
   const [pageDraftPhotoDataUrl, setPageDraftPhotoDataUrl] = useState(null);
@@ -97,9 +92,7 @@ export default function PublicTripParticipant() {
     const fetcher = selfService
       ? fetchTripParticipantSelfService(accessToken)
       : fetchPublicTripParticipantByToken(shareToken);
-    // Returned (not fire-and-forget) so handlePhotoChange can wait for the
-    // server-confirmed photo before dropping its own object-URL preview --
-    // otherwise there'd be a flash back to "no photo" in between.
+    // Returned so handlePhotoChange can wait for the server-confirmed photo before dropping its preview.
     return fetcher.then(setData).catch(() => setNotFound(true));
   }, [shareToken, accessToken, selfService]);
 
@@ -126,9 +119,7 @@ export default function PublicTripParticipant() {
     }
   }
 
-  // Document-kind requirement counterpart to handleSign below -- same
-  // "fulfilled by the server, reload to pick up the new state" shape,
-  // just a file instead of a signature.
+  // Document-kind counterpart to handleSign: a file instead of a signature.
   async function handleUploadRequirementDocument(requirementId, file) {
     if (!file) return;
     setUploadingRequirementId(requirementId);
@@ -143,9 +134,7 @@ export default function PublicTripParticipant() {
     }
   }
 
-  // Self-service only -- no review step, same trust level as the
-  // address/emergency-contact/application answers a participant already
-  // self-reports elsewhere with no review.
+  // Self-service only; no review step, same trust level as other self-reported participant data.
   function startEditingPage() {
     setPageDraftStory(data.story || "");
     setPageDraftPhotoDataUrl(null);
@@ -209,9 +198,7 @@ export default function PublicTripParticipant() {
       <PublicSiteHeader title={`${data.firstName} ${data.lastName || ""}`} />
       <DemoBanner />
       <div className="admin-shell" style={{ maxWidth: 680 }}>
-        {/* Same card in both render modes -- no evidence self-service
-        should look different from what a donor sees, and one shared
-        header avoids a second layout to maintain. */}
+        {/* Same card in both render modes: one header, one layout to maintain. */}
         <div
           style={{
             display: "flex",
@@ -254,12 +241,18 @@ export default function PublicTripParticipant() {
                 <span style={{ color: "var(--brand-color, #2a5d3c)" }}> ({goalPercent}%)</span>
               )}
             </span>
-            <span style={{ color: "#6b6f76", fontWeight: 400 }}>
+            <span style={{ color: "var(--muted)", fontWeight: 400 }}>
               {data.supportRaisingGoal ? `of $${data.supportRaisingGoal} goal` : ""}
             </span>
           </div>
           <div
-            style={{ height: 10, borderRadius: 999, background: "#ece9e4", overflow: "hidden", marginTop: 6 }}
+            style={{
+              height: 10,
+              borderRadius: 999,
+              background: "var(--surface-2)",
+              overflow: "hidden",
+              marginTop: 6,
+            }}
           >
             <div
               style={{
@@ -267,22 +260,23 @@ export default function PublicTripParticipant() {
                 width: data.supportRaisingGoal
                   ? `${Math.min(100, (data.raised / data.supportRaisingGoal) * 100)}%`
                   : "0%",
-                background: "#2a5d3c",
+                background: "var(--accent)",
               }}
             />
           </div>
         </div>
 
-        {/* Self-service only; gated on data.shareToken existing (null when
-        allowPublicSupportRaisingLinks is off, or this participant hasn't
-        been given one yet -- same "doesn't exist" treatment as the rest
-        of this feature's own toggles, not a disabled state). */}
+        {/* Self-service only; data.shareToken is null when allowPublicSupportRaisingLinks is off or none was issued yet. */}
         {selfService && data.shareToken && (
           <div className="admin-section">
             <h3>Your support-raising page</h3>
-            <p style={{ color: "#888", fontSize: "0.85rem" }}>
+            <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
               Share this link with family and friends:{" "}
-              <code>{`${window.location.origin}/trip-support-raising/${data.shareToken}`}</code>
+              <code>{`${window.location.origin}/trip-support-raising/${data.shareToken}`}</code>{" "}
+              <CopyButton
+                text={`${window.location.origin}/trip-support-raising/${data.shareToken}`}
+                label="Copy your support-raising link"
+              />
             </p>
             {!editingPage ? (
               <>
@@ -300,7 +294,7 @@ export default function PublicTripParticipant() {
                       }}
                     />
                   )}
-                  <p style={{ margin: 0, color: "#555" }}>{data.story || "No story set yet."}</p>
+                  <p style={{ margin: 0, color: "var(--muted)" }}>{data.story || "No story set yet."}</p>
                 </div>
                 <button
                   type="button"
@@ -345,7 +339,12 @@ export default function PublicTripParticipant() {
                   </div>
                   {!pageDraftPhotoDataUrl && !data.hasPhoto && (
                     <span
-                      style={{ display: "block", fontSize: "0.8rem", color: "#888", marginTop: "0.2rem" }}
+                      style={{
+                        display: "block",
+                        fontSize: "0.8rem",
+                        color: "var(--muted)",
+                        marginTop: "0.2rem",
+                      }}
                     >
                       No photo on file yet.
                     </span>
@@ -374,11 +373,7 @@ export default function PublicTripParticipant() {
           </div>
         )}
 
-        {/* Replaces the former flightDetails free-text paragraph (#252
-        follow-on, per the approved mockup) -- a clean itinerary instead
-        of a blob of text. Server-side filtered to this participant's own
-        segments (issue #265) -- every segment shown here already applies
-        to them, so there's nothing left to label. */}
+        {/* Server-side filtered to this participant's own segments, so there is nothing to label. */}
         {selfService && data.trip.flightSegments?.length > 0 && (
           <div className="admin-section">
             <h3>Flight itinerary</h3>
@@ -387,7 +382,7 @@ export default function PublicTripParticipant() {
                 <li
                   key={seg.id}
                   style={{
-                    border: "1px solid #e1dfdb",
+                    border: "1px solid var(--border)",
                     borderRadius: 6,
                     padding: "0.6rem 0.8rem",
                     marginBottom: "0.5rem",
@@ -396,7 +391,7 @@ export default function PublicTripParticipant() {
                   <div style={{ fontWeight: 600 }}>
                     {seg.airline} {seg.flightNumber}
                   </div>
-                  <div style={{ fontSize: "0.85rem", color: "#555" }}>
+                  <div style={{ fontSize: "0.85rem", color: "var(--muted)" }}>
                     {seg.departureAirport}
                     {seg.departureAt &&
                       ` — ${new Date(seg.departureAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}`}
@@ -419,7 +414,7 @@ export default function PublicTripParticipant() {
                 <li
                   key={m.id}
                   style={{
-                    border: "1px solid #e1dfdb",
+                    border: "1px solid var(--border)",
                     borderRadius: 6,
                     padding: "0.6rem 0.8rem",
                     marginBottom: "0.5rem",
@@ -438,7 +433,7 @@ export default function PublicTripParticipant() {
                   </div>
                   <AddToCalendar meeting={m} accessToken={accessToken} />
                   {m.agenda && (
-                    <div style={{ fontSize: "0.85rem", color: "#555", whiteSpace: "pre-wrap" }}>
+                    <div style={{ fontSize: "0.85rem", color: "var(--muted)", whiteSpace: "pre-wrap" }}>
                       {m.agenda}
                     </div>
                   )}
@@ -467,12 +462,12 @@ export default function PublicTripParticipant() {
           <div className="admin-section">
             <h3>Still needed from you</h3>
             {signingError && (
-              <p style={{ color: "#b91c1c" }} role="alert">
+              <p style={{ color: "var(--danger)" }} role="alert">
                 {signingError}
               </p>
             )}
             {uploadError && (
-              <p style={{ color: "#b91c1c" }} role="alert">
+              <p style={{ color: "var(--danger)" }} role="alert">
                 {uploadError}
               </p>
             )}
@@ -490,7 +485,7 @@ export default function PublicTripParticipant() {
                     >
                       {r.label}
                       {r.dueAt && ` — due ${formatDate(r.dueAt)}`}
-                      {overdue && <strong style={{ color: "#b91c1c" }}> (overdue)</strong>}
+                      {overdue && <strong style={{ color: "var(--danger)" }}> (overdue)</strong>}
                       {r.kind === "document" && (
                         <div style={{ marginTop: "0.3rem" }}>
                           <input
@@ -500,7 +495,7 @@ export default function PublicTripParticipant() {
                             onChange={(e) => handleUploadRequirementDocument(r.id, e.target.files[0] || null)}
                           />
                           {uploadingRequirementId === r.id && (
-                            <span style={{ fontSize: "0.8rem", color: "#888" }}> Uploading…</span>
+                            <span style={{ fontSize: "0.8rem", color: "var(--muted)" }}> Uploading…</span>
                           )}
                         </div>
                       )}
@@ -532,14 +527,8 @@ export default function PublicTripParticipant() {
           </div>
         )}
 
-        {/* Shared files from the admin's own "Trip-wide documents" section
-        (AdminTripRequirements.jsx) -- an itinerary, packing list, etc.
-        Previously fetched by this page's own data route but never exposed in
-        the response or rendered anywhere, so no participant could ever see
-        one despite the admin page's own copy calling them "shared with the
-        whole team." Labeled for this audience ("Documents for this trip"),
-        not copied verbatim from the admin-internal "Trip-wide" label, which
-        only means something to an admin managing many trips' files at once. */}
+        {/* Shared files from the admin's "Trip-wide documents" section (AdminTripRequirements.jsx). Labeled
+        "Documents for this trip" because "Trip-wide" only means something to an admin. */}
         {selfService && data.tripWideDocuments?.length > 0 && (
           <div className="admin-section">
             <h3>Documents for this trip</h3>
@@ -548,7 +537,7 @@ export default function PublicTripParticipant() {
                 <li key={doc.id} style={{ marginBottom: "0.3rem" }}>
                   {doc.title || doc.fileName}
                   {doc.fileSize != null && (
-                    <span style={{ color: "#888", fontSize: "0.8rem" }}>
+                    <span style={{ color: "var(--muted)", fontSize: "0.8rem" }}>
                       {" "}
                       ({formatFileSize(doc.fileSize)})
                     </span>

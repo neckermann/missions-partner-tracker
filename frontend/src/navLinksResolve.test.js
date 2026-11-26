@@ -1,8 +1,7 @@
-// Every link in the admin nav and on the Home and Settings pages must land on a
-// route that exists (#341: a renamed page kept its old route for a while, so the
-// nav pointed at nothing and nothing failed). Reads the source rather than
-// rendering the app: the route table in main.jsx is the single list of what
-// exists, and the three files below are the places that link into it.
+// Every link in the admin nav and on the Home and Settings pages must land on a route that
+// exists (a renamed page once kept its old route while the nav pointed at nothing and nothing
+// failed). Reads the source rather than rendering the app: the route table in main.jsx is the
+// single list of what exists, and the three files below are the places that link into it.
 import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import path from "node:path";

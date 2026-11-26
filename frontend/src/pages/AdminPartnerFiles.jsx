@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import PageHeader from "../components/shared/PageHeader.jsx";
 import { Link } from "react-router-dom";
 import {
   fetchPartnerFiles,
@@ -54,12 +55,8 @@ const emptyFilters = {
   includeArchived: false,
 };
 
-// Phase 2 of the UX-rebuild plan: entityType/kind/date-range are now real
-// backend query params (GET /api/partner-files -- kind already existed,
-// entityType and from/to are new), same reuse argument the plan made for
-// Prayer Requests/One-Time Needs: the exact filter logic already existed
-// for this dataset's Report version. includeArchived stays client-side --
-// this route has no archived passthrough and adding one wasn't asked for.
+// kind, entityType and date-range are backend query params (GET /api/partner-files);
+// includeArchived stays client-side because the route has no archived passthrough.
 export default function AdminPartnerFiles() {
   const { enabledFeatures } = useSettings();
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
@@ -200,9 +197,7 @@ export default function AdminPartnerFiles() {
   }
 
   function handleDownload(f) {
-    // A direct, same-origin, cookie-authenticated download — no async
-    // lookup needed, the file is served straight from the database (see
-    // backend/src/routes/partnerFiles.js).
+    // Same-origin download; the file is served straight from the database (routes/partnerFiles.js).
     window.open(`/api/partner-files/${f.id}/download`, "_blank");
   }
 
@@ -253,18 +248,17 @@ export default function AdminPartnerFiles() {
           ]}
         />
       )}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <h2>Newsletters &amp; Docs</h2>
-        {canEdit && (
-          <button className="btn" onClick={() => setActiveModal("add-file")}>
-            + Upload File
-          </button>
-        )}
-      </div>
-      <p style={{ color: "#555" }}>
-        Newsletters, survey responses, signed policies, other office documents, and long-term email records
-        from missionary and organization partners. Admin-only — never shown on the public site.
-      </p>
+      <PageHeader
+        title="Newsletters & Docs"
+        description="Newsletters, survey responses, signed policies, other office documents, and long-term email records from missionary and organization partners. Admin-only — never shown on the public site."
+        actions={
+          canEdit && (
+            <button className="btn" onClick={() => setActiveModal("add-file")}>
+              + Upload File
+            </button>
+          )
+        }
+      />
 
       <FilterBar
         fields={fields}

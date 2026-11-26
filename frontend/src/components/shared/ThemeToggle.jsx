@@ -3,13 +3,8 @@ import useTheme, { THEME_OPTIONS } from "../../hooks/useTheme.js";
 
 const LABELS = { system: "System", light: "Light", dark: "Dark" };
 
-// System/Light/Dark segmented control (#283) -- same seg-btn pattern as the
-// design-reference mockup's own "Appearance" control. Lives on Account
-// Settings (the obvious home for a personal, per-browser preference) and
-// is re-rendered in the sidebar footer for one-click access without a trip
-// to Account Settings -- both instances share the same useTheme() state via
-// localStorage, so either one reflects a change made in the other on next
-// mount.
+// System/Light/Dark segmented control, on Account Settings and in the sidebar footer. Both share
+// useTheme() state via localStorage, so a change in one shows in the other on next mount.
 export default function ThemeToggle({ compact = false }) {
   const [theme, setTheme] = useTheme();
 

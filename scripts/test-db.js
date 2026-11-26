@@ -1,15 +1,12 @@
 #!/usr/bin/env node
 // A throwaway Postgres for running the tests locally.
 //
-// The route tests and the Playwright suite both need a real database --
-// they boot the actual app and exercise the real middleware chain, which is
-// the point of them. Until now that meant pointing DATABASE_URL at a cloud
-// database, which is awkward (you need credentials before you can run a
-// test) and risky (it is one typo away from running the suite, which
-// creates and deletes users and partners, against something real).
+// The route tests and the Playwright suite need a real database (they boot the actual app and
+// middleware chain). This avoids pointing DATABASE_URL at a cloud database, where a typo could
+// run a suite that creates and deletes users and partners against something real.
 //
-// This runs the same postgres:16 image CI uses, on port 5433 so it cannot
-// collide with a Postgres you already have on 5432.
+// It runs the same postgres:16 image CI uses, on port 5433 so it can't collide with a Postgres
+// on 5432.
 //
 // Usage:
 //   npm run test:db up     start it, apply migrations, seed, create an admin
@@ -28,8 +25,8 @@ const IMAGE = "postgres:16";
 
 const DATABASE_URL = `postgresql://${USER}:${PASSWORD}@localhost:${PORT}/${DB}`;
 
-// Credentials for the admin the suite logs in as. These match the defaults
-// in frontend/e2e/helpers.js, so `npx playwright test` needs no extra env.
+// Credentials for the admin the suite logs in as; these match the defaults in
+// frontend/e2e/helpers.js.
 const ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL || "demo@missionspartnertracker.com";
 const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD || "TryTheDemo2026!";
 
@@ -126,10 +123,8 @@ async function up() {
   run("npx", ["prisma", "migrate", "deploy"]);
 
   console.log("\nseeding...");
-  // SEED_DEMO_EXTRAS=false -- this database is what npm run test:routes
-  // and the Playwright suite run against next, and both assume nothing
-  // but their own fixtures have touched InboundEmail/DispatchRecord/
-  // User (see seed.js's own comment on this flag).
+  // SEED_DEMO_EXTRAS=false: npm run test:routes and the Playwright suite assume only their own
+  // fixtures touched InboundEmail/DispatchRecord/User (see seed.js).
   run("node", ["prisma/seed.js"], { SEED_DEMO_EXTRAS: "false" });
 
   console.log("\ncreating the admin the tests log in as...");

@@ -1,15 +1,19 @@
-import React from "react";
+import React, { useState } from "react";
 import { contactActions, primaryContactOf } from "../../utils/contactActions.js";
+import { contactLevelOf, methodLabel } from "../../utils/contactMethods.js";
 import { formatDateLong, todayInputValue, toDateInputValue } from "../../utils/format.js";
+import ContactCardEditor from "./ContactCardEditor.jsx";
+import { onClickUnlessSelecting } from "../../utils/clickableRow.js";
 
-// The contact card on a partner's page (#288): who to reach first, how they
-// prefer to be reached, one-tap actions, and when anyone last was in touch.
-// Shown to everyone who can see the partner.
+// The contact card on a partner's page: who to reach first, how they like to be reached, one-tap
+// actions, how careful to be, and when anyone last was in touch. Shown to everyone who can see the
+// partner.
 //
-// When the partner is marked NOT safe to contact, the tap actions (and the
-// number/address behind them) are replaced by the special communication
-// instructions staff wrote -- so the page can't nudge anyone into calling
-// someone who shouldn't be called.
+// The partner's contact level:
+//   normal    -- details and tap actions as usual;
+//   caution   -- the same under a warning with the guidelines, and only the ways the church ticked;
+//   no_direct -- the person's number, email and actions are hidden, replaced by who to go through
+//                and the guidelines, so the page can't nudge anyone into calling them.
 
 // Whole days between two yyyy-mm-dd strings, as local calendar days.
 function daysBetweenInputs(laterStr, earlierStr) {
@@ -18,10 +22,50 @@ function daysBetweenInputs(laterStr, earlierStr) {
   return Math.round((Date.UTC(ly, lm - 1, ld) - Date.UTC(ey, em - 1, ed)) / 86400000);
 }
 
-export default function ContactCard({ partner, adults = [], entries = [] }) {
+function ActionButtons({ actions }) {
+  if (actions.length === 0) return null;
+  return (
+    <div style={{ marginTop: "0.6rem", display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
+      {actions.map((a) => (
+        <a
+          key={a.key}
+          className="btn secondary small"
+          href={a.href}
+          {...(a.key === "whatsapp" ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+        >
+          {a.label}
+        </a>
+      ))}
+    </div>
+  );
+}
+
+export default function ContactCard({
+  partner,
+  adults = [],
+  entries = [],
+  showLog = true,
+  canEdit = false,
+  canEditCare = false,
+  careTeam = null,
+  onChanged,
+}) {
+  const [editing, setEditing] = useState(false);
   const person = primaryContactOf(partner, adults);
-  const unsafe = partner.kind !== "organization" && partner.contactSafe === false;
-  const actions = unsafe || !person ? [] : contactActions(person);
+  const isOrg = partner.kind === "organization";
+  const level = contactLevelOf(partner);
+  const channels = partner.contactChannels || [];
+  const hidden = level === "no_direct";
+
+  // The tap actions this person may be reached by: none when we are not to contact them
+  // directly, and only the ticked ways under caution.
+  let actions = hidden || !person ? [] : contactActions(person);
+  if (level === "caution" && channels.length > 0) actions = actions.filter((a) => channels.includes(a.key));
+  const viaActions = hidden
+    ? contactActions({ phone: partner.contactViaPhone, email: partner.contactViaEmail }).filter(
+        (a) => a.key === "call" || a.key === "email"
+      )
+    : [];
 
   const last = entries.reduce((m, e) => {
     const d = toDateInputValue(e.contactDate);
@@ -29,71 +73,144 @@ export default function ContactCard({ partner, adults = [], entries = [] }) {
   }, null);
   const days = last ? daysBetweenInputs(todayInputValue(), last) : null;
 
+  // Who else is in the family, and how they like to be reached.
+  const others = isOrg || hidden ? [] : adults.filter((a) => a.id !== person?.adultId && a.contactMethod);
+  const preferred = person?.method ? methodLabel(person.method, person.methodNote) : "";
+
   return (
+    // One card, two zones: the contact details on top open Edit contact, the care team below opens its
+    // own editor. Inside the contact zone the links and buttons (call, email) keep their own click; the
+    // title button is the keyboard way in.
     <div className="admin-section" id="contact-card" aria-label="Contact card">
-      <h3 style={{ margin: 0 }}>
-        <span aria-hidden="true">📇 </span>Contact
-      </h3>
-
-      {unsafe && (
-        <div
-          role="note"
-          style={{
-            marginTop: "0.6rem",
-            padding: "0.6rem 0.8rem",
-            borderRadius: "var(--radius, 6px)",
-            border: "1px solid var(--warn, #a6540f)",
-          }}
-        >
-          <strong>Special communication instructions</strong>
-          <div style={{ whiteSpace: "pre-wrap", marginTop: "0.25rem" }}>
-            {partner.contactInstructions || "Not safe to contact directly. Ask staff before reaching out."}
-          </div>
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
+      <div
+        className={canEdit ? "contact-zone contact-zone-clickable" : "contact-zone"}
+        onClick={
+          canEdit
+            ? onClickUnlessSelecting((e) => {
+                if (!e.target.closest("a, button, input, select, textarea, label, [role='button']"))
+                  setEditing(true);
+              })
+            : undefined
+        }
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "1rem" }}>
+          <h3 style={{ margin: 0, border: 0, padding: 0 }}>
+            <span aria-hidden="true">📇 </span>
+            {canEdit ? (
+              <button
+                type="button"
+                className="summary-item-link"
+                aria-label="Edit contact"
+                onClick={() => setEditing(true)}
+                style={{ font: "inherit", color: "inherit", textDecoration: "none" }}
+              >
+                Contact
+              </button>
+            ) : (
+              "Contact"
+            )}
+          </h3>
         </div>
-      )}
 
-      {person ? (
-        <div style={{ marginTop: "0.6rem" }}>
-          <div>
-            <strong>{person.name || "Contact"}</strong>
-            {person.isPrimary && <span style={{ color: "#666" }}> · primary contact</span>}
+        {level === "caution" && (
+          <div role="note" className="contact-notice contact-notice-caution">
+            <strong>Use caution</strong>
+            {channels.length > 0 && (
+              <div>Reach them by {channels.map((c) => methodLabel(c).toLowerCase()).join(" or ")} only.</div>
+            )}
+            {partner.contactInstructions && (
+              <div style={{ whiteSpace: "pre-wrap", marginTop: "0.25rem" }}>
+                {partner.contactInstructions}
+              </div>
+            )}
           </div>
-          {!unsafe && (person.phone || person.email) && (
-            <div style={{ fontSize: "0.9rem", color: "#555" }}>
-              {[person.phone, person.email].filter(Boolean).join(" · ")}
+        )}
+
+        {hidden && (
+          <div role="note" className="contact-notice contact-notice-stop">
+            <strong>Don't contact directly</strong>
+            <div style={{ whiteSpace: "pre-wrap", marginTop: "0.25rem" }}>
+              {partner.contactInstructions || "Ask staff before reaching out."}
             </div>
-          )}
-        </div>
-      ) : (
-        <p style={{ color: "#888", marginTop: "0.6rem" }}>No contact person on file yet.</p>
-      )}
+            {(partner.contactViaName || partner.contactViaPhone || partner.contactViaEmail) && (
+              <div style={{ marginTop: "0.6rem" }}>
+                <div style={{ fontSize: "0.8rem", textTransform: "uppercase", color: "var(--muted)" }}>
+                  Go through
+                </div>
+                <strong>{partner.contactViaName || "Their go-between"}</strong>
+                {partner.contactViaRole && (
+                  <span style={{ color: "var(--muted)" }}> · {partner.contactViaRole}</span>
+                )}
+                {(partner.contactViaPhone || partner.contactViaEmail) && (
+                  <div style={{ fontSize: "0.9rem", color: "var(--muted)" }}>
+                    {[partner.contactViaPhone, partner.contactViaEmail].filter(Boolean).join(" · ")}
+                  </div>
+                )}
+                <ActionButtons actions={viaActions} />
+              </div>
+            )}
+          </div>
+        )}
 
-      {partner.preferredContactMethod && (
-        <div style={{ marginTop: "0.3rem", fontSize: "0.9rem" }}>
-          Prefers: <strong>{partner.preferredContactMethod}</strong>
-        </div>
-      )}
+        {person ? (
+          <div style={{ marginTop: "0.6rem" }}>
+            <div>
+              <strong>{person.name || "Contact"}</strong>
+              {person.isPrimary && <span style={{ color: "var(--muted)" }}> · primary contact</span>}
+            </div>
+            {!hidden && (person.phone || person.email) && (
+              <div style={{ fontSize: "0.9rem", color: "var(--muted)" }}>
+                {[person.phone, person.email].filter(Boolean).join(" · ")}
+              </div>
+            )}
+          </div>
+        ) : (
+          <p style={{ color: "var(--muted)", marginTop: "0.6rem" }}>No contact person on file yet.</p>
+        )}
 
-      {actions.length > 0 && (
-        <div style={{ marginTop: "0.6rem", display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
-          {actions.map((a) => (
-            <a
-              key={a.key}
-              className="btn secondary small"
-              href={a.href}
-              {...(a.key === "whatsapp" ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-            >
-              {a.label}
-            </a>
-          ))}
-        </div>
-      )}
+        {!hidden && preferred && (
+          <div className="contact-highlight">
+            Prefers <strong>{preferred}</strong>
+          </div>
+        )}
 
-      <div style={{ marginTop: "0.6rem", fontSize: "0.9rem", color: "#555" }}>
-        {last
-          ? `Last contact: ${days === 0 ? "today" : days === 1 ? "yesterday" : `${days} days ago`} (${formatDateLong(last)})`
-          : "No contact logged yet."}
+        {!hidden && <ActionButtons actions={actions} />}
+
+        {others.length > 0 && (
+          <div style={{ marginTop: "0.6rem", fontSize: "0.9rem", color: "var(--muted)" }}>
+            {others.map((a) => (
+              <div key={a.id}>
+                {[a.firstName, a.lastName].filter(Boolean).join(" ")} prefers{" "}
+                {methodLabel(a.contactMethod, a.contactMethodNote)}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {showLog && (
+          <div style={{ marginTop: "0.6rem", fontSize: "0.9rem", color: "var(--muted)" }}>
+            {last
+              ? `Last contact: ${days === 0 ? "today" : days === 1 ? "yesterday" : `${days} days ago`} (${formatDateLong(last)})`
+              : "No contact logged yet."}
+          </div>
+        )}
       </div>
+
+      {careTeam && <div className="contact-care-team">{careTeam}</div>}
+
+      {editing && (
+        <ContactCardEditor
+          partner={partner}
+          adults={adults}
+          canEditCare={canEditCare}
+          onClose={() => setEditing(false)}
+          onSaved={() => {
+            setEditing(false);
+            onChanged?.();
+          }}
+        />
+      )}
     </div>
   );
 }

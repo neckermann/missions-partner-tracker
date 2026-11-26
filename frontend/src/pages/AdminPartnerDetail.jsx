@@ -51,8 +51,11 @@ import StatusPill from "../components/admin/StatusPill.jsx";
 import Field from "../components/admin/Field.jsx";
 import PhotoHistorySection from "../components/admin/PhotoHistorySection.jsx";
 import CareTeamPanel from "../components/admin/CareTeamPanel.jsx";
+import { contactLevelOf } from "../utils/contactMethods.js";
 import ContactCard from "../components/admin/ContactCard.jsx";
 import SupportPreferencesCard from "../components/admin/SupportPreferencesCard.jsx";
+import SuggestInput from "../components/SuggestInput.jsx";
+import SurveysCard from "../components/admin/SurveysCard.jsx";
 import ContactLogSection from "../components/admin/ContactLogSection.jsx";
 import PartnerSummaryCard from "../components/admin/PartnerSummaryCard.jsx";
 import RecordList from "../components/admin/RecordList.jsx";
@@ -93,11 +96,9 @@ import usePartnerRecordCrud from "../hooks/usePartnerRecordCrud.jsx";
 import useLoadMore from "../hooks/useLoadMore.js";
 import useCurrentUser from "../hooks/useCurrentUser.js";
 
-// A cleared <input type="date"> is "", which `z.coerce.date()` turns into an
-// Invalid Date and rejects -- "no date" has to travel as null.
+// A cleared <input type="date"> is "", which `z.coerce.date()` rejects as Invalid Date;
+// "no date" must travel as null.
 const dateOrNull = (value) => value || null;
-
-const CONTACT_METHOD_PRESETS = ["Email", "Phone", "WhatsApp", "Signal"];
 
 const emptyAddress = {
   addressLine1: "",
@@ -108,9 +109,8 @@ const emptyAddress = {
   country: "",
 };
 
-// An address the user never filled in shouldn't be persisted as a row of
-// empty strings -- the API treats a present `physical`/`mailing` key as
-// "this address exists", so an untouched one is sent as undefined instead.
+// An address the user never filled in isn't persisted as empty strings: the API treats a
+// present `physical`/`mailing` key as "this address exists", so an untouched one is undefined.
 function hasAnyAddressValue(address) {
   return (
     Object.keys(emptyAddress).some((key) => Boolean(address[key] && String(address[key]).trim())) ||
@@ -121,8 +121,7 @@ function hasAnyAddressValue(address) {
   );
 }
 
-// GPS comes back from a number input as a string; the API wants a number
-// or null.
+// GPS comes back from a number input as a string; the API wants a number or null.
 function cleanAddress(address) {
   const num = (v) => (v === "" || v == null ? null : Number(v));
   const cleaned = { ...address, gpsLat: num(address.gpsLat), gpsLng: num(address.gpsLng) };
@@ -158,9 +157,8 @@ export function AddressSummary({ address }) {
   );
 }
 
-// The partner page *is* the record: every section saves only its own fields
-// through the partial PUT, rather than routing everything through one
-// whole-record form. See EditableSection for the reasoning.
+// The partner page is the record: every section saves only its own fields through the
+// partial PUT (see EditableSection).
 export default function AdminPartnerDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -241,32 +239,20 @@ export default function AdminPartnerDetail() {
   const [supportEntryForm, setSupportEntryForm] = useState(null);
   const [fileForm, setFileForm] = useState(null);
   const [fileBlob, setFileBlob] = useState(null);
-  // Click-to-view/edit popups for an *existing* Prayer Request/One-Time
-  // Need/Newsletter & Doc item (see the summary cards below) -- `{ id,
-  // form }`, distinct from the above add-forms. Each one's `form` key
-  // only holds what that resource's own FormFields component edits.
+  // Click-to-view/edit popups for an existing Prayer Request/One-Time Need/Newsletter & Doc
+  // item: `{ id, form }`, separate from the add-forms.
   const [prayerDetail, setPrayerDetail] = useState(null);
   const [needDetail, setNeedDetail] = useState(null);
   const [fileDetail, setFileDetail] = useState(null);
-  // Which specific record "Mark Answered"/"Record Decision" targets --
-  // previously these actions were hardcoded to prayerRequests[0]/
-  // needRequests[0] (the single most recent item), which silently acted on
-  // the wrong record whenever more than one item was still undecided. Set
-  // from the item that was actually clicked (either the summary card's own
-  // list, or the view popup's own "Record Decision"/"Mark Answered"
-  // button), same as AdminOneTimeNeeds.jsx/AdminPrayerRequests.jsx already
-  // do it correctly.
+  // Which record "Mark Answered"/"Record Decision" targets: the item actually clicked, not
+  // the most recent one.
   const [answeringPrayer, setAnsweringPrayer] = useState(null);
   const [decidingNeed, setDecidingNeed] = useState(null);
 
-  // React Router keeps this same component instance mounted across a
-  // /partners/:id param change -- it doesn't remount. reload() is passed
-  // as onSaved/onChange to nearly every section on this page, so a save on
-  // partner A that's still in flight when the admin navigates to partner B
-  // would otherwise land A's data on B's screen once it resolves. idRef is
-  // kept current every render (not just via reload's own closure) so a
-  // reload() call can tell, when it finally resolves, whether the id it
-  // was fetching for is still the one being viewed.
+  // React Router keeps this component mounted across a /partners/:id change. reload() is the
+  // onSaved/onChange of nearly every section, so a slow response for partner A must not land on
+  // partner B's screen: idRef is current every render so reload() can check, when it resolves,
+  // that its id is still the one viewed.
   const idRef = useRef(id);
   idRef.current = id;
 
@@ -277,14 +263,20 @@ export default function AdminPartnerDetail() {
         if (idRef.current === requestId) setP(data);
       }),
       Promise.all([
-        fetchPrayerRequests({ partnerId: id }),
-        fetchPartnerFiles({ partnerId: id }),
-        // Monthly support is never shown to a guest (#289) -- and its route
-        // 403s for them -- so don't ask. One-time needs they do read.
-        isGuest ? Promise.resolve([]) : fetchSupportEntries({ partnerId: id }),
-        // One-time needs are a care team view (#289): a guest who reaches this
-        // partner only through a trip never sees them, and their route 403s.
-        isGuest && !isOnCareTeamFor(id) ? Promise.resolve([]) : fetchSupportNeeds({ partnerId: id }),
+        // A list is fetched only while its feature is on: a feature that is off answers 404, and
+        // one rejected request would take the whole page down as "not found".
+        enabledFeatures.prayerRequests ? fetchPrayerRequests({ partnerId: id }) : Promise.resolve([]),
+        enabledFeatures.partnerFiles ? fetchPartnerFiles({ partnerId: id }) : Promise.resolve([]),
+        // Monthly support is never shown to a guest, and its route 403s for them. One-time
+        // needs they do read.
+        isGuest || !enabledFeatures.monthlySupport
+          ? Promise.resolve([])
+          : fetchSupportEntries({ partnerId: id }),
+        // One-time needs are a care team view: a guest reaching this partner only through a
+        // trip never sees them, and their route 403s.
+        !enabledFeatures.oneTimeNeeds || (isGuest && !isOnCareTeamFor(id))
+          ? Promise.resolve([])
+          : fetchSupportNeeds({ partnerId: id }),
         enabledFeatures.trips ? fetchTrips({ partnerId: id }) : Promise.resolve([]),
         fetchAdults({ partnerId: id }),
         fetchChildren({ partnerId: id }),
@@ -331,9 +323,8 @@ export default function AdminPartnerDetail() {
 
   const { user, canWrite, isAdmin, isGuest, isOnCareTeamFor, loading: userLoading } = useCurrentUser();
 
-  // Contact log (#288): shared by the contact card up top and the log
-  // section below. Anyone who can see the partner may use it, except a trip
-  // leader (a guest without a seat here), whose scope is smaller.
+  // Contact log: shared by the contact card and the log section. Anyone who can see the
+  // partner may use it, except a trip leader (a guest without a seat here).
   const [contactEntries, setContactEntries] = useState([]);
   const [teammates, setTeammates] = useState([]);
   const contactLogShown = !!enabledFeatures.contactLog && (!isGuest || isOnCareTeamFor(id));
@@ -354,13 +345,22 @@ export default function AdminPartnerDetail() {
         )
         .catch(console.error);
     }
+    // The lists reload() asks for depend on which features are on, and the settings can arrive after
+    // the first render, so a change to one of those reloads the page.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, userLoading, contactLogShown]);
+  }, [
+    id,
+    userLoading,
+    contactLogShown,
+    enabledFeatures.prayerRequests,
+    enabledFeatures.partnerFiles,
+    enabledFeatures.monthlySupport,
+    enabledFeatures.oneTimeNeeds,
+  ]);
 
   useEffect(() => {
-    // Wait for the role before loading: what to fetch depends on it (a guest
-    // skips support amounts, whose routes 403 for them -- and one rejected
-    // request would reject the whole Promise.all in reload()).
+    // Wait for the role: what to fetch depends on it (a guest skips support amounts, whose
+    // routes 403), and one rejected request would reject the whole Promise.all in reload().
     if (userLoading) return;
     setLoadError(null);
     reload().catch((err) => {
@@ -372,15 +372,10 @@ export default function AdminPartnerDetail() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, isGuest, userLoading]);
 
-  // Called unconditionally, before the loading guard below, so the number
-  // of hooks this component calls doesn't change between the "still
-  // loading" render (p is null) and every render after -- see Rules of
-  // Hooks.
+  // Called before the loading guard so the hook count doesn't change between renders.
   useRecordRecentlyViewed(p && { to: `/admin/partners/${p.id}`, label: p.displayName, kind: "Partner" });
 
-  // Shows a couple of entries right here instead of only linking out to
-  // the consolidated Monthly Support page, which may not stick around --
-  // see PartnerSummaryCard's own hasMore/remaining/onShowMore props.
+  // Show a couple of entries here (see PartnerSummaryCard's hasMore/remaining/onShowMore).
   const supportEntriesLoadMore = useLoadMore(collections.supportEntries, { initialCount: 2, step: 100 });
   const churchVisitsLoadMore = useLoadMore(collections.churchVisits, { initialCount: 2, step: 100 });
   const furloughsLoadMore = useLoadMore(collections.furloughs, { initialCount: 2, step: 100 });
@@ -406,32 +401,21 @@ export default function AdminPartnerDetail() {
   const isOrg = p.kind === "organization";
   const save = (patch) => updatePartner(id, patch);
 
-  // Same precondition "Mark as urgent"/"Review and approve now" gate as
-  // AdminPrayerRequests.jsx/AdminOneTimeNeeds.jsx -- these quick-add modals
-  // reuse the exact same create flow (useUrgentApprovalGate), just with a
-  // fixed partner instead of a picker.
+  // Same precondition as "Mark as urgent"/"Review and approve now" in AdminPrayerRequests.jsx
+  // and AdminOneTimeNeeds.jsx (useUrgentApprovalGate), with a fixed partner instead of a picker.
   const hasEnabledChannel =
     enabledFeatures.groupme || enabledFeatures.whatsapp || enabledFeatures.outboundEmail;
   const usedLinkTypes = new Set(collections.links.map((l) => l.type));
   const allowRestrictedPartnerDispatch = churchSettings?.allowRestrictedPartnerDispatch !== false;
   const canApproveNow = !!p.isRestricted && hasEnabledChannel && allowRestrictedPartnerDispatch;
-  // Gates whether clicking a Prayer Request/One-Time Need/Newsletter &
-  // Doc summary-card item opens an editable form or a read-only view --
-  // matches the roles these resources' own PUT routes already require
-  // (requireRole("admin", "editor")), so a viewer never sees a Save
-  // button for something the server would reject anyway. Also gates every
-  // EditableSection/RecordList/PhotoHistorySection/PartnerSummaryCard
-  // mutate action on this page -- `canDelete` (admin-only) is separate
-  // since delete permission is admin-only for every one of this page's
-  // child collections (adults/children/furloughs/church visits/languages/
-  // links/trip types) and photos, confirmed against each resource's own
-  // DELETE route.
-  // A care team member who isn't staff (#289) has what an editor has on this
-  // partner -- every section here -- except: they never see monthly support
-  // (hidden for guests above), never record a decision on a one-time need
-  // (the committee's -- `canWrite` below gates it), never delete, and no "send
-  // right away": whatever they enter is saved at once but its dispatch is held
-  // for staff review. `limited` hides those send-right-away controls.
+  // Whether a summary-card item opens an editable form or a read-only view. Matches the roles
+  // of those resources' PUT routes (requireRole("admin", "editor")), so a viewer never sees a
+  // Save button the server would reject. Also gates every mutate action on this page.
+  // `canDelete` (admin-only) is separate: delete is admin-only for every child collection.
+  // A care team member who isn't staff has editor rights here except: no monthly support
+  // (hidden for guests above), no recording a decision on a one-time need (the committee's;
+  // `canWrite` gates it), no delete, and no "send right away" (their dispatch is held for
+  // staff review). `limited` hides those controls.
   const onTeam = isOnCareTeamFor(id);
   const canEdit = canWrite || onTeam;
   const canDelete = isAdmin;
@@ -440,13 +424,8 @@ export default function AdminPartnerDetail() {
   const canEditPrayer = () => canEdit;
   const canEditNeed = () => canEdit;
 
-  // One-click shortcut for the common case (praying for a partner during
-  // today's service and recording it right after) -- same today's-date
-  // convenience as every "Mark ___" quick action on this page
-  // (submitMarkAnswered etc.), just without its own confirmation modal
-  // since there's nothing to fill in. Catching up on a date in the past
-  // still goes through the EditableSection's own edit popup below, same
-  // as every other date field on this page.
+  // One-click shortcut for praying during today's service: records today's date with no
+  // confirmation modal. Past dates still go through the EditableSection's edit popup.
   async function markPrayedWithCongregationToday() {
     await save({ lastPrayedWithCongregationAt: todayInputValue() });
     await reload();
@@ -512,11 +491,9 @@ export default function AdminPartnerDetail() {
     await reload();
   }
 
-  // Opens any prayer request from the summary card's list, not just the
-  // most recent -- `setPrayerDetail`'s updater wraps whatever
-  // PrayerRequestFormFields passes it (a plain object or a `(prev) =>
-  // next` function, same contract every other form here uses) so it
-  // still only ever touches this item's own `form` key.
+  // Opens any prayer request from the summary list, not just the most recent. The
+  // `setPrayerDetail` updater wraps whatever PrayerRequestFormFields passes it so it only
+  // touches this item's own `form` key.
   function openPrayerDetail(item) {
     setPrayerDetail({
       id: item.id,
@@ -729,9 +706,8 @@ export default function AdminPartnerDetail() {
     });
   };
 
-  // The user's calendar date, not UTC's: comparing against the UTC date made
-  // a furlough starting tomorrow read as already active for the last hours
-  // of the day west of UTC.
+  // The user's calendar date, not UTC's: UTC made a furlough starting tomorrow read as
+  // active late in the day west of UTC.
   const today = todayInputValue();
   const activeFurlough = (p.furloughs || []).find((f) => {
     const start = String(f.startDate).slice(0, 10);
@@ -741,8 +717,7 @@ export default function AdminPartnerDetail() {
 
   return (
     <div className="admin-shell">
-      {/* A guest has no Partners directory to go back to (same trimming as the
-          trip pages' breadcrumbs). */}
+      {/* A guest has no Partners directory to go back to. */}
       <Breadcrumb
         items={
           isGuest
@@ -760,12 +735,16 @@ export default function AdminPartnerDetail() {
         )}
       </div>
 
-      {/* Only what is out of the ordinary: the usual state (safe to contact, shown
-          on the public site, not sent by us) is in the Status & Visibility card
-          below, and repeating it here made every page look the same. */}
+      {/* Only what is out of the ordinary; the usual state is in the Status & Visibility card. */}
       {(() => {
         const pills = [
-          !isOrg && !p.contactSafe && <StatusPill key="unsafe" label="Not safe to contact" color="#a6540f" />,
+          !isOrg && contactLevelOf(p) !== "normal" && (
+            <StatusPill
+              key="unsafe"
+              label={contactLevelOf(p) === "no_direct" ? "Don't contact directly" : "Use caution"}
+              color="#a6540f"
+            />
+          ),
           !p.isPublic && <StatusPill key="notpublic" label="Not public" color="#6b6f76" />,
           p.isRestricted && <StatusPill key="restricted" label="Restricted-access" color="#a6540f" />,
           !isOrg && p.sentByOurChurch && (
@@ -785,28 +764,34 @@ export default function AdminPartnerDetail() {
         );
       })()}
 
-      {enabledFeatures.careTeam && (
-        <CareTeamPanel partnerId={p.id} canEdit={canWrite} canInviteGuest={isAdmin} />
-      )}
-
-      {contactLogShown && <ContactCard partner={p} adults={collections.adults} entries={contactEntries} />}
-
-      {enabledFeatures.supportPreferences && enabledFeatures.careTeam && (
-        <SupportPreferencesCard partnerId={p.id} isAdmin={isAdmin} />
-      )}
+      <ContactCard
+        careTeam={
+          enabledFeatures.careTeam && (
+            <CareTeamPanel compact partnerId={p.id} canEdit={canWrite} canInviteGuest={isAdmin} />
+          )
+        }
+        partner={p}
+        adults={collections.adults}
+        entries={contactEntries}
+        showLog={contactLogShown}
+        canEdit={canEdit}
+        canEditCare={canWrite}
+        onChanged={reload}
+      />
 
       <div className="partner-jump-rail">
         {[
           { label: "Overview", href: "#section-overview" },
           !isOrg && { label: "Family & Personal", href: "#section-family" },
           { label: "Location & Contact", href: "#section-location" },
+          { label: "Care", href: "#section-care" },
+          { label: "Communication", href: "#section-communication" },
           ((!isGuest && enabledFeatures.monthlySupport) ||
             (enabledFeatures.oneTimeNeeds && (!isGuest || isOnCareTeamFor(id)))) && {
             label: isGuest ? "One-Time Needs" : "Financial",
             href: "#section-financial",
           },
           { label: "Mission Trips", href: "#section-trips" },
-          { label: "Communication", href: "#section-communication" },
         ]
           .filter(Boolean)
           .map((item) => (
@@ -826,9 +811,6 @@ export default function AdminPartnerDetail() {
             displayName: p.displayName,
             isPublic: p.isPublic,
             isRestricted: p.isRestricted,
-            ...(!isOrg
-              ? { contactSafe: p.contactSafe, contactInstructions: p.contactInstructions || "" }
-              : {}),
           }}
           view={(v) => (
             <>
@@ -836,11 +818,7 @@ export default function AdminPartnerDetail() {
               <div className="admin-checkbox-row" style={{ marginTop: "0.75rem" }}>
                 <Field label="Shown on public site" value={v.isPublic ? "Yes" : "No"} />
                 <Field label="Restricted-access location" value={v.isRestricted ? "Yes" : "No"} />
-                {!isOrg && <Field label="Safe to Contact" value={v.contactSafe ? "Yes" : "No"} />}
               </div>
-              {!isOrg && !v.contactSafe && v.contactInstructions && (
-                <Field label="Special communication instructions" value={v.contactInstructions} />
-              )}
             </>
           )}
           edit={(d, set) => (
@@ -866,39 +844,12 @@ export default function AdminPartnerDetail() {
                   />
                   Restricted-access location
                 </label>
-                {!isOrg && (
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={d.contactSafe}
-                      onChange={(e) => set("contactSafe", e.target.checked)}
-                    />
-                    Safe to contact
-                  </label>
-                )}
               </div>
-              {!isOrg && !d.contactSafe && (
-                <label style={{ display: "block", marginTop: "0.75rem" }}>
-                  Special communication instructions
-                  <textarea
-                    rows={3}
-                    value={d.contactInstructions}
-                    onChange={(e) => set("contactInstructions", e.target.value)}
-                    placeholder="How, if at all, should this partner be contacted? Shown instead of the call/text/email buttons."
-                  />
-                </label>
-              )}
             </>
           )}
         />
 
-        <PhotoHistorySection
-          partnerId={p.id}
-          photos={p.photos}
-          onChange={reload}
-          canEdit={canEdit}
-          canDelete={canDelete}
-        />
+        <PhotoHistorySection partnerId={p.id} photos={p.photos} onChange={reload} canEdit={canEdit} />
 
         <EditableSection
           title="Ministry Overview"
@@ -939,6 +890,59 @@ export default function AdminPartnerDetail() {
           )}
         />
 
+        <EditableSection
+          title="Our History With Them"
+          canEdit={canEdit}
+          onSaved={reload}
+          onSave={(d) =>
+            save({
+              commissionedAt: dateOrNull(d.commissionedAt),
+              // Partnering since is financial history: a guest never sees (or sends) it.
+              ...(isGuest ? {} : { supportingSince: dateOrNull(d.supportingSince) }),
+            })
+          }
+          value={{
+            commissionedAt: toDateInputValue(p.commissionedAt),
+            supportingSince: toDateInputValue(p.supportingSince),
+          }}
+          view={(v) => (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "1.5rem" }}>
+              <Field label="Commissioned" value={formatDateLong(v.commissionedAt)} showEmpty />
+              {!isGuest && (
+                <Field label="Partnering since" value={formatDateLong(v.supportingSince)} showEmpty />
+              )}
+            </div>
+          )}
+          edit={(d, set) => (
+            <>
+              <p style={{ color: "var(--muted)", marginTop: 0 }}>
+                They may have been commissioned long before our church began to walk with them, so these are
+                two separate dates. Each anniversary is a key date for their care team.
+              </p>
+              <div className="form-grid">
+                <label title="When they were commissioned: possibly before we knew them.">
+                  Commissioned
+                  <input
+                    type="date"
+                    value={d.commissionedAt}
+                    onChange={(e) => set("commissionedAt", e.target.value)}
+                  />
+                </label>
+                {!isGuest && (
+                  <label title="When our church began partnering with them. Only the year is shown publicly, on the public pages.">
+                    Partnering since
+                    <input
+                      type="date"
+                      value={d.supportingSince}
+                      onChange={(e) => set("supportingSince", e.target.value)}
+                    />
+                  </label>
+                )}
+              </div>
+            </>
+          )}
+        />
+
         <div className="admin-section-group" id="section-family">
           <h2 className="admin-group-heading">Family &amp; Personal</h2>
 
@@ -969,7 +973,6 @@ export default function AdminPartnerDetail() {
             <RecordList
               title="Adults"
               canEdit={canEdit}
-              canDelete={canDelete}
               items={collections.adults}
               renderItem={(a) => (
                 <>
@@ -1003,12 +1006,6 @@ export default function AdminPartnerDetail() {
                   birthday: toDateInputValue(a.birthday),
                 })
               }
-              onDelete={(a) =>
-                adultCrud.handleDelete(
-                  a,
-                  (item) => `Delete ${[item.firstName, item.lastName].filter(Boolean).join(" ")}?`
-                )
-              }
             />
           )}
 
@@ -1016,7 +1013,6 @@ export default function AdminPartnerDetail() {
             <RecordList
               title="Children"
               canEdit={canEdit}
-              canDelete={canDelete}
               items={collections.children}
               renderItem={(c) => (
                 <>
@@ -1032,12 +1028,6 @@ export default function AdminPartnerDetail() {
                   birthday: toDateInputValue(c.birthday),
                 })
               }
-              onDelete={(c) =>
-                childCrud.handleDelete(
-                  c,
-                  (item) => `Delete ${[item.firstName, item.lastName].filter(Boolean).join(" ")}?`
-                )
-              }
             />
           )}
 
@@ -1045,7 +1035,6 @@ export default function AdminPartnerDetail() {
             <RecordList
               title="Languages Spoken"
               canEdit={canEdit}
-              canDelete={canDelete}
               items={collections.languages}
               renderItem={(l) => (
                 <>
@@ -1061,7 +1050,6 @@ export default function AdminPartnerDetail() {
               onEdit={(l) =>
                 languageCrud.openEdit(l.id, { language: l.language, proficiency: l.proficiency || "" })
               }
-              onDelete={(l) => languageCrud.handleDelete(l, (item) => `Delete ${item.language}?`)}
             />
           )}
 
@@ -1144,13 +1132,10 @@ export default function AdminPartnerDetail() {
                       value={d.fieldDisplayName}
                       onChange={(e) => set("fieldDisplayName", e.target.value)}
                     />
-                    {/* This field is published even for a restricted partner --
-                        see toPublicPartner in backend/src/utils/maskData.js. The
-                        masking hides the name and coarsens the map pin to a
-                        country centroid, so a sub-national region typed here
-                        gives back most of what the masking just removed.
-                        isRestricted itself now lives in Status & Visibility,
-                        so this reads the partner record directly. */}
+                    {/* Published even for a restricted partner (see toPublicPartner in
+                        backend/src/utils/maskData.js). Masking hides the name and coarsens
+                        the pin to a country centroid, so a sub-national region typed here
+                        would give back what the masking removed. */}
                     {p.isRestricted && (
                       <span className="field-warning">
                         Shown publicly, even though this partner is restricted. Their name is masked to
@@ -1170,14 +1155,12 @@ export default function AdminPartnerDetail() {
                   )}
                 </div>
                 <AddressFields
-                  idPrefix="physical"
                   value={d.address}
                   onChange={(addr) => {
                     set("address", addr);
-                    // Fill the FIPS code from a recognized country name, but
-                    // never overwrite one that's already there -- FIPS and ISO
-                    // disagree for many countries and the existing value may
-                    // be a deliberate choice.
+                    // Fill the FIPS code from a recognized country name, but never
+                    // overwrite an existing one: FIPS and ISO disagree for many countries
+                    // and the value may be deliberate.
                     if (!d.fipsCountryCode && addr.country !== d.address.country) {
                       const fips = getFipsCode(addr.country);
                       if (fips) set("fipsCountryCode", fips);
@@ -1189,12 +1172,9 @@ export default function AdminPartnerDetail() {
             )}
           />
 
-          {/* Its own plain (non-clickable) card, not nested inside Serving
-              Location's EditableSection above -- it used to be, and the
-              "Show Country Statistics" button's click bubbled up into that
-              card's own onClick, silently opening the edit popup instead of
-              expanding the stats. See CountryStats.jsx's own comment for why
-              it now loads by default rather than behind that button. */}
+          {/* Its own plain card, not nested in Serving Location's EditableSection: the
+              "Show Country Statistics" click would bubble into that card's onClick and
+              open the edit popup. See CountryStats.jsx. */}
           {enabledFeatures.joshuaProject && p.fipsCountryCode && (
             <div className="admin-section">
               <h3>Joshua Project Statistics</h3>
@@ -1212,7 +1192,6 @@ export default function AdminPartnerDetail() {
             value={{
               address: { ...emptyAddress, receiveMail: false, receivePackages: false, ...mailing },
               orgType: p.orgType || "Local",
-              preferredContactMethod: p.preferredContactMethod || "",
               contactFirstName: p.contactFirstName || "",
               contactLastName: p.contactLastName || "",
               contactPhone: p.contactPhone || "",
@@ -1220,7 +1199,6 @@ export default function AdminPartnerDetail() {
             }}
             view={(v) => (
               <>
-                <Field label="Preferred Contact Method" value={v.preferredContactMethod} showEmpty />
                 {isOrg && (
                   <div style={{ display: "flex", flexWrap: "wrap", gap: "1.5rem", marginTop: "0.75rem" }}>
                     <Field
@@ -1249,15 +1227,6 @@ export default function AdminPartnerDetail() {
                       </select>
                     </label>
                   )}
-                  <label>
-                    Preferred Contact Method
-                    <PresetOrCustomSelect
-                      value={d.preferredContactMethod}
-                      onChange={(v) => set("preferredContactMethod", v)}
-                      presets={CONTACT_METHOD_PRESETS}
-                      placeholder="e.g. Telegram"
-                    />
-                  </label>
                   {isOrg && (
                     <>
                       <label>
@@ -1286,12 +1255,7 @@ export default function AdminPartnerDetail() {
                   )}
                 </div>
                 <div style={{ marginTop: "1rem" }}>
-                  <AddressFields
-                    idPrefix="mailing"
-                    value={d.address}
-                    onChange={(addr) => set("address", addr)}
-                    showMailFlags
-                  />
+                  <AddressFields value={d.address} onChange={(addr) => set("address", addr)} showMailFlags />
                 </div>
               </>
             )}
@@ -1412,7 +1376,6 @@ export default function AdminPartnerDetail() {
                     </div>
                     <h4 style={{ marginTop: "1rem" }}>Mailing Address</h4>
                     <AddressFields
-                      idPrefix={key}
                       value={d.mailingAddress}
                       onChange={(addr) => set("mailingAddress", addr)}
                     />
@@ -1424,7 +1387,6 @@ export default function AdminPartnerDetail() {
           <RecordList
             title="Links &amp; Social Media"
             canEdit={canEdit}
-            canDelete={canDelete}
             items={collections.links}
             renderItem={(l) => (
               <Field
@@ -1444,220 +1406,82 @@ export default function AdminPartnerDetail() {
             }
             addLabel={collections.links.length >= LINK_TYPES.length ? null : "+ Add Link"}
             onEdit={(l) => linkCrud.openEdit(l.id, { type: l.type, url: l.url })}
-            onDelete={(l) =>
-              linkCrud.handleDelete(l, (item) => `Delete the ${linkTypeLabel(item.type)} link?`)
-            }
           />
         </div>
 
-        {((!isGuest && enabledFeatures.monthlySupport) ||
-          (enabledFeatures.oneTimeNeeds && (!isGuest || isOnCareTeamFor(id)))) && (
-          <div className="admin-section-group" id="section-financial">
-            <h2 className="admin-group-heading">{isGuest ? "One-Time Needs" : "Financial"}</h2>
+        <div className="admin-section-group" id="section-care">
+          <h2 className="admin-group-heading">Care &amp; Follow-up</h2>
 
-            {/* Monthly support, and how long we've given it, are never shown to a guest. */}
-            {!isGuest && (
-              <EditableSection
-                title="Supporting Since"
-                canEdit={canEdit}
-                onSaved={reload}
-                onSave={(d) => save({ supportingSince: dateOrNull(d.supportingSince) })}
-                value={{ supportingSince: toDateInputValue(p.supportingSince) }}
-                view={(v) => (
-                  <Field label="Supporting Since" value={formatDateLong(v.supportingSince)} showEmpty />
-                )}
-                edit={(d, set) => (
-                  <label>
-                    Supporting Since
-                    <input
-                      type="date"
-                      value={d.supportingSince}
-                      onChange={(e) => set("supportingSince", e.target.value)}
-                    />
-                  </label>
-                )}
-              />
-            )}
+          {enabledFeatures.supportPreferences && (
+            <SupportPreferencesCard partnerId={p.id} isAdmin={isAdmin} />
+          )}
 
-            {enabledFeatures.monthlySupport && !isGuest && (
-              <PartnerSummaryCard
-                icon="🤲"
-                title="Monthly Support"
-                count={collections.supportEntries.length}
-                items={supportEntriesLoadMore.visible.map(
-                  (e) => `${formatCurrency(e.amount)}/mo as of ${formatDate(e.effectiveDate)}`
-                )}
-                hasMore={supportEntriesLoadMore.hasMore}
-                remaining={supportEntriesLoadMore.remaining}
-                onShowMore={supportEntriesLoadMore.showMore}
-                actions={canEdit ? [{ label: "+ Add", onClick: openAddSupportEntry }] : []}
-              />
-            )}
+          {enabledFeatures.surveys && <SurveysCard partnerId={p.id} />}
 
-            {enabledFeatures.oneTimeNeeds && (!isGuest || isOnCareTeamFor(id)) && (
-              <PartnerSummaryCard
-                icon="🎁"
-                title="One-Time Needs"
-                count={collections.needRequests.length}
-                items={needRequestsLoadMore.visible.map((n) => ({
-                  text: `${truncate(n.description, 60)} · ${formatCurrency(n.requestedAmount)} · ${
-                    supportNeedStatus(n).label
-                  }`,
-                  onClick: () => openNeedDetail(n),
-                }))}
-                hasMore={needRequestsLoadMore.hasMore}
-                remaining={needRequestsLoadMore.remaining}
-                onShowMore={needRequestsLoadMore.showMore}
-                viewAllTo={`/admin/support/needs?partnerId=${p.id}`}
-                actions={canSubmit ? [{ label: "+ Add", onClick: openAddNeed }] : []}
-              />
-            )}
-          </div>
-        )}
-
-        <div className="admin-section-group" id="section-trips">
-          <h2 className="admin-group-heading">Mission Trips</h2>
-
-          {enabledFeatures.trips && (
-            <PartnerSummaryCard
-              icon="✈️"
-              title="Mission Trips"
-              count={collections.trips.length}
-              items={tripsLoadMore.visible.map((t) => ({
-                text: `${t.name || t.type || "Trip"}${t.startDate ? ` · ${formatDate(t.startDate)}` : ""}${
-                  t.status ? ` · ${t.status}` : ""
-                }`,
-                onClick: () => navigate(`/admin/trips/${t.id}`),
-              }))}
-              hasMore={tripsLoadMore.hasMore}
-              remaining={tripsLoadMore.remaining}
-              onShowMore={tripsLoadMore.showMore}
-              viewAllTo={`/admin/trips?partnerId=${p.id}`}
-              actions={
-                // Starting a trip is staff's: a care team member can see this
-                // partner's trips but not create one (#289).
-                canWrite
-                  ? [
-                      {
-                        label: "+ Add",
-                        onClick: () => navigate(`/admin/trips?partnerId=${p.id}&newTrip=1`),
-                      },
-                    ]
-                  : []
-              }
+          {contactLogShown && (
+            <ContactLogSection
+              partnerId={p.id}
+              entries={contactEntries}
+              onChanged={reloadContactLog}
+              canFix={canWrite}
+              currentUserId={user?.id}
+              teammates={teammates}
             />
           )}
 
-          <EditableSection
-            title="Trip Capacity"
+          <RecordList
+            title="Church Visits"
             canEdit={canEdit}
-            onSaved={reload}
-            onSave={(d) =>
-              save({
-                tripTeamSizeMin: d.tripTeamSizeMin === "" ? null : Number(d.tripTeamSizeMin),
-                tripTeamSizeMax: d.tripTeamSizeMax === "" ? null : Number(d.tripTeamSizeMax),
-                tripSeasonNotes: d.tripSeasonNotes || null,
-                tripLogisticsNotes: d.tripLogisticsNotes || null,
+            items={churchVisitsLoadMore.visible}
+            renderItem={(v) => (
+              <>
+                <Field label="Visit Date" value={formatDateLong(v.visitDate)} showEmpty />
+                <Field label="Notes" value={v.notes} />
+              </>
+            )}
+            onAdd={() => churchVisitCrud.openAdd({ visitDate: "", notes: "" })}
+            onEdit={(v) =>
+              churchVisitCrud.openEdit(v.id, {
+                visitDate: toDateInputValue(v.visitDate),
+                notes: v.notes || "",
               })
             }
-            value={{
-              tripTeamSizeMin: p.tripTeamSizeMin ?? "",
-              tripTeamSizeMax: p.tripTeamSizeMax ?? "",
-              tripSeasonNotes: p.tripSeasonNotes || "",
-              tripLogisticsNotes: p.tripLogisticsNotes || "",
-            }}
-            view={(v) => (
-              <>
-                <Field
-                  label="Team Size"
-                  value={
-                    v.tripTeamSizeMin !== "" || v.tripTeamSizeMax !== ""
-                      ? `${v.tripTeamSizeMin === "" ? "?" : v.tripTeamSizeMin} – ${
-                          v.tripTeamSizeMax === "" ? "?" : v.tripTeamSizeMax
-                        }`
-                      : null
-                  }
-                  showEmpty
-                />
-                <div style={{ marginTop: "0.75rem" }}>
-                  <Field label="Best Time of Year / Duration Notes" value={v.tripSeasonNotes} />
-                  <Field label="Lodging &amp; Logistics Notes" value={v.tripLogisticsNotes} />
-                </div>
-                <div
-                  style={{ marginTop: "1rem", paddingTop: "0.75rem", borderTop: "1px solid var(--border)" }}
-                >
-                  <RecordList
-                    bare
-                    canEdit={canEdit}
-                    canDelete={canDelete}
-                    items={collections.tripTypes}
-                    renderItem={(t) => <Field label="Type" value={t.type} />}
-                    addLabel="+ Add Type"
-                    onAdd={() => tripTypeCrud.openAdd({ type: "" })}
-                    onEdit={(t) => tripTypeCrud.openEdit(t.id, { type: t.type })}
-                    onDelete={(t) => tripTypeCrud.handleDelete(t, (item) => `Delete "${item.type}"?`)}
-                    emptyMessage="No trip types on file."
-                  />
-                </div>
-              </>
-            )}
-            edit={(d, set) => (
-              <>
-                <div className="form-grid">
-                  <label>
-                    Min Team Size
-                    <input
-                      type="number"
-                      min="0"
-                      value={d.tripTeamSizeMin}
-                      onChange={(e) => set("tripTeamSizeMin", e.target.value)}
-                    />
-                  </label>
-                  <label>
-                    Max Team Size
-                    <input
-                      type="number"
-                      min="0"
-                      value={d.tripTeamSizeMax}
-                      onChange={(e) => set("tripTeamSizeMax", e.target.value)}
-                    />
-                  </label>
-                </div>
-                <label style={{ marginTop: "1rem" }}>
-                  Best Time of Year / Duration Notes
-                  <textarea
-                    rows={2}
-                    value={d.tripSeasonNotes}
-                    onChange={(e) => set("tripSeasonNotes", e.target.value)}
-                  />
-                </label>
-                <label style={{ marginTop: "0.75rem" }}>
-                  Lodging &amp; Logistics Notes
-                  <textarea
-                    rows={2}
-                    value={d.tripLogisticsNotes}
-                    onChange={(e) => set("tripLogisticsNotes", e.target.value)}
-                  />
-                </label>
-                <div
-                  style={{ marginTop: "1rem", paddingTop: "0.75rem", borderTop: "1px solid var(--border)" }}
-                >
-                  <RecordList
-                    bare
-                    canEdit={canEdit}
-                    canDelete={canDelete}
-                    items={collections.tripTypes}
-                    renderItem={(t) => <Field label="Type" value={t.type} />}
-                    addLabel="+ Add Type"
-                    onAdd={() => tripTypeCrud.openAdd({ type: "" })}
-                    onEdit={(t) => tripTypeCrud.openEdit(t.id, { type: t.type })}
-                    onDelete={(t) => tripTypeCrud.handleDelete(t, (item) => `Delete "${item.type}"?`)}
-                    emptyMessage="No trip types on file."
-                  />
-                </div>
-              </>
-            )}
+            emptyMessage="No visits on file."
+            hasMore={churchVisitsLoadMore.hasMore}
+            remaining={churchVisitsLoadMore.remaining}
+            onShowMore={churchVisitsLoadMore.showMore}
           />
+
+          {!isOrg && (
+            <RecordList
+              title="Furlough"
+              canEdit={canEdit}
+              items={furloughsLoadMore.visible}
+              renderItem={(f) => (
+                <>
+                  <Field label="Start Date" value={formatDateLong(f.startDate)} showEmpty />
+                  <Field
+                    label="End Date"
+                    value={f.endDate ? formatDateLong(f.endDate) : "Ongoing"}
+                    showEmpty
+                  />
+                  <Field label="Notes" value={f.notes} />
+                </>
+              )}
+              onAdd={() => furloughCrud.openAdd({ startDate: "", endDate: "", notes: "" })}
+              onEdit={(f) =>
+                furloughCrud.openEdit(f.id, {
+                  startDate: toDateInputValue(f.startDate),
+                  endDate: toDateInputValue(f.endDate),
+                  notes: f.notes || "",
+                })
+              }
+              emptyMessage="No furlough history on file."
+              hasMore={furloughsLoadMore.hasMore}
+              remaining={furloughsLoadMore.remaining}
+              onShowMore={furloughsLoadMore.showMore}
+            />
+          )}
         </div>
 
         <div className="admin-section-group" id="section-communication">
@@ -1748,85 +1572,187 @@ export default function AdminPartnerDetail() {
               }
             />
           )}
+        </div>
 
-          {contactLogShown && (
-            <ContactLogSection
-              partnerId={p.id}
-              entries={contactEntries}
-              onChanged={reloadContactLog}
-              canFix={canWrite}
-              currentUserId={user?.id}
-              teammates={teammates}
+        {((!isGuest && enabledFeatures.monthlySupport) ||
+          (enabledFeatures.oneTimeNeeds && (!isGuest || isOnCareTeamFor(id)))) && (
+          <div className="admin-section-group" id="section-financial">
+            <h2 className="admin-group-heading">{isGuest ? "One-Time Needs" : "Financial"}</h2>
+
+            {enabledFeatures.monthlySupport && !isGuest && (
+              <PartnerSummaryCard
+                icon="🤲"
+                title="Monthly Support"
+                count={collections.supportEntries.length}
+                items={supportEntriesLoadMore.visible.map(
+                  (e) => `${formatCurrency(e.amount)}/mo as of ${formatDate(e.effectiveDate)}`
+                )}
+                hasMore={supportEntriesLoadMore.hasMore}
+                remaining={supportEntriesLoadMore.remaining}
+                onShowMore={supportEntriesLoadMore.showMore}
+                actions={canEdit ? [{ label: "+ Add", onClick: openAddSupportEntry }] : []}
+              />
+            )}
+
+            {enabledFeatures.oneTimeNeeds && (!isGuest || isOnCareTeamFor(id)) && (
+              <PartnerSummaryCard
+                icon="🎁"
+                title="One-Time Needs"
+                count={collections.needRequests.length}
+                items={needRequestsLoadMore.visible.map((n) => ({
+                  text: `${truncate(n.description, 60)} · ${formatCurrency(n.requestedAmount)} · ${
+                    supportNeedStatus(n).label
+                  }`,
+                  onClick: () => openNeedDetail(n),
+                }))}
+                hasMore={needRequestsLoadMore.hasMore}
+                remaining={needRequestsLoadMore.remaining}
+                onShowMore={needRequestsLoadMore.showMore}
+                viewAllTo={`/admin/support/needs?partnerId=${p.id}`}
+                actions={canSubmit ? [{ label: "+ Add", onClick: openAddNeed }] : []}
+              />
+            )}
+          </div>
+        )}
+
+        <div className="admin-section-group" id="section-trips">
+          <h2 className="admin-group-heading">Mission Trips</h2>
+
+          {enabledFeatures.trips && (
+            <PartnerSummaryCard
+              icon="✈️"
+              title="Mission Trips"
+              count={collections.trips.length}
+              items={tripsLoadMore.visible.map((t) => ({
+                text: `${t.name || t.type || "Trip"}${t.startDate ? ` · ${formatDate(t.startDate)}` : ""}${
+                  t.status ? ` · ${t.status}` : ""
+                }`,
+                onClick: () => navigate(`/admin/trips/${t.id}`),
+              }))}
+              hasMore={tripsLoadMore.hasMore}
+              remaining={tripsLoadMore.remaining}
+              onShowMore={tripsLoadMore.showMore}
+              viewAllTo={`/admin/trips?partnerId=${p.id}`}
+              actions={
+                // Starting a trip is staff's: a care team member can see trips but not create one.
+                canWrite
+                  ? [
+                      {
+                        label: "+ Add",
+                        onClick: () => navigate(`/admin/trips?partnerId=${p.id}&newTrip=1`),
+                      },
+                    ]
+                  : []
+              }
             />
           )}
 
-          <RecordList
-            title="Church Visits"
+          <EditableSection
+            title="Trip Capacity"
             canEdit={canEdit}
-            canDelete={canDelete}
-            items={churchVisitsLoadMore.visible}
-            renderItem={(v) => (
-              <>
-                <Field label="Visit Date" value={formatDateLong(v.visitDate)} showEmpty />
-                <Field label="Notes" value={v.notes} />
-              </>
-            )}
-            onAdd={() => churchVisitCrud.openAdd({ visitDate: "", notes: "" })}
-            onEdit={(v) =>
-              churchVisitCrud.openEdit(v.id, {
-                visitDate: toDateInputValue(v.visitDate),
-                notes: v.notes || "",
+            onSaved={reload}
+            onSave={(d) =>
+              save({
+                tripTeamSizeMin: d.tripTeamSizeMin === "" ? null : Number(d.tripTeamSizeMin),
+                tripTeamSizeMax: d.tripTeamSizeMax === "" ? null : Number(d.tripTeamSizeMax),
+                tripSeasonNotes: d.tripSeasonNotes || null,
+                tripLogisticsNotes: d.tripLogisticsNotes || null,
               })
             }
-            onDelete={(v) =>
-              churchVisitCrud.handleDelete(
-                v,
-                (item) => `Delete the visit on ${formatDateLong(item.visitDate)}?`
-              )
-            }
-            emptyMessage="No visits on file."
-            hasMore={churchVisitsLoadMore.hasMore}
-            remaining={churchVisitsLoadMore.remaining}
-            onShowMore={churchVisitsLoadMore.showMore}
-          />
-
-          {!isOrg && (
-            <RecordList
-              title="Furlough"
-              canEdit={canEdit}
-              canDelete={canDelete}
-              items={furloughsLoadMore.visible}
-              renderItem={(f) => (
-                <>
-                  <Field label="Start Date" value={formatDateLong(f.startDate)} showEmpty />
-                  <Field
-                    label="End Date"
-                    value={f.endDate ? formatDateLong(f.endDate) : "Ongoing"}
-                    showEmpty
+            value={{
+              tripTeamSizeMin: p.tripTeamSizeMin ?? "",
+              tripTeamSizeMax: p.tripTeamSizeMax ?? "",
+              tripSeasonNotes: p.tripSeasonNotes || "",
+              tripLogisticsNotes: p.tripLogisticsNotes || "",
+            }}
+            view={(v) => (
+              <>
+                <Field
+                  label="Team Size"
+                  value={
+                    v.tripTeamSizeMin !== "" || v.tripTeamSizeMax !== ""
+                      ? `${v.tripTeamSizeMin === "" ? "?" : v.tripTeamSizeMin} – ${
+                          v.tripTeamSizeMax === "" ? "?" : v.tripTeamSizeMax
+                        }`
+                      : null
+                  }
+                  showEmpty
+                />
+                <div style={{ marginTop: "0.75rem" }}>
+                  <Field label="Best Time of Year / Duration Notes" value={v.tripSeasonNotes} />
+                  <Field label="Lodging &amp; Logistics Notes" value={v.tripLogisticsNotes} />
+                </div>
+                <div
+                  style={{ marginTop: "1rem", paddingTop: "0.75rem", borderTop: "1px solid var(--border)" }}
+                >
+                  <RecordList
+                    bare
+                    canEdit={canEdit}
+                    items={collections.tripTypes}
+                    renderItem={(t) => <Field label="Type" value={t.type} />}
+                    addLabel="+ Add Type"
+                    onAdd={() => tripTypeCrud.openAdd({ type: "" })}
+                    onEdit={(t) => tripTypeCrud.openEdit(t.id, { type: t.type })}
+                    emptyMessage="No trip types on file."
                   />
-                  <Field label="Notes" value={f.notes} />
-                </>
-              )}
-              onAdd={() => furloughCrud.openAdd({ startDate: "", endDate: "", notes: "" })}
-              onEdit={(f) =>
-                furloughCrud.openEdit(f.id, {
-                  startDate: toDateInputValue(f.startDate),
-                  endDate: toDateInputValue(f.endDate),
-                  notes: f.notes || "",
-                })
-              }
-              onDelete={(f) =>
-                furloughCrud.handleDelete(
-                  f,
-                  (item) => `Delete the furlough starting ${formatDateLong(item.startDate)}?`
-                )
-              }
-              emptyMessage="No furlough history on file."
-              hasMore={furloughsLoadMore.hasMore}
-              remaining={furloughsLoadMore.remaining}
-              onShowMore={furloughsLoadMore.showMore}
-            />
-          )}
+                </div>
+              </>
+            )}
+            edit={(d, set) => (
+              <>
+                <div className="form-grid">
+                  <label>
+                    Min Team Size
+                    <input
+                      type="number"
+                      min="0"
+                      value={d.tripTeamSizeMin}
+                      onChange={(e) => set("tripTeamSizeMin", e.target.value)}
+                    />
+                  </label>
+                  <label>
+                    Max Team Size
+                    <input
+                      type="number"
+                      min="0"
+                      value={d.tripTeamSizeMax}
+                      onChange={(e) => set("tripTeamSizeMax", e.target.value)}
+                    />
+                  </label>
+                </div>
+                <label style={{ marginTop: "1rem" }}>
+                  Best Time of Year / Duration Notes
+                  <textarea
+                    rows={2}
+                    value={d.tripSeasonNotes}
+                    onChange={(e) => set("tripSeasonNotes", e.target.value)}
+                  />
+                </label>
+                <label style={{ marginTop: "0.75rem" }}>
+                  Lodging &amp; Logistics Notes
+                  <textarea
+                    rows={2}
+                    value={d.tripLogisticsNotes}
+                    onChange={(e) => set("tripLogisticsNotes", e.target.value)}
+                  />
+                </label>
+                <div
+                  style={{ marginTop: "1rem", paddingTop: "0.75rem", borderTop: "1px solid var(--border)" }}
+                >
+                  <RecordList
+                    bare
+                    canEdit={canEdit}
+                    items={collections.tripTypes}
+                    renderItem={(t) => <Field label="Type" value={t.type} />}
+                    addLabel="+ Add Type"
+                    onAdd={() => tripTypeCrud.openAdd({ type: "" })}
+                    onEdit={(t) => tripTypeCrud.openEdit(t.id, { type: t.type })}
+                    emptyMessage="No trip types on file."
+                  />
+                </div>
+              </>
+            )}
+          />
         </div>
       </div>
 
@@ -2071,6 +1997,14 @@ export default function AdminPartnerDetail() {
         <QuickActionModal
           title={adultCrud.editingId ? "Edit Adult" : "Add Adult"}
           onClose={adultCrud.close}
+          onDelete={
+            canDelete && adultCrud.editingId
+              ? () =>
+                  adultCrud.deleteCurrent(
+                    (f) => `Delete ${[f.firstName, f.lastName].filter(Boolean).join(" ")}?`
+                  )
+              : undefined
+          }
           onSubmit={() =>
             adultCrud.submit({
               partnerId: p.id,
@@ -2147,6 +2081,14 @@ export default function AdminPartnerDetail() {
         <QuickActionModal
           title={childCrud.editingId ? "Edit Child" : "Add Child"}
           onClose={childCrud.close}
+          onDelete={
+            canDelete && childCrud.editingId
+              ? () =>
+                  childCrud.deleteCurrent(
+                    (f) => `Delete ${[f.firstName, f.lastName].filter(Boolean).join(" ")}?`
+                  )
+              : undefined
+          }
           onSubmit={() =>
             childCrud.submit({
               partnerId: p.id,
@@ -2188,6 +2130,11 @@ export default function AdminPartnerDetail() {
         <QuickActionModal
           title={languageCrud.editingId ? "Edit Language" : "Add Language"}
           onClose={languageCrud.close}
+          onDelete={
+            canDelete && languageCrud.editingId
+              ? () => languageCrud.deleteCurrent((f) => `Delete ${f.language}?`)
+              : undefined
+          }
           onSubmit={() =>
             languageCrud.submit({
               partnerId: p.id,
@@ -2199,20 +2146,13 @@ export default function AdminPartnerDetail() {
           <div className="form-grid">
             <label>
               Language
-              <input
+              <SuggestInput
                 value={languageCrud.form.language}
-                onChange={(e) => languageCrud.setForm((f) => ({ ...f, language: e.target.value }))}
-                list="partner-language-names"
+                onChange={(v) => languageCrud.setForm((f) => ({ ...f, language: v }))}
+                options={LANGUAGE_NAMES}
                 placeholder="Start typing a language..."
                 required
               />
-              {/* A datalist, not a hard <select> -- same reasoning as
-                  AddressFields.jsx's Country field. */}
-              <datalist id="partner-language-names">
-                {LANGUAGE_NAMES.map((name) => (
-                  <option key={name} value={name} />
-                ))}
-              </datalist>
             </label>
             <label>
               Proficiency (ILR scale)
@@ -2236,6 +2176,11 @@ export default function AdminPartnerDetail() {
         <QuickActionModal
           title={tripTypeCrud.editingId ? "Edit Trip Type" : "Add Trip Type"}
           onClose={tripTypeCrud.close}
+          onDelete={
+            canDelete && tripTypeCrud.editingId
+              ? () => tripTypeCrud.deleteCurrent((f) => `Delete "${f.type}"?`)
+              : undefined
+          }
           onSubmit={() => tripTypeCrud.submit({ partnerId: p.id, type: tripTypeCrud.form.type.trim() })}
         >
           <div className="form-grid">
@@ -2256,6 +2201,11 @@ export default function AdminPartnerDetail() {
         <QuickActionModal
           title={linkCrud.editingId ? "Edit Link" : "Add Link"}
           onClose={linkCrud.close}
+          onDelete={
+            canDelete && linkCrud.editingId
+              ? () => linkCrud.deleteCurrent((f) => `Delete the ${linkTypeLabel(f.type)} link?`)
+              : undefined
+          }
           onSubmit={() =>
             linkCrud.submit({ partnerId: p.id, type: linkCrud.form.type, url: linkCrud.form.url.trim() })
           }
@@ -2293,6 +2243,14 @@ export default function AdminPartnerDetail() {
         <QuickActionModal
           title={furloughCrud.editingId ? "Edit Furlough" : "Add Furlough"}
           onClose={furloughCrud.close}
+          onDelete={
+            canDelete && furloughCrud.editingId
+              ? () =>
+                  furloughCrud.deleteCurrent(
+                    (f) => `Delete the furlough starting ${formatDateLong(f.startDate)}?`
+                  )
+              : undefined
+          }
           onSubmit={() =>
             furloughCrud.submit({
               partnerId: p.id,
@@ -2335,6 +2293,12 @@ export default function AdminPartnerDetail() {
         <QuickActionModal
           title={churchVisitCrud.editingId ? "Edit Church Visit" : "Add Church Visit"}
           onClose={churchVisitCrud.close}
+          onDelete={
+            canDelete && churchVisitCrud.editingId
+              ? () =>
+                  churchVisitCrud.deleteCurrent((f) => `Delete the visit on ${formatDateLong(f.visitDate)}?`)
+              : undefined
+          }
           onSubmit={() =>
             churchVisitCrud.submit({
               partnerId: p.id,

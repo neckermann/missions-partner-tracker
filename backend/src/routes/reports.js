@@ -36,7 +36,6 @@ router.get("/", async (req, res, next) => {
   }
 });
 
-// ---- Saved views and schedules -------------------------------------------
 // Registered BEFORE "/:id" so "views" is never read as a report id.
 const { z } = require("zod");
 

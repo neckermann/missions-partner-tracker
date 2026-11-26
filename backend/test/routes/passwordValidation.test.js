@@ -1,12 +1,8 @@
-// #327 Finding 11.5 -- four different places set a password
-// (self-service change-password, the welcome-link completion, and an
-// admin create/reset via users.js; /api/auth/setup is the fourth but
-// can't be exercised here since it only succeeds against an empty User
-// table) each grew its own length check independently, two of them with
-// no upper bound at all. Now all four import the same
-// utils/password.js passwordSchema (8-128 chars) -- this covers the
-// shared schema directly, plus the three HTTP paths that can run
-// against this suite's normal seeded fixtures.
+// Four places set a password (self-service change-password, the welcome-link completion, and
+// admin create/reset via users.js; /api/auth/setup is the fourth but only succeeds against an
+// empty User table, so it isn't exercised here). They share utils/password.js's passwordSchema
+// (8-128 chars); this covers the shared schema directly plus the three HTTP paths that can run
+// against the seeded fixtures.
 const { test, describe, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 require("dotenv").config({ quiet: true });

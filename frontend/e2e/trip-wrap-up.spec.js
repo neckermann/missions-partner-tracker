@@ -1,9 +1,9 @@
 import { test, expect } from "@playwright/test";
 import { login } from "./helpers.js";
 
-// The Wrap up trip wizard (#358), as a person uses it: from a trip whose dates have passed, step
-// through it, and the trip is completed with its debrief on the overview. It makes its own trip
-// (on a seeded partner) and deletes it afterwards.
+// The Wrap up trip wizard as a person uses it: from a trip whose dates have passed, step
+// through it, and the trip is completed with its debrief on the overview. It makes its own
+// trip (on a seeded partner) and deletes it afterwards.
 test.describe("Wrap up trip", () => {
   let adminContext;
   let admin;

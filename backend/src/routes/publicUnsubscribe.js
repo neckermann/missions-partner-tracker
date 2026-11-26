@@ -6,12 +6,9 @@ const { renderSubscriberPage, escapeHtml } = require("../utils/subscriberPage");
 
 const router = express.Router();
 
-// GET /api/public/unsubscribe?token= -- a sibling of publicSubscribe.js,
-// not nested under it, since this needs to stay reachable from an old
-// email even independent of how subscribe is mounted. Public, no login.
-// Gated on publicPrayerDigest only (same as confirm) -- an existing
-// subscriber should always be able to unsubscribe, regardless of
-// publicDirectory/outboundEmail's current state.
+// GET /api/public/unsubscribe?token= -- a sibling of publicSubscribe.js so it stays reachable from
+// an old email however subscribe is mounted. Public, no login. Gated on publicPrayerDigest only (as
+// confirm): an existing subscriber can always unsubscribe.
 router.use(requireFeature(["publicPrayerDigest"]));
 
 function verifySubscriberUnsubscribeToken(token) {
@@ -24,16 +21,11 @@ function verifySubscriberUnsubscribeToken(token) {
   return decoded?.subscriberUnsubscribe && decoded.id ? decoded : null;
 }
 
-// #327 Finding 6: this used to unsubscribe the moment the link was
-// *fetched* -- a mail security scanner that pre-fetches every link in an
-// inbox would silently unsubscribe someone who never clicked anything
-// themselves. GET now only verifies the token and renders a page with a
-// real confirm button (a plain <form method="POST">, still works with no
-// JavaScript); POST is what actually deletes the subscriber.
-// List-Unsubscribe-Post support (RFC 8058) lets a mail client's own
-// native "Unsubscribe" button call the POST route directly -- see
-// publicSubscribeEmails.js's List-Unsubscribe header for where that's
-// wired up.
+// #327 Finding 6: GET only verifies the token and renders a confirm button (a plain
+// <form method="POST">, works without JavaScript); POST deletes the subscriber. Acting on fetch would
+// let a mail scanner that prefetches links unsubscribe people who never clicked.
+// List-Unsubscribe-Post (RFC 8058) lets a mail client's native button call POST directly (see
+// publicSubscribeEmails.js).
 router.get("/", async (req, res) => {
   const decoded = verifySubscriberUnsubscribeToken(req.query.token);
   if (!decoded) return res.status(400).send(await renderSubscriberPage("This unsubscribe link isn't valid."));
@@ -46,16 +38,13 @@ router.get("/", async (req, res) => {
   );
 });
 
-// token in req.body (the confirm-button form above) or req.query (RFC
-// 8058 one-click -- see routes/auth.js's own unsubscribe POST for the
-// full reasoning, identical here).
+// token in req.body (the confirm form) or req.query (RFC 8058 one-click); see routes/auth.js's
+// unsubscribe POST.
 router.post("/", express.urlencoded({ extended: false }), async (req, res) => {
   const decoded = verifySubscriberUnsubscribeToken(req.body?.token || req.query?.token);
   if (!decoded) return res.status(400).send(await renderSubscriberPage("This unsubscribe link isn't valid."));
-  // Deletes the row outright, not a flag -- no lingering address once
-  // someone's explicitly opted out. Cascades PublicSubscriberPartner.
-  // deleteMany (not delete) so a stale/already-removed id degrades
-  // gracefully rather than throwing.
+  // Deletes the row outright, not a flag: no lingering address after an explicit opt-out. Cascades
+  // PublicSubscriberPartner. deleteMany so a stale id degrades gracefully instead of throwing.
   await prisma.publicSubscriber.deleteMany({ where: { id: decoded.id } });
   res.send(await renderSubscriberPage("You've been unsubscribed from prayer updates."));
 });

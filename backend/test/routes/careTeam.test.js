@@ -1,9 +1,7 @@
-// #289: care teams -- one lead plus members per partner, all logins. Covers
-// the feature gate (404 off, data kept), the one-lead rule (also in the
-// database), replace-the-team semantics, who may read/set a team, guests
-// reaching a partner through a seat (never expiring, ignored when the
-// feature is off), orphan deactivation, user create with seats, and the
-// coverage report.
+// Care teams: one lead plus members per partner, all logins. Covers the feature gate (404 off,
+// data kept), the one-lead rule (also in the database), replace-the-team semantics, who may
+// read/set a team, guests reaching a partner through a seat (never expiring, ignored when the
+// feature is off), orphan deactivation, user create with seats, and the coverage report.
 const { test, describe, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 require("dotenv").config({ quiet: true });
@@ -243,6 +241,11 @@ describe("care team: guests", () => {
     const read = await guest(`/api/care-team/${partnerA.id}`);
     assert.equal(read.status, 200);
     assert.ok(read.body.members.every((m) => m.email === undefined));
+    assert.ok(
+      [read.body.lead, ...read.body.members].every(
+        (m) => !m || (m.phone === undefined && m.profile === undefined)
+      )
+    );
     assert.equal((await guest(`/api/care-team/${partnerB.id}`)).status, 403);
     assert.equal((await setTeam(partnerA.id, { leadUserId: null, memberUserIds: [] }, guest)).status, 403);
   });
@@ -406,11 +409,9 @@ describe("care team: coverage report", () => {
   });
 });
 
-// ---------------------------------------------------------------------
-// A care team member's prayer requests and one-time needs: entered through
-// the normal routes, limited to what the role may touch, and always held in
-// Pending Dispatches until staff review them -- never sent on their own.
-// ---------------------------------------------------------------------
+// A care team member's prayer requests and one-time needs: entered through the normal routes,
+// limited to what the role may touch, and always held in Pending Dispatches until staff review
+// them, never sent on their own.
 
 describe("care team: submitting prayer requests and needs", () => {
   let member; // on partnerA's team
@@ -764,10 +765,8 @@ describe("care team: submitting prayer requests and needs", () => {
   });
 });
 
-// ---------------------------------------------------------------------
-// A care team member has what an editor has on their own partner (profile,
-// family, links, archive, files, prayers, needs) and nothing beyond it.
-// ---------------------------------------------------------------------
+// A care team member has what an editor has on their own partner (profile, family, links,
+// archive, files, prayers, needs) and nothing beyond it.
 
 describe("care team: editor parity on their own partner, and nothing beyond it", () => {
   let member;

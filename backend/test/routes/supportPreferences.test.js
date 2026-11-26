@@ -1,8 +1,8 @@
-// #374: support preferences. Covers the feature gate (404 when it or Care teams is off, data
-// kept), who reads and writes a partner's choices (staff; a guest only through a care team seat,
-// never through a trip grant alone; a viewer reads only), that the menu is admin-only, how each
-// kind of answer is validated and stored in real columns, retiring versus deleting an option,
-// and the example set.
+// Support preferences. Covers the feature gate (404 when it or Care teams is off, data kept),
+// who reads and writes a partner's choices (staff; a guest only through a care team seat,
+// never through a trip grant alone; a viewer reads only), that the menu is admin-only, how
+// each kind of answer is validated and stored in real columns, retiring versus deleting an
+// option.
 const { test, describe, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 require("dotenv").config({ quiet: true });
@@ -139,18 +139,24 @@ after(async () => {
 });
 
 describe("support preferences: the feature gate", () => {
-  test("404s every route while off (or Care teams is off), and keeps the data", async () => {
+  test("404s every route while off, keeps the data, and does not depend on Care teams", async () => {
     const made = await save(admin, partnerA.id, [{ optionId: optionIds.offer, selected: true }]);
     assert.equal(made.status, 200, JSON.stringify(made.body));
-    for (const off of [{ supportPreferences: false }, { careTeam: false }]) {
-      await setFeatures(off);
-      try {
-        assert.equal((await read(admin, partnerA.id)).status, 404);
-        assert.equal((await admin("/api/support-preferences/options")).status, 404);
-        assert.equal((await save(admin, partnerA.id, [])).status, 404);
-      } finally {
-        await setFeatures({ supportPreferences: true, careTeam: true });
-      }
+    await setFeatures({ supportPreferences: false });
+    try {
+      assert.equal((await read(admin, partnerA.id)).status, 404);
+      assert.equal((await admin("/api/support-preferences/options")).status, 404);
+      assert.equal((await save(admin, partnerA.id, [])).status, 404);
+    } finally {
+      await setFeatures({ supportPreferences: true, careTeam: true });
+    }
+    // Care teams off makes no difference: Support preferences needs nothing else.
+    await setFeatures({ careTeam: false });
+    try {
+      assert.equal((await read(admin, partnerA.id)).status, 200);
+      assert.equal((await admin("/api/support-preferences/options")).status, 200);
+    } finally {
+      await setFeatures({ supportPreferences: true, careTeam: true });
     }
     const back = await read(admin, partnerA.id);
     assert.ok(
@@ -331,13 +337,39 @@ describe("support preferences: keeping the menu", () => {
     assert.equal(await prisma.supportOption.count({ where: { group: to } }), 2);
   });
 
-  test("the example set is added only to an empty menu", async () => {
-    // The menu isn't empty (these fixtures), so it refuses and changes nothing.
-    const before = await prisma.supportOption.count();
+  test("a staff-only option is hidden from a care team guest, who can't answer it either", async () => {
+    const secret = (
+      await addOption({ group: GROUP, label: "Staff only matter", kind: "text", staffOnly: true })
+    ).body;
+    assert.equal(secret.staffOnly, true);
     assert.equal(
-      (await admin("/api/support-preferences/options/example-set", { method: "POST" })).status,
-      409
+      (await save(editor, partnerA.id, [{ optionId: secret.id, text: "Private detail" }])).status,
+      200
     );
-    assert.equal(await prisma.supportOption.count(), before);
+
+    const asStaff = await read(editor, partnerA.id);
+    assert.ok(asStaff.body.options.some((o) => o.id === secret.id));
+    assert.equal(asStaff.body.preferences.find((p) => p.optionId === secret.id)?.text, "Private detail");
+
+    const guest = await member.login();
+    const asGuest = await read(guest, partnerA.id);
+    assert.equal(asGuest.status, 200);
+    assert.ok(!asGuest.body.options.some((o) => o.id === secret.id));
+    assert.ok(!asGuest.body.preferences.some((p) => p.optionId === secret.id));
+    assert.equal((await save(guest, partnerA.id, [{ optionId: secret.id, text: "x" }])).status, 403);
+    assert.equal(
+      (await prisma.partnerSupportPreference.findFirst({ where: { optionId: secret.id } })).text,
+      "Private detail",
+      "the guest's attempt changed nothing"
+    );
+
+    const open = (
+      await admin(`/api/support-preferences/options/${secret.id}`, {
+        method: "PUT",
+        body: { staffOnly: false },
+      })
+    ).body;
+    assert.equal(open.staffOnly, false);
+    assert.ok((await read(guest, partnerA.id)).body.options.some((o) => o.id === secret.id));
   });
 });

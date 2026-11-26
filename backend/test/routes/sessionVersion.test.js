@@ -1,14 +1,11 @@
-// #327 Finding 7 -- a session token's sessionVersion claim (utils/jwt.js)
-// must match User.sessionVersion (middleware/requireAuth.js) on every
-// request. Covers each of the triggers that bump it: self-service
-// password change, self-service MFA disable, an admin-set password
-// reset, an admin role change, and an admin-forced MFA reset -- each
-// time confirming a session cookie captured *before* the trigger stops
-// working afterward, and (for the self-service routes, which re-issue a
-// cookie in the same response) that the current tab's own session keeps
-// working via its fresh cookie. Logout is deliberately NOT one of these
-// triggers (confirmed by its own test below) -- it stays scoped to the
-// one cookie/browser it represents.
+// A session token's sessionVersion claim (utils/jwt.js) must match User.sessionVersion
+// (middleware/requireAuth.js) on every request. Covers each trigger that bumps it
+// (self-service password change, self-service MFA disable, an admin-set password reset, an
+// admin role change, an admin-forced MFA reset), confirming a session cookie captured before
+// the trigger stops working and, for the self-service routes (which re-issue a cookie in the
+// same response), that the current tab keeps working via its fresh cookie. Logout is
+// deliberately NOT a trigger (see its own test below): it stays scoped to the one
+// cookie/browser.
 require("dotenv").config({ quiet: true });
 const { test, describe, before, after } = require("node:test");
 const assert = require("node:assert/strict");

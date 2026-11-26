@@ -1,9 +1,5 @@
-// Suggested language names for the datalist on the Languages Spoken
-// "+Add" popup -- same pattern as AddressFields.jsx's own Country field:
-// a plain text input still accepts anything, this just suggests common
-// names instead of making someone type blind. Not exhaustive (there's no
-// single definitive list of "every language"), just broad real-world
-// coverage, largest-first within each region.
+// Suggested language names for the Languages Spoken datalist (like AddressFields' Country field):
+// the input still accepts anything. Not exhaustive; largest-first within each region.
 export const LANGUAGE_NAMES = [
   "English",
   "Mandarin",

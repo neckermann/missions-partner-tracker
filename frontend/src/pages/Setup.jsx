@@ -3,10 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { fetchSetupStatus, completeSetup } from "../api/client.js";
 import { passwordsMatch } from "../utils/password.js";
 
-// First-run account creation — only ever reachable (and only ever
-// succeeds) before this instance has its first admin account. Once one
-// exists, GET /auth/setup-status reports needed: false and this page
-// redirects straight to /login, same as visiting it a second time.
+// First-run account creation: only succeeds before the first admin exists; after that
+// GET /auth/setup-status reports needed: false and this page redirects to /login.
 export default function Setup() {
   const [checking, setChecking] = useState(true);
   const [email, setEmail] = useState("");
@@ -59,7 +57,7 @@ export default function Setup() {
   return (
     <div className="admin-shell" style={{ maxWidth: 420 }}>
       <h2>Welcome</h2>
-      <p style={{ color: "#555" }}>
+      <p style={{ color: "var(--muted)" }}>
         This is a fresh instance with no admin account yet. Create the first one below. You'll then sign in
         and set up two-factor authentication (an authenticator app on your phone), which is required for
         everyone on a new install; after that you can invite others and configure your church's branding from
@@ -90,7 +88,7 @@ export default function Setup() {
             required
           />
         </label>
-        {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
+        {error && <p style={{ color: "var(--danger)" }}>{error}</p>}
         <button type="submit" className="btn" disabled={saving}>
           {saving ? "Creating account…" : "Create admin account"}
         </button>

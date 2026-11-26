@@ -5,31 +5,17 @@ const { buildBlurb } = require("../utils/dispatchBlurbs");
 const { needsReview } = require("../utils/dispatchEligibility");
 const { countUrgentRecipients } = require("../utils/dispatchOrchestrator");
 
-// The review queue for recorded events -- a row is written by
-// dispatchRecording.js the instant something happens, and leaves
-// this queue once every applicable channel's pass has handled it
-// (GroupMe/WhatsApp's shared daily schedule, or one of the three email
-// cadence tiers) -- see dispatchOrchestrator.js's clearDispatchRecords().
-// No manual "send now" action anymore: the old one force-sent the
-// now-retired church-wide digest, which has no equivalent once every
-// recipient has their own cadence.
+// The review queue for recorded events: a row is written by dispatchRecording.js
+// when something happens and leaves once every applicable channel has handled
+// it (see dispatchOrchestrator.js's clearDispatchRecords()). There is no manual
+// "send now".
 const router = express.Router();
 router.use(requireAuth);
 
-// GET /api/dispatches/pending -- #350: this queue holds the exact text
-// about to go out for every partner, trip, prayer request, and one-time
-// need churchwide, unfiltered and not attached to any one trip -- there's
-// no sensible trip-scoped version of it, so (same reasoning and same
-// requireRole("admin", "editor", "viewer") pattern as #329's fix to
-// GET /api/inbound-email) a Trip Leader scoped guest is excluded entirely
-// rather than scoped. Every full role (admin/editor/viewer) still reaches
-// it with no further gating -- same "viewing is harmless" reasoning as
-// GET /api/partner-files/GET /api/inbound-email among those three roles.
-// Reuses buildBlurb so the admin sees the exact same text that would
-// actually go out. Deliberately unfiltered -- every row shows here
-// regardless of which channel(s) it's relevant to (e.g. a prayer
-// request muted on GroupMe but still relevant to the public email
-// dispatch still shows), since this page was never scoped to one channel.
+// GET /api/dispatches/pending -- the exact text about to go out, churchwide.
+// There is no trip-scoped version of it, so Trip Leader guests are excluded
+// entirely (requireRole below) rather than scoped. Reuses buildBlurb so the
+// admin sees what would actually go out. Deliberately unfiltered by channel.
 router.get("/pending", requireRole("admin", "editor", "viewer"), async (req, res, next) => {
   try {
     const [rows, settings] = await Promise.all([
@@ -44,11 +30,9 @@ router.get("/pending", requireRole("admin", "editor", "viewer"), async (req, res
       select: { id: true, displayName: true, fieldDisplayName: true, isRestricted: true },
     });
     const partnerById = new Map(partners.map((p) => [p.id, p]));
-    // Not role-gated: GET /api/prayer-requests and GET /api/support-needs
-    // already return a restricted partner's real text to every logged-in
-    // role unmasked (this app's "auth is the boundary" rule -- see
-    // ADMIN_GUIDE.md § Who can see what), so gating it here too would
-    // just make this list inconsistent for no real protection.
+    // Not gated further by role: prayer-requests and support-needs already
+    // return a restricted partner's real text to every full role (ADMIN_GUIDE.md
+    // § Who can see what), so gating here would only be inconsistent.
     const items = rows
       .map((row) => {
         const blurb = buildBlurb(row, partnerById.get(row.partnerId), settings);
@@ -61,16 +45,12 @@ router.get("/pending", requireRole("admin", "editor", "viewer"), async (req, res
         return {
           ...blurb,
           bodyText,
-          // So the admin can see at a glance which rows are restricted,
-          // without this route handing back anything new.
           isRestricted: !!partnerById.get(row.partnerId)?.isRestricted,
-          // Held out of every channel -- restricted, never yet
-          // edited/confirmed. Urgent is held the same way: it means
-          // "don't wait for a schedule," never "skip review."
+          // Held out of every channel until edited/confirmed. Urgent is held
+          // too: it means "don't wait for a schedule," never "skip review."
           needsReview: held,
-          // Why it's held when the partner ISN'T restricted: a care team
-          // member entered it (#289), so staff review it before it goes out.
-          // The page words the badge and the approval dialog from this.
+          // Held for review although the partner isn't restricted: a care team
+          // member entered it.
           reviewRequired: !!row.reviewRequired,
           dispatchReviewedAt: row.dispatchReviewedAt,
           groupmeDispatchedAt: row.groupmeDispatchedAt,
@@ -88,13 +68,10 @@ router.get("/pending", requireRole("admin", "editor", "viewer"), async (req, res
   }
 });
 
-// GET /api/dispatches/pending/:id -- admin or editor, not the bare
-// requireAuth above: this returns the REAL unmasked text, a restricted
-// partner's included, so it's gated like everything else that reveals
-// more than the list view (#187). Reuses buildBlurb against a synthetic
-// isRestricted:false partner rather than duplicating each type's own
-// text composition here -- never returns the real name/photo, which
-// stays out of scope since the admin already knows who this row is for.
+// GET /api/dispatches/pending/:id -- admin or editor, not the bare requireAuth:
+// this returns the REAL unmasked text, a restricted partner's included, so it
+// is gated like everything else that reveals more than the list view. Reuses
+// buildBlurb with isRestricted forced false; never returns the real name/photo.
 router.get("/pending/:id", requireRole("admin", "editor"), async (req, res, next) => {
   try {
     const row = await prisma.dispatchRecord.findUnique({ where: { id: req.params.id } });
@@ -103,9 +80,6 @@ router.get("/pending/:id", requireRole("admin", "editor"), async (req, res, next
       where: { id: row.partnerId },
       select: { displayName: true, isRestricted: true },
     });
-    // isRestricted forced false -- this route always returns the real
-    // unmasked body text (see the comment above), so no masking settings
-    // are needed for this call.
     const unmasked = buildBlurb(row, partner ? { ...partner, isRestricted: false } : null);
     res.json({ rawText: row.dispatchReviewedAt ? row.dispatchReviewedText : (unmasked?.bodyText ?? null) });
   } catch (err) {
@@ -113,11 +87,8 @@ router.get("/pending/:id", requireRole("admin", "editor"), async (req, res, next
   }
 });
 
-// PUT /api/dispatches/pending/:id -- admin or editor. Available on
-// any row, not just a restricted partner's held one (#187) -- an admin
-// might want to tidy up wording generally. For a restricted row
-// specifically, saving here also satisfies needsReview(); for every
-// other row it's purely a content edit. Re-callable.
+// PUT /api/dispatches/pending/:id -- admin or editor. Allowed on any row; for a
+// held row, saving also satisfies needsReview(). Re-callable.
 router.put("/pending/:id", requireRole("admin", "editor"), async (req, res, next) => {
   try {
     const text = typeof req.body?.text === "string" ? req.body.text.trim() : "";
@@ -157,11 +128,8 @@ router.put("/pending/:id", requireRole("admin", "editor"), async (req, res, next
   }
 });
 
-// DELETE /api/dispatches/pending/:id -- admin or editor, same gate as
-// editing. Discards one recorded event without ever sending it on any
-// channel -- e.g. a restricted partner's update that shouldn't go out
-// at all this round. Irreversible (no undo queue), same as deleting any
-// other record in this app.
+// DELETE /api/dispatches/pending/:id -- admin or editor. Discards one recorded
+// event without sending it on any channel. Irreversible.
 router.delete("/pending/:id", requireRole("admin", "editor"), async (req, res, next) => {
   try {
     const deleted = await prisma.dispatchRecord.deleteMany({ where: { id: req.params.id } });
@@ -172,11 +140,9 @@ router.delete("/pending/:id", requireRole("admin", "editor"), async (req, res, n
   }
 });
 
-// GET /api/dispatches/urgent-recipient-count?partnerId= -- admin or
-// editor (same role gate as marking something urgent at all), used to
-// populate the confirm dialog's real numbers before an urgent send
-// actually fires. Cadence-blind and approximate on purpose -- see
-// countUrgentRecipients' own comment.
+// GET /api/dispatches/urgent-recipient-count?partnerId= -- admin or editor, for
+// the urgent-send confirm dialog. Cadence-blind and approximate on purpose (see
+// countUrgentRecipients).
 router.get("/urgent-recipient-count", requireRole("admin", "editor"), async (req, res, next) => {
   try {
     const partnerId = String(req.query.partnerId || "");

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import PageHeader from "../components/shared/PageHeader.jsx";
 import { Link } from "react-router-dom";
 import {
   fetchPrayerRequests,
@@ -51,40 +52,23 @@ const emptyNewRequest = {
   sourceFileId: null,
 };
 
-// Same shape as AdminOneTimeNeeds.jsx, but deliberately without that
-// page's "Pending Decision" warning-toned status pill -- an open prayer
-// request isn't a problem to flag, see the PrayerRequest model comment
-// in schema.prisma. The only status called out here at all is
-// "Answered", as a quiet note, not a checklist item.
-//
-// Phase 2 of the UX-rebuild plan: filters (category/date-range/archived)
-// are now FilterBar, with category and date-range now real backend query
-// params (GET /api/prayer-requests) -- the exact where-clause logic
-// already existed for this dataset's Report version, just not the live
-// route. The list body deliberately stays its own card layout rather than
-// moving onto the generic <Table>: each row carries a variable-height
-// request, an inline edit form, and an independent inline "Record Answer"
-// form, none of which reduce to a table cell without either truncating
-// real content or cramming an entire form into one <td>. <Table>'s column
-// model fits genuinely tabular data (Partners, Trips, Partner Files,
-// Monthly Support -- all migrated this phase); this one isn't that
-// shape, so forcing it in would be a UX regression dressed up as
-// consistency, not the simplification the plan actually asks for.
+// Same shape as AdminOneTimeNeeds.jsx but without its "Pending Decision" warning pill: an
+// open prayer request isn't a problem to flag (see the PrayerRequest model in schema.prisma).
+// Only "Answered" is called out, as a quiet note.
+// Category and date-range filters are backend params (GET /api/prayer-requests). The list
+// stays a card layout, not <Table>: each row has a variable-height request, an inline edit
+// form and an inline "Record Answer" form that don't fit table cells.
 export default function AdminPrayerRequests() {
   const { enabledFeatures } = useSettings();
-  // Whether any channel exists at all to ever deliver a recorded event --
-  // see PrayerRequestSection.jsx's own hasEnabledChannel for the full
-  // reasoning (shared precondition for "Mark as urgent" and
-  // canApproveNow below).
+  // Whether any channel exists to deliver a recorded event; see hasEnabledChannel in
+  // PrayerRequestSection.jsx. Shared precondition for "Mark as urgent" and canApproveNow.
   const hasEnabledChannel =
     enabledFeatures.groupme || enabledFeatures.whatsapp || enabledFeatures.outboundEmail;
   const [requests, setRequests] = useState([]);
   const [partners, setPartners] = useState([]);
   const [loading, setLoading] = useState(true);
-  // isRestricted isn't a prop here (there's no single partner this page
-  // is scoped to) -- looked up from whichever partner is currently
-  // selected in the add form instead, same list this page's own
-  // PartnerSelect already renders from.
+  // No single partner scopes this page: isRestricted is looked up from the partner selected
+  // in the add form (the list PartnerSelect renders).
   const sendingChurchField = useSendingChurchField();
   const fields = useMemo(
     () => [
@@ -116,9 +100,8 @@ export default function AdminPrayerRequests() {
     setPartnerFilter,
   } = usePartnerUrlFilter();
   const { canWrite, isAdmin, isGuest, careTeamSeats, isOnCareTeamFor } = useCurrentUser();
-  // Staff do everything. A care team member who isn't staff (#289) has what an
-  // editor has for a partner on their team -- add, edit, answer -- but never
-  // delete, and no "send right away" (their dispatch is held for review).
+  // Staff do everything. A care team member who isn't staff can add, edit and answer for a
+  // partner on their team, but never delete or "send right away" (their dispatch is held).
   const limited = !canWrite;
   const canAdd = canWrite || careTeamSeats.length > 0;
   const canEditRow = (r) => canWrite || isOnCareTeamFor(r.partnerId);
@@ -129,9 +112,7 @@ export default function AdminPrayerRequests() {
   const [answeringRequest, setAnsweringRequest] = useState(null);
   const [answer, setAnswer] = useState({ dateAnswered: todayInputValue(), answeredNote: "" });
   const [requestDetail, setRequestDetail] = useState(null); // { id, form }
-  // Scoped to whichever partner is selected in the add form, or whichever
-  // request is being viewed/edited -- see the same hook used in
-  // AdminOneTimeNeeds.jsx.
+  // Scoped to the partner selected in the add form, or the request being viewed/edited.
   const { sourceFiles, loadSourceFiles } = useSourceFiles();
 
   function closeModal() {
@@ -140,17 +121,13 @@ export default function AdminPrayerRequests() {
     setAnsweringRequest(null);
   }
   const selectedPartner = partners.find((p) => p.id === newRequest.partnerId);
-  // Also requires allowRestrictedPartnerDispatch, defaulting to true
-  // while loading -- a UI convenience gate only, the real check is still
-  // enforced server-side regardless.
+  // Also requires allowRestrictedPartnerDispatch (true while loading). UI convenience only;
+  // the real check is server-side.
   const { settings } = useChurchSettings();
   const allowRestrictedPartnerDispatch = settings?.allowRestrictedPartnerDispatch !== false;
   const canApproveNow =
     !!selectedPartner?.isRestricted && hasEnabledChannel && allowRestrictedPartnerDispatch;
-  // Named confirmDialog, not confirm -- this page's only confirmation
-  // surface now (approve-now, urgent-send, and delete all route through
-  // it), and `confirm` would read as a reference to the native global
-  // this hook replaces.
+  // Named confirmDialog, not confirm, so it isn't read as the native global it replaces.
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
   const confirmBeforeCreate = useUrgentApprovalGate({ confirmDialog, enabledFeatures });
 
@@ -232,12 +209,8 @@ export default function AdminPrayerRequests() {
     await reload();
   }
 
-  // Deliberately doesn't touch status/dateAnswered/answeredNote -- that
-  // workflow already has its own guarded flow (Record Answer, only shown
-  // while a request is still open), and letting a generic content-edit
-  // form also toggle status risks silently reopening an answered request.
-  // This is for fixing the text/category/publicity/notes after the fact,
-  // not for redoing the answer workflow.
+  // Deliberately doesn't touch status/dateAnswered/answeredNote: Record Answer has its own
+  // guarded flow, and a generic edit toggling status could silently reopen an answered request.
   function openRequestDetail(request) {
     setRequestDetail({
       id: request.id,
@@ -306,24 +279,24 @@ export default function AdminPrayerRequests() {
           ]}
         />
       )}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <h2>Prayer Requests</h2>
-        {canAdd && (
-          <button
-            className="btn"
-            onClick={() => {
-              setNewRequest(emptyNewRequest);
-              loadSourceFiles(null);
-              setActiveModal("add");
-            }}
-          >
-            + Add Prayer Request
-          </button>
-        )}
-      </div>
-      <p style={{ color: "#666", marginTop: "0.25rem" }}>
-        {requests.length} on file · {answeredCount} answered so far
-      </p>
+      <PageHeader
+        title="Prayer Requests"
+        subtitle={`${requests.length} on file · ${answeredCount} answered so far`}
+        actions={
+          canAdd && (
+            <button
+              className="btn"
+              onClick={() => {
+                setNewRequest(emptyNewRequest);
+                loadSourceFiles(null);
+                setActiveModal("add");
+              }}
+            >
+              + Add Prayer Request
+            </button>
+          )
+        }
+      />
 
       <FilterBar
         fields={fields}
@@ -354,10 +327,8 @@ export default function AdminPrayerRequests() {
             render: (request) => (
               <>
                 <span style={{ fontWeight: 600 }}>{entityFor(request).name}</span>
-                {/* "New since your last visit to this list" -- a separate,
-                    per-user timestamp from the bell's own "newPrayerRequests"
-                    seen-state (see prayerRequests.js's own comment on why).
-                    Clears on this list's next load, not per-item. */}
+                {/* "New since your last visit to this list": a per-user timestamp, separate
+                    from the bell's "newPrayerRequests" seen-state; clears on the next load. */}
                 {request.isNew && (
                   <span className="status-pill good" style={{ marginLeft: "0.5rem", fontSize: "0.65rem" }}>
                     New

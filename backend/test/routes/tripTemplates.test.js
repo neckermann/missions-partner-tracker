@@ -1,8 +1,8 @@
-// #394: the application questions (a trip's own, the church-wide ones and their library), the
-// requirement checklist and its library, and the answers on an application are real rows. Covers
-// that each list saves whole and in order through the same API shape as before, that a question's
-// id stays put across saves, that a copy never shares an id, that an answer keeps the question's
-// wording when the question is changed or deleted, and that a clone copies a trip's questions.
+// The application questions (a trip's own, the church-wide ones and their library), the
+// requirement checklist and its library, and the answers on an application are real rows.
+// Covers that each list saves whole and in order, that a question's id stays put across saves,
+// that a copy never shares an id, that an answer keeps the question's wording when the
+// question is changed or deleted, and that a clone copies a trip's questions.
 const { test, describe, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 require("dotenv").config({ quiet: true });

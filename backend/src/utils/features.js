@@ -1,22 +1,19 @@
-// Canonical registry of gate-able optional features -- the single source of
-// truth for which `enabledFeatures` keys are valid (see the ChurchSettings
-// model comment in schema.prisma). The label and description travel to the
-// frontend with the settings payload (routes/settings.js), so the Features
-// page renders whatever is written here -- there is no second copy to keep
-// in sync. Adding a feature is adding an entry here.
+// Canonical registry of gate-able optional features: the single source of truth
+// for valid `enabledFeatures` keys (see ChurchSettings in schema.prisma). The
+// label and description travel to the frontend with the settings payload, so
+// adding a feature is adding an entry here.
 //
-// `group` is "public" for a toggle a logged-out visitor can actually
-// notice (a public page appearing/disappearing -- "/", "/map", or the Trip
-// Opportunities page) and "admin" for everything else, which only ever
-// changes what a logged-in admin sees in their own nav -- drives the
-// Public site/Admin features split in pages/AdminSettingsFeatures.jsx.
-// Order within "admin" mirrors the nav's
-// own grouping (AdminSidebar.jsx/AdminHome.jsx): core content features
-// first, then Communications (send and/or receive), then Integrations
-// (pull data in / process content, never communicate with anyone) --
-// `section` ("communications" | "integrations" | omitted for core) is
-// what further splits the Admin features list into those same three
-// visual blocks on that page, so it reads the same way the nav does.
+// `requires` (optional): keys of features this one cannot work without; see isFeatureEnabled below.
+// `withoutEmail` (optional): one line on what you get when Email (Sending) is off, for features whose emails
+// matter; shown on Enabled Features. The rule behind it lives in utils/emailSenders.js.
+// `setupNeeds` (optional): keys the settings page asks you to turn on before this one, that are NOT required
+// for it to keep working once it is on (e.g. sending needs email; confirming an existing subscription doesn't).
+//
+// `group` is "public" for a toggle a logged-out visitor can notice ("/", "/map",
+// or Trip Opportunities) and "admin" otherwise; it drives the split in
+// pages/AdminSettingsFeatures.jsx. Admin order mirrors the nav: core content,
+// then Communications, then Integrations; `section` ("communications" |
+// "integrations" | omitted for core) splits the list into those blocks.
 const FEATURES = {
   publicDirectory: {
     label: "Public directory",
@@ -36,6 +33,7 @@ const FEATURES = {
     label: "Newsletters & Docs",
     description:
       "Newsletters and documents (survey responses, signed policies, etc.) on missionary/organization pages and their own admin section.",
+    withoutEmail: "New newsletters wait on Pending Dispatches, where you can copy what is ready to share.",
     defaultEnabled: true,
     group: "admin",
   },
@@ -43,6 +41,7 @@ const FEATURES = {
     label: "Prayer requests",
     description:
       "The Prayer Requests admin section, and the prayer request list on missionary/organization pages.",
+    withoutEmail: "New requests wait on Pending Dispatches, where you can copy what is ready to share.",
     defaultEnabled: true,
     group: "admin",
   },
@@ -50,6 +49,7 @@ const FEATURES = {
     label: "One-time needs",
     description:
       "The One-Time Needs admin section, and the one-time needs list on missionary/organization pages.",
+    withoutEmail: "New needs wait on Pending Dispatches, where you can copy what is ready to share.",
     defaultEnabled: true,
     group: "admin",
   },
@@ -59,29 +59,26 @@ const FEATURES = {
     defaultEnabled: true,
     group: "admin",
   },
-  // Covers the whole recruiting/team/support-raising feature area --
-  // baseline CRUD, applications/review, meetings, documents,
-  // contributions. defaultEnabled flipped from true to false (#252):
-  // this flag now also gates a public application form, a public
-  // support-raising page, and outbound email, not just an admin-only page,
-  // so "on by default" stopped making sense.
+  // The whole recruiting/team/support-raising area. Off by default because it
+  // also gates a public application form, a public support-raising page and
+  // outbound email.
   trips: {
     label: "Mission trips",
     description:
       "Trip tracking, recruiting, teams, meetings, documents, and support raising. The Trips and Plan a Trip admin pages.",
+    withoutEmail:
+      "You are handed each link and its wording to copy and pass on (invites, access links, meetings, requirements).",
     defaultEnabled: false,
     group: "admin",
   },
-  // Broad public discoverability only -- the discovery listing page and
-  // the plain, id-addressed application route for an isPublic trip.
-  // Nested under trips. Deliberately separate from trips itself (same
-  // "backend capability" vs. "public exposure" split publicDirectory
-  // already draws for the directory/map) so a church can run trips
-  // entirely by private link with zero public footprint.
+  // Public discoverability only: the discovery listing and the id-addressed
+  // application route for an isPublic trip. Separate from trips (like
+  // publicDirectory) so a church can run trips by private link with no public footprint.
   publicTripDiscovery: {
     label: "Public trip discovery",
     description:
       "The public Trip Opportunities page and plain trip-application links. Also requires Mission trips to be on. A trip's own private application/support-raising links work regardless of this flag.",
+    requires: ["trips"],
     defaultEnabled: false,
     group: "public",
   },
@@ -95,18 +92,13 @@ const FEATURES = {
     label: "Reports",
     description:
       "Read-only reports over existing data — committed support, prayer requests, one-time needs, data completeness, trip fundraising and readiness, mailing list — with CSV download and a print view.",
+    withoutEmail: "Scheduled report emails aren't sent; run and download a report from Reports any time.",
     defaultEnabled: true,
     group: "admin",
   },
-  // Outbound sending capability (see #71) and its matching inbound half
-  // (see #72) -- two independent flags on purpose, not one: a church may
-  // want only one direction. They share a single settings page
-  // (Settings -> Email) since it's one Postmark account, but
-  // each flag gates its own routes independently (the send-test route
-  // checks "outboundEmail" only; the inbound webhook/review-queue routes
-  // check "inboundEmail" only) -- enabling one never requires or unlocks
-  // the other. Off by default, same "off until it does something"
-  // reasoning as every other integration here.
+  // Outbound sending and its inbound half are independent flags: a church may want
+  // one direction. They share the Settings -> Email page (one Postmark account) but
+  // each gates its own routes. Off by default.
   outboundEmail: {
     label: "Email (Sending)",
     description:
@@ -138,26 +130,24 @@ const FEATURES = {
     group: "admin",
     section: "communications",
   },
-  // Listed last -- unlike the three toggles above (each independently
-  // useful on its own), this one builds on top of outboundEmail (and
-  // publicDirectory, elsewhere), so it reads better after the thing it
-  // depends on rather than sandwiched in the middle of the Email pair.
+  // Listed last because it builds on outboundEmail.
   publicPrayerDigest: {
     label: "Public prayer digest",
     description:
       "Lets anyone subscribe (no login) to email digests of prayer-request updates, for all partners or specific ones they follow -- unlike the admin digest above, this is prayer requests only, never one-time needs or newsletters. Also requires Public directory and Email (Sending) to be on.",
+    requires: ["publicDirectory"],
+    // Needed to switch it on (the settings page makes you enable email first), not to keep working: an
+    // existing subscriber can still confirm and unsubscribe while email is off.
+    setupNeeds: ["outboundEmail"],
+    withoutEmail: "Can't be turned on: it needs working email to send confirmations and digests.",
     defaultEnabled: false,
     group: "admin",
     section: "communications",
   },
-  // #289: a lead plus members per partner, who keep in touch with it.
-  // Terms ("Care team", "Lead", "Member", "Guest") are plain fixed
-  // defaults, not ChurchSettings fields, in v1. Off by default: nothing
-  // changes for a church that doesn't turn it on (one office contact, no
-  // care teams).
-  // #288: a log of every touchpoint with a partner, a contact card on the
-  // partner page, an "My partners" view and a "needs reaching out" alert.
-  // Off by default so nothing changes for a church that doesn't want it.
+  // A lead plus members per partner who keep in touch with it. Terms are fixed
+  // defaults, not ChurchSettings fields. Off by default.
+  // A log of every touchpoint with a partner, a contact card, a "My partners" view
+  // and a "needs reaching out" alert. Off by default.
   contactLog: {
     label: "Contact log",
     description:
@@ -165,31 +155,40 @@ const FEATURES = {
     defaultEnabled: false,
     group: "admin",
   },
-  // #291: a bell alert and one grouped daily email for the people on a
-  // partner's care team when a birthday, anniversary or supported-since
-  // milestone is coming up. Needs care teams (that is where the recipients
-  // come from); the email also needs email sending.
+  // A bell alert and grouped daily email for a care team when a birthday,
+  // anniversary or supported-since milestone is coming. Goes to whoever looks after the partner (its care
+  // team, else the missions team); the email needs email sending.
   keyDates: {
     label: "Key-date reminders",
     description:
-      "Remind each partner's care team about coming birthdays (including children), anniversaries and supported-since milestones: on the bell, and in one grouped email a day that is sent only on days something is due. Needs Care teams; the email also needs Email (Sending).",
+      "Remind whoever looks after each partner (its care team if it has one, otherwise your missions team) about coming birthdays (including children), anniversaries and supported-since milestones: on the bell, and in one grouped email a day that is sent only on days something is due. The email needs Email (Sending).",
+    withoutEmail: "My partners shows what the daily email would have said, with Copy this week's list.",
     defaultEnabled: false,
     group: "admin",
   },
   careTeam: {
     label: "Care teams",
     description:
-      "Give each partner a care team: one lead plus members from your logins who keep in touch with them. Guests can be given a partner this way. Also adds a coverage report of partners with no care team.",
+      "Give each partner its own care team: one lead plus members from your logins who keep in touch with them. Church members can be added as Guests and see only their partners. Partners without a team are looked after by your missions team. Also adds a coverage report of partners with no care team.",
     defaultEnabled: false,
     group: "admin",
   },
-  // #374: a menu of the ways the church and a partner's care team can support the partner,
-  // owned by the church (edited in Settings, never code), and each partner's choices from
-  // it. Needs Care teams (the care team is who records and reads it). Off by default.
+  // A church-owned menu of ways to support a partner (edited in Settings, never
+  // code) and each partner's choices from it. Off by default.
   supportPreferences: {
     label: "Support preferences",
     description:
-      "Let each partner choose how the church and their care team can support them (a menu you edit under Settings, such as housing while home, airport pick-up, prayer, care packages), shown as a card on the partner's page and recorded by staff or the care team. Needs Care teams. Never shown publicly, in the booklet or in dispatches.",
+      "Let each partner choose how the church can support them (a menu you edit under Settings, such as housing while home, airport pick-up, prayer, care packages), shown as a card on the partner's page and recorded by staff or the people who look after them. Never shown publicly, in the booklet or in dispatches.",
+    defaultEnabled: false,
+    group: "admin",
+  },
+  // Church-built surveys a partner answers through a personal link (or staff fill in for them).
+  // The emailed links need Email (Sending). Off by default.
+  surveys: {
+    label: "Partner surveys",
+    description:
+      "Build short surveys (a check-in, an annual update, a poll) and send each partner a personal link to answer, or fill one in for them after a conversation. Answers show on the partner's page for staff (and their care team, when Care teams is on) only, never publicly, in the booklet or in dispatches. A person starts every send; the app never emails a partner on its own. Sending the links needs Email (Sending).",
+    withoutEmail: "Sending a survey gives you each partner's link to copy (Get link).",
     defaultEnabled: false,
     group: "admin",
   },
@@ -204,16 +203,13 @@ const FEATURES = {
     label: "AI Features",
     description:
       "Scan uploaded newsletters and email documents for prayer requests and one-time needs using Claude.",
+    requires: ["partnerFiles"],
     defaultEnabled: false,
     group: "admin",
     section: "integrations",
   },
-  // One switch for the integration as a whole -- *where* it then shows
-  // (public partner pages, admin partner pages, or both) is a plain
-  // setting on the Joshua Project settings page itself, not a
-  // second/third feature-registry entry, since it's display placement
-  // rather than something with its own nav/page to hide. Off by default
-  // until an API key is configured, same reasoning as groupme.
+  // One switch for the whole integration; where it shows (public, admin, or both)
+  // is a setting on the Joshua Project page, not another entry. Off by default until an API key is configured.
   joshuaProject: {
     label: "Joshua Project stats",
     description:
@@ -226,25 +222,33 @@ const FEATURES = {
 
 const FEATURE_KEYS = Object.keys(FEATURES);
 
-// A key with no explicit entry in enabledFeatures falls back to its
-// registry default -- so existing deployments upgrading onto this column
-// (which defaults to `{}`) keep every current feature turned on, and a
-// brand-new feature like aiExtraction stays off until deliberately enabled.
-function isFeatureEnabled(enabledFeatures, key) {
+// A key with no entry in enabledFeatures falls back to its registry default:
+// existing deployments keep current features on, and a new feature like
+// aiExtraction stays off until enabled.
+//
+// `requires` (in the registry above) lists the features this one genuinely cannot work without, and it
+// is the ONLY place a dependency is declared: a feature is on only when it is switched on AND everything
+// it requires is on (recursively). Routes, the UI and the descriptions never re-check a requirement by
+// hand, so a dependency can't appear by accident. Declare one only for a real data dependency.
+function isFeatureEnabled(enabledFeatures, key, seen = new Set()) {
   const feature = FEATURES[key];
-  if (!feature) return false;
+  if (!feature || seen.has(key)) return false;
   const stored = enabledFeatures?.[key];
   const on = typeof stored === "boolean" ? stored : feature.defaultEnabled;
-  return on;
+  if (!on) return false;
+  const next = new Set(seen).add(key);
+  return (feature.requires || []).every((req) => isFeatureEnabled(enabledFeatures, req, next));
 }
 
-// The public missionary/organization data routes back both the directory
-// and map pages (same underlying list -- see PublicDirectory.jsx and
-// PublicMap.jsx), and the partner-detail page is linked from either one --
-// so that data stays reachable as long as at least one of the two is on,
-// only 404ing once a church has turned off both.
+// The features `key` requires that are currently off, so a screen can say what to turn on first.
+function unmetRequirements(enabledFeatures, key) {
+  return (FEATURES[key]?.requires || []).filter((req) => !isFeatureEnabled(enabledFeatures, req));
+}
+
+// The public data routes back both the directory and map (and the detail page
+// links from either), so they stay reachable while at least one is on.
 function isAnyFeatureEnabled(enabledFeatures, keys) {
   return keys.some((key) => isFeatureEnabled(enabledFeatures, key));
 }
 
-module.exports = { FEATURES, FEATURE_KEYS, isFeatureEnabled, isAnyFeatureEnabled };
+module.exports = { FEATURES, FEATURE_KEYS, isFeatureEnabled, isAnyFeatureEnabled, unmetRequirements };

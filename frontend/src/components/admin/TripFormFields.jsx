@@ -35,17 +35,9 @@ export function cleanTripParticipants(participants) {
     .filter((p) => p.firstName);
 }
 
-// Phase 3b of the UX-rebuild plan: the dates/type/description/notes/album/
-// participants field set duplicated between PartnerTripSection.jsx
-// (embedded on Partner Detail, fixed partnerId) and AdminTrips.jsx's
-// ExistingTripsTab (consolidated -- both its "log a completed trip" add
-// form and its inline edit-row shared this same shape, just across two
-// separate state objects). Same pattern as SupportNeedFormFields.jsx:
-// renders only the form-grid body plus the participants editor,
-// `partnerPicker` is injected by the caller only where a partner picker
-// is actually needed (the consolidated page's create flow) -- there's no
-// create/edit field difference here, unlike SupportNeedFormFields, so no
-// `mode` prop.
+// The dates/type/description/notes/album/participants field set shared by PartnerTripSection.jsx
+// and AdminTrips.jsx's ExistingTripsTab. Form-grid body plus participants editor; `partnerPicker`
+// is injected only where a partner picker is needed. No create/edit difference, so no `mode`.
 export default function TripFormFields({ form, setForm, partnerPicker }) {
   function set(field, value) {
     setForm((f) => ({ ...f, [field]: value }));

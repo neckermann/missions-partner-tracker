@@ -110,6 +110,7 @@ module.exports = [
             "AddressFields",
             "AlbumLinkField",
             "TripSelect",
+            "SuggestInput",
           ],
         },
       ],

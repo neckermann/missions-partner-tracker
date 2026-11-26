@@ -1,7 +1,8 @@
-// #358: the Wrap up trip wizard's endpoint and its two bell items. Covers what a wrap-up saves
-// (status, actual dates, the debrief, the album link), who may run it (admin, editor, a trip leader
-// for their own trip only), the optional contact for the partner (and when it is NOT made), that a
-// second run keeps the first wrap-up time, and the "ready to wrap up" and "wrapped up" bell items.
+// The Wrap up trip wizard's endpoint and its two bell items. Covers what a wrap-up saves
+// (status, actual dates, the debrief, the album link), who may run it (admin, editor, a trip
+// leader for their own trip only), the optional contact for the partner (and when it is NOT
+// made), that a second run keeps the first wrap-up time, and the "ready to wrap up" and
+// "wrapped up" bell items.
 const { test, describe, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 require("dotenv").config({ quiet: true });

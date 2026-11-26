@@ -1,10 +1,7 @@
-// Country name -> continent, for the server-side `continent` filter on
-// GET /api/partners (and, per the UX-rebuild plan's Phase 7, meant to be
-// shared by the public directory's own continent filter later). Kept in
-// sync by hand with frontend/src/utils/countryContinents.js -- same
-// mledoze/countries-derived list, same aliases (e.g. "Turkey" for
-// "Türkiye") -- so "does this app recognize this country" means the same
-// thing on both sides, same reasoning as maskData.js's COUNTRY_CENTROIDS.
+// Country name -> continent, for the server-side `continent` filter on GET
+// /api/partners. Kept in sync by hand with frontend/src/utils/countryContinents.js
+// (same mledoze/countries list and aliases) so both sides recognize the same
+// countries, as with maskData.js's COUNTRY_CENTROIDS.
 const COUNTRY_CONTINENTS = {
   Afghanistan: "Asia",
   "Åland Islands": "Europe",
@@ -264,9 +261,8 @@ const COUNTRY_CONTINENTS = {
   "Democratic Republic of the Congo": "Africa", // alias for DR Congo
 };
 
-// Countries matching a given continent -- used to turn ?continent=Africa
-// into a `country IN [...]` where-clause, since continent itself isn't a
-// stored column anywhere.
+// Countries in a continent, to turn ?continent=Africa into `country IN [...]`
+// (continent isn't a stored column).
 function countriesInContinent(continent) {
   return Object.entries(COUNTRY_CONTINENTS)
     .filter(([, c]) => c === continent)

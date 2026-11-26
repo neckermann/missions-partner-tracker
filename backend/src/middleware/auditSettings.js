@@ -1,18 +1,15 @@
-// Records every change to the church settings in the audit trail (#341),
-// in one place. Settings are written by eight separate route files
-// (settings.js, settingsEmail.js, settingsGroupMe.js, ...); hooking each would
-// miss the next one added. Instead this wraps every write under /api/settings:
-// snapshot the ChurchSettings row before, diff it after a successful response.
+// Records every change to the church settings in the audit trail in one place:
+// settings are written by many route files, so this wraps every write under
+// /api/settings, snapshotting the ChurchSettings row before and diffing after a
+// successful response.
 //
-//  - A secret column (API keys, tokens, passwords) is noted as "changed" and
-//    its value is never read into the log.
-//  - Each feature switched on/off in enabledFeatures is its own entry
-//    ("Turned a feature on or off"), so a toggle is easy to find.
-//  - Everything else is one "Changed church settings" entry with the section
-//    and old/new values (long text truncated).
-// Mounted before the settings routers, so req.user does not exist yet when it
-// runs; the actor is read when the response finishes, by which time the
-// routers' own auth has set it.
+//  - A secret column (API keys, tokens, passwords) is noted as "changed"; its
+//    value is never read into the log.
+//  - Each feature toggled in enabledFeatures is its own entry.
+//  - Everything else is one "Changed church settings" entry with section and
+//    old/new values (long text truncated).
+// Mounted before the settings routers, so req.user doesn't exist yet; the actor is
+// read when the response finishes.
 const prisma = require("../prismaClient");
 const { FEATURES } = require("../utils/features");
 const { isAuditEnabled, recordAudit, clearAuditEnabledCache, secretChange } = require("../utils/auditLog");
@@ -26,9 +23,8 @@ const SECRET_COLUMNS = [
   "postmarkServerToken",
   "inboundEmailWebhookPassword",
 ];
-// Bookkeeping that changes on every write (including the "last edited by"
-// stamp, utils/actorContext.js), plus enabledFeatures, which is reported per
-// feature instead.
+// Bookkeeping that changes on every write (incl. the "last edited by" stamp), plus
+// enabledFeatures, which is reported per feature.
 const IGNORED_COLUMNS = new Set([
   "id",
   "updatedAt",
@@ -47,7 +43,7 @@ function shorten(v) {
   return typeof v === "string" && v.length > MAX_TEXT ? `${v.slice(0, MAX_TEXT)}…` : v;
 }
 
-// Pure, so it can be tested without a database: what changed between two rows.
+// Pure: what changed between two rows.
 function diffSettings(before, after) {
   const secrets = [];
   const changes = {};
@@ -78,8 +74,7 @@ async function auditSettingsWrites(req, res, next) {
   if (!WRITE_METHODS.has(req.method)) return next();
   let before = null;
   let wasEnabled = false;
-  // Taken BEFORE the route runs (awaited, not fired and forgotten): a fast
-  // handler would otherwise write first and the diff would see no change.
+  // Taken BEFORE the route runs (awaited): a fast handler would otherwise write first and the diff would see nothing.
   try {
     wasEnabled = await isAuditEnabled();
     if (wasEnabled) before = await snapshot();
@@ -92,18 +87,16 @@ async function auditSettingsWrites(req, res, next) {
       clearAuditEnabledCache();
       const after = await snapshot();
       const nowEnabled = await isAuditEnabled();
-      // Record if it was on before OR is on now (turning it on or off is itself
-      // an event). When it was off and stays off there is nothing to record.
+      // Record if it was on before OR is on now (turning it on/off is itself an event).
       if (!wasEnabled && !nowEnabled) return;
-      // While it was off there is no "before" worth diffing: only the switch-on
-      // itself is kept (below).
+      // While it was off there is no "before" worth diffing; only the switch-on is kept (below).
       const prior = wasEnabled && before ? before : { enabledFeatures: {} };
       const { changes, secrets, toggles } = diffSettings(prior, after);
       // The part of the URL after /api/settings, e.g. "email" or "dispatches".
       const section = req.originalUrl.split("?")[0].replace(/^\/api\/settings\/?/, "") || "general";
       const common = { actor: req.user, req, force: true };
       for (const t of toggles) {
-        // While it was off, only the toggle that turns it on is worth keeping.
+        // While it was off, only the toggle that turns it on is kept.
         if (!wasEnabled && t.key !== "auditTrail") continue;
         await recordAudit(null, {
           ...common,

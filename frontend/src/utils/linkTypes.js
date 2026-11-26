@@ -1,7 +1,5 @@
-// Keys match backend/src/routes/linkTypes.js's LINK_TYPES exactly -- that's
-// what's actually stored on PartnerLink.type. A fixed, curated list (no
-// "Other" escape hatch) -- a new platform gets added here via an issue/PR,
-// same as any other feature request.
+// Keys match backend/src/routes/linkTypes.js LINK_TYPES exactly (stored on PartnerLink.type). A
+// fixed, curated list with no "Other" escape hatch; new platforms are added here.
 export const LINK_TYPES = [
   { value: "website", label: "Website" },
   { value: "support", label: "Support / Donate Link" },

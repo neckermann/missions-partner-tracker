@@ -7,25 +7,16 @@ import {
 } from "../api/client.js";
 import SettingsPageHeader from "../components/admin/SettingsPageHeader.jsx";
 
-// Posts as the admin's own GroupMe identity (the Messages API, not a bot
-// -- GroupMe's Bots API has no awareness of Topics at all). Topics are
-// undocumented in GroupMe's public API but real: each one is a
-// "subgroup" with its own id, and the ordinary messages endpoint posts
-// into it when pointed at that id instead of the parent group's -- see
-// backend/src/utils/groupmeChannel.js for the detail.
+// Posts as the admin's own GroupMe identity (Messages API, not a bot: the Bots API has no
+// notion of Topics). Topics are undocumented but real: each is a "subgroup" with its own id
+// that the ordinary messages endpoint posts into (see backend/src/utils/groupmeChannel.js).
 //
-// The access token is write-only by design, same as a password field:
-// the backend never returns a stored value, only whether one exists
-// (`configured`). Pasting a new one and saving replaces it; leaving the
-// field blank on save leaves the existing token untouched. The group and
-// each topic are never hand-typed -- both come from live GroupMe API
-// calls, picked from a dropdown.
+// The access token is write-only, like a password: the backend returns only whether one
+// exists (`configured`); a blank field on save leaves the stored token untouched. The group
+// and topics are picked from live GroupMe API calls, never hand-typed.
 //
-// Three notification types, three topics, but one group and one topic
-// list -- GroupMe's own API has no notion of "list topics for this
-// notification type," only "list a group's topics," so Load Topics is
-// shared and each section below just has its own picker + save button
-// against that same list.
+// Three notification types share one group and one topic list (GroupMe can only list a
+// group's topics), so Load Topics is shared and each section has its own picker.
 const TOPIC_TYPES = [
   {
     number: 3,
@@ -51,6 +42,15 @@ const TOPIC_TYPES = [
     nameField: "newsletterTopicName",
     fallbackNote: "newsletters post to the group's main conversation",
   },
+  {
+    number: 6,
+    key: "care",
+    title: "Partner Care Topic",
+    idField: "careTopicId",
+    nameField: "careTopicName",
+    fallbackNote:
+      "partner care posts (key dates, quiet partners, news to pass on) post to the group's main conversation",
+  },
 ];
 
 function TopicSection({ type, settings, groupId, topics, saving, onSave }) {
@@ -68,9 +68,9 @@ function TopicSection({ type, settings, groupId, topics, saving, onSave }) {
         {type.number}. {type.title}
       </h3>
       {currentTopicName ? (
-        <p style={{ color: "#555" }}>Currently: {currentTopicName}</p>
+        <p style={{ color: "var(--muted)" }}>Currently: {currentTopicName}</p>
       ) : (
-        <p style={{ color: "#555" }}>No topic selected yet — until one is, {type.fallbackNote}.</p>
+        <p style={{ color: "var(--muted)" }}>No topic selected yet — until one is, {type.fallbackNote}.</p>
       )}
       {topics && (
         <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
@@ -94,7 +94,9 @@ function TopicSection({ type, settings, groupId, topics, saving, onSave }) {
           </button>
         </div>
       )}
-      {!topics && !groupId && <p style={{ color: "#888", fontSize: "0.9rem" }}>Pick a group first.</p>}
+      {!topics && !groupId && (
+        <p style={{ color: "var(--muted)", fontSize: "0.9rem" }}>Pick a group first.</p>
+      )}
     </div>
   );
 }
@@ -110,6 +112,8 @@ export default function AdminSettingsGroupMe() {
     oneTimeNeedTopicName: null,
     newsletterTopicId: null,
     newsletterTopicName: null,
+    careTopicId: null,
+    careTopicName: null,
   });
   const [accessToken, setAccessToken] = useState("");
 
@@ -219,9 +223,10 @@ export default function AdminSettingsGroupMe() {
   return (
     <div className="admin-shell">
       <SettingsPageHeader title="GroupMe" />
-      <p style={{ color: "#555" }}>
-        Posts new prayer requests, one-time needs, and newsletters to GroupMe Topics as they're added. Turn
-        this on in <a href="/admin/settings/features">Enabled Features</a> once it's configured below.
+      <p style={{ color: "var(--muted)" }}>
+        Posts new prayer requests, one-time needs, and newsletters to GroupMe Topics as they're added, and
+        (when turned on under Dispatch Settings) partner care posts such as coming key dates. Turn this on in{" "}
+        <a href="/admin/settings/features">Enabled Features</a> once it's configured below.
       </p>
 
       {error && (
@@ -229,12 +234,12 @@ export default function AdminSettingsGroupMe() {
           {error}
         </p>
       )}
-      {success && <p style={{ color: "#2a5d3c" }}>{success}</p>}
+      {success && <p style={{ color: "var(--accent)" }}>{success}</p>}
 
       <form onSubmit={handleSaveToken} className="admin-form">
         <div className="admin-section">
           <h3>1. Access Token</h3>
-          <p style={{ color: "#555", fontSize: "0.9rem" }}>
+          <p style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
             Get a personal access token at{" "}
             <a href="https://dev.groupme.com" target="_blank" rel="noreferrer">
               dev.groupme.com
@@ -262,9 +267,9 @@ export default function AdminSettingsGroupMe() {
       <div className="admin-section">
         <h3>2. Group</h3>
         {settings.groupName ? (
-          <p style={{ color: "#555" }}>Currently: {settings.groupName}</p>
+          <p style={{ color: "var(--muted)" }}>Currently: {settings.groupName}</p>
         ) : (
-          <p style={{ color: "#555" }}>No group selected yet.</p>
+          <p style={{ color: "var(--muted)" }}>No group selected yet.</p>
         )}
         <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
           <button
@@ -299,7 +304,7 @@ export default function AdminSettingsGroupMe() {
 
       <div className="admin-section">
         <h3>Topics</h3>
-        <p style={{ color: "#555", fontSize: "0.9rem" }}>
+        <p style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
           One list of topics for the group above, shared by the three pickers below — load it once, then pick
           a topic for each notification type you want.
         </p>

@@ -1,22 +1,15 @@
-// WhatsApp-only: posting (Prayer Requests, One-Time Needs, and
-// Newsletters each to their own configured group inside one WhatsApp
-// community), its schedule check, and its own stamping. The sibling of
-// groupmeChannel.js -- same shape, same one-way dependencies, so
-// emailDispatchScheduler.js composes the two identically. The socket itself lives
-// in whatsappClient.js; nothing here touches Baileys directly.
+// WhatsApp-only posting (Prayer Requests, One-Time Needs, Newsletters, each to
+// its configured group in one community), its schedule check and stamping.
+// Sibling of groupmeChannel.js; the socket lives in whatsappClient.js.
 //
-// Schedule: WhatsApp shares GroupMe's daily send hour
-// (ChurchSettings.chatDispatchHour) and its three content-type mutes,
-// but has its own dedupe cursor (lastWhatsappChatDispatchSentAt) and its
-// own per-row stamp (whatsappDispatchedAt). A church that turns both
-// channels on simply gets both posting at the same hour; one being down
-// never blocks or double-stamps the other.
+// Schedule: shares GroupMe's daily hour (ChurchSettings.chatDispatchHour) and
+// content-type mutes but has its own dedupe cursor (lastWhatsappChatDispatchSentAt)
+// and row stamp (whatsappDispatchedAt), so one channel being down never blocks
+// or double-stamps the other.
 //
-// Message text comes from buildBlurb()'s groupmeText -- the one place
-// restricted-partner masking and review gating are decided, so WhatsApp
-// inherits all of it with no extra code (the field is channel-neutral chat
-// text despite its name). Only the packing differs: WhatsApp allows much
-// longer messages, so several related blurbs collapse into one message.
+// Text comes from buildBlurb()'s groupmeText (channel-neutral despite the name),
+// so restricted-partner masking and review gating are inherited. WhatsApp allows
+// longer messages, so related blurbs are packed into one.
 const prisma = require("../prismaClient");
 const { isFeatureEnabled } = require("./features");
 const { buildBlurb } = require("./dispatchBlurbs");
@@ -25,20 +18,14 @@ const { shouldFlushDailyChatChannel } = require("./chatSchedule");
 const { splitLongText, packMessages } = require("./messagePacking");
 const whatsappClient = require("./whatsappClient");
 
-// WhatsApp's documented text limit through the Business API is 4,096
-// characters. The regular app / Web protocol (what Baileys speaks)
-// reportedly allows far more, but that isn't documented anywhere
-// authoritative, so stay safely under the documented figure.
+// WhatsApp's documented Business API text limit is 4,096 characters. The Web
+// protocol (Baileys) reportedly allows more, undocumented, so stay under this.
 const MAX_MESSAGE_LENGTH = 4000;
 
-// Single source of truth for which ChurchSettings group column serves
-// which content type. GROUP_FIELD_BY_EVENT_TYPE (keyed by the
-// DispatchRecord row type, for eligibility/clearing which look at raw
-// rows) and GROUP_FIELD_BY_TOPIC_KEY (keyed by a blurb's topicKey --
-// GroupMe's own ChurchSettings field name, reused as a channel-neutral
-// label -- for posting, which looks at blurbs) are both DERIVED from
-// this one list so the two can never drift out of sync with each other
-// the way two hand-maintained copies could.
+// Single source of truth for which ChurchSettings group column serves which
+// content type. GROUP_FIELD_BY_EVENT_TYPE (by row type, for eligibility/clearing)
+// and GROUP_FIELD_BY_TOPIC_KEY (by blurb topicKey, GroupMe's field name reused as
+// a channel-neutral label, for posting) are derived from it so they can't drift.
 const GROUP_MAPPINGS = [
   {
     whatsappField: "whatsappPrayerGroupId",
@@ -55,22 +42,21 @@ const GROUP_MAPPINGS = [
     topicKey: "groupmeNewsletterTopicId",
     eventTypes: ["newsletterCreated"],
   },
+  {
+    whatsappField: "whatsappCareGroupId",
+    topicKey: "groupmeCareTopicId",
+    eventTypes: ["keyDateComing", "quietPartner", "updateToPassOn"],
+  },
 ];
 const GROUP_FIELD_BY_EVENT_TYPE = Object.fromEntries(
   GROUP_MAPPINGS.flatMap((m) => m.eventTypes.map((type) => [type, m.whatsappField]))
 );
 const GROUP_FIELD_BY_TOPIC_KEY = Object.fromEntries(GROUP_MAPPINGS.map((m) => [m.topicKey, m.whatsappField]));
 
-// The group a content-type field resolves to: its own picked group, or
-// -- same idea as GroupMe's main-group fallback -- the community's
-// Announcements group (whatsappAnnouncementGroupId, auto-resolved when
-// the community is picked; see whatsappClient.js's
-// findAnnouncementGroup and routes/settings.js's PUT /whatsapp). Only
-// with neither set does a type have nowhere to go. Shared by
-// hasWhatsAppTarget (keyed by row.type via GROUP_FIELD_BY_EVENT_TYPE)
-// and postToWhatsApp (keyed by a blurb's topicKey via
-// GROUP_FIELD_BY_TOPIC_KEY) -- same fallback rule, two different lookup
-// keys into the same settings fields.
+// The group a content-type field resolves to: its own pick, else the community's
+// Announcements group (whatsappAnnouncementGroupId, resolved when the community is
+// picked). With neither, the type has nowhere to go. Shared by hasWhatsAppTarget
+// and postToWhatsApp, which key into the same fields differently.
 function effectiveGroupId(field, settings) {
   if (!field) return null;
   return settings?.[field] || settings?.whatsappAnnouncementGroupId || null;
@@ -80,36 +66,21 @@ function resolveWhatsAppGroupId(row, settings) {
   return effectiveGroupId(GROUP_FIELD_BY_EVENT_TYPE[row.type], settings);
 }
 
-// True when this row's content type resolves to some WhatsApp
-// group -- its own pick or the Announcements fallback.
-// dispatchOrchestrator.js's clearDispatchRecords uses this to avoid
-// holding a row in the queue forever when neither is ever going to
-// exist.
+// True when this row's content type resolves to some WhatsApp group. Used by
+// dispatchOrchestrator.js clearDispatchRecords so rows aren't held forever.
 //
-// Deliberately does NOT check whether WhatsApp is *currently* paired --
-// an earlier version did, and it was a real bug: every deploy causes a
-// brief, normal reconnect window where whatsappPairedAt is momentarily
-// null even though the number is coming right back, and clearing
-// treated that exactly like a deliberate, permanent "off." A real
-// deliberate unlink already clears every group field (including the
-// Announcements fallback) too (see routes/settings.js's POST
-// /whatsapp/unlink), so "a group resolves" is the correct, stable
-// signal for "this church still wants this channel for this content
-// type" -- it survives a transient reconnect and correctly goes false
-// on a real unlink. The one caller that actually needs "is it connected
-// right now" (runWhatsAppPass) already has its own separate, more
-// precise whatsappClient.getStatus() check upstream of this one, same
-// as sendWhatsAppUrgent in dispatchOrchestrator.js -- this function
-// was never their only guard against sending while disconnected.
+// Deliberately does NOT check whether WhatsApp is currently paired: every deploy
+// has a brief reconnect window where whatsappPairedAt is null, and clearing would
+// treat it as a permanent "off". A real unlink clears every group field (see
+// routes/settings.js POST /whatsapp/unlink), so "a group resolves" is the stable
+// signal. runWhatsAppPass checks getStatus() separately.
 function hasWhatsAppTarget(row, settings) {
   return Boolean(resolveWhatsAppGroupId(row, settings));
 }
 
-// Takes already-eligible DispatchRecord rows (the caller filtered through
-// isEligibleForChannel), builds each row's blurb, and posts to each type's
-// own configured group. Returns the Set of row ids that actually posted --
-// one group failing (not a member any more, anti-ban pause) must not stop
-// rows headed elsewhere from stamping whatsappDispatchedAt.
+// Takes already-eligible DispatchRecord rows, builds each blurb and posts to its
+// type's group. Returns the Set of row ids that posted; one group failing (left
+// the group, anti-ban pause) must not stop other rows stamping whatsappDispatchedAt.
 async function postToWhatsApp(eligibleRows, partnerById, settings) {
   const sentIds = new Set();
 
@@ -117,8 +88,7 @@ async function postToWhatsApp(eligibleRows, partnerById, settings) {
     .map((row) => buildBlurb(row, partnerById.get(row.partnerId), settings))
     .filter((blurb) => blurb?.groupmeText); // e.g. a newsletter that never resolved a link has nothing to send
 
-  // Group by destination group id, so two types mapped to the same
-  // WhatsApp group still pack into shared messages.
+  // Group by destination group id so two types sharing a group pack into shared messages.
   const byGroup = new Map();
   for (const blurb of blurbs) {
     const field = GROUP_FIELD_BY_TOPIC_KEY[blurb.topicKey];
@@ -136,10 +106,8 @@ async function postToWhatsApp(eligibleRows, partnerById, settings) {
         await whatsappClient.sendText(groupId, message.text);
         message.completes.forEach((id) => sentIds.add(id));
       } catch (err) {
-        // One message's failure must never stop the rest of the pass --
-        // those rows just stay queued for the next one. Log the reason,
-        // never the text. Recorded, not just logged -- see the in-app
-        // notifications plan's "Dispatch send failures" category.
+        // One message's failure must not stop the pass; its rows stay queued.
+        // Log the reason, never the text. Recorded for the "Dispatch send failures" notification.
         console.error("WhatsApp post failed:", err.message);
         await prisma.dispatchRecord.updateMany({
           where: { id: { in: message.completes } },
@@ -153,18 +121,14 @@ async function postToWhatsApp(eligibleRows, partnerById, settings) {
   return sentIds;
 }
 
-// Same daily-hour rule as GroupMe's shouldFlushGroupMe (shared via
-// chatSchedule.js), reading the shared hour but WhatsApp's own cursor.
+// Same daily-hour rule as GroupMe's shouldFlushGroupMe (chatSchedule.js), with WhatsApp's own cursor.
 function shouldFlushWhatsApp(settings, now) {
   return shouldFlushDailyChatChannel(settings, now, "lastWhatsappChatDispatchSentAt");
 }
 
-// WhatsApp's schedule check + pass. A no-op if the feature's off, the
-// hour/dedupe gate doesn't pass, or the number isn't currently connected --
-// in that last case the cursor is deliberately NOT stamped, so the next
-// minute's tick retries within the same hour instead of waiting a day
-// (connections drop and come back routinely; a missed hour shouldn't mean a
-// missed day).
+// Schedule check + pass. No-op if the feature is off, the hour/dedupe gate fails,
+// or the number isn't connected; in that last case the cursor is NOT stamped so
+// the next minute retries within the same hour.
 async function runWhatsAppPass(settings, now) {
   if (!isFeatureEnabled(settings?.enabledFeatures, "whatsapp")) return;
   if (!shouldFlushWhatsApp(settings, now)) return;

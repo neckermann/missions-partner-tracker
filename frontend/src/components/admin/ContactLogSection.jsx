@@ -3,24 +3,26 @@ import {
   fetchContactLogOptions,
   fetchContactTimeline,
   fetchContactUpdates,
+  fetchPartnerSupportPreferences,
   createContactLogEntry,
   updateContactLogEntry,
   deleteContactLogEntry,
 } from "../../api/client.js";
+import { Link } from "react-router-dom";
 import QuickActionModal from "../shared/QuickActionModal.jsx";
 import useConfirmDialog from "../../hooks/useConfirmDialog.jsx";
 import ConfirmMessageBody from "../ConfirmMessageBody.jsx";
+import { useSettings } from "../../context/SettingsContext.jsx";
+import { onClickUnlessSelecting } from "../../utils/clickableRow.js";
 import { formatDateLong, toDateInputValue, todayInputValue } from "../../utils/format.js";
 
-// The partner's contact log (#288): every call, text, visit or card, newest
-// first. Anyone who can see the partner can log one (quick chips, not a long
-// form); only admin/editor can fix or delete an entry (`canFix`). The fixed
-// type / direction / topic lists come from the server, so nothing here keeps a
-// copy that could drift.
-//
-// `entries` is owned by the page (the contact card at the top reads the same
-// list); `onChanged` reloads it. `teammates` ([{ userId, name }]) feeds the
-// "Who" picker when care teams are on -- "Me" is always there and the default.
+// The partner's contact log, newest first. Anyone who can see the partner can log an entry; only
+// admin/editor can fix or delete one (`canFix`). The type/direction/topic lists come from the
+// server. `entries` is owned by the page; `onChanged` reloads it. `teammates` ([{ userId, name }])
+// feeds the "Who" picker when care teams are on ("Me" is the default).
+
+// How many of the newest log entries and filed events the partner page shows.
+const RECENT_COUNT = 3;
 
 const nameOf = (u) => [u?.firstName, u?.lastName].filter(Boolean).join(" ") || "Someone";
 
@@ -46,6 +48,7 @@ const blankForm = () => ({
   contactDate: todayInputValue(),
   notes: "",
   followUpDate: "",
+  supportOptionId: "",
 });
 
 export default function ContactLogSection({
@@ -56,26 +59,35 @@ export default function ContactLogSection({
   currentUserId,
   teammates = [],
 }) {
+  const { enabledFeatures } = useSettings();
   const [options, setOptions] = useState(null);
+  // The support menu, so an entry can say which option it was about (staff-only options are
+  // already left out for a care team guest by the server).
+  const [supportOptions, setSupportOptions] = useState([]);
   const [form, setForm] = useState(null); // null = closed
   const [editingId, setEditingId] = useState(null);
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
 
-  // Church visits and newsletters filed (#364): read from their own records and shown among the
-  // entries as read-only rows. A failure just leaves the log on its own.
+  // Church visits and newsletters filed, shown as read-only rows. A failure leaves the log alone.
   const [events, setEvents] = useState([]);
 
   useEffect(() => {
     fetchContactLogOptions().then(setOptions).catch(console.error);
   }, []);
   useEffect(() => {
+    if (!enabledFeatures?.supportPreferences) return;
+    fetchPartnerSupportPreferences(partnerId)
+      .then((d) => setSupportOptions(d.options.filter((o) => o.active)))
+      .catch(() => setSupportOptions([]));
+  }, [partnerId, enabledFeatures?.supportPreferences]);
+  useEffect(() => {
     fetchContactTimeline(partnerId)
       .then(setEvents)
       .catch(() => setEvents([]));
   }, [partnerId]);
 
-  // A decided need or an answered prayer still waiting to be passed on (#364). Refreshed when the
-  // log changes, since logging the thank-you is what clears it.
+  // A decided need or answered prayer still waiting to be passed on; refreshed when the log changes
+  // since logging that you told them clears it.
   const [updates, setUpdates] = useState([]);
   useEffect(() => {
     fetchContactUpdates(partnerId)
@@ -90,8 +102,7 @@ export default function ContactLogSection({
     setForm(blankForm());
   }
 
-  // A prefilled "we reached out" for passing an update on: the right topic is already ticked, so
-  // saving it clears the item from the bell (a person still chooses how they got in touch).
+  // A prefilled "we reached out" with the right topic ticked, so saving clears the bell item.
   function openThankYou(update) {
     setEditingId(null);
     setForm({ ...blankForm(), direction: "outbound", topics: [update.topic] });
@@ -108,6 +119,7 @@ export default function ContactLogSection({
       contactDate: toDateInputValue(entry.contactDate),
       notes: entry.notes || "",
       followUpDate: toDateInputValue(entry.followUpDate),
+      supportOptionId: entry.supportOptionId || "",
     });
   }
 
@@ -125,6 +137,7 @@ export default function ContactLogSection({
       contactDate: form.contactDate || undefined,
       notes: form.notes.trim() || null,
       followUpDate: form.followUpDate || null,
+      supportOptionId: form.supportOptionId || null,
       // "Me" is the server's default; only send someone else when picked.
       ...(form.contactedById && form.contactedById !== currentUserId
         ? { contactedById: form.contactedById }
@@ -153,9 +166,10 @@ export default function ContactLogSection({
       confirmLabel: "Delete",
       danger: true,
     });
-    if (!ok) return;
+    if (!ok) return false;
     await deleteContactLogEntry(entry.id);
     onChanged();
+    return true;
   }
 
   const toggleTopic = (value) =>
@@ -170,7 +184,26 @@ export default function ContactLogSection({
   ];
 
   const renderEntry = (e) => (
-    <div key={e.id} className="repeatable-row" style={{ marginTop: "0.75rem" }}>
+    // A fixable entry is itself the click target (opens the edit popup, which carries Delete).
+
+    <div
+      key={e.id}
+      className={canFix ? "repeatable-row repeatable-row-clickable" : "repeatable-row"}
+      style={{ marginTop: "0.75rem" }}
+      role={canFix ? "button" : undefined}
+      tabIndex={canFix ? 0 : undefined}
+      onClick={canFix ? onClickUnlessSelecting(() => openEdit(e)) : undefined}
+      onKeyDown={
+        canFix
+          ? (ev) => {
+              if (ev.key === "Enter" || ev.key === " ") {
+                ev.preventDefault();
+                openEdit(e);
+              }
+            }
+          : undefined
+      }
+    >
       <div style={{ display: "flex", justifyContent: "space-between", gap: "0.75rem", flexWrap: "wrap" }}>
         <div>
           <strong>{label(options?.types, e.contactType)}</strong>
@@ -178,21 +211,12 @@ export default function ContactLogSection({
           <span>{label(options?.directions, e.direction)}</span>
           {" · "}
           <span>{formatDateLong(e.contactDate)}</span>
-          <div style={{ fontSize: "0.85rem", color: "#666" }}>
+          <div style={{ fontSize: "0.85rem", color: "var(--muted)" }}>
             by {nameOf(e.contactedBy)}
             {e.topics?.length > 0 && <> · {e.topics.map((t) => label(options?.topics, t)).join(", ")}</>}
+            {e.supportOptionLabel && <> · re: {e.supportOptionLabel}</>}
           </div>
         </div>
-        {canFix && (
-          <div style={{ display: "flex", gap: "0.4rem" }}>
-            <button type="button" className="btn secondary small" onClick={() => openEdit(e)}>
-              Edit
-            </button>
-            <button type="button" className="btn secondary small" onClick={() => handleDelete(e)}>
-              Delete
-            </button>
-          </div>
-        )}
       </div>
       {e.notes && <p style={{ margin: "0.4rem 0 0", whiteSpace: "pre-wrap" }}>{e.notes}</p>}
       {e.followUpDate && (
@@ -208,6 +232,10 @@ export default function ContactLogSection({
     ...entries.map((entry) => ({ entry, date: String(entry.contactDate).slice(0, 10) })),
     ...events.map((event) => ({ event, date: event.date })),
   ].sort((a, b) => b.date.localeCompare(a.date));
+  // Only the latest few show here, so the partner page doesn't grow with every contact; the rest
+  // are on the Contact Log page, already filtered to this partner.
+  const recent = timeline.slice(0, RECENT_COUNT);
+  const hiddenEntries = entries.length - recent.filter((i) => i.entry).length;
 
   return (
     <div className="admin-section" id="contact-log">
@@ -239,7 +267,9 @@ export default function ContactLogSection({
                 style={{
                   display: "flex",
                   justifyContent: "space-between",
-                  gap: "0.75rem",
+                  alignItems: "flex-start",
+                  flexWrap: "wrap",
+                  gap: "0.5rem 0.75rem",
                   padding: "0.2rem 0",
                 }}
               >
@@ -248,8 +278,13 @@ export default function ContactLogSection({
                   {formatDateLong(u.date)}
                   ): {u.label}
                 </span>
-                <button type="button" className="btn secondary small" onClick={() => openThankYou(u)}>
-                  {u.kind === "need" ? "Log passing it on" : "Log a thank-you"}
+                <button
+                  type="button"
+                  className="btn secondary small"
+                  style={{ whiteSpace: "nowrap" }}
+                  onClick={() => openThankYou(u)}
+                >
+                  Log that I told them
                 </button>
               </li>
             ))}
@@ -258,16 +293,16 @@ export default function ContactLogSection({
       )}
 
       {timeline.length === 0 ? (
-        <p style={{ color: "#888", marginTop: "0.5rem" }}>No contact logged yet.</p>
+        <p style={{ color: "var(--muted)", marginTop: "0.5rem" }}>No contact logged yet.</p>
       ) : (
-        timeline.map((item) =>
+        recent.map((item) =>
           item.event ? (
             <div key={item.event.id} className="repeatable-row" style={{ marginTop: "0.75rem" }}>
               <strong>{item.event.title}</strong>
               {" · "}
               <span>{formatDateLong(item.event.date)}</span>
               {item.event.detail && (
-                <div style={{ fontSize: "0.85rem", color: "#666" }}>{item.event.detail}</div>
+                <div style={{ fontSize: "0.85rem", color: "var(--muted)" }}>{item.event.detail}</div>
               )}
             </div>
           ) : (
@@ -276,10 +311,23 @@ export default function ContactLogSection({
         )
       )}
 
+      {hiddenEntries > 0 && (
+        <p style={{ margin: "0.75rem 0 0" }}>
+          <Link to={`/admin/contact-log?partnerId=${partnerId}`}>
+            View all {entries.length} logged contacts →
+          </Link>
+        </p>
+      )}
+
       {form && options && (
         <QuickActionModal
           title={editingId ? "Edit contact" : "Log a contact"}
           onClose={close}
+          onDelete={
+            editingId && canFix
+              ? () => handleDelete(entries.find((x) => x.id === editingId) || { id: editingId })
+              : undefined
+          }
           onSubmit={submit}
         >
           <fieldset style={{ border: 0, padding: 0, margin: "0 0 0.75rem" }}>
@@ -320,6 +368,23 @@ export default function ContactLogSection({
               </Chip>
             ))}
           </fieldset>
+
+          {supportOptions.length > 0 && (
+            <label style={{ display: "block", marginBottom: "0.75rem" }}>
+              Which support option was this about? (optional)
+              <select
+                value={form.supportOptionId}
+                onChange={(e) => setForm((f) => ({ ...f, supportOptionId: e.target.value }))}
+              >
+                <option value="">None</option>
+                {supportOptions.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.group}: {o.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
 
           <div className="form-grid">
             <label>

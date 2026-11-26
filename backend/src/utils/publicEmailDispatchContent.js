@@ -1,18 +1,11 @@
-// Public-only digest content building -- narrow function signatures, no
-// source-link parameter at all, mirroring adminEmailDispatchContent.js's role
-// for symmetry. The structural guarantee this plan calls for: the
-// per-item renderer below only ever destructures { emoji, summary,
-// bodyText } from a blurb -- sourceLinkUrl/sourceFileId are not
-// parameters that exist here, not just values that happen to go
-// unused. A future edit can't accidentally introduce a link without
-// first widening this function's own signature, which is a much
-// louder, more reviewable change than adding a line inside it.
+// Public-only digest content building. The structural guarantee: the item
+// renderer destructures only { emoji, summary, bodyText } from a blurb, so
+// sourceLinkUrl/sourceFileId aren't parameters at all. Adding a link means
+// widening the signature, a louder, more reviewable change.
 const { escapeHtml, nl2br, typeLabel } = require("./emailDispatchShell");
 
-// Groups a public subscriber's eligible prayer-request blurbs by
-// partner -- simpler than adminEmailDispatchContent.js's own groupByPartner,
-// since the public audience never gets newsletterCreated rows to nest
-// anything under (only prayer-request types are ever eligible here).
+// Groups a public subscriber's eligible prayer-request blurbs by partner; simpler
+// than adminEmailDispatchContent.js since only prayer-request types are eligible here.
 function groupByPartnerForPublic(blurbs) {
   const byPartner = new Map();
   for (const blurb of blurbs) {
@@ -28,8 +21,7 @@ function groupByPartnerForPublic(blurbs) {
   return [...byPartner.values()];
 }
 
-// Deliberately takes only { emoji, summary, bodyText } -- see the file
-// header comment.
+// Takes only { emoji, summary, bodyText }; see the file header.
 function renderItemHtml({ emoji, summary, bodyText }, highlightColor) {
   return `
     <div style="margin:14px 0;">
@@ -41,7 +33,7 @@ function renderItemHtml({ emoji, summary, bodyText }, highlightColor) {
 function renderPartnerHtml(group, highlightColor, tile) {
   const metaLine = [
     tile?.fieldDisplayName,
-    tile?.supportingSinceYear && `Supporting since ${tile.supportingSinceYear}`,
+    tile?.supportingSinceYear && `Partnering since ${tile.supportingSinceYear}`,
   ]
     .filter(Boolean)
     .join(" · ");
@@ -75,7 +67,7 @@ function renderPartnerText(group, tile) {
   const lines = [group.partnerName, "-".repeat(group.partnerName.length)];
   const metaLine = [
     tile?.fieldDisplayName,
-    tile?.supportingSinceYear && `Supporting since ${tile.supportingSinceYear}`,
+    tile?.supportingSinceYear && `Partnering since ${tile.supportingSinceYear}`,
   ]
     .filter(Boolean)
     .join(" · ");

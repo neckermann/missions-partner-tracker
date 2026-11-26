@@ -6,20 +6,13 @@ const { requireAuth, requireRole } = require("../middleware/requireAuth");
 const { requireFeature } = require("../middleware/requireFeature");
 const whatsappClient = require("../utils/whatsappClient");
 
-// #271 Finding: split out of the former settings.js -- see
-// settingsGroupMe.js's own header comment for the full reasoning.
 const router = express.Router();
-router.use(requireAuth); // everything below requires a logged-in user
+router.use(requireAuth);
 
-// WhatsApp -- the sibling of the GroupMe routes (settingsGroupMe.js).
-// Everything here is admin-only AND behind the `whatsapp` feature (a
-// disabled feature looks like it doesn't exist -- 404 -- same as every
-// other gated route), so a church that never turns WhatsApp on exposes
-// none of this. There is no token to save: the credential is a Baileys
-// session that lives encrypted in the WhatsAppAuthEntry table and is
-// never read back through any route (only a status derived from the live
-// socket is). Community and group ids are always picked from live lists,
-// never hand-typed.
+// WhatsApp -- sibling of the GroupMe routes. Admin-only AND behind the `whatsapp` feature (a disabled
+// feature 404s). There is no token to save: the credential is a Baileys session stored encrypted in
+// WhatsAppAuthEntry and never read back through any route (only a status from the live socket).
+// Community and group ids are always picked from live lists.
 const whatsappSettingsSelect = {
   whatsappPhoneNumber: true,
   whatsappPairedAt: true,
@@ -33,6 +26,8 @@ const whatsappSettingsSelect = {
   whatsappOneTimeNeedGroupName: true,
   whatsappNewsletterGroupId: true,
   whatsappNewsletterGroupName: true,
+  whatsappCareGroupId: true,
+  whatsappCareGroupName: true,
 };
 function shapeWhatsAppSettings(settings) {
   const { status, health, error } = whatsappClient.getStatus();
@@ -50,6 +45,8 @@ function shapeWhatsAppSettings(settings) {
     oneTimeNeedGroupName: settings?.whatsappOneTimeNeedGroupName || null,
     newsletterGroupId: settings?.whatsappNewsletterGroupId || null,
     newsletterGroupName: settings?.whatsappNewsletterGroupName || null,
+    careGroupId: settings?.whatsappCareGroupId || null,
+    careGroupName: settings?.whatsappCareGroupName || null,
     connection: { status, health, error },
   };
 }
@@ -70,6 +67,8 @@ const whatsappSchema = z.object({
   oneTimeNeedGroupName: whatsappLabel,
   newsletterGroupId: whatsappJid,
   newsletterGroupName: whatsappLabel,
+  careGroupId: whatsappJid,
+  careGroupName: whatsappLabel,
 });
 
 // Anyone who scans a live QR code links their phone to this app's
@@ -91,10 +90,8 @@ router.get("/whatsapp", ...whatsappGate, async (req, res, next) => {
   }
 });
 
-// A plain partial update, like PUT /groupme: the frontend sends whichever
-// fields it's changing. Picking a different community clears the three
-// group picks (they belonged to the old one) unless the same request sets
-// them again.
+// A plain partial update, like PUT /groupme. Picking a different community clears the three group
+// picks (they belonged to the old one) unless the same request sets them again.
 router.put("/whatsapp", ...whatsappGate, async (req, res, next) => {
   try {
     const body = whatsappSchema.parse(req.body);
@@ -109,15 +106,11 @@ router.put("/whatsapp", ...whatsappGate, async (req, res, next) => {
     const prayer = groupPick(body.prayerGroupId, body.prayerGroupName);
     const needs = groupPick(body.oneTimeNeedGroupId, body.oneTimeNeedGroupName);
     const newsletter = groupPick(body.newsletterGroupId, body.newsletterGroupName);
+    const care = groupPick(body.careGroupId, body.careGroupName);
 
-    // The Announcements group is auto-resolved, never hand-picked (see
-    // whatsappClient.js's findAnnouncementGroup) -- when the community
-    // changes, re-resolve it from the new one instead of just clearing
-    // it like the three explicit picks above. Best-effort: a momentary
-    // disconnect here must not block saving the community pick itself --
-    // leave it null and the admin can tell from the page that none was
-    // detected, same resilience as every other live-socket call in this
-    // file.
+    // The Announcements group is auto-resolved (whatsappClient.js findAnnouncementGroup), so a community
+    // change re-resolves it rather than clearing it. Best-effort: a momentary disconnect must not block
+    // saving the community; it is left null.
     let announcement = {
       id: current?.whatsappAnnouncementGroupId ?? null,
       name: current?.whatsappAnnouncementGroupName ?? null,
@@ -129,7 +122,7 @@ router.put("/whatsapp", ...whatsappGate, async (req, res, next) => {
           const found = await whatsappClient.findAnnouncementGroup(body.communityId);
           if (found) announcement = { id: found.id, name: found.name };
         } catch {
-          // left null -- see comment above.
+          // Not found or WhatsApp unreachable: leave the announcement group unset.
         }
       }
     }
@@ -145,6 +138,8 @@ router.put("/whatsapp", ...whatsappGate, async (req, res, next) => {
       whatsappOneTimeNeedGroupName: needs.name,
       whatsappNewsletterGroupId: newsletter.id,
       whatsappNewsletterGroupName: newsletter.name,
+      whatsappCareGroupId: care.id,
+      whatsappCareGroupName: care.name,
     };
     const updated = await prisma.churchSettings.upsert({
       where: { id: "singleton" },
@@ -191,9 +186,7 @@ router.get("/whatsapp/communities", ...whatsappGate, async (req, res) => {
   try {
     res.json(await whatsappClient.listCommunities());
   } catch (err) {
-    // A WhatsApp-side failure (not connected, rate limited) is routine
-    // here -- see the matching comment on GET /groupme/groups
-    // (settingsGroupMe.js).
+    // A WhatsApp-side failure is routine here; see GET /groupme/groups (settingsGroupMe.js).
     res.status(502).json({ error: err.message });
   }
 });
@@ -225,6 +218,8 @@ router.post("/whatsapp/unlink", ...whatsappGate, async (req, res, next) => {
         whatsappOneTimeNeedGroupName: null,
         whatsappNewsletterGroupId: null,
         whatsappNewsletterGroupName: null,
+        whatsappCareGroupId: null,
+        whatsappCareGroupName: null,
       },
     });
     void updated;

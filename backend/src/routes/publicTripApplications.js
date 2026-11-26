@@ -1,8 +1,5 @@
-// Public, unauthenticated application-submission surface for Trips
-// (#252) -- plain id-addressed and private applicationShareToken-
-// addressed, split out of the former publicTrips.js (#271 Finding).
-// Mounted at the same /api/public/trips prefix as publicTrips.js
-// (discovery) from server.js, not a separate API surface.
+// Public, unauthenticated application-submission surface for Trips (#252): id-addressed and
+// private applicationShareToken-addressed. Mounted at /api/public/trips, like publicTrips.js.
 const express = require("express");
 const rateLimit = require("express-rate-limit");
 const { z } = require("zod");
@@ -16,12 +13,9 @@ const { loadApplicantQuestions, answerRows } = require("../utils/tripTemplates")
 
 const router = express.Router();
 
-// #327 Finding 4: every string here was unbounded and responses was an
-// open record -- an unauthenticated caller could write arbitrarily large
-// rows to TripApplication with nothing but the shared /api/public rate
-// bucket (120/min) in the way. name-sized fields capped at 100, free text
-// at 5,000, everything else to a size that's generous for a real value
-// but not for an attack payload.
+// #327 Finding 4: bounds on every string and on `responses`, so an unauthenticated caller cannot
+// write arbitrarily large TripApplication rows past the shared /api/public rate bucket (120/min).
+// Name-sized fields cap at 100, free text at 5,000.
 const NAME_MAX = 100;
 const FREE_TEXT_MAX = 5000;
 const SHORT_FIELD_MAX = 200;
@@ -35,44 +29,31 @@ const applicationSchema = z.object({
   lastName: z.string().min(1).max(NAME_MAX),
   email: z.string().email().max(SHORT_FIELD_MAX),
   phone: z.string().max(PHONE_MAX).optional().nullable(),
-  // Structured mailing address -- optional strings, no format validation,
-  // matching SendingParty's own looseness. Rendered on the public form
-  // only when ChurchSettings.collectApplicantAddress is on, but accepted
-  // here regardless of that setting's current value (same reasoning as
-  // every other optional field on this schema -- the setting controls
-  // what the form shows, not what the server will accept).
+  // Structured mailing address: optional strings with no format validation, like SendingParty.
+  // The setting controls what the form shows, not what the server accepts.
   addressLine1: z.string().max(SHORT_FIELD_MAX).optional().nullable(),
   addressLine2: z.string().max(SHORT_FIELD_MAX).optional().nullable(),
   city: z.string().max(NAME_MAX).optional().nullable(),
   stateProvinceRegion: z.string().max(NAME_MAX).optional().nullable(),
   postalCode: z.string().max(PHONE_MAX).optional().nullable(),
   country: z.string().max(NAME_MAX).optional().nullable(),
-  // Structured emergency contact -- same looseness/reasoning as the
-  // address fields above. Rendered only when ChurchSettings.
-  // collectEmergencyContact is on, but accepted here regardless.
+  // Structured emergency contact: same looseness as the address above.
   emergencyContactFirstName: z.string().max(NAME_MAX).optional().nullable(),
   emergencyContactLastName: z.string().max(NAME_MAX).optional().nullable(),
   emergencyContactPhone: z.string().max(PHONE_MAX).optional().nullable(),
   emergencyContactEmail: z.string().max(SHORT_FIELD_MAX).optional().nullable(),
-  // Always collected and always required now -- no per-trip or
-  // church-wide setting gates it (see TripParticipant.dateOfBirth's own
-  // schema comment). A real structured field, not a template question,
-  // since the minor determination needs something a server check can
-  // compare against the trip's own startDate.
+  // Always collected and required (see TripParticipant.dateOfBirth in schema.prisma). A structured
+  // field, not a template question, so the server can compare it to the trip's startDate.
   dateOfBirth: z.coerce.date(),
-  // Required only when dateOfBirth computes as a minor for this trip
-  // (checked below, after parsing, since that check needs the trip's own
-  // startDate -- not available to the schema itself). Accepted here
-  // regardless of age so an adult applicant's request isn't rejected for
-  // omitting fields that don't apply to them.
+  // Required only when dateOfBirth computes as a minor for this trip (checked after parsing, since
+  // it needs the trip's startDate). Accepted regardless so adult applicants aren't rejected.
   parentGuardianFirstName: z.string().max(NAME_MAX).optional().nullable(),
   parentGuardianLastName: z.string().max(NAME_MAX).optional().nullable(),
   parentGuardianRelationship: z.string().max(NAME_MAX).optional().nullable(),
   parentGuardianPhone: z.string().max(PHONE_MAX).optional().nullable(),
   parentGuardianEmail: z.string().max(SHORT_FIELD_MAX).optional().nullable(),
-  // A checkboxes-type question answers with a string array (every option
-  // checked); every other type answers with a plain string -- see
-  // utils/applicationQuestions.js's QUESTION_TYPES.
+  // A checkboxes-type question answers with a string array; every other type with a string (see
+  // QUESTION_TYPES in utils/applicationQuestions.js).
   responses: z
     .record(
       z.string().max(NAME_MAX),
@@ -87,32 +68,23 @@ const applicationSchema = z.object({
     .optional(),
 });
 
-// #327 Finding 4: same bot-deterrent precedent as publicSubscribe.js's
-// own rate limiter, plus a honeypot. The 120/min shared /api/public
-// bucket (server.js) never meaningfully slowed a scripted submitter down
-// -- this is a tighter ceiling specifically on the two routes with a real
-// write (and a free-tier Postgres row budget) behind them.
+// #327 Finding 4: a tighter ceiling than the shared /api/public bucket (server.js), plus a
+// honeypot, on the two routes with a real write behind them.
 const applyLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: process.env.NODE_ENV === "test" ? 1000 : 10,
 });
 
 async function createApplication(trip, settings, body, res) {
-  // Honeypot: a field the real form never shows (hidden off-screen, no
-  // label) and a real applicant never fills. A caller that fills it is a
-  // bot that fills every input it finds -- short-circuit to the exact
-  // same success response a real submission gets, before validation even
-  // runs, same "never signal a difference" principle as
-  // auth.js's password-setup/request. Nothing is written.
+  // Honeypot: a field the real form never shows. A caller that fills it is a bot; return the exact
+  // same success response as a real submission, before validation (never signal a difference, as in
+  // auth.js's password-setup/request). Nothing is written.
   if (body?.website) {
     return res.status(201).json({ submitted: true });
   }
   const data = applicationSchema.parse(body);
-  // Parent/guardian info is required exactly when the submitted date of
-  // birth computes as a minor for this trip (isMinorForTrip compares
-  // against the trip's own startDate) -- not gated by any admin setting,
-  // since the point is this is never missed regardless of whether anyone
-  // predicted a minor would apply.
+  // Parent/guardian info is required exactly when the date of birth computes as a minor for this
+  // trip (isMinorForTrip), not gated by any admin setting.
   if (isMinorForTrip(data.dateOfBirth, trip.startDate)) {
     const missingParentGuardianField = !(
       data.parentGuardianFirstName &&
@@ -183,10 +155,8 @@ router.post("/:id/apply", applyLimiter, requireFeature("trips"), async (req, res
   }
 });
 
-// POST /api/public/trips/by-token/:token/apply -- private-link submission.
-// Works for a restricted partner (masked view already shown on
-// publicTrips.js's own GET /by-token/:token); still 404s on a bad token
-// or wrong status.
+// POST /api/public/trips/by-token/:token/apply -- private-link submission. Works for a restricted
+// partner (masked view shown by publicTrips.js GET /by-token/:token); 404s on a bad token or status.
 router.post("/by-token/:token/apply", applyLimiter, requireFeature("trips"), async (req, res, next) => {
   try {
     const settings = await getSettings();

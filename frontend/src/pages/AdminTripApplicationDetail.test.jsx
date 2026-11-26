@@ -6,7 +6,7 @@ import AdminTripApplicationDetail from "./AdminTripApplicationDetail.jsx";
 import { fetchTrip, fetchTripApplications, fetchTripsSettings } from "../api/client.js";
 
 // A link to an application whose trip is gone (an old bookmark, a tab left open across a
-// reset) used to leave this page on "Loading…" for good; and a guest, who can't read the
+// reset) must not leave this page on "Loading…" for good; and a guest, who can't read the
 // church-wide trip settings (403), must not be asked for them.
 vi.mock("react-router-dom", async () => {
   const actual = await vi.importActual("react-router-dom");

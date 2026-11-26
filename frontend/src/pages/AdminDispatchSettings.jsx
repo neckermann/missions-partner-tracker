@@ -2,8 +2,10 @@ import React, { useEffect, useState } from "react";
 import { fetchDispatchSettings, updateDispatchSettings, fetchScopedDigestSummary } from "../api/client.js";
 import { useSettings } from "../context/SettingsContext.jsx";
 import { joinWithAnd } from "../utils/urgentSend.js";
+import TemplatePackButtons from "../components/admin/TemplatePackButtons.jsx";
 import SettingsPageHeader from "../components/admin/SettingsPageHeader.jsx";
 import EditableSection from "../components/admin/EditableSection.jsx";
+import StatTiles from "../components/shared/StatTiles.jsx";
 
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -30,14 +32,9 @@ function hourSummary(value) {
   return value == null ? "Not set" : hourLabel(value);
 }
 
-// Settings governing the admin+public email dispatch's own schedule,
-// the chat channels' own independent daily schedule and content-type
-// mutes, the one cross-channel restricted-partner safety gate, and email
-// dispatch appearance. Each concern is its own EditableSection card. The
-// subscriber-count block has no fields to edit at all, so it stays plain,
-// non-card content -- the actual review queue (what's waiting to send)
-// is its own top-level "Pending Dispatches" page, same "content, not
-// settings" split Unmatched Emails already has from Email's own page.
+// Email dispatch schedule, chat-channel schedule and content mutes, the cross-channel
+// restricted-partner safety gate, and email appearance, each its own EditableSection card.
+// The review queue lives on the separate "Pending Dispatches" page.
 export default function AdminDispatchSettings() {
   const { enabledFeatures } = useSettings();
   const chatNames = [enabledFeatures.groupme && "GroupMe", enabledFeatures.whatsapp && "WhatsApp"].filter(
@@ -81,14 +78,23 @@ export default function AdminDispatchSettings() {
 
   return (
     <div className="admin-shell">
-      <SettingsPageHeader title="Dispatch Settings" />
-      <p style={{ color: "#555" }}>
+      <SettingsPageHeader
+        title="Dispatch Settings"
+        actions={
+          <TemplatePackButtons
+            importLabel="Import wording…"
+            exportKind="dispatchWording"
+            onImported={reload}
+          />
+        }
+      />
+      <p style={{ color: "var(--muted)" }}>
         Schedules for the admin/public email dispatch and for {chatLabel || "GroupMe/WhatsApp"}, the chat
         channels' own content-type mutes, the restricted-partner safety gate, and email dispatch appearance.
         To review or edit what's currently queued, see the <strong>Pending Dispatches</strong> page in the
         main menu.
       </p>
-      <p style={{ color: "#888", fontSize: "0.85rem" }}>
+      <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
         Every schedule on this page only fires from the separate background worker process, not the main site
         -- a church that skipped deploying it (see{" "}
         <a
@@ -105,25 +111,19 @@ export default function AdminDispatchSettings() {
       {enabledFeatures.publicPrayerDigest && (
         <div className="admin-section">
           <h3>Email Dispatch Subscribers</h3>
-          <p style={{ color: "#555", fontSize: "0.9rem" }}>
+          <p style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
             Who's subscribed to the email prayer digest -- admins via Account Settings, and the public via the
             Subscribe page or a partner's own public page. Counts only, no email addresses.
           </p>
           {summary ? (
-            <div className="admin-card-grid">
-              <div className="admin-card" style={{ cursor: "default" }}>
-                <h3>{summary.adminSubscribedCount}</h3>
-                <p>Admin account(s) subscribed.</p>
-              </div>
-              <div className="admin-card" style={{ cursor: "default" }}>
-                <h3>{summary.publicConfirmedCount}</h3>
-                <p>Confirmed public subscribers.</p>
-              </div>
-              <div className="admin-card" style={{ cursor: "default" }}>
-                <h3>{summary.publicUnconfirmedCount}</h3>
-                <p>Public subscribers awaiting confirmation.</p>
-              </div>
-            </div>
+            <StatTiles
+              ariaLabel="Email subscriber counts"
+              items={[
+                { label: "Admin accounts subscribed", value: summary.adminSubscribedCount },
+                { label: "Confirmed public subscribers", value: summary.publicConfirmedCount },
+                { label: "Awaiting confirmation", value: summary.publicUnconfirmedCount },
+              ]}
+            />
           ) : (
             <p>Loading…</p>
           )}
@@ -151,7 +151,7 @@ export default function AdminDispatchSettings() {
           )}
           edit={(d, set) => (
             <>
-              <p style={{ color: "#555", fontSize: "0.9rem" }}>
+              <p style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
                 The one safety setting that applies equally to every dispatch channel this church has enabled,
                 not just one. Off (default) means a restricted-access partner's events are never recorded at
                 all -- nothing to hold, nothing to review, since nothing's queued. On records them like anyone
@@ -169,7 +169,7 @@ export default function AdminDispatchSettings() {
                   Restricted partners
                 </label>
               </div>
-              <p style={{ color: "#555", fontSize: "0.9rem", marginTop: "0.75rem" }}>
+              <p style={{ color: "var(--muted)", fontSize: "0.9rem", marginTop: "0.75rem" }}>
                 A restricted partner's masked public name is their initials (e.g. "J.R.") everywhere one can
                 surface -- the public site, GroupMe/WhatsApp messages, and email digests. For a small country,
                 initials plus country can be enough to re-identify who that is to someone who knows the local
@@ -206,12 +206,14 @@ export default function AdminDispatchSettings() {
             view={(v) => (
               <>
                 <p>Layout: {v.emailDispatchLayout === "snapshot" ? "Snapshot" : "Classic"}</p>
-                <p style={{ color: "#555" }}>Subject: {v.emailDispatchSubjectTemplate || "Default"}</p>
+                <p style={{ color: "var(--muted)" }}>
+                  Subject: {v.emailDispatchSubjectTemplate || "Default"}
+                </p>
               </>
             )}
             edit={(d, set) => (
               <>
-                <p style={{ color: "#555", fontSize: "0.9rem" }}>
+                <p style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
                   Shared by the admin email and the public email -- subject line, signature, and layout look
                   the same for both audiences. The admin email always includes every item it's allowed to; the
                   public email is always prayer-requests-only.
@@ -229,9 +231,9 @@ export default function AdminDispatchSettings() {
                     </option>
                   </select>
                 </label>
-                <p style={{ margin: "0.35rem 0 0", color: "#666", fontSize: "0.85rem" }}>
+                <p style={{ margin: "0.35rem 0 0", color: "var(--muted)", fontSize: "0.85rem" }}>
                   Snapshot shows each partner's photo (or a generic silhouette if they don't have one, or if
-                  they're a restricted-access partner), field, "Supporting since" year, and short overview
+                  they're a restricted-access partner), field, "Partnering since" year, and short overview
                   above their items -- for both the admin email and the public email.
                 </p>
                 <label style={{ marginTop: "1rem" }}>
@@ -242,7 +244,7 @@ export default function AdminDispatchSettings() {
                     placeholder="e.g. Your {cadence} Update -- {month} {year}"
                   />
                 </label>
-                <p style={{ margin: "0.35rem 0 0", color: "#666", fontSize: "0.85rem" }}>
+                <p style={{ margin: "0.35rem 0 0", color: "var(--muted)", fontSize: "0.85rem" }}>
                   Leave blank for the default: <code>{"{date} {church} - {term} Updates"}</code> -- e.g.
                   "November 4, 2026 Hillside Community Church - Missionary Updates". Use any of these anywhere
                   in your own wording: <code>{"{church}"}</code>, <code>{"{month}"}</code>,{" "}
@@ -301,13 +303,13 @@ export default function AdminDispatchSettings() {
             )}
             edit={(d, set) => (
               <>
-                <p style={{ color: "#555", fontSize: "0.9rem" }}>
+                <p style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
                   The cadence each admin (from their own <a href="/admin/account">Account Settings</a>) and
                   each public subscriber (from the Subscribe page or a partner's own "follow this partner"
                   form) picks for themselves. Nothing sends on a given tier until its schedule here is
                   actually set.
                 </p>
-                <p style={{ margin: "0 0 0.5rem", color: "#555", fontSize: "0.9rem" }}>
+                <p style={{ margin: "0 0 0.5rem", color: "var(--muted)", fontSize: "0.9rem" }}>
                   Which tiers to offer at all (#209). Turning a tier off moves anyone currently on it to the
                   first tier still enabled, in order Monthly, Quarterly, Biweekly -- a one-time move, not
                   reversible by re-enabling the tier later. At least one tier must stay enabled.
@@ -397,13 +399,16 @@ export default function AdminDispatchSettings() {
               chatDispatchPrayerRequests: settings.chatDispatchPrayerRequests,
               chatDispatchOneTimeNeeds: settings.chatDispatchOneTimeNeeds,
               chatDispatchNewsletters: settings.chatDispatchNewsletters,
+              chatDispatchKeyDates: settings.chatDispatchKeyDates,
+              chatDispatchQuietPartners: settings.chatDispatchQuietPartners,
+              chatDispatchUpdatesToPass: settings.chatDispatchUpdatesToPass,
             }}
             onSave={savePartial}
             onSaved={reload}
             view={(v) => (
               <>
                 <p>Time: {hourSummary(v.chatDispatchHour)}</p>
-                <p style={{ color: "#555" }}>
+                <p style={{ color: "var(--muted)" }}>
                   Muted:{" "}
                   {[
                     !v.chatDispatchPrayerRequests && "Prayer Requests",
@@ -413,11 +418,21 @@ export default function AdminDispatchSettings() {
                     .filter(Boolean)
                     .join(", ") || "None"}
                 </p>
+                <p style={{ color: "var(--muted)" }}>
+                  Partner care posts:{" "}
+                  {[
+                    v.chatDispatchKeyDates && "Key dates",
+                    v.chatDispatchQuietPartners && "Quiet partners",
+                    v.chatDispatchUpdatesToPass && "News to pass on",
+                  ]
+                    .filter(Boolean)
+                    .join(", ") || "None (off)"}
+                </p>
               </>
             )}
             edit={(d, set) => (
               <>
-                <p style={{ color: "#555", fontSize: "0.9rem" }}>
+                <p style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
                   A single daily batch time, not a weekly/monthly tier --{" "}
                   {chatNames.length > 1
                     ? "these are near-real-time, chat-style channels"
@@ -435,7 +450,7 @@ export default function AdminDispatchSettings() {
                   />
                 </label>
 
-                <p style={{ margin: "1.25rem 0 0.5rem", color: "#555", fontSize: "0.9rem" }}>
+                <p style={{ margin: "1.25rem 0 0.5rem", color: "var(--muted)", fontSize: "0.9rem" }}>
                   Mute any content type you don't want posted to {chatLabel} -- unlike the email dispatches,
                   which always include everything they're allowed to, chat benefits from finer control since
                   it's a live conversation, not a periodic email.
@@ -464,6 +479,37 @@ export default function AdminDispatchSettings() {
                       onChange={(e) => set("chatDispatchNewsletters", e.target.checked)}
                     />
                     Newsletters
+                  </label>
+                </div>
+
+                <p style={{ margin: "1.25rem 0 0.5rem", color: "var(--muted)", fontSize: "0.9rem" }}>
+                  Partner care posts are off until you turn them on. They share one Partner Care topic (or
+                  group) on the {chatLabel} settings page. Restricted partners are named by initials only.
+                </p>
+                <div className="admin-checkbox-row">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={!!d.chatDispatchKeyDates}
+                      onChange={(e) => set("chatDispatchKeyDates", e.target.checked)}
+                    />
+                    Key dates coming up (needs Key-date reminders on)
+                  </label>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={!!d.chatDispatchQuietPartners}
+                      onChange={(e) => set("chatDispatchQuietPartners", e.target.checked)}
+                    />
+                    Partners nobody has heard from (needs Contact log on)
+                  </label>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={!!d.chatDispatchUpdatesToPass}
+                      onChange={(e) => set("chatDispatchUpdatesToPass", e.target.checked)}
+                    />
+                    News to pass on to a partner (needs Contact log on)
                   </label>
                 </div>
               </>

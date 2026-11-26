@@ -4,12 +4,10 @@ import { render, screen, fireEvent, waitFor, within } from "@testing-library/rea
 import AccountSettings from "./AccountSettings.jsx";
 import { fetchCurrentUser, fetchPartners, updateNotifyByEmail } from "../api/client.js";
 
-// AccountSettings' own cadence picker (#209) -- filtered to only the
-// enabled tiers, with the signed-in admin's own already-saved cadence
-// kept visible/selectable even if it's since been disabled (the issue's
-// explicit "don't silently hide someone's current choice" requirement).
-// MFA setup/disable flows and the password-change section are
-// unexercised here -- they're unrelated to this feature.
+// AccountSettings' cadence picker: filtered to the enabled tiers, but the signed-in admin's
+// own already-saved cadence stays visible and selectable even if it has since been disabled (a
+// current choice is never silently hidden). The MFA and password-change sections are not
+// exercised here.
 vi.mock("../api/client.js", () => ({
   fetchPasskeys: vi.fn().mockResolvedValue({ passkeys: [], max: 5 }),
   registerPasskey: vi.fn(),
@@ -29,6 +27,7 @@ vi.mock("../context/SettingsContext.jsx", () => ({
   useSettings: () => ({
     enabledFeatures: { outboundEmail: true },
     cadenceTiersEnabled,
+    ownerGroupName: "Missions team",
   }),
 }));
 
@@ -40,7 +39,7 @@ function baseUser(overrides = {}) {
     authProvider: "local",
     mfaEnabled: false,
     cadence: null,
-    allPartners: true,
+    digestScope: "all",
     followedPartnerIds: [],
     ...overrides,
   };
@@ -123,8 +122,48 @@ describe("AccountSettings -- Email Dispatch cadence picker", () => {
 
     await waitFor(() =>
       expect(updateNotifyByEmail).toHaveBeenCalledWith(
-        expect.objectContaining({ cadence: "monthly", allPartners: true })
+        expect.objectContaining({ cadence: "monthly", digestScope: "all" })
       )
     );
+  });
+});
+
+describe("AccountSettings -- what the digest covers", () => {
+  beforeEach(() => {
+    cadenceTiersEnabled = { biweekly: false, monthly: true, quarterly: true };
+  });
+
+  it("offers the partners you look after, all partners, or hand-picked ones, and saves the choice", async () => {
+    fetchCurrentUser.mockResolvedValue(
+      baseUser({ cadence: "monthly", digestScope: "owned", onMissionsTeam: true })
+    );
+    updateNotifyByEmail.mockResolvedValue({});
+    render(<AccountSettings />);
+    await openEmailDispatchSection();
+    expect(screen.getByRole("radio", { name: /partners I look after .*Missions team/ })).toBeChecked();
+    fireEvent.click(screen.getByRole("radio", { name: "All partners" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() =>
+      expect(updateNotifyByEmail).toHaveBeenCalledWith(
+        expect.objectContaining({ cadence: "monthly", digestScope: "all" })
+      )
+    );
+  });
+
+  it("shows a care team guest with a seat their own partners only, with no scope choice", async () => {
+    fetchCurrentUser.mockResolvedValue(
+      baseUser({ role: "guest", cadence: "monthly", careTeamSeats: [{ id: "p1", label: "The Reeds" }] })
+    );
+    render(<AccountSettings />);
+    await openEmailDispatchSection();
+    expect(screen.getByText(/covers the partners you look after, and only them/)).toBeInTheDocument();
+    expect(screen.queryByRole("radio")).toBeNull();
+  });
+
+  it("hides the digest from a guest who has no seat", async () => {
+    fetchCurrentUser.mockResolvedValue(baseUser({ role: "guest", careTeamSeats: [] }));
+    render(<AccountSettings />);
+    await screen.findByText("Change Password");
+    expect(screen.queryByRole("button", { name: /Email Dispatch/ })).toBeNull();
   });
 });

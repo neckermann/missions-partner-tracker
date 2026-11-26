@@ -5,11 +5,8 @@ import DemoBanner from "../components/DemoBanner.jsx";
 import { fetchPublicTrips } from "../api/client.js";
 import { formatDate } from "../utils/format.js";
 
-// New (#252), §3a -- the new home for the "Opportunities" name. Status-
-// based cards/teasers; a trip linked to a restricted partner is excluded
-// entirely by the backend query, not masked. Gated under publicTripDiscovery
-// (see main.jsx) -- a church recruiting entirely by private link never has
-// this page reachable at all.
+// Status-based cards/teasers; a trip linked to a restricted partner is excluded by the backend query,
+// not masked. Gated under publicTripDiscovery (see main.jsx).
 export default function PublicTripOpportunities() {
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -26,7 +23,7 @@ export default function PublicTripOpportunities() {
       <PublicSiteHeader title="Trip Opportunities" />
       <DemoBanner />
       <div className="admin-shell">
-        <p style={{ color: "#555" }}>
+        <p style={{ color: "var(--muted)" }}>
           Short-term mission trips currently open for applications, plus a look ahead at what's coming.
         </p>
 
@@ -56,7 +53,7 @@ export default function PublicTripOpportunities() {
                   {t.status === "accepting_applications" ? "Accepting applications" : "Coming soon"}
                 </span>
                 <h3 style={{ margin: "0.5rem 0 0.25rem" }}>{t.name || t.type || "Trip"}</h3>
-                <p style={{ margin: 0, color: "#6b6f76", fontSize: "0.85rem" }}>
+                <p style={{ margin: 0, color: "var(--muted)", fontSize: "0.85rem" }}>
                   {t.fieldDisplayName || "Field location to be announced"}
                   {t.startDate ? ` · ${formatDate(t.startDate)}` : ""}
                 </p>
@@ -67,9 +64,7 @@ export default function PublicTripOpportunities() {
                       Apply now
                     </Link>
                   )}
-                  {/* Trip-level giving, separate from an individual participant's
-                  own support-raising page -- useful before a team even exists
-                  yet, since onlineGivingUrl is church-wide, not per-trip. */}
+                  {/* Trip-level giving; onlineGivingUrl is church-wide, so it works before a team exists. */}
                   {t.onlineGivingUrl && (
                     <a className="btn secondary" href={t.onlineGivingUrl} target="_blank" rel="noreferrer">
                       Donate
@@ -79,15 +74,12 @@ export default function PublicTripOpportunities() {
               </div>
             ))}
             {trips.length === 0 && (
-              <p style={{ color: "#888" }}>No open trips right now — check back soon.</p>
+              <p style={{ color: "var(--muted)" }}>No open trips right now — check back soon.</p>
             )}
           </div>
         )}
-        {/* Previously orphaned -- this page's footer was always meant to
-        carry this link (same for every participant email's footer, see
-        tripEmails.js), but neither ever did. Only reachable by typing the
-        exact path until now. */}
-        <p style={{ marginTop: "1.5rem", fontSize: "0.85rem", color: "#888" }}>
+        {/* Same recovery link as the participant email footers (tripEmails.js). */}
+        <p style={{ marginTop: "1.5rem", fontSize: "0.85rem", color: "var(--muted)" }}>
           Already on a team but lost your link? <Link to="/trip-access-recovery">Request a new one</Link>
         </p>
       </div>

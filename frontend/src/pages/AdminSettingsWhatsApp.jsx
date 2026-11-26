@@ -12,24 +12,16 @@ import SettingsPageHeader from "../components/admin/SettingsPageHeader.jsx";
 import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
 import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
 
-// Posts as a dedicated WhatsApp number linked to this app as a "linked
-// device" (the same mechanism as WhatsApp Web) -- see
-// backend/src/utils/whatsappClient.js. It's an UNOFFICIAL connection:
-// WhatsApp can ban numbers used this way, so the page insists on a
-// dedicated number and the Admin Guide spells out the risks.
+// Posts as a dedicated WhatsApp number linked as a "linked device" (like WhatsApp Web; see
+// backend/src/utils/whatsappClient.js). This is an UNOFFICIAL connection and WhatsApp can ban
+// numbers used this way, so the page insists on a dedicated number (see the Admin Guide).
 //
-// There is no token to paste. Linking works by pairing: a QR code scanned
-// from WhatsApp (Linked Devices > Link a Device). The linked session is
-// stored encrypted on the server and never sent back here -- the page only
-// ever sees a status. The community and each group are picked from live
-// lists, never hand-typed.
+// Linking is by QR pairing, not a token. The linked session is stored encrypted on the server
+// and never sent back here; the page only sees a status. The community and groups are picked
+// from live lists, never hand-typed.
 //
-// One WhatsApp community holds several groups, so the three notification
-// types each get their own group, mirroring GroupMe's three Topics. Same
-// idea as GroupMe's main-group fallback: a type with no group of its own
-// picked posts to the community's built-in Announcements group instead
-// (detected automatically, never hand-picked -- see the Community
-// section below). Only with neither set is it not sent over WhatsApp.
+// Each notification type gets its own group in the one community; a type with none posts to
+// the community's built-in Announcements group (auto-detected). With neither, it isn't sent.
 const GROUP_TYPES = [
   {
     number: 4,
@@ -51,6 +43,13 @@ const GROUP_TYPES = [
     title: "Newsletters Group",
     idField: "newsletterGroupId",
     nameField: "newsletterGroupName",
+  },
+  {
+    number: 7,
+    key: "care",
+    title: "Partner Care Group",
+    idField: "careGroupId",
+    nameField: "careGroupName",
   },
 ];
 
@@ -79,9 +78,9 @@ function GroupSection({ type, settings, communityId, groups, saving, onSave }) {
         {type.number}. {type.title}
       </h3>
       {currentGroupName ? (
-        <p style={{ color: "#555" }}>Currently: {currentGroupName}</p>
+        <p style={{ color: "var(--muted)" }}>Currently: {currentGroupName}</p>
       ) : (
-        <p style={{ color: "#555" }}>
+        <p style={{ color: "var(--muted)" }}>
           No group selected yet — until one is, these aren't sent over WhatsApp.
         </p>
       )}
@@ -108,7 +107,7 @@ function GroupSection({ type, settings, communityId, groups, saving, onSave }) {
         </div>
       )}
       {!groups && !communityId && (
-        <p style={{ color: "#888", fontSize: "0.9rem" }}>Pick a community first.</p>
+        <p style={{ color: "var(--muted)", fontSize: "0.9rem" }}>Pick a community first.</p>
       )}
     </div>
   );
@@ -129,6 +128,8 @@ export default function AdminSettingsWhatsApp() {
     oneTimeNeedGroupName: null,
     newsletterGroupId: null,
     newsletterGroupName: null,
+    careGroupId: null,
+    careGroupName: null,
     connection: { status: "disconnected", health: null, error: null },
   });
   const [pairing, setPairing] = useState(false);
@@ -158,8 +159,7 @@ export default function AdminSettingsWhatsApp() {
     };
   }, []);
 
-  // While a pairing is in progress, poll the server for the code/QR and
-  // for the moment WhatsApp confirms the link.
+  // While pairing, poll the server for the code/QR and for WhatsApp confirming the link.
   useEffect(() => {
     if (!pairing) return undefined;
     const timer = setInterval(async () => {
@@ -309,9 +309,10 @@ export default function AdminSettingsWhatsApp() {
     <div className="admin-shell">
       {confirmElement}
       <SettingsPageHeader title="WhatsApp" />
-      <p style={{ color: "#555" }}>
-        Posts new prayer requests, one-time needs, and newsletters to your WhatsApp community groups, on the
-        same daily schedule as GroupMe (set under <a href="/admin/settings/dispatches">Dispatch Settings</a>).
+      <p style={{ color: "var(--muted)" }}>
+        Posts new prayer requests, one-time needs, and newsletters (and, when turned on, partner care posts
+        such as coming key dates) to your WhatsApp community groups, on the same daily schedule as GroupMe
+        (set under <a href="/admin/settings/dispatches">Dispatch Settings</a>).
       </p>
       <div className="field-warning">
         This links a phone number to the app the same way WhatsApp Web does. It is not an official WhatsApp
@@ -324,13 +325,13 @@ export default function AdminSettingsWhatsApp() {
           {error}
         </p>
       )}
-      {success && <p style={{ color: "#2a5d3c" }}>{success}</p>}
+      {success && <p style={{ color: "var(--accent)" }}>{success}</p>}
 
       <div className="admin-section">
         <h3>1. Link the number</h3>
         {settings.paired ? (
           <>
-            <p style={{ color: "#555" }}>
+            <p style={{ color: "var(--muted)" }}>
               Linked: <strong>+{settings.phoneNumber || "unknown number"}</strong> —{" "}
               {STATUS_TEXT[connection.status] || connection.status}
             </p>
@@ -352,7 +353,7 @@ export default function AdminSettingsWhatsApp() {
         ) : (
           <>
             {connection.status === "logged_out" && <p className="form-error">{STATUS_TEXT.logged_out}</p>}
-            <p style={{ color: "#555", fontSize: "0.9rem" }}>
+            <p style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
               On the dedicated phone, open WhatsApp → Settings → Linked Devices → Link a Device, then scan the
               QR code below.
             </p>
@@ -362,11 +363,11 @@ export default function AdminSettingsWhatsApp() {
               </button>
             </div>
             {pairing && !pairStatus?.qrDataUrl && (
-              <p style={{ color: "#555" }}>Starting… this can take a few seconds.</p>
+              <p style={{ color: "var(--muted)" }}>Starting… this can take a few seconds.</p>
             )}
             {pairStatus?.qrDataUrl && (
               <div style={{ marginTop: "1rem" }}>
-                <p style={{ margin: 0, color: "#555" }}>
+                <p style={{ margin: 0, color: "var(--muted)" }}>
                   On that phone: WhatsApp → Settings → Linked Devices → Link a Device, then scan:
                 </p>
                 <img src={pairStatus.qrDataUrl} alt="WhatsApp pairing QR code" width="400" height="400" />
@@ -381,8 +382,8 @@ export default function AdminSettingsWhatsApp() {
         <h3>2. Community</h3>
         {settings.communityName ? (
           <>
-            <p style={{ color: "#555" }}>Currently: {settings.communityName}</p>
-            <p style={{ color: "#555", fontSize: "0.9rem" }}>
+            <p style={{ color: "var(--muted)" }}>Currently: {settings.communityName}</p>
+            <p style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
               {settings.announcementGroupName ? (
                 <>
                   Announcements group (detected automatically):{" "}
@@ -395,9 +396,9 @@ export default function AdminSettingsWhatsApp() {
             </p>
           </>
         ) : (
-          <p style={{ color: "#555" }}>No community selected yet.</p>
+          <p style={{ color: "var(--muted)" }}>No community selected yet.</p>
         )}
-        <p style={{ color: "#555", fontSize: "0.9rem" }}>
+        <p style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
           The linked number must already be a member of the community and of each group you map below (and an
           admin of any group where only admins can post).
         </p>
@@ -431,18 +432,18 @@ export default function AdminSettingsWhatsApp() {
           )}
         </div>
         {communities && communities.length === 0 && (
-          <p style={{ color: "#888", fontSize: "0.9rem" }}>
+          <p style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
             This number isn't in any community yet — add it in WhatsApp, then load again.
           </p>
         )}
         {!connected && settings.paired && (
-          <p style={{ color: "#888", fontSize: "0.9rem" }}>Available once the number is connected.</p>
+          <p style={{ color: "var(--muted)", fontSize: "0.9rem" }}>Available once the number is connected.</p>
         )}
       </div>
 
       <div className="admin-section">
         <h3>Groups</h3>
-        <p style={{ color: "#555", fontSize: "0.9rem" }}>
+        <p style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
           One list of groups for the community above, shared by the three pickers below — load it once, then
           pick a group for each notification type you want.
         </p>

@@ -79,10 +79,6 @@ function FlightFields({ form, setForm, participants }) {
   );
 }
 
-// Converted from onBlur-autosave onto click-row-opens-popup, same as
-// every other Trip sub-page this phase touched. Flight Segments already
-// existed as a real feature (TripFlightSegment model + routes) -- this is
-// the interaction-pattern/safety-fix pass, not new design.
 export default function AdminTripFlights() {
   const { trip, reload, confirmDialog, canWrite } = useOutletContext();
   const [error, setError] = useState("");
@@ -137,13 +133,15 @@ export default function AdminTripFlights() {
       confirmLabel: "Remove",
       danger: true,
     });
-    if (!confirmed) return;
+    if (!confirmed) return false;
     try {
       await deleteTripFlightSegment(seg.id);
       reload();
       setError("");
+      return true;
     } catch (err) {
       reportError(err, "Couldn't remove this flight segment.");
+      return false;
     }
   }
 
@@ -157,7 +155,7 @@ export default function AdminTripFlights() {
           {error}
         </p>
       )}
-      <p style={{ color: "#888", fontSize: "0.85rem" }}>
+      <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
         Entered once after group travel is booked. Shown only on each participant's own self-service page,
         never publicly. Add one row per leg — a connection is two rows; select who a segment applies to (e.g.
         just two people on their own routing) — selecting nobody means the whole team.
@@ -166,11 +164,9 @@ export default function AdminTripFlights() {
         bare
         items={trip.flightSegments || []}
         canEdit={canWrite}
-        canDelete={canWrite}
         addLabel="+ Add flight segment"
         onAdd={openAdd}
         onEdit={openEdit}
-        onDelete={handleDeleteFlightSegment}
         emptyMessage="No flight segments yet."
         renderItem={(seg) => (
           <>
@@ -213,6 +209,7 @@ export default function AdminTripFlights() {
           title={segModal.id == null ? "Add Flight Segment" : "Edit Flight Segment"}
           onClose={() => setSegModal(null)}
           onSubmit={submitSegModal}
+          onDelete={segModal.id != null ? () => handleDeleteFlightSegment(segModal) : undefined}
         >
           <FlightFields form={segModal.form} setForm={setSegModalForm} participants={participants} />
         </QuickActionModal>

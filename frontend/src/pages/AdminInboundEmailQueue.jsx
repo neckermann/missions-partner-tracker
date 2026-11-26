@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import PageHeader from "../components/shared/PageHeader.jsx";
 import {
   fetchPendingInboundEmails,
   assignInboundEmail,
@@ -16,16 +17,9 @@ import useCurrentUser from "../hooks/useCurrentUser.js";
 import Table from "../components/shared/Table.jsx";
 import Modal from "../components/Modal.jsx";
 
-// The review queue for inbound emails the webhook (see routes/inboundEmail.js)
-// couldn't automatically match to exactly one partner -- zero matches, or
-// more than one distinct partner sharing the sender address. A standing,
-// independently-paginated queue an admin returns to over time -- same
-// Table -> row click opens a Modal shape AdminPendingDispatches.jsx
-// already uses for this identical kind of queue.
-//
-// A row's mere existence means "pending" -- there's no status field (see
-// the InboundEmail model comment in schema.prisma), so both assign and
-// discard just remove the row.
+// Review queue for inbound emails the webhook (routes/inboundEmail.js) couldn't match to
+// exactly one partner. A row's existence means "pending" (no status field, see the
+// InboundEmail model in schema.prisma), so assign and discard both just remove the row.
 export default function AdminInboundEmailQueue() {
   const { enabledFeatures } = useSettings();
   const [emails, setEmails] = useState([]);
@@ -48,16 +42,12 @@ export default function AdminInboundEmailQueue() {
     Promise.all([
       reload(),
       fetchPartners().then(setPartners),
-      // Only when trips is on -- GET /api/trips 404s entirely otherwise
-      // (router.use(requireFeature("trips")) gates the whole router), and
-      // there'd be nothing to assign to a participant anyway.
+      // GET /api/trips 404s when the trips feature is off.
       enabledFeatures.trips ? fetchTrips().then(setTrips) : Promise.resolve(),
     ]).finally(() => setLoading(false));
   }, [enabledFeatures.trips]);
 
   function handleViewRaw(email) {
-    // Same same-origin, cookie-authenticated pattern as AdminPartnerFiles.jsx's
-    // handleView -- the browser sends the session cookie automatically.
     window.open(`/api/inbound-email/${email.id}/raw`, "_blank");
   }
 
@@ -170,15 +160,10 @@ export default function AdminInboundEmailQueue() {
 
   return (
     <div className="admin-shell">
-      <h2>Unmatched Emails</h2>
-      <p style={{ color: "#555" }}>
-        Inbound emails that couldn't be automatically filed -- either no partner's contact or household-adult
-        email matched the sender, more than one did, or exactly one matched but the sender's address couldn't
-        be verified (SPF/DKIM) and the sending address is easy to forge, so it's held for a human to confirm
-        rather than auto-filed and broadcast. Assign each to the right partner, picking what kind of file it
-        actually is -- or, if trips are on, to a trip participant instead, optionally marking which document
-        requirement it fulfills -- or discard it.
-      </p>
+      <PageHeader
+        title="Unmatched Emails"
+        description="Inbound emails that couldn't be filed automatically: no partner's contact or household adult matched the sender, more than one did, or the sender couldn't be verified (SPF/DKIM). Assign each to the right partner (or a trip participant, if trips are on) and pick what kind of file it is, or discard it."
+      />
 
       {error && !assigning && (
         <p className="form-error" role="alert">
@@ -207,7 +192,7 @@ export default function AdminInboundEmailQueue() {
 
       {assigning && (
         <Modal title={`Assign email from ${assigning.email.fromAddress}`} onClose={() => setAssigning(null)}>
-          <p style={{ color: "#555", fontSize: "0.85rem" }}>
+          <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
             Subject: {assigning.email.subject || "—"} · Received{" "}
             {new Date(assigning.email.receivedAt).toLocaleString()}
           </p>
@@ -244,9 +229,7 @@ export default function AdminInboundEmailQueue() {
                 const trip = trips.find((t) =>
                   (t.participants || []).some((p) => p.id === assigning.participantId)
                 );
-                // Only a "document" requirement is something an inbound
-                // email attachment could ever fulfill -- a "task" has
-                // nothing to attach a file to.
+                // Only a "document" requirement can be fulfilled by an attachment.
                 const requirements = (trip?.requirements || []).filter((r) => r.kind !== "task");
                 if (!assigning.participantId || requirements.length === 0) return null;
                 return (

@@ -59,8 +59,6 @@ describe("escapeField", () => {
     test("prepends a quote to a value starting with +, -, or @", () => {
       assert.equal(escapeField("+1+1"), "'+1+1");
       assert.equal(escapeField("-1+1"), "'-1+1");
-      // @SUM(1,2) has no quotes but does have a comma, so it still gets
-      // RFC 4180-quoted on top of the formula-neutralizing prefix.
       assert.equal(escapeField("@SUM(1,2)"), '"\'@SUM(1,2)"');
     });
 
@@ -73,8 +71,6 @@ describe("escapeField", () => {
     });
 
     test("still applies RFC 4180 quoting on top, when the field also needs it", () => {
-      // The leading quote neutralizes the formula; the embedded comma still
-      // needs its own RFC 4180 quoting, same as any other field.
       assert.equal(escapeField("=SUM(A1),B1"), '"\'=SUM(A1),B1"');
     });
   });
@@ -119,15 +115,10 @@ describe("toCsv", () => {
 });
 
 describe("csvFilename", () => {
-  // UTC getters, deliberately -- `now` isn't always a fresh server instant;
-  // routes/reports.js can pass the request's own "today" here, which is a
-  // browser-supplied calendar day encoded as UTC midnight (same shape as
-  // any other date-only API value). Reading that with *local* getters
-  // would misstamp the filename depending on what timezone the server
-  // process happens to run in -- the exact bug class this app keeps
-  // fixing. Fixtures below are built with Date.UTC to match that real
-  // shape, not the local 3-arg constructor, so the test doesn't quietly
-  // depend on the runner's own timezone either.
+  // UTC getters, deliberately: `now` isn't always a fresh server instant. routes/reports.js can
+  // pass the request's own "today", a browser-supplied calendar day encoded as UTC midnight, and
+  // local getters would misstamp the filename depending on the server's timezone. Fixtures use
+  // Date.UTC to match that shape, so the test doesn't depend on the runner's timezone either.
   test("slugs the label and stamps the date", () => {
     const name = csvFilename("Upcoming Birthdays", { now: new Date(Date.UTC(2026, 9, 28)) });
     assert.equal(name, "upcoming-birthdays-2026-10-28.csv");

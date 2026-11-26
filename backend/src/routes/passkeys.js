@@ -13,8 +13,8 @@ const { requireAuth, requireAuthOrMfaSetup } = require("../middleware/requireAut
 const { setSessionCookie } = require("../utils/jwt");
 const { recordAuditSafe } = require("../utils/auditLog");
 const { isTwoFactorRequired } = require("../utils/twoFactor");
-const { isPasswordlessOn } = require("../utils/passwordless");
-const { isDemoDeployment } = require("../utils/demoMode");
+const { isDemoDeployment, endOtherSessions } = require("../utils/demoMode");
+const { isPasskeySignInOn } = require("../utils/passwordless");
 const {
   MAX_PASSKEYS,
   relyingParty,
@@ -24,19 +24,10 @@ const {
   fromB64u,
 } = require("../utils/passkeys");
 
-// #386: passkeys as a second sign-in factor. Mounted at /api/auth/passkeys by routes/auth.js,
+// Passkeys as a second sign-in factor (#386). Mounted at /api/auth/passkeys by routes/auth.js,
 // which hands over its `completeLogin` so a passkey sign-in ends exactly as a code sign-in does.
 module.exports = function passkeyRoutes({ completeLogin }) {
   const router = express.Router();
-
-  // The public demo shares its logins: a passkey added there would make every visitor's sign-in ask
-  // for it. So passkeys can't be added on a demo (#386), and the list says so.
-  const refuseOnDemo = (req, res, next) => {
-    if (isDemoDeployment()) {
-      return res.status(403).json({ error: "Passkeys are turned off on the public demo" });
-    }
-    next();
-  };
 
   const publicPasskey = (p) => ({
     id: p.id,
@@ -58,11 +49,10 @@ module.exports = function passkeyRoutes({ completeLogin }) {
     }
   });
 
-  // ---- Adding one ----------------------------------------------------------------------
   // A session, or the forced-enrolment setup token (a person the church requires two-factor of
   // who has none yet): in that case finishing also signs them in, like a verified code does.
 
-  router.post("/register/options", refuseOnDemo, requireAuthOrMfaSetup, async (req, res, next) => {
+  router.post("/register/options", requireAuthOrMfaSetup, async (req, res, next) => {
     try {
       const user = await prisma.user.findUnique({
         where: { id: req.user.id },
@@ -110,7 +100,7 @@ module.exports = function passkeyRoutes({ completeLogin }) {
     label: z.string().trim().max(60).optional(),
   });
 
-  router.post("/register/verify", refuseOnDemo, requireAuthOrMfaSetup, async (req, res, next) => {
+  router.post("/register/verify", requireAuthOrMfaSetup, async (req, res, next) => {
     try {
       const body = registerSchema.parse(req.body);
       const user = await prisma.user.findUnique({
@@ -172,7 +162,7 @@ module.exports = function passkeyRoutes({ completeLogin }) {
               mfaSetupRequired: false,
               mfaLastTimeStep: null,
               // The first factor ends sessions opened without one, as enrolling an app does (#408).
-              sessionVersion: { increment: 1 },
+              ...endOtherSessions(),
             },
       });
       await recordAuditSafe(null, {
@@ -191,8 +181,6 @@ module.exports = function passkeyRoutes({ completeLogin }) {
       next(err);
     }
   });
-
-  // ---- Removing one --------------------------------------------------------------------
 
   router.delete("/:id", requireAuth, async (req, res, next) => {
     try {
@@ -225,7 +213,7 @@ module.exports = function passkeyRoutes({ completeLogin }) {
         // Nothing left to ask for, and sessions opened with it end, as when two-factor is switched off.
         updated = await prisma.user.update({
           where: { id: user.id },
-          data: { mfaEnabled: false, sessionVersion: { increment: 1 } },
+          data: { mfaEnabled: false, ...endOtherSessions() },
         });
         setSessionCookie(res, updated);
       }
@@ -241,7 +229,6 @@ module.exports = function passkeyRoutes({ completeLogin }) {
     }
   });
 
-  // ---- Signing in ----------------------------------------------------------------------
   // Second step after a correct password, exactly where the authenticator-app code goes.
 
   function pendingUser(pendingToken) {
@@ -333,14 +320,15 @@ module.exports = function passkeyRoutes({ completeLogin }) {
     }
   });
 
-  // ---- Passwordless sign-in (#386 Layer 2) -----------------------------------------------
-  // The passkey is the whole sign-in: no password, no pending token. No email is asked for, so
+  // The passkey is the whole sign-in: no password, no pending token. Available when the church allows it
+  // (allowPasskeySignIn, offered beside the password form) or passwordless mode is on (which removes
+  // the password form). User verification is required, so it is as strong as password plus a second step. No email is asked for, so
   // nothing here reveals which addresses have accounts: the browser offers the passkeys it holds
   // for this site and the answer names the credential.
 
   router.post("/passwordless/options", async (req, res, next) => {
     try {
-      if (!(await isPasswordlessOn())) return res.status(404).json({ error: "Not found" });
+      if (!(await isPasskeySignInOn())) return res.status(404).json({ error: "Not found" });
       const rp = relyingParty(req);
       const options = await generateAuthenticationOptions({ rpID: rp.rpID, userVerification: "required" });
       res.json({
@@ -354,7 +342,7 @@ module.exports = function passkeyRoutes({ completeLogin }) {
 
   router.post("/passwordless/verify", async (req, res, next) => {
     try {
-      if (!(await isPasswordlessOn())) return res.status(404).json({ error: "Not found" });
+      if (!(await isPasskeySignInOn())) return res.status(404).json({ error: "Not found" });
       const { challengeToken, response } = req.body || {};
       const passkey =
         response && typeof response.id === "string"

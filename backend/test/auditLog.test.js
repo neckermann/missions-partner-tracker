@@ -1,7 +1,6 @@
-// The pure parts of the audit trail (#341): the action catalogue, the
-// retention choices, and the secret-never-recorded helper. The database side
-// (writing, the feature gate, deletion-proof history, pruning) is covered in
-// test/routes/auditLog.test.js.
+// The pure parts of the audit trail: the action catalogue, the retention choices, and the
+// secret-never-recorded helper. The database side (writing, the feature gate, deletion-proof
+// history, pruning) is covered in test/routes/auditLog.test.js.
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const {

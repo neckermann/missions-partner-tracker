@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import {
   login,
   verifyMfaLogin,
@@ -13,15 +13,12 @@ import {
   requestSignInLink,
 } from "../api/client.js";
 import MfaAppGuide from "../components/MfaAppGuide.jsx";
+import CopyButton from "../components/shared/CopyButton.jsx";
+import { passkeyErrorMessage } from "../utils/passkeyError.js";
 
-// #124: where to land after a successful login, instead of always /admin.
-// `next` is set by requireAuth's own redirect (a cold click on a direct
-// link to a file, e.g. from a GroupMe notification) and is always a
-// same-origin /api path server-side -- but it round-trips through the URL
-// bar, so it's treated as untrusted here anyway. `from` is set by
-// RequireAdminAuth (a session that expired mid-visit) and is always an SPA
-// route. Both are validated before use to rule out an open redirect via a
-// crafted /login?next=https://evil.com link.
+// Where to land after login. `next` (from requireAuth's redirect, an /api path) and `from` (from
+// RequireAdminAuth, an SPA route) round-trip through the URL/state, so both are validated here
+// to rule out an open redirect via a crafted /login?next=https://evil.com link.
 function resolveDestination(location) {
   const next = new URLSearchParams(location.search).get("next");
   if (next && next.startsWith("/api/") && !next.includes("://") && !next.startsWith("//")) {
@@ -43,8 +40,12 @@ export default function Login() {
   const [setupToken, setSetupToken] = useState(null);
   const [setupData, setSetupData] = useState(null); // { secret, qrCode }
   const [error, setError] = useState("");
-  // #386 Layer 2: the church signs in without passwords.
+  // The church signs in without passwords.
   const [passwordless, setPasswordless] = useState(false);
+  // The church allows passkey sign-in, so the password form also offers "Sign in with a passkey".
+  const [passkeySignIn, setPasskeySignIn] = useState(false);
+  // "Forgot your password?" is offered when the site can email a link (never on a demo).
+  const [canReset, setCanReset] = useState(false);
   const [linkSent, setLinkSent] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
@@ -66,6 +67,8 @@ export default function Login() {
       .then((status) => {
         if (status.needed) navigate("/setup", { replace: true });
         setPasswordless(status.passwordless === true);
+        setPasskeySignIn(status.passkeySignIn === true);
+        setCanReset(status.passwordReset === true);
       })
       .catch(() => {});
   }, [navigate]);
@@ -110,7 +113,9 @@ export default function Login() {
         err.response?.data?.error ||
           (err.name === "NotAllowedError"
             ? "That was cancelled. Try again when you're ready."
-            : "That passkey didn't work. Try again, or use an emailed link.")
+            : passwordless
+              ? "That passkey didn't work. Try again, or use an emailed link."
+              : "That passkey didn't work. Try again, or use your password.")
       );
     }
   }
@@ -137,7 +142,7 @@ export default function Login() {
     }
   }
 
-  // #386: the second step with a passkey, or finishing forced enrolment with one.
+  // The second step with a passkey, or finishing forced enrolment with one.
   async function handlePasskeySignIn() {
     setError("");
     try {
@@ -154,9 +159,7 @@ export default function Login() {
       await registerPasskey("", setupToken);
       goToDestination();
     } catch (err) {
-      setError(
-        err.response?.data?.error || "Couldn't add a passkey. Try again, or use an authenticator app."
-      );
+      setError(`${passkeyErrorMessage(err, "Couldn't add a passkey")} Or use an authenticator app instead.`);
     }
   }
 
@@ -175,19 +178,19 @@ export default function Login() {
     return (
       <div className="admin-shell" style={{ maxWidth: 480 }}>
         <h2>Two-Factor Setup Required</h2>
-        <p style={{ color: "#555" }}>
+        <p style={{ color: "var(--muted)" }}>
           An administrator requires two-factor authentication on this account. Follow the steps below to
           finish signing in.
         </p>
         {browserSupportsWebAuthn() && (
           <div style={{ marginBottom: "1rem" }}>
-            <p style={{ color: "#555" }}>
+            <p style={{ color: "var(--muted)" }}>
               The simplest way is a passkey: your fingerprint, face or screen lock on this device.
             </p>
             <button type="button" className="btn" onClick={handlePasskeyEnrol}>
               Use a passkey
             </button>
-            <p style={{ color: "#555", marginTop: "1rem" }}>Or use an authenticator app:</p>
+            <p style={{ color: "var(--muted)", marginTop: "1rem" }}>Or use an authenticator app:</p>
           </div>
         )}
         <MfaAppGuide />
@@ -197,8 +200,9 @@ export default function Login() {
             style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}
           >
             <img src={setupData.qrCode} alt="MFA QR code" style={{ width: 200, height: 200 }} />
-            <p style={{ fontSize: "0.85rem", color: "#555" }}>
-              Can't scan it? Enter this code manually: <code>{setupData.secret}</code>
+            <p style={{ fontSize: "0.85rem", color: "var(--muted)" }}>
+              Can't scan it? Enter this code manually: <code>{setupData.secret}</code>{" "}
+              <CopyButton text={setupData.secret} label="Copy the setup key" />
             </p>
             <label>
               Code
@@ -213,7 +217,7 @@ export default function Login() {
                 required
               />
             </label>
-            {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
+            {error && <p style={{ color: "var(--danger)" }}>{error}</p>}
             <button type="submit" className="btn">
               Confirm & Sign In
             </button>
@@ -243,15 +247,15 @@ export default function Login() {
         <h2>Two-Factor Verification</h2>
         {canUsePasskey && (
           <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginBottom: "1rem" }}>
-            <p style={{ color: "#555" }}>Use the passkey on this device or a security key.</p>
+            <p style={{ color: "var(--muted)" }}>Use the passkey on this device or a security key.</p>
             <button type="button" className="btn" onClick={handlePasskeySignIn}>
               Use a passkey
             </button>
-            {methods.authenticatorApp && <p style={{ color: "#555" }}>Or enter a code instead:</p>}
+            {methods.authenticatorApp && <p style={{ color: "var(--muted)" }}>Or enter a code instead:</p>}
           </div>
         )}
         {methods.passkey && !canUsePasskey && !methods.authenticatorApp && (
-          <p style={{ color: "#555" }}>
+          <p style={{ color: "var(--muted)" }}>
             This browser can't use passkeys. Try another browser or device, or ask an admin to reset your
             two-factor.
           </p>
@@ -259,7 +263,7 @@ export default function Login() {
         {methods.authenticatorApp && (
           <>
             {!canUsePasskey && (
-              <p style={{ color: "#555" }}>Enter the 6-digit code from your authenticator app.</p>
+              <p style={{ color: "var(--muted)" }}>Enter the 6-digit code from your authenticator app.</p>
             )}
             <form
               onSubmit={handleMfaSubmit}
@@ -278,7 +282,7 @@ export default function Login() {
                   required
                 />
               </label>
-              {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
+              {error && <p style={{ color: "var(--danger)" }}>{error}</p>}
               <button type="submit" className="btn">
                 Verify
               </button>
@@ -288,7 +292,7 @@ export default function Login() {
         )}
         {!methods.authenticatorApp && (
           <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-            {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
+            {error && <p style={{ color: "var(--danger)" }}>{error}</p>}
             {backToLogin}
           </div>
         )}
@@ -301,13 +305,13 @@ export default function Login() {
       <div className="admin-shell" style={{ maxWidth: 400 }}>
         <h2>Team Login</h2>
         {typeof location.state?.notice === "string" && (
-          <p role="status" style={{ color: "#555" }}>
+          <p role="status" style={{ color: "var(--muted)" }}>
             {location.state.notice}
           </p>
         )}
         {browserSupportsWebAuthn() && (
           <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginBottom: "1.5rem" }}>
-            <p style={{ color: "#555" }}>
+            <p style={{ color: "var(--muted)" }}>
               Use the passkey on this device (fingerprint, face or screen lock).
             </p>
             <button type="button" className="btn" onClick={handlePasskeyOnly}>
@@ -325,7 +329,7 @@ export default function Login() {
             onSubmit={handleEmailLink}
             style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}
           >
-            <p style={{ color: "#555" }}>No passkey yet? We'll email you a link to sign in.</p>
+            <p style={{ color: "var(--muted)" }}>No passkey yet? We'll email you a link to sign in.</p>
             <label>
               Email
               <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
@@ -335,7 +339,7 @@ export default function Login() {
             </button>
           </form>
         )}
-        {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
+        {error && <p style={{ color: "var(--danger)" }}>{error}</p>}
       </div>
     );
   }
@@ -344,7 +348,7 @@ export default function Login() {
     <div className="admin-shell" style={{ maxWidth: 400 }}>
       <h2>Team Login</h2>
       {typeof location.state?.notice === "string" && (
-        <p role="status" style={{ color: "#555" }}>
+        <p role="status" style={{ color: "var(--muted)" }}>
           {location.state.notice}
         </p>
       )}
@@ -358,11 +362,24 @@ export default function Login() {
           Password
           <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
         </label>
-        {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
+        {error && <p style={{ color: "var(--danger)" }}>{error}</p>}
         <button type="submit" className="btn">
           Sign in
         </button>
+        {canReset && (
+          <p style={{ margin: 0, fontSize: "0.9rem" }}>
+            <Link to="/forgot-password">Forgot your password?</Link>
+          </p>
+        )}
       </form>
+      {passkeySignIn && browserSupportsWebAuthn() && (
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", marginTop: "1.25rem" }}>
+          <p style={{ margin: 0, color: "var(--muted)" }}>Or use your fingerprint, face or screen lock:</p>
+          <button type="button" className="btn secondary" onClick={handlePasskeyOnly}>
+            Sign in with a passkey
+          </button>
+        </div>
+      )}
     </div>
   );
 }

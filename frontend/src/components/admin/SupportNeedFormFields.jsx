@@ -2,19 +2,12 @@ import React from "react";
 import SourcePicker from "./SourcePicker.jsx";
 import { urgentSendDescription } from "../../utils/urgentSend.js";
 
-// Phase 2 of the UX-rebuild plan: the one-time-need field set duplicated
-// between PartnerFinancialSection.jsx (embedded, fixed partnerId -- add +
-// decide only, no edit) and AdminOneTimeNeeds.jsx (consolidated, partner
-// picked from a dropdown -- add, edit, and decide). Same pattern as
-// PrayerRequestFormFields.jsx: renders only the form-grid body, `mode`
-// controls the create-only isUrgent/approveNow blocks, `partnerPicker` is
-// injected when given.
-//
-// `limited` (#289) is a care team member who isn't staff. They have what an
-// editor has for their partner except anything that sends right away: the
-// urgent and "approve now" controls are left out, because their dispatch is
-// always held for staff review instead. (The decision on a need -- approve or
-// decline -- isn't in this form at all; it's staff's, via Record Decision.)
+// The one-time-need field set shared by PartnerFinancialSection.jsx (fixed partnerId, add and
+// decide only) and AdminOneTimeNeeds.jsx. Like PrayerRequestFormFields.jsx: form-grid body only,
+// `mode` controls the create-only isUrgent/approveNow blocks, `partnerPicker` is injected when
+// given. `limited` is a care team member who isn't staff: urgent and "approve now" are left out
+// because their dispatch is always held for staff review. The decision on a need isn't in this
+// form; it is staff's, via Record Decision.
 export default function SupportNeedFormFields({
   form,
   setForm,
@@ -82,7 +75,7 @@ export default function SupportNeedFormFields({
                   Mark as urgent -- send right away
                 </label>
               </div>
-              <p style={{ margin: "0.35rem 0 0", color: "#666", fontSize: "0.85rem" }}>
+              <p style={{ margin: "0.35rem 0 0", color: "var(--muted)", fontSize: "0.85rem" }}>
                 {urgentSendDescription(enabledFeatures)}
               </p>
             </div>
@@ -99,7 +92,7 @@ export default function SupportNeedFormFields({
                   Review and approve now
                 </label>
               </div>
-              <p style={{ margin: "0.35rem 0 0", color: "#666", fontSize: "0.85rem" }}>
+              <p style={{ margin: "0.35rem 0 0", color: "var(--muted)", fontSize: "0.85rem" }}>
                 This partner is restricted, so nothing above sends anywhere until an admin or editor reviews
                 it -- normally from the Pending Dispatches page afterward. Checking this confirms, right now,
                 that the text you just typed is safe to send verbatim, skipping that extra trip. You'll be

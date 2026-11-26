@@ -16,8 +16,6 @@ const PASSWORD = process.env.E2E_ADMIN_PASSWORD || "TryTheDemo2026!";
 const outDir = process.argv[2] || ".";
 fs.mkdirSync(outDir, { recursive: true });
 
-// #322 cut the picker down to Classic + Modern (the other four were
-// deleted, not just unoffered -- see booklet.css's own header comment).
 const TEMPLATE_LABELS = {
   classic: "Classic",
   modern: "Modern",
@@ -46,18 +44,16 @@ await page.goto(`${BASE}/admin/booklet`);
 // make sure the Notes page is on so that page type is actually exercised.
 await page.waitForSelector(".booklet-preview");
 
-// Rendering is synchronous now (plain HTML, no pagination polyfill to
-// settle) -- selecting a template re-renders on the next tick, no button
-// and no wait needed.
+// Rendering is synchronous (plain HTML): selecting a template re-renders on the next tick, no
+// wait needed.
 async function selectTemplate(tpl) {
   await page.getByText(TEMPLATE_LABELS[tpl], { exact: true }).click();
   await page.locator(".booklet-preview").waitFor();
 }
 
-// Each top-level page is now a plain <section class="booklet-cover|
-// booklet-page">, directly inside .booklet-preview -- no .pagedjs_page
-// wrapper to look inside. `self` matches a class on the section itself
-// (e.g. the back cover); `has` matches a descendant (e.g. a heading).
+// Each top-level page is a <section class="booklet-cover|booklet-page"> directly inside
+// .booklet-preview. `self` matches a class on the section itself (e.g. the back cover); `has`
+// matches a descendant (e.g. a heading).
 async function shotPageMatching(outName, { has, self }) {
   const target = self
     ? page.locator(`.booklet-preview section${self}`).first()
@@ -93,9 +89,8 @@ for (const tpl of Object.keys(TEMPLATE_LABELS)) {
   // Back cover.
   await shotPageMatching(`${tpl}-05-back-cover.png`, { self: ".booklet-back-cover" });
 
-  // Print-media equivalents, same pages, to catch anything that only
-  // breaks under @media print (the booklet's own print CSS, pagedjs's
-  // print-vs-screen handling).
+  // Print-media equivalents of the same pages, to catch anything that only breaks under @media
+  // print.
   await page.emulateMedia({ media: "print" });
   await shotPageMatching(`${tpl}-01-cover-PRINT.png`, { has: ".booklet-cover-title" });
   await shotPageMatching(`${tpl}-02-missionary-PRINT.png`, { has: ".booklet-name" });

@@ -5,45 +5,31 @@ const { shapeSendingParties } = require("../utils/sendingParty");
 const { requireFeature } = require("../middleware/requireFeature");
 
 const router = express.Router();
-// Backs both the directory and map pages, and the partner-detail page
-// linked from either -- reachable as long as at least one is on (see
-// isAnyFeatureEnabled's comment in utils/features.js).
+// Backs the directory, map and partner-detail pages; reachable while at least one is on (see
+// isAnyFeatureEnabled in utils/features.js).
 router.use(requireFeature(["publicDirectory", "publicMap"]));
 
-// Everything the public serializer needs, and nothing it doesn't. The
-// missionary-only relations (adults, children, sendingParties) come back
-// empty for an organization, so one include serves both kinds.
+// Everything the public serializer needs, and nothing more. The missionary-only relations come
+// back empty for an organization, so one include serves both kinds.
 //
-// adults/children are never themselves exposed -- they only determine
-// which generic household silhouette a *restricted* missionary gets, and
-// missionaryHouseholdCategory (utils/maskData.js) reads nothing but their
-// `.length`.
-//
-// So they select an id and nothing else. `adults: true` means "every
-// column", which on this route meant a spouse's phone number and email and
-// every child's name and birthday being loaded on an UNAUTHENTICATED
-// request, for a counting operation. None of it was serialized, so it was
-// never a leak -- but it sat one careless `...partner` spread away from
-// being one, on the one route that needs no login at all. The cheapest
-// data to protect is data that was never fetched.
+// adults/children are never exposed: missionaryHouseholdCategory (utils/maskData.js) reads only
+// their `.length` to pick a *restricted* missionary's generic silhouette. So they select only an
+// id; `adults: true` would load a spouse's phone/email and each child's name and birthday on an
+// UNAUTHENTICATED request, one careless `...partner` spread from a leak.
 const publicInclude = {
   adults: { select: { id: true } },
   children: { select: { id: true } },
   sendingParties: true,
   addresses: { where: { type: "physical" } }, // only the pin coordinates are ever surfaced publicly
-  // Only the current photo (most recently received) is ever surfaced
-  // publicly — never the upload history.
+  // Only the current (most recently received) photo is ever surfaced publicly, never the history.
   photos: { orderBy: [{ receivedDate: "desc" }, { createdAt: "desc" }], take: 1 },
   links: { select: { type: true, url: true } },
   languages: { select: { language: true, proficiency: true } },
 };
 
-// GET /api/public/partners?kind=missionary|organization
-// Returns the curated/masked list for the public website (map + list view).
-// Every record goes through toPublicPartner -- no public route may bypass
-// it, which is why the serializer is a pure function tested in isolation.
-// #327 Finding 10 -- the only ChurchSettings field toPublicPartner() needs,
-// shared by both routes below.
+// GET /api/public/partners?kind=missionary|organization — the curated/masked list. Every record
+// goes through toPublicPartner; no public route may bypass it.
+// The only ChurchSettings field toPublicPartner() needs, shared by both routes below.
 async function getRestrictedMaskingSettings() {
   return prisma.churchSettings.findUnique({
     where: { id: "singleton" },

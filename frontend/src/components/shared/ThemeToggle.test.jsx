@@ -4,7 +4,7 @@ import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 import ThemeToggle from "./ThemeToggle.jsx";
 import { THEME_STORAGE_KEY } from "../../hooks/useTheme.js";
 
-// #283 -- light/dark/system appearance toggle.
+// Light/dark/system appearance toggle.
 describe("ThemeToggle", () => {
   beforeEach(() => {
     window.localStorage.removeItem(THEME_STORAGE_KEY);

@@ -1,13 +1,10 @@
 import React from "react";
 import { useSettings } from "../context/SettingsContext.jsx";
+import CopyButton from "./shared/CopyButton.jsx";
 
-// Shown only on a public demo deployment (DEMO_RESET_TOKEN set -- see the
-// comment on isDemo in routes/publicSettings.js), entirely separate from
-// a real church's own About Church content, which this never touches.
-//
-// Lists every published login a visitor can try: the admin, plus the
-// limited-access ones (a care team member, a trip leader -- see
-// utils/demoLogins.js), so they can see what each kind of person gets.
+// Shown only on a public demo deployment (DEMO_RESET_TOKEN set; see isDemo in
+// routes/publicSettings.js). Lists every published login a visitor can try, including the
+// limited-access ones (utils/demoLogins.js).
 export default function DemoBanner() {
   const { isDemo, demoLoginEmail, demoLoginPassword, demoGuestLogins } = useSettings();
   if (!isDemo) return null;
@@ -37,13 +34,15 @@ export default function DemoBanner() {
           </p>
           {sharedPassword && (
             <p>
-              The password is the same for all of them: <code>{sharedPassword}</code>
+              The password is the same for all of them: <code>{sharedPassword}</code>{" "}
+              <CopyButton text={sharedPassword} label="Copy the demo password" />
             </p>
           )}
           <ul style={{ margin: "0 0 0.5rem", paddingLeft: "1.25rem" }}>
             {hasAdmin && (
               <li>
-                <strong>Admin</strong> — <code>{demoLoginEmail}</code>
+                <strong>Admin</strong> — <code>{demoLoginEmail}</code>{" "}
+                <CopyButton text={demoLoginEmail} label="Copy the admin email" />
                 {!sharedPassword && (
                   <>
                     {" "}
@@ -55,7 +54,8 @@ export default function DemoBanner() {
             )}
             {guests.map((g) => (
               <li key={g.key}>
-                <strong>{g.label}</strong> — <code>{g.email}</code>
+                <strong>{g.label}</strong> — <code>{g.email}</code>{" "}
+                <CopyButton text={g.email} label={`Copy the ${g.label} email`} />
                 {!sharedPassword && (
                   <>
                     {" "}

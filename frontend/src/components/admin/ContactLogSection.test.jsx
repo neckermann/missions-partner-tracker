@@ -1,6 +1,7 @@
 import React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, within, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import ContactLogSection from "./ContactLogSection.jsx";
 import {
   fetchContactLogOptions,
@@ -82,8 +83,7 @@ describe("ContactLogSection (#288)", () => {
   it("anyone can log with chips; fix and delete are staff only", async () => {
     renderIt({ canFix: false });
     await screen.findByText("Phone call");
-    expect(screen.queryByRole("button", { name: "Edit" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Delete" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Phone call/ })).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "+ Log contact" }));
     const dialog = await screen.findByRole("dialog");
@@ -114,7 +114,7 @@ describe("ContactLogSection (#288)", () => {
 
   it("staff can edit, and a teammate can be picked as who", async () => {
     renderIt({ canFix: true, teammates: [{ userId: "u9", name: "Sam Okafor" }] });
-    fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
+    fireEvent.click(await screen.findByRole("button", { name: /Phone call/ }));
     const dialog = await screen.findByRole("dialog");
     fireEvent.change(within(dialog).getByLabelText("Who"), { target: { value: "u9" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
@@ -156,8 +156,9 @@ describe("ContactLogSection (#288)", () => {
     const text = container.textContent;
     expect(text.indexOf("Visited the church")).toBeLessThan(text.indexOf("Phone call"));
     expect(text.indexOf("Phone call")).toBeLessThan(text.indexOf("Newsletter filed"));
-    // Only the log's own entry can be edited or deleted.
-    expect(screen.getAllByRole("button", { name: "Edit" })).toHaveLength(1);
+    // Only the log's own entry opens for editing.
+    expect(screen.getAllByRole("button", { name: /Phone call/ })).toHaveLength(1);
+    expect(screen.queryByRole("button", { name: /Visited the church/ })).toBeNull();
   });
 
   it("still shows the log when the timeline can't be loaded", async () => {
@@ -173,7 +174,7 @@ describe("ContactLogSection (#288)", () => {
     renderIt();
     expect(await screen.findByText("Updates to pass on")).toBeInTheDocument();
     expect(screen.getByText(/A prayer was answered/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Log a thank-you" }));
+    fireEvent.click(screen.getByRole("button", { name: "Log that I told them" }));
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByRole("button", { name: "We reached out" })).toHaveAttribute(
       "aria-pressed",
@@ -187,5 +188,26 @@ describe("ContactLogSection (#288)", () => {
     renderIt();
     await screen.findByText("Phone call");
     expect(screen.queryByText("Updates to pass on")).not.toBeInTheDocument();
+  });
+
+  it("shows only the latest few entries, and links to the filtered Contact Log page for the rest", () => {
+    const many = Array.from({ length: 5 }, (_, n) => ({
+      ...entry,
+      id: `e${n}`,
+      contactDate: `2026-03-0${n + 1}T00:00:00.000Z`,
+      notes: `Note ${n + 1}`,
+    }));
+    render(
+      <MemoryRouter>
+        <ContactLogSection partnerId="p9" entries={many} onChanged={() => {}} canFix currentUserId="u1" />
+      </MemoryRouter>
+    );
+    expect(screen.getByText("Note 5")).toBeInTheDocument();
+    expect(screen.getByText("Note 3")).toBeInTheDocument();
+    expect(screen.queryByText("Note 2")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /View all 5 logged contacts/ })).toHaveAttribute(
+      "href",
+      "/admin/contact-log?partnerId=p9"
+    );
   });
 });

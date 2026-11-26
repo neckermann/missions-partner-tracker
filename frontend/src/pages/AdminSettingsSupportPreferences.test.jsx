@@ -10,18 +10,19 @@ import {
   updateSupportOption,
   deleteSupportOption,
   renameSupportGroup,
-  addSupportExampleSet,
 } from "../api/client.js";
 
-// #374: the church's menu of support options, edited by an admin.
+// The church's menu of support options, edited by an admin.
 vi.mock("../api/client.js", () => ({
   fetchSupportOptions: vi.fn(),
   fetchSupportKinds: vi.fn(),
+  previewTemplatePack: vi.fn(),
+  importTemplatePack: vi.fn(),
+  templatePackExportUrl: () => "/x",
   createSupportOption: vi.fn(),
   updateSupportOption: vi.fn(),
   deleteSupportOption: vi.fn(),
   renameSupportGroup: vi.fn(),
-  addSupportExampleSet: vi.fn(),
 }));
 
 const kinds = [
@@ -62,7 +63,6 @@ beforeEach(() => {
   deleteSupportOption.mockResolvedValue();
   renameSupportGroup.mockResolvedValue({ renamed: 1 });
   createSupportOption.mockResolvedValue({});
-  addSupportExampleSet.mockResolvedValue({ added: 18 });
 });
 
 describe("AdminSettingsSupportPreferences", () => {
@@ -74,12 +74,11 @@ describe("AdminSettingsSupportPreferences", () => {
     expect(screen.getAllByText("Something we offer (tick it if wanted)")).toHaveLength(2);
   });
 
-  it("offers an example set from an empty menu", async () => {
-    fetchSupportOptions.mockResolvedValueOnce([]);
+  it("points an empty menu at importing an example pack", async () => {
+    fetchSupportOptions.mockResolvedValue([]);
     renderPage();
-    fireEvent.click(await screen.findByRole("button", { name: "Add an example set" }));
-    await waitFor(() => expect(addSupportExampleSet).toHaveBeenCalled());
-    await waitFor(() => expect(fetchSupportOptions).toHaveBeenCalledTimes(2));
+    expect(await screen.findByText(/Import an example menu/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Import a menu…" })).toBeInTheDocument();
   });
 
   it("retires and restores an option without deleting its answers", async () => {

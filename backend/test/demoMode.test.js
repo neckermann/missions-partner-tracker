@@ -35,3 +35,27 @@ test("the flags spread over a feature object turn exactly those off and nothing 
     assert.equal(demo[key], !DEMO_DISABLED_FEATURES.includes(key), key);
   }
 });
+
+test("a demo refuses passwordless sign-in unless DEMO_ALLOW_PASSWORDLESS=true (the owner's own test deployment)", () => {
+  const { demoBlocksPasswordless } = require("../src/utils/passwordless");
+  const keep = { t: process.env.DEMO_RESET_TOKEN, a: process.env.DEMO_ALLOW_PASSWORDLESS };
+  try {
+    delete process.env.DEMO_RESET_TOKEN;
+    delete process.env.DEMO_ALLOW_PASSWORDLESS;
+    assert.equal(demoBlocksPasswordless(), false, "not a demo");
+    process.env.DEMO_RESET_TOKEN = "x";
+    assert.equal(demoBlocksPasswordless(), true);
+    process.env.DEMO_ALLOW_PASSWORDLESS = "true";
+    assert.equal(demoBlocksPasswordless(), false);
+    process.env.DEMO_ALLOW_PASSWORDLESS = "yes";
+    assert.equal(demoBlocksPasswordless(), true, "only the exact value true lifts it");
+  } finally {
+    for (const [k, v] of [
+      ["DEMO_RESET_TOKEN", keep.t],
+      ["DEMO_ALLOW_PASSWORDLESS", keep.a],
+    ]) {
+      if (v === undefined) delete process.env[k];
+      else process.env[k] = v;
+    }
+  }
+});

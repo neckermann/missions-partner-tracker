@@ -2,20 +2,13 @@ import { test, expect } from "@playwright/test";
 import { generate as generateTotp } from "otplib";
 import { login, ADMIN_EMAIL, ADMIN_PASSWORD } from "./helpers.js";
 
-// Logging in IS the security boundary in this app: any account that can sign
-// in reads every partner's full record, including restricted partners' exact
-// locations and contact details (see ADMIN_GUIDE.md § Who can see what).
-// Roles only decide who can change things.
-//
-// That makes these the flows most worth testing, and until now they had no
-// browser coverage at all -- not MFA, not user management, not first-run
-// setup, and only indirect coverage of role gating. The route tests check the
-// API's gates; these check that the UI enforces the same thing, which is what
-// a person actually interacts with.
+// Logging in IS the security boundary in this app: any account that can sign in reads every
+// partner's full record, including restricted partners' exact locations and contact details
+// (ADMIN_GUIDE.md § Who can see what). Roles only decide who can change things. The route
+// tests check the API's gates; these check that the UI enforces the same thing.
 
 const PASSWORD = "E2eBoundaryPassword123!";
 
-// Creates a user through the API while signed in as an admin.
 async function createUser(page, { role, suffix }) {
   const email = `e2e-${suffix}-${Date.now()}@example.test`;
   const res = await page.request.post("/api/users", {
@@ -56,10 +49,8 @@ test.describe("role gating in the UI", () => {
       // table before the fetch that fills it has landed.
       await expect(page.locator("table tbody tr").first(), "an editor sees the partner list").toBeVisible();
 
-      // An editor can still create/update/archive -- only delete (and
-      // admin-only settings) are out of reach. The app-wide CRUD
-      // unification's role-gating is what this button's visibility
-      // actually depends on now, not just the server's own 403.
+      // An editor can still create/update/archive; only delete and admin-only settings are out of
+      // reach.
       await expect(
         page.getByRole("link", { name: "+ Add Missionary" }),
         "an editor can still create partners"
@@ -86,8 +77,7 @@ test.describe("role gating in the UI", () => {
       await page.goto("/admin/partners");
       await expect(page.locator("h2").first()).toBeVisible();
 
-      // The UI itself now hides what the API would refuse anyway -- a
-      // viewer should see no mutate affordance anywhere on this page.
+      // A viewer should see no mutate affordance anywhere on this page.
       await expect(
         page.getByRole("link", { name: "+ Add Missionary" }),
         "a viewer sees no way to create a partner"
@@ -117,27 +107,17 @@ test.describe("user management", () => {
     await page.goto("/admin/settings/users");
     await page.getByRole("link", { name: "+ Add User" }).click();
     await page.waitForURL(/\/admin\/settings\/users\/new$/);
-    // Create is its own page (AdminUserForm.jsx), not a modal -- same
-    // "a Wizard reads as its own page" precedent as AdminPartnerForm.jsx's
-    // "New Partner". A 2-step Wizard (Basics, then Account Setup) --
-    // see AdminUsers.jsx's own header comment for why. "Send a welcome
-    // email" lives on the second step, so it's never on screen at the same
-    // time as this step's Email field; exact: true is kept anyway since
-    // it's cheap and still correct. Password is optional on create (the
-    // default is a welcome-email link instead) -- this test only exercises
-    // create/edit-role/delete through the admin UI, never signs in as the
-    // user it creates, so leaving every Account Setup default as-is and
-    // just finishing the wizard is enough.
+    // Create is its own page (AdminUserForm.jsx), a 2-step Wizard (Basics, then Account Setup)
+    // with "Send a welcome email" on the second step. Password is optional on create, and this
+    // test never signs in as the new user, so finishing the wizard with the defaults is enough.
     await page.getByLabel("Email", { exact: true }).fill(email);
     await page.getByLabel("First Name").fill("Managed");
     await page.getByLabel("Last Name").fill("User");
     await page.getByLabel("Role").selectOption("viewer");
     await page.getByRole("button", { name: "Next" }).click();
     await page.getByRole("button", { name: "Finish" }).click();
-    // outboundEmail is off by default (CI never turns it on globally), so
-    // the wizard's own last step is a manual setup link, not an immediate
-    // navigation back -- "Done" dismisses it. See AdminUserForm.jsx's
-    // handleFinish.
+    // outboundEmail is off by default (CI never turns it on globally), so the wizard ends on a
+    // manual setup link; "Done" dismisses it.
     await page.getByRole("button", { name: "Done" }).click();
     await page.waitForURL(/\/admin\/settings\/users$/);
 
@@ -152,10 +132,8 @@ test.describe("user management", () => {
     await expect(page.locator(".modal-panel")).toHaveCount(0);
     await expect(page.locator("tr", { hasText: email })).toContainText("editor");
 
-    // Delete: opens a styled confirm dialog (see useConfirmDialog.jsx),
-    // not a native confirm() -- click its own Delete button, scoped to
-    // the dialog role since the row's own trigger button has the same
-    // name.
+    // Delete opens a styled confirm dialog (useConfirmDialog.jsx), not a native confirm(); scope
+    // to the dialog role because the row's own trigger button has the same name.
     await page.locator("tr", { hasText: email }).getByRole("button", { name: "Delete" }).click();
     await page.getByRole("dialog").getByRole("button", { name: "Delete" }).click();
     await expect(page.locator("tr", { hasText: email })).toHaveCount(0);
@@ -177,9 +155,8 @@ test.describe("first-run setup", () => {
 });
 
 test.describe("login redirect for direct links to authenticated files", () => {
-  // #124: a cold click on a direct link to a requireAuth-gated route (a
-  // GroupMe dispatch, etc.) with no session used to show bare JSON.
-  // Each test gets Playwright's default fresh, cookie-less context.
+  // A cold click on a direct link to a requireAuth-gated route with no session must not show
+  // bare JSON. Each test gets Playwright's default fresh, cookie-less context.
   test("a direct link with no session redirects to /login and returns to the original path after signing in", async ({
     page,
   }) => {
@@ -190,10 +167,9 @@ test.describe("login redirect for direct links to authenticated files", () => {
     await page.fill('input[type="password"]', ADMIN_PASSWORD);
     await page.click('button[type="submit"]');
 
-    // The fixture ID doesn't exist, so this 404s -- but a 404 JSON body
-    // (not a second /login redirect, not the bare "Authentication
-    // required" this issue is about) proves requireAuth let the request
-    // through with the fresh session cookie.
+    // The fixture ID doesn't exist, so this 404s; a 404 JSON body (not a /login redirect or the
+    // bare "Authentication required") proves requireAuth let the request through with the fresh
+    // session cookie.
     await page.waitForURL(/\/api\/partner-files\/any-id\/download/);
     await expect(page.locator("body")).toContainText("Not found");
   });
@@ -211,11 +187,9 @@ test.describe("login redirect for direct links to authenticated files", () => {
 });
 
 test.describe("two-factor authentication", () => {
-  // Enrolls a throwaway user rather than the shared admin. An earlier version
-  // of this test enabled MFA on the admin every other spec signs in with, and
-  // when it failed before reaching its cleanup it left that account needing a
-  // code nobody had -- every later test then hung at the challenge screen. A
-  // dedicated user means the worst case is a leftover row.
+  // Enrolls a throwaway user, not the shared admin: a failure before cleanup would otherwise
+  // leave the admin needing a code nobody has, and every later test would hang at the challenge
+  // screen.
   test("enrolls, blocks a replayed code, signs in, and disables", async ({ page }) => {
     test.setTimeout(120_000); // includes one wait for the TOTP window to roll
 
@@ -228,14 +202,10 @@ test.describe("two-factor authentication", () => {
       await page.goto("/admin/account");
       await mfaSection(page).getByRole("button", { name: "Enable Two-Factor Authentication" }).click();
 
-      // The page prints the secret for anyone who cannot scan the QR code,
-      // which is also how this test gets hold of it.
-      //
-      // Asserted before reading so a failure says what is wrong. Enrollment
-      // is the only thing that touches FIELD_ENCRYPTION_KEY, and when that
-      // key doesn't decode to 32 bytes the request 500s and no secret ever
-      // appears -- which otherwise shows up as an unexplained timeout two
-      // minutes later. CI shipped a 31-byte key for weeks on exactly this.
+      // The page prints the secret for anyone who cannot scan the QR code, which is also how this
+      // test gets it. Asserted before reading so a failure says what is wrong: enrollment is the
+      // only thing that touches FIELD_ENCRYPTION_KEY, and a key that doesn't decode to 32 bytes 500s
+      // and otherwise shows up as an unexplained timeout.
       const secretEl = mfaSection(page).locator("code").first();
       await expect(
         secretEl,

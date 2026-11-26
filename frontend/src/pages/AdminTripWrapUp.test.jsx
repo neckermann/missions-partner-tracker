@@ -5,7 +5,7 @@ import { MemoryRouter, Routes, Route, Outlet } from "react-router-dom";
 import AdminTripWrapUp from "./AdminTripWrapUp.jsx";
 import { wrapUpTrip } from "../api/client.js";
 
-// #358: the Wrap up trip wizard -- what happened, a debrief, a follow-up contact, loose ends,
+// The Wrap up trip wizard: what happened, a debrief, a follow-up contact, loose ends,
 // photos, and when leader access ends. Open to staff and a trip leader for their own trip.
 vi.mock("../api/client.js", () => ({ wrapUpTrip: vi.fn() }));
 let features;

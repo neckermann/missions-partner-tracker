@@ -5,8 +5,8 @@ import { MemoryRouter } from "react-router-dom";
 import SetPassword from "./SetPassword.jsx";
 import { validatePasswordSetup, requestPasswordSetupLink } from "../api/client.js";
 
-// The expired-link page offers a new link by email. While the site can't send email it must say
-// so (and point to an administrator), not promise a link that will never arrive (#345).
+// The expired-link page offers a new link by email. While the site can't send email it must
+// say so (and point to an administrator), not promise a link that will never arrive.
 vi.mock("../api/client.js", () => ({
   validatePasswordSetup: vi.fn(),
   completePasswordSetup: vi.fn(),
@@ -33,11 +33,11 @@ describe("SetPassword: asking for a new link", () => {
   it("shows the server's message while email works", async () => {
     requestPasswordSetupLink.mockResolvedValue({
       ok: true,
-      message: "If that email has an account waiting to be set up, a new link is on its way.",
+      message: "If that email has an account, a link to choose a password is on its way.",
     });
     renderExpired();
     await askForNewLink();
-    expect(await screen.findByRole("status")).toHaveTextContent(/a new link is on its way/);
+    expect(await screen.findByRole("status")).toHaveTextContent(/link to choose a password is on its way/);
     expect(requestPasswordSetupLink).toHaveBeenCalledWith("pat@example.test");
   });
 
@@ -58,6 +58,8 @@ describe("SetPassword: asking for a new link", () => {
     requestPasswordSetupLink.mockRejectedValue(new Error("network"));
     renderExpired();
     await askForNewLink();
-    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(/a new link is on its way/));
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent(/link to choose a password is on its way/)
+    );
   });
 });

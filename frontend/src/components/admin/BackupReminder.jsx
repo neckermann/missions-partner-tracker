@@ -11,27 +11,12 @@ const PROVIDER_MESSAGES = {
     "This app doesn't manage database backups itself — confirm your Postgres provider's backup/retention settings.",
 };
 
-// A periodic (not one-time-forever) reminder that nothing in this app
-// backs up the database itself -- see ADMIN_GUIDE.md § Database backups.
-// Aimed at churches without a technical volunteer who might otherwise
-// never think to check their provider's own backup settings. Re-shows
-// itself ~30 days after being dismissed, since "did we ever actually
-// check this" is worth revisiting periodically, not just once.
-//
-// The "due for a nudge" / dismiss-tracking logic lives in the shared
-// notification registry now (backend/src/notifications/categories.js's
-// timeToCheckBackups, via useNotifications()) -- a per-user, DB-backed
-// NotificationSeen row, not this component's own per-browser localStorage
-// timer as before, so dismissing on one device doesn't leave it nagging
-// again on another. Still fetches /api/backup-check directly for the
-// provider detection (Neon/Supabase/RDS/other) -- that's cosmetic message
-// content, not state the registry needs to track.
-//
-// Separate from backupReminderDisabled, a server-side, permanent opt-out
-// set on the About App settings page (AdminSystemInfo.jsx) for a church
-// that's confirmed its backups are genuinely handled another way -- the
-// registry's own category already checks that flag, so this component
-// doesn't need to duplicate it.
+// A periodic reminder that nothing in this app backs up the database (ADMIN_GUIDE.md § Database
+// backups). Whether it is due, and dismissal, live in the notification registry
+// (backend/src/notifications/categories.js timeToCheckBackups, via useNotifications()) as a
+// per-user NotificationSeen row, so dismissing on one device holds on another. The registry also
+// checks the permanent server-side backupReminderDisabled opt-out. /api/backup-check is fetched
+// here only for provider detection (cosmetic message content).
 export default function BackupReminder() {
   const [provider, setProvider] = useState(null);
   const { categories, markSeen } = useNotifications();
@@ -41,7 +26,7 @@ export default function BackupReminder() {
     fetchBackupCheck()
       .then((data) => setProvider(data?.provider || "other"))
       .catch(() => {
-        // Not an admin, or the check failed -- no reminder, never an error.
+        // Not an admin, or the check failed: no reminder, never an error.
       });
   }, []);
 

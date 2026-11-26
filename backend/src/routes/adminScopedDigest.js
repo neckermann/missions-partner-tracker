@@ -6,13 +6,8 @@ const { requireAuth, requireRole } = require("../middleware/requireAuth");
 const router = express.Router();
 router.use(requireAuth);
 
-// GET /api/scoped-digest/summary -- counts only, no email addresses, for
-// the admin-visible "how many people are on this" view (#202). Full
-// subscriber management (search/remove by email) is a later phase, not
-// this one. #327 Finding 2 (lower-value gap): the data itself is harmless
-// (three aggregate integers, no PII), but there's no legitimate Trip
-// Leader use for it either -- excluded for consistency with every other
-// admin-area read, not because this one leaked anything real.
+// GET /api/scoped-digest/summary -- aggregate counts only, no email addresses.
+// Trip Leaders are excluded for consistency with every other admin-area read.
 router.get("/summary", requireRole("admin", "editor", "viewer"), async (req, res, next) => {
   try {
     const [adminSubscribedCount, publicConfirmedCount, publicUnconfirmedCount] = await Promise.all([

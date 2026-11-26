@@ -6,7 +6,7 @@
     <title>Missions Partner Tracker</title>
     <meta
       name="description"
-      content="A free, open-source web app for tracking and publicly showcasing your church's missionary and organization partners."
+      content="Your missionaries should never feel forgotten. A free, open-source web app that helps your church know, pray for, and care for its missionary and organization partners, and share them with the congregation."
     />
     <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png" />
     <link rel="icon" type="image/png" sizes="192x192" href="assets/favicon-192.png" />
@@ -18,8 +18,10 @@
       <div class="wrap">
         <a class="brand" href="#top">Missions Partner Tracker</a>
         <nav>
-          <a href="#public-site">Public Site Features</a>
-          <a href="#admin">Admin Features</a>
+          <a href="#care">Caring for partners</a>
+          <a href="#public-site">Public Site</a>
+          <a href="#admin">Admin</a>
+          <a href="#self-host">Run it yourself</a>
           <a href="admin-guide.html">Admin Guide</a>
           <a href="user-guide.html">User Guide</a>
           <span class="nav-external">
@@ -34,11 +36,11 @@
 
     <section class="hero" id="top">
       <div class="wrap">
-        <h1>Track and showcase your church's missionary and organization partners</h1>
+        <h1>Your missionaries should never feel forgotten</h1>
         <p class="tagline">
-          A public directory and map for your congregation to see, and an admin dashboard to manage support,
-          trips, newsletters, and more behind the scenes. Free and open source — self-host it for your own
-          church.
+          A home for the missionaries and organizations your church supports: who they are, how to pray for
+          them, who is looking after them, and when someone last heard from them. Share them with your
+          congregation, and make sure nobody falls through the cracks. Free, open source, and yours to run.
         </p>
         <div class="hero-actions">
           <a
@@ -55,6 +57,93 @@
             rel="noreferrer"
             >View on GitHub</a
           >
+          <a class="btn secondary" href="#self-host">Run it yourself</a>
+        </div>
+        <p class="hero-trust">
+          Open source (MIT) &middot; Your church's name, logo and colors &middot; Your data stays in your own
+          database
+        </p>
+      </div>
+    </section>
+
+    <section class="feature" id="care">
+      <div class="wrap">
+        <div class="feature-text">
+          <h2>Care for your partners, not just a list of them</h2>
+          <p>
+            Give every partner a care team: a lead and a few church members who keep in touch, including
+            members who only get a limited guest login. The app reminds them about birthdays and
+            anniversaries, shows who has gone quiet, and keeps a simple log of every call, card and visit, so
+            when someone asks &ldquo;when did we last hear from them?&rdquo; there is an answer.
+          </p>
+          <ul class="care-list">
+            <li><strong>Care teams</strong> with a lead, members and limited guest access.</li>
+            <li>
+              <strong>Reminders</strong> for birthdays, anniversaries and long silences, on the bell and in
+              one tidy daily email.
+            </li>
+            <li><strong>A contact log</strong> of every call, card and visit, with follow-up dates.</li>
+            <li>
+              <strong>Reach them the way they like</strong>, and carefully: a preferred way for each person,
+              and a setting for partners who need special handling.
+            </li>
+          </ul>
+        </div>
+        <div class="feature-image two-up">
+          <a href="assets/screenshots/bell-alerts.png" target="_blank" rel="noreferrer">
+            <img
+              src="assets/screenshots/bell-alerts.png"
+              alt="The bell showing partners to reach out to and upcoming birthdays"
+              loading="lazy"
+            />
+          </a>
+          <a href="assets/screenshots/key-date-email.png" target="_blank" rel="noreferrer">
+            <img
+              src="assets/screenshots/key-date-email.png"
+              alt="The daily key-date email for a care team"
+              loading="lazy"
+            />
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <section class="feature reverse">
+      <div class="wrap">
+        <div class="feature-text">
+          <h2>Know what each partner wants from you</h2>
+          <p>
+            Record how each partner would like your church to support them (a care package, a visit from a
+            team, someone to be honest with) from a menu your church writes. Keep it private to staff and
+            their care team, and see at a glance who wants what, and who has never been asked.
+          </p>
+        </div>
+        <div class="feature-image">
+          <a href="assets/screenshots/support-preferences-card.png" target="_blank" rel="noreferrer">
+            <img
+              src="assets/screenshots/support-preferences-card.png"
+              alt="A partner's support preferences card"
+              loading="lazy"
+            />
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <section class="feature">
+      <div class="wrap">
+        <div class="feature-text">
+          <h2>When a trip ends, capture what the team learned</h2>
+          <p>
+            Wrap up a mission trip in one short walk-through: what the team did, what went well, what was
+            hard, and what the partner needs next, plus a thank-you for the partner. The notes live with the
+            trip and show up for the partner's care team.
+          </p>
+        </div>
+        <div class="feature-image">
+          <a href="assets/screenshots/trip-debrief.png" target="_blank" rel="noreferrer">
+            <img src="assets/screenshots/trip-debrief.png" alt="A trip's debrief notes" loading="lazy" />
+          </a>
         </div>
       </div>
     </section>
@@ -217,6 +306,43 @@
             />
           </a>
         </div>
+      </div>
+    </section>
+
+    <section class="oss" id="self-host">
+      <div class="wrap">
+        <h2>Free, open source, and yours to run</h2>
+        <p>
+          MIT licensed, and your data stays yours. Fork the repo and deploy your own instance on Render for
+          about $13 a month: one web service plus one Postgres database, which also holds every uploaded
+          photo, newsletter and document, so there is no separate file storage to set up. You will need a
+          GitHub account and about an hour; the Admin Guide walks through it, and the live demo shows what you
+          will get.
+        </p>
+        <div class="links">
+          <a href="https://demo.missionspartnertracker.com" target="_blank" rel="noreferrer"
+            >Try the live demo</a
+          >
+          <a href="https://github.com/neckermann/missions-partner-tracker" target="_blank" rel="noreferrer"
+            >View the repo</a
+          >
+          <a href="admin-guide.html">Admin setup guide</a>
+          <a href="user-guide.html">Day-to-day user guide</a>
+          <a href="https://github.com/sponsors/neckermann" target="_blank" rel="noreferrer"
+            >Sponsor on GitHub</a
+          >
+          <a href="https://buymeacoffee.com/neckermann" target="_blank" rel="noreferrer">Buy me a coffee</a>
+        </div>
+        <p class="hosted-note">
+          Not ready to run a server? A hosted version is not available yet, and nothing is promised.
+          <a
+            href="https://github.com/neckermann/missions-partner-tracker/issues/430"
+            target="_blank"
+            rel="noreferrer"
+            >Tell us you would want one</a
+          >
+          and what you would need.
+        </p>
       </div>
     </section>
 
@@ -492,31 +618,6 @@
               loading="lazy"
             />
           </a>
-        </div>
-      </div>
-    </section>
-
-    <section class="oss">
-      <div class="wrap">
-        <h2>Free, open source, and yours to run</h2>
-        <p>
-          MIT licensed. Fork the repo and deploy your own instance on Render in about $13/mo — one web service
-          plus one Postgres database, which also holds every uploaded photo, newsletter, and document, so
-          there's no separate file storage to provision.
-        </p>
-        <div class="links">
-          <a href="https://demo.missionspartnertracker.com" target="_blank" rel="noreferrer"
-            >Try the live demo</a
-          >
-          <a href="https://github.com/neckermann/missions-partner-tracker" target="_blank" rel="noreferrer"
-            >View the repo</a
-          >
-          <a href="admin-guide.html">Admin setup guide</a>
-          <a href="user-guide.html">Day-to-day user guide</a>
-          <a href="https://github.com/sponsors/neckermann" target="_blank" rel="noreferrer"
-            >Sponsor on GitHub</a
-          >
-          <a href="https://buymeacoffee.com/neckermann" target="_blank" rel="noreferrer">Buy me a coffee</a>
         </div>
       </div>
     </section>

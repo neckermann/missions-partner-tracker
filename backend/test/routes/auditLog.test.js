@@ -1,7 +1,7 @@
-// The audit trail's database side (#341): nothing is written while the
-// feature is off; an entry keeps its who/what after the accounts involved are
-// deleted; a restricted partner's view is logged once per person per day; the
-// prune keeps exactly the retention window. Runs against the real database.
+// The audit trail's database side: nothing is written while the feature is off; an entry keeps
+// its who/what after the accounts involved are deleted; a restricted partner's view is logged
+// once per person per day; the prune keeps exactly the retention window. Runs against the real
+// database.
 const { test, describe, before, after, beforeEach } = require("node:test");
 const assert = require("node:assert/strict");
 require("dotenv").config({ quiet: true });

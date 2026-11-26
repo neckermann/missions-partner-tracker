@@ -13,20 +13,13 @@ const {
   FIXTURE_TAG,
 } = require("./helpers");
 
-// The contract this file defends: **every error response body's `error` is a
-// string.**
-//
-// It has broken twice on the same line of code. First `res.json({ error:
-// err.errors })` serialized to a literal {} after Zod v4 renamed
-// ZodError.errors to .issues, so a rejected save said nothing about what was
-// wrong. The fix sent `err.issues` -- an array of objects -- which the
-// frontend renders straight into JSX, so React threw "Objects are not valid
-// as a React child" and, with no error boundary, unmounted the whole page.
-// Every validation error was a white screen.
-//
-// Both bugs were invisible to a test suite that only checked status codes.
-// So this walks every validating endpoint and asserts the body shape, not
-// just the number. Adding a route to the table below protects it too.
+// The contract this file defends: every error response body's `error` is a string. It has
+// broken twice on the same line: first `res.json({ error: err.errors })` serialized to {}
+// after Zod v4 renamed ZodError.errors to .issues; then the fix sent `err.issues`, an array of
+// objects the frontend renders straight into JSX, so React threw "Objects are not valid as a
+// React child" and, with no error boundary, unmounted the page. A suite that only checks
+// status codes misses both, so this walks every validating endpoint and asserts the body
+// shape. Adding a route to the table below protects it too.
 
 let admin;
 let partner;
@@ -38,8 +31,8 @@ before(async () => {
   admin = await client("admin");
   await removeFixturePartners();
 
-  // trips defaults to off (#252); this file's one trips case needs it on
-  // to reach its own validation (400), not requireFeature's 404.
+  // trips defaults to off; this file's trips case needs it on to reach its own validation (400),
+  // not requireFeature's 404.
   const settings = await prisma.churchSettings.findUnique({
     where: { id: "singleton" },
     select: { enabledFeatures: true },
@@ -152,8 +145,7 @@ describe("error contract: other failure modes", () => {
   const MISSING_ID = "00000000-0000-4000-8000-000000000000";
 
   test("an unknown id on update is 404, not 500", async () => {
-    // users.js used to catch only ZodError here, so Prisma's P2025 fell
-    // through to the generic handler and surfaced as a 500.
+    // Guards a 500: Prisma's P2025 must not fall through to the generic handler.
     const res = await admin(`/api/users/${MISSING_ID}`, {
       method: "PUT",
       body: { name: "Nobody", role: "viewer" },

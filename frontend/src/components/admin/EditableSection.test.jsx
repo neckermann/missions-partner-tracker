@@ -18,11 +18,8 @@ function Harness({ onSave, onSaved }) {
   );
 }
 
-// The whole card is the click-to-edit target (see EditableSection.jsx's own
-// comment) -- there's no separate "Edit" button to find by name, the card
-// itself is role="button". These tests predate that whole-card convention
-// and were asserting a labeled Edit button that hasn't existed since the
-// click-to-edit popup migration.
+// The whole card is the click-to-edit target (see EditableSection.jsx): there is no "Edit"
+// button to find by name, the card itself is role="button".
 function openEditor() {
   fireEvent.click(screen.getByRole("button", { name: "Overview Hello" }));
 }

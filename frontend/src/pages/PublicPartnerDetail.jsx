@@ -16,9 +16,7 @@ export default function PublicPartnerDetail() {
   const [partner, setPartner] = useState(null);
   const [notFound, setNotFound] = useState(false);
 
-  // One endpoint for both kinds — the record says which it is, so the URL
-  // no longer needs to carry that (the old /partners/:type/:id shape
-  // redirects; see main.jsx).
+  // One endpoint for both kinds; the record says which it is.
   useEffect(() => {
     setPartner(null);
     setNotFound(false);
@@ -47,14 +45,11 @@ export default function PublicPartnerDetail() {
     ? [partner.orgType, partner.fieldDisplayName].filter(Boolean).join(" · ")
     : [
         partner.fieldDisplayName,
-        partner.supportingSince && `Supporting since ${formatYear(partner.supportingSince)}`,
+        partner.supportingSince && `Partnering since ${formatYear(partner.supportingSince)}`,
       ]
         .filter(Boolean)
         .join(" · ");
-  // newsletterSignup gets its own prominent widget further down the page
-  // instead of blending into this generic row. Restricted partners simply
-  // won't have this field at all (see toPublicPartner in maskData.js), so
-  // this already degrades correctly with no type-specific handling needed.
+  // newsletterSignup gets its own widget below. Restricted partners lack the field (see toPublicPartner in maskData.js).
   const links = (partner.links || []).filter((l) => l.type !== "newsletterSignup");
   const newsletterSignup = (partner.links || []).find((l) => l.type === "newsletterSignup")?.url;
   const hasSendingParty = !isOrg && (partner.sendingChurch?.name || partner.sendingOrg?.name);
@@ -67,10 +62,7 @@ export default function PublicPartnerDetail() {
 
         <div className="partner-detail-header" style={{ marginTop: "1rem" }}>
           {partner.photo ? (
-            // Restricted partners get a generic silhouette here (see
-            // maskData.js), not a real photo -- "view full size" makes no
-            // sense for a generic icon, so only non-restricted photos are
-            // wrapped as a link.
+            // Restricted partners get a generic silhouette (see maskData.js); only real photos link to full size.
             partner.isRestricted ? (
               <PhotoTile
                 src={partner.photo}
@@ -98,7 +90,7 @@ export default function PublicPartnerDetail() {
               {name}
               {partner.isRestricted && <span className="badge-restricted">Restricted</span>}
             </h2>
-            {meta && <p style={{ color: "#666", margin: 0 }}>{meta}</p>}
+            {meta && <p style={{ color: "var(--muted)", margin: 0 }}>{meta}</p>}
           </div>
         </div>
 
@@ -146,15 +138,13 @@ export default function PublicPartnerDetail() {
         )}
 
         {newsletterSignup && (
-          // Its own widget, shown regardless of the publicPrayerDigest
-          // toggle below -- this is {name}'s own external newsletter,
-          // unrelated to this site's prayer-digest subscription feature,
-          // so it shouldn't disappear just because that feature is off.
-          // Previously folded into the prayer-digest widget's description
-          // text, invisible whenever that feature was disabled.
+          // Its own widget, shown regardless of the publicPrayerDigest toggle: this is the partner's
+          // external newsletter, unrelated to this site's prayer-digest feature.
           <div className="admin-section" style={{ marginTop: "1.5rem" }}>
             <h3 style={{ marginTop: 0 }}>{name}&rsquo;s Newsletter</h3>
-            <p style={{ color: "#555" }}>Hear directly from {name} with their own newsletter updates.</p>
+            <p style={{ color: "var(--muted)" }}>
+              Hear directly from {name} with their own newsletter updates.
+            </p>
             <a href={newsletterSignup} target="_blank" rel="noopener noreferrer" className="btn secondary">
               Sign up for their newsletter
             </a>
@@ -169,7 +159,7 @@ export default function PublicPartnerDetail() {
               title={`Follow ${name}'s prayer requests`}
               description={`Get an email when there's a new or answered prayer request we've received about ${name} -- gathered from their newsletters and other updates to us.`}
             />
-            <p style={{ marginTop: "0.5rem", fontSize: "0.9rem", color: "#555" }}>
+            <p style={{ marginTop: "0.5rem", fontSize: "0.9rem", color: "var(--muted)" }}>
               Want to pray for more than just {name}?{" "}
               <Link to="/subscribe">Pray for all of our {partnerTermPlural}, or pick several</Link>.
             </p>

@@ -1,8 +1,3 @@
-// #271 Finding 1: split out of trips.js, which had grown into a route-
-// file outlier (1389 lines, 40% bigger than the next-largest route
-// file). Mounted at the same /api/trips prefix as trips.js itself
-// (server.js) -- a sibling sub-resource router, not a separate API
-// surface.
 const express = require("express");
 const { z } = require("zod");
 const prisma = require("../prismaClient");
@@ -11,26 +6,20 @@ const { requireFeature } = require("../middleware/requireFeature");
 const { sendMeetingEmail, emailParticipantSelect } = require("../utils/tripEmails");
 
 const router = express.Router();
-router.use(requireAuth); // everything below requires a logged-in user
+router.use(requireAuth);
 router.use(requireFeature("trips"));
 
-// requireTripScope needs the owning trip id before it can check it
-// against a guest's granted trips -- every route here but the
-// create route is addressed by the meeting's own id, not the trip's.
+// requireTripScope needs the owning trip id; every route here but create is addressed by meeting id.
 async function tripIdOfMeeting(req) {
   const row = await prisma.tripMeeting.findUnique({ where: { id: req.params.id }, select: { tripId: true } });
   return row?.tripId;
 }
 
-// ---- Meetings ----
-
 const meetingInputSchema = z.object({
   startAt: z.coerce.date().optional(),
   title: z.string().optional().nullable(),
   location: z.string().optional().nullable(),
-  // An empty string (clearing the field from a form input) is treated
-  // the same as omitting it -- url() rejects "" outright, and clearing
-  // a link should mean "no link," not a validation error.
+  // An empty string (cleared form input) means "no link"; url() would reject it.
   meetingLink: z
     .union([z.string().url(), z.literal("")])
     .optional()
@@ -61,12 +50,8 @@ router.post(
   }
 );
 
-// Reschedule-resend: compares incoming startAt/location/meetingLink
-// against the row's current stored values before applying the update --
-// a change to any of those three counts as a reschedule (a participant
-// needs to know the new time, the new place, or that the join link
-// changed) and triggers a resend; an agenda-only edit updates silently,
-// same precedent this already followed for the field it replaced.
+// Reschedule-resend: a change to startAt, location or meetingLink counts as a reschedule and
+// triggers a resend; an agenda-only edit updates silently.
 router.put(
   "/meetings/:id",
   requireRole("admin", "editor", "guest"),
@@ -100,10 +85,7 @@ router.put(
   }
 );
 
-// Explicit resend -- same invite content as a fresh schedule, for when
-// nothing about the meeting changed but an admin still wants to nudge
-// participants (a late addition to the team, someone who says they
-// never got it) without waiting on, or faking, a reschedule.
+// Explicit resend: the same invite as a fresh schedule, to nudge participants when nothing changed.
 router.post(
   "/meetings/:id/resend",
   requireRole("admin", "editor", "guest"),
@@ -129,11 +111,8 @@ router.post(
   }
 );
 
-// Soft-cancel -- see the TripMeeting schema comment for why this isn't a
-// delete. Idempotent-ish: cancelling an already-cancelled meeting just
-// re-sends the cancellation notice rather than erroring, since an admin
-// who clicks it twice (or needs to re-notify a participant who missed
-// the first one) shouldn't be blocked.
+// Soft-cancel (see the TripMeeting schema comment). Re-cancelling re-sends the cancellation notice
+// rather than erroring, so an admin can re-notify someone who missed it.
 router.post(
   "/meetings/:id/cancel",
   requireRole("admin", "editor", "guest"),
@@ -165,16 +144,9 @@ router.post(
   }
 );
 
-// Hard delete -- for correcting a meeting that was created by mistake.
-// Refused once a meeting has already been cancelled (which already sent
-// its own notice -- deleting on top of that would just be a second,
-// redundant state change with nothing left for it to accomplish).
-// Deliberately still allowed on a never-cancelled meeting even though
-// creating one already sent an invite -- an admin correcting a real
-// mistake (wrong trip, duplicate entry) shouldn't be forced through
-// "cancel" (which announces a cancellation nobody should see) just to
-// remove it; cancel is for calling off a real meeting, not for undoing
-// a data-entry error.
+// Hard delete -- for correcting a meeting created by mistake. Refused once cancelled (a notice
+// already went out). Allowed on a never-cancelled meeting even though creating it sent an invite:
+// cancel announces a cancellation nobody should see, so it is not for undoing a data-entry error.
 router.delete(
   "/meetings/:id",
   requireRole("admin", "editor", "guest"),

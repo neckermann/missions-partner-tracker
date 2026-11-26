@@ -27,11 +27,8 @@ function addDays(value, days) {
   return new Date(toUtcDay(value).getTime() + days * DAY_MS);
 }
 
-// ---------------------------------------------------------------------
-// Support. A partner's support is a ledger of SupportEntry rows -- each a
-// whole-dollar MONTHLY amount that takes effect on a date. This is what the
-// church has committed to give, not a record of gifts actually sent.
-// ---------------------------------------------------------------------
+// Support: a ledger of SupportEntry rows, each a whole-dollar MONTHLY amount that
+// takes effect on a date. It is what the church has committed, not gifts sent.
 
 // The entry in force on `asOf`: the latest one effective on or before that
 // day (a later createdAt wins a same-day tie). null if none had started.
@@ -98,10 +95,6 @@ function supportChange(entries, from, to) {
   return { before, after, delta: after - before, type };
 }
 
-// ---------------------------------------------------------------------
-// Prayer requests.
-// ---------------------------------------------------------------------
-
 const PRAYER_AGE_BUCKETS = ["0-30 days", "31-90 days", "91+ days"];
 
 function ageBucket(ageDays) {
@@ -131,11 +124,8 @@ function prayerState(request, asOf) {
   return { state: "untracked", daysToAnswer: null, ageDays: null, bucket: null };
 }
 
-// ---------------------------------------------------------------------
-// One-time needs. approvedAmount null = still awaiting a decision, 0 =
-// declined, less than requested = partially funded (same reading the admin
-// UI uses).
-// ---------------------------------------------------------------------
+// One-time needs: approvedAmount null = awaiting a decision, 0 = declined, less
+// than requested = partially funded (same reading as the admin UI).
 
 function needDecision(need) {
   if (need.approvedAmount == null) return "pending";
@@ -149,10 +139,6 @@ function needTurnaroundDays(need) {
   if (need.approvedAmount == null || !need.approvedDate || !need.requestDate) return null;
   return daysBetween(need.approvedDate, need.requestDate);
 }
-
-// ---------------------------------------------------------------------
-// Trips.
-// ---------------------------------------------------------------------
 
 function sumAmounts(rows) {
   return (rows || []).reduce((s, r) => s + (r.amount || 0), 0);
@@ -202,17 +188,16 @@ function requirementDone(requirement, participantId, statuses, documents) {
   );
 }
 
-// ---------------------------------------------------------------------
-// Data completeness. The fields a church would want on every partner.
-// ---------------------------------------------------------------------
+// Data completeness: the fields a church would want on every partner.
 
 const COMPLETENESS_CHECKS = [
   { key: "overview", label: "Overview", test: (p) => !!(p.overviewShort || p.overview) },
   { key: "contact", label: "Contact (email or phone)", test: (p) => !!(p.contactEmail || p.contactPhone) },
   {
-    key: "preferredContactMethod",
+    key: "contactMethod",
     label: "Preferred contact method",
-    test: (p) => !!p.preferredContactMethod,
+    // An organization's contact, or any adult in the family.
+    test: (p) => !!(p.contactMethod || (p.adults || []).some((a) => a.contactMethod)),
   },
   { key: "address", label: "Address", test: (p) => (p.addresses || []).length > 0 },
   {
@@ -222,7 +207,7 @@ const COMPLETENESS_CHECKS = [
   },
   { key: "language", label: "Language", test: (p) => (p.languages || []).length > 0 },
   { key: "photo", label: "Photo", test: (p) => (p.photos || []).length > 0 },
-  { key: "supportingSince", label: "Supporting since", test: (p) => !!p.supportingSince },
+  { key: "supportingSince", label: "Partnering since", test: (p) => !!p.supportingSince },
 ];
 
 // { missing: [labels], filled, total, percent }
@@ -232,10 +217,6 @@ function completeness(partner) {
   const filled = total - missing.length;
   return { missing, filled, total, percent: Math.round((filled / total) * 100) };
 }
-
-// ---------------------------------------------------------------------
-// Annual dates (birthdays, anniversaries).
-// ---------------------------------------------------------------------
 
 // The next time a month/day recurs on or after `from`. Feb 29 falls on
 // Feb 28 in a non-leap year. `years` is how many years the date will mark

@@ -2,13 +2,9 @@ import React, { useEffect, useState } from "react";
 import { listReports } from "../api/client.js";
 import CardGrid from "../components/admin/CardGrid.jsx";
 
-// The Reports hub. Organized by the question a person is trying to answer
-// ("Who is still missing a requirement?"), not by table name, and built
-// from the same page shell as Admin Home: admin-shell + admin-section +
-// CardGrid. Everything shown comes from the server's report catalog
-// (backend/src/reporting/registry.js), so adding a report never means
-// editing this file. Reports are read-only; the resource pages still do
-// the editing.
+// The Reports hub, organized by the question a person is trying to answer, not by table.
+// Everything shown comes from the server's report catalog (backend/src/reporting/registry.js),
+// so adding a report never means editing this file. Reports are read-only.
 export default function AdminReports() {
   const [catalog, setCatalog] = useState(null);
   const [error, setError] = useState("");
@@ -26,7 +22,7 @@ export default function AdminReports() {
   return (
     <div className="admin-shell">
       <h2>Reports</h2>
-      <p style={{ color: "#666", marginTop: 0 }}>
+      <p style={{ color: "var(--muted)", marginTop: 0 }}>
         Pick the question you are trying to answer. Every report can be downloaded as a spreadsheet (CSV) or
         printed or saved as a PDF from your browser.
       </p>
@@ -42,7 +38,7 @@ export default function AdminReports() {
         catalog.groups.map((group) => (
           <div className="admin-section" key={group.key}>
             <h3 style={{ marginTop: 0 }}>{group.label}</h3>
-            <p style={{ color: "#666", marginTop: 0 }}>{group.description}</p>
+            <p style={{ color: "var(--muted)", marginTop: 0 }}>{group.description}</p>
             <CardGrid
               sections={catalog.reports
                 .filter((r) => r.group === group.key)

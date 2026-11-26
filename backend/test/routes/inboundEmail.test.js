@@ -23,11 +23,9 @@ function basicAuthHeader(user, pass) {
   return "Basic " + Buffer.from(`${user}:${pass}`).toString("base64");
 }
 
-// #327 Finding 5: defaults to a passing SPF header, same shape Postmark's
-// own sample payload uses -- representing the realistic, legitimately-
-// configured case every test not specifically about Finding 5 itself
-// should exercise. Pass `headers: []` (or omit the override and remove
-// via spread) to simulate an unverified sender instead.
+// Defaults to a passing SPF header, the shape Postmark's sample payload uses, so every test
+// not specifically about sender verification exercises the legitimately-configured case. Pass
+// `headers: []` to simulate an unverified sender.
 function postmarkPayload(overrides = {}) {
   const { headers, ...rest } = overrides;
   return {
@@ -120,9 +118,8 @@ describe("POST /api/inbound-email/postmark -- webhook auth", () => {
     assert.equal(res.status, 401);
   });
 
-  // #327 Finding 4: a bad-credentials request used to write a row anyway --
-  // 60 allowed attempts per 15 minutes from a single guesser, no
-  // credential required to trigger a write.
+  // A bad-credentials request must not write a row: otherwise a single guesser gets 60 allowed
+  // attempts per 15 minutes with no credential required to trigger a write.
   test("wrong credentials write no InboundEmailFailure row", async () => {
     const before = await prisma.inboundEmailFailure.count();
     const res = await unauthenticated("/api/inbound-email/postmark", {
@@ -253,9 +250,8 @@ describe("POST /api/inbound-email/postmark -- matching", () => {
     assert.equal(queued.length, 1);
   });
 
-  // #327 Finding 5: From is trivially forgeable -- a single matching
-  // partner address is no longer enough on its own to auto-file (and
-  // broadcast) a message. SPF/DKIM has to confirm the sender too.
+  // From is trivially forgeable: a single matching partner address isn't enough to auto-file
+  // (and broadcast) a message; SPF/DKIM has to confirm the sender too.
   test("a single match with no SPF/DKIM signal at all queues for review instead of auto-filing", async () => {
     const partner = await createPartner({ contactEmail: `unverified@${FROM_DOMAIN}` });
 
@@ -367,11 +363,9 @@ describe("the review queue -- GET/:id/raw/assign/discard", () => {
     }
   });
 
-  // #329 Finding 1: this queue used to have no role restriction beyond
-  // being authenticated at all (which also let a Trip Leader scoped
-  // guest read it -- see backend/test/routes/tripLeaderScope.test.js).
-  // It's now admin/editor/viewer only; this just confirms viewer, the
-  // least-privileged of the 3 full roles, is still one of them.
+  // This queue is admin/editor/viewer only (not any authenticated user, which would include a
+  // Trip Leader scoped guest; see backend/test/routes/tripLeaderScope.test.js); this confirms
+  // viewer, the least-privileged full role, is still allowed.
   test("a logged-in viewer can list the queue", async () => {
     const created = await prisma.inboundEmail.create({
       data: {
@@ -547,11 +541,10 @@ describe("the review queue -- GET/:id/raw/assign/discard", () => {
   });
 });
 
-// Trips (#252) -- assigning to a TripParticipant instead of a Partner
-// (partnerId XOR tripParticipantId, see assignSchema's own refine).
-// Files as a TripDocument, never a PartnerFile, and is gated on the
-// `trips` feature specifically, not `partnerFiles` (checked inside the
-// handler, since the router-wide gate above only covers `inboundEmail`).
+// Assigning to a TripParticipant instead of a Partner (partnerId XOR tripParticipantId, see
+// assignSchema's refine). Files as a TripDocument, never a PartnerFile, and is gated on the
+// `trips` feature specifically, not `partnerFiles` (checked inside the handler, since the
+// router-wide gate only covers `inboundEmail`).
 describe("POST /:id/assign -- trip participant (#252)", () => {
   test("assigns to a TripParticipant as a TripDocument, optionally marking a requirement fulfilled, deletes the queue row", async () => {
     await prisma.churchSettings.update({
@@ -664,7 +657,5 @@ describe("POST /:id/assign -- trip participant (#252)", () => {
   });
 });
 
-// The webhook password's own leak-check and "settings gated by the
-// feature flag" coverage now lives in email.test.js, which owns the
-// merged GET/PUT /api/settings/email route (including its inbound
-// fields) -- no need to duplicate either here.
+// The webhook password's leak-check and "settings gated by the feature flag" coverage lives in
+// email.test.js, which owns the merged GET/PUT /api/settings/email route.

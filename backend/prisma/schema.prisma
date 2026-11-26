@@ -1,192 +1,134 @@
 // Prisma schema for the Missions Team Missionary Tracker
-// Run `npx prisma migrate dev --name init` after setting DATABASE_URL in .env
 
 generator client {
   provider = "prisma-client-js"
 }
 
-// The connection URL used to live here (url = env("DATABASE_URL")) --
-// Prisma 7 removed that; it's now in prisma.config.js instead (which
-// also stays the single source of truth for prisma migrate/studio/etc.
-// commands, not this file).
+// The connection URL is in prisma.config.js (Prisma 7), not here.
 datasource db {
   provider = "postgresql"
 }
 
-// A partner this church supports -- either an individual/family missionary
-// or a local/national partner organization, distinguished by `kind`.
-//
-// These were two separate models (Missionary and Organization) through
-// v1.7.0. They shared 36 fields, and two of the apparent differences were
-// just naming accidents for identical concepts (displayName vs name;
-// missionTrips vs orgTrips, which pointed at the same Trip model). Every
-// collection below already treated them interchangeably via twin nullable
-// foreign keys, which meant an "exactly one parent" rule enforced only in
-// application code, in eight different places -- and roughly 160 call
-// sites across the app branching on which of the two it was holding.
-// Merging them made `partnerId` a single non-nullable foreign key, so that
-// invariant is now a database guarantee, and deleted the branching
-// outright.
-//
-// The genuine differences are narrow, and handled as nullable columns and
-// optional relations rather than separate tables: a missionary has a
-// family, furloughs, and a sending party; an organization has an orgType
-// and its own contact person. Nothing enforces at the DB level that an
-// organization has no children -- application code simply never creates
-// them, the same way it already handles every other "kind"-specific rule.
+// A partner this church supports: an individual/family missionary or a local/national
+// organization, distinguished by `kind`.
+// Kind-specific data lives in nullable columns and optional relations. Nothing in the DB stops
+// an organization from having missionary-only children; application code never creates them.
 model Partner {
   id   String @id @default(uuid())
   kind String // "missionary" | "organization"
 
-  // --- Visibility controls ---
   isPublic     Boolean @default(false) // show on public site at all
   isRestricted Boolean @default(false) // if public + restricted -> masked/generic view only
 
-  // --- Status ---
-  // Archiving is the "soft delete" — hides the record from admin lists by
-  // default, forces isPublic off, and zeros out monthly support (via a new
-  // SupportEntry, not by editing old ones) — while keeping every bit of
-  // history intact. DELETE is only permitted once a record is archived, so
-  // archiving is the deliberate first step toward ever actually removing
-  // someone.
+  // Archiving is the soft delete: hides the record from admin lists, forces isPublic off and
+  // zeroes monthly support (via a new SupportEntry). DELETE is only allowed once archived.
   archived   Boolean   @default(false)
   archivedAt DateTime?
 
-  // --- Core identity / field info ---
   displayName      String
   fieldDisplayName String? // e.g. "Northern Uganda" - safe to show even if restricted
   fipsCountryCode  String?
 
-  // overview is the long-form narrative; overviewShort is a one/two-line
-  // summary for quick-read contexts (directory cards, list views).
   overview        String?   @db.Text
   overviewShort   String?
   focusArea       String?   @db.Text
   supportingSince DateTime? @db.Date // year-only values are stored as Jan 1 of that year
+  // When they were commissioned (possibly before we knew them): an annual key date (#422). Year-only
+  // values are stored as Jan 1, like supportingSince.
+  commissionedAt  DateTime? @db.Date
 
-  // The last time the *whole congregation* prayed for this partner
-  // together -- e.g. during a service or a dedicated prayer gathering.
-  // Deliberately separate from PrayerRequest.status (ongoing/answered),
-  // which tracks individual requests, and from any notification/digest
-  // timestamp, which tracks whether people were told, not whether the
-  // church actually prayed as a body (see issue #228). A manual record
-  // kept at the Partner level since it's about the partner as a whole,
-  // not any one request. @db.Date, same as dateAnswered/supportingSince
-  // above -- this is a calendar date an admin picks or confirms "today,"
-  // not an instant, so it gets the same local-date handling (see
-  // frontend/src/utils/format.js's header comment on why that matters).
+  // When the whole congregation last prayed for this partner together (a manual record).
+  // Separate from PrayerRequest.status and from any dispatch timestamp. A calendar date, not
+  // an instant: see frontend/src/utils/format.js on local-date handling.
   lastPrayedWithCongregationAt DateTime? @db.Date
 
-  // --- Contact ---
-  preferredContactMethod String? // e.g. "Email", "Phone Call", "Text/SMS", "WhatsApp", "Mail"
-  // Missionary-only: whether it's ok to contact them directly.
-  contactSafe            Boolean @default(true)
-  // #288: shown instead of the tap-to-call/text/email actions when
-  // contactSafe is off ("special communication instructions"). Free text,
-  // staff-facing.
-  contactInstructions    String? @db.Text
-  // Missionary-only: true when this church (see ChurchSettings) is this
-  // missionary's sending church — distinct from the SendingParty relation
-  // below, which records details about whichever church actually sends
-  // them (may or may not be this one). Displayed as "Sent by
-  // {ChurchSettings.churchName}" in the UI.
-  sentByOurChurch        Boolean @default(false)
-  // Organization-only: the person to reach at the organization. A
-  // missionary is their own contact, so these stay null for that kind.
-  // #257/#271 Finding 4: split first/last, same treatment as every
-  // other individual-person name field in this schema.
-  contactFirstName       String?
-  contactLastName        String?
-  contactPhone           String?
-  contactEmail           String?
+  // How careful to be when reaching this partner (missionary-only; an organization is always "normal"):
+  //   "normal"    -- reach them as usual;
+  //   "caution"   -- reachable, but follow contactInstructions (and only the ticked contactChannels, when any);
+  //   "no_direct" -- don't contact them directly: the Contact card hides their number and email and
+  //                  shows contactVia* and contactInstructions instead.
+  contactLevel        String   @default("normal")
+  // "caution" only: the ways it is ok to reach them ("call", "text", "email", "whatsapp",
+  // "signal", "messenger", "other"). Empty means any.
+  contactChannels     String[] @default([])
+  // Shown for "caution" and "no_direct". Free text, staff-facing.
+  contactInstructions String?  @db.Text
+  // "no_direct" only: the person to go through instead.
+  contactViaName      String?
+  contactViaRole      String?
+  contactViaPhone     String?
+  contactViaEmail     String?
+  // Missionary-only: this church is the sending church. Distinct from SendingParty, which
+  // describes whichever church sends them.
+  sentByOurChurch     Boolean  @default(false)
+  // Organization-only: the person to reach at the organization (a missionary is their own
+  // contact, so null for that kind).
+  contactFirstName    String?
+  contactLastName     String?
+  contactPhone        String?
+  contactEmail        String?
+  // Organization-only: how that person likes to be reached (see Adult.contactMethod for a family).
+  contactMethod       String?
+  contactMethodNote   String?
 
-  // --- Kind-specific profile fields ---
   orgType               String? // organization-only: "Local" | "National"
   anniversary           DateTime? @db.Date // missionary-only
-  // #271 Finding 3: flat columns, not a Json blob -- missionary-only,
-  // same fixed name/phone/email shape as SendingParty/TripParticipant's
-  // own emergency-contact columns, which is the convention this schema
-  // actually follows for a fixed, non-variable shape.
   emergencyContactName  String?
   emergencyContactPhone String?
   emergencyContactEmail String?
 
-  // --- Mission trip capacity: what kind of team this partner can host ---
   tripTeamSizeMin    Int?
   tripTeamSizeMax    Int?
-  tripSeasonNotes    String? @db.Text // best time of year, typical duration, etc.
-  tripLogisticsNotes String? @db.Text // lodging, requirements, other logistics
+  tripSeasonNotes    String? @db.Text
+  tripLogisticsNotes String? @db.Text
 
-  // --- Collections ---
-  // Each is its own resource with per-row create/update/delete (see the
-  // route files). Deliberately never written as a nested array on a
-  // Partner update: doing that meant deleting and recreating every child
-  // row on each save, which churned their ids and silently destroyed rows
-  // added through the collection's own endpoint in the meantime.
-  // adults/children/furloughs are missionary-only (always empty for an
-  // organization) but follow the exact same rule.
+  // Each collection is its own resource with per-row create/update/delete. Never write one as
+  // a nested array on a Partner update: that deletes and recreates every child row, churning
+  // ids and destroying rows added through the collection's own endpoint meanwhile.
+  // adults/children/furloughs are missionary-only.
   trips                    Trip[]
   churchVisits             ChurchVisit[]
   supportEntries           SupportEntry[]
-  // Named needRequests, not supportNeeds, to avoid colliding with the
-  // ministry-need narrative text this app used to carry under that name.
   needRequests             SupportNeed[]
   prayerRequests           PrayerRequest[]
   files                    PartnerFile[]
-  // Full upload history, not just the current one — see the Photo model.
-  // The "current" photo (what the admin UI and public site show) is
-  // whichever has the latest receivedDate, not just the latest upload.
+  // Full upload history; the current photo is the one with the latest receivedDate.
   photos                   Photo[]
   dispatchRecords          DispatchRecord[]
-  // Scoped-digest follows (#202) -- who's opted into updates for just
-  // this partner, rather than every partner. Two sources, same shape.
   followedByUsers          UserFollowedPartner[]
   careTeam                 CareTeamMember[]
   contactLogs              ContactLog[]
   supportPreferences       PartnerSupportPreference[]
+  surveyInvites            SurveyInvite[]
+  surveyResponses          SurveyResponse[]
+  surveyProposals          SurveyProposal[]
+  surveyUploads            SurveyUpload[]
   keyDateReminders         KeyDateReminder[]
+  careChatPosts            CareChatPost[]
   publicSubscriberPartners PublicSubscriberPartner[]
   adults                   Adult[]
   children                 Child[]
   furloughs                Furlough[]
-  // Replaces the old fixed websiteLink/supportLink/newsletterSignup/
-  // facebook/twitter/instagram/linkedin columns -- `type` is a plain string
-  // (not a hardcoded enum) so a fork can request a new platform without a
-  // migration, same convention as PartnerFile.kind.
+  // `type` is a plain string, not an enum, so a fork can add a platform without a migration.
   links                    PartnerLink[]
-  // Replaces the old languagesSpoken String[] column -- gives each language
-  // its own row so a proficiency level can be attached and updated per
-  // language without resending every other one.
   languages                PartnerLanguage[]
-  // Replaces the old tripTypesSupported String[] column -- same reasoning
-  // as links/languages above, not a trip-capacity-specific exception.
   tripTypes                TripType[]
 
-  // addresses/sendingParties are the one exception to "per-row CRUD": each
-  // type has at most one row per partner (@@unique([partnerId, type])), so
-  // there's no "add a new one without touching the other" case the way
-  // there is for a growing list -- editing one is inherently replacing the
-  // whole row for that type. Still wholesale-replaced on Partner's own PUT.
+  // addresses/sendingParties are the exception to per-row CRUD: at most one row per type per
+  // partner (@@unique), wholesale-replaced on Partner's PUT.
   addresses      Address[]
   sendingParties SendingParty[]
 
-  // Audit is kept on Partner only, deliberately. The collections below
-  // carried createdById inconsistently (and routes/photos.js never
-  // populated the column it had), nothing in the app ever read any of it,
-  // and half-populated provenance is worse than none because you can't
-  // trust it. Here it's populated on every create/update, so it means
-  // something.
+  // Audit columns are kept on Partner only, populated on every create/update.
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   createdById String?
   updatedById String?
 
-  // #341: who last changed this record, as a current-state fact (overwritten in
-  // place, never pruned -- unlike the AuditLog event history). Stamped
-  // centrally by the Prisma client extension in prismaClient.js from the
-  // signed-in user of the request; left alone by background jobs, the seed and
-  // public submissions, which have no signed-in person. The name is a snapshot
-  // so it still reads after that account is deleted.
+  // Current-state "last changed by", overwritten in place (unlike the AuditLog history).
+  // Stamped by the Prisma client extension in prismaClient.js from the signed-in user;
+  // background jobs, the seed and public submissions leave it alone. The name is a snapshot so
+  // it survives account deletion.
   lastEditedById   String?
   lastEditedByName String?
   lastEditedAt     DateTime?
@@ -197,32 +139,25 @@ model Partner {
 }
 
 model Adult {
-  id               String    @id @default(uuid())
-  partnerId        String
-  partner          Partner   @relation(fields: [partnerId], references: [id], onDelete: Cascade)
-  // #257/#271 Finding 4: split first/last, same as Child below. firstName
-  // is nullable at the DB level (unlike the single `name` column it
-  // replaces) purely to let this migration add it to a non-empty table
-  // with no default -- app-level validation (routes/partners.js's zod
-  // schema) still requires it on every write.
-  firstName        String?
-  lastName         String?
-  phone1           String?
-  phone2           String?
-  email            String?
-  birthday         DateTime? @db.Date
-  // #288: the adult to reach first. At most one per partner -- enforced by a
-  // partial unique index in the migration (Prisma can't express a WHERE on a
-  // unique), and by the route, which clears the old one when a new one is set.
-  isPrimaryContact Boolean   @default(false)
-  createdAt        DateTime  @default(now())
+  id                String    @id @default(uuid())
+  partnerId         String
+  partner           Partner   @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  // Nullable in the DB only; routes/partners.js's zod schema requires it on every write.
+  firstName         String?
+  lastName          String?
+  phone1            String?
+  phone2            String?
+  email             String?
+  birthday          DateTime? @db.Date
+  // The adult to reach first. At most one per partner: a partial unique index in the migration
+  // (Prisma can't express a WHERE on a unique) and the route, which clears the old one.
+  isPrimaryContact  Boolean   @default(false)
+  // How this person likes to be reached: "call", "text", "email", "whatsapp", "signal",
+  // "messenger" or "other" (with contactMethodNote saying how). Shown on the Contact card.
+  contactMethod     String?
+  contactMethodNote String?
+  createdAt         DateTime  @default(now())
 
-  // #341: who last changed this record, as a current-state fact (overwritten in
-  // place, never pruned -- unlike the AuditLog event history). Stamped
-  // centrally by the Prisma client extension in prismaClient.js from the
-  // signed-in user of the request; left alone by background jobs, the seed and
-  // public submissions, which have no signed-in person. The name is a snapshot
-  // so it still reads after that account is deleted.
   lastEditedById   String?
   lastEditedByName String?
   lastEditedAt     DateTime?
@@ -239,12 +174,6 @@ model Child {
   birthday  DateTime? @db.Date
   createdAt DateTime  @default(now())
 
-  // #341: who last changed this record, as a current-state fact (overwritten in
-  // place, never pruned -- unlike the AuditLog event history). Stamped
-  // centrally by the Prisma client extension in prismaClient.js from the
-  // signed-in user of the request; left alone by background jobs, the seed and
-  // public submissions, which have no signed-in person. The name is a snapshot
-  // so it still reads after that account is deleted.
   lastEditedById   String?
   lastEditedByName String?
   lastEditedAt     DateTime?
@@ -252,11 +181,9 @@ model Child {
   @@index([partnerId])
 }
 
-// A partner can have up to one address per type. "physical" is their actual
-// serving location (may be a full street address or just city/state/country,
-// depending on what's known/safe to record) and is also the source of the
-// public map pin (gpsLat/gpsLng). "mailing" is the US-side contact/support-
-// mail address and has no coordinates.
+// At most one address per type. "physical" is the serving location (a full street address or
+// just city/country, depending on what is safe to record) and the source of the public map pin
+// (gpsLat/gpsLng); "mailing" is the US-side mail address, with no coordinates.
 model Address {
   id                  String   @id @default(uuid())
   partnerId           String
@@ -273,12 +200,7 @@ model Address {
   receiveMail         Boolean?
   receivePackages     Boolean?
 
-  // #341: who last changed this record, as a current-state fact (overwritten in
-  // place, never pruned -- unlike the AuditLog event history). Stamped
-  // centrally by the Prisma client extension in prismaClient.js from the
-  // signed-in user of the request; left alone by background jobs, the seed and
-  // public submissions, which have no signed-in person. The name is a snapshot
-  // so it still reads after that account is deleted.
+  createdAt        DateTime  @default(now())
   lastEditedById   String?
   lastEditedByName String?
   lastEditedAt     DateTime?
@@ -286,70 +208,48 @@ model Address {
   @@unique([partnerId, type])
 }
 
-// A trip to visit a partner -- covers the whole lifecycle (recruiting,
-// active, historical) via `status`, not a separate concept per stage. A
-// purely historical backfill is just a trip created already `completed`,
-// skipping the recruiting/application stages; an actively-recruited trip
-// starts `planning` and moves through `accepting_applications`/`closed`.
-// Not a capacity/preference profile -- that lives on Partner.tripTypes
-// etc, which this trip's own fields are pre-filled from at creation but
-// can then diverge from per-instance.
+// A trip to visit a partner across its whole lifecycle via `status` (a backfilled trip is
+// created already "completed"; a recruiting one starts "planning"). Not a capacity profile: that
+// is Partner.tripTypes etc., which pre-fill this trip at creation.
 model Trip {
   id        String   @id @default(uuid())
   partnerId String?
   partner   Partner? @relation(fields: [partnerId], references: [id], onDelete: Cascade)
 
-  // e.g. "Summer 2026 Guatemala Build Team" -- optional, a quick
-  // historical backfill may just use type/description like before this
-  // field existed, with no formal name.
+  // e.g. "Summer 2026 Guatemala Build Team"; optional.
   name String?
 
-  // "planning" | "accepting_applications" | "closed" | "completed".
-  // Defaults to "completed" deliberately -- the dominant real-world case
-  // is a quick backfill of a trip that already happened; a new
-  // actively-recruited trip's own creation form explicitly picks
-  // "planning", overriding this default for that specific flow.
+  // "planning" | "accepting_applications" | "closed" | "completed". Defaults to "completed"
+  // because the common case is backfilling a past trip; the new-trip form sets "planning".
   status String @default("completed")
 
   startDate   DateTime? @db.Date
   endDate     DateTime? @db.Date
-  // Renamed from tripType -- Trip.tripType stutters against its own
-  // model name; bare `type` is unambiguous within Trip, same precedent
-  // SendingParty.type already sets. Partner.tripTypes.type keeps its
-  // own model's "trip" qualifier (TripType, not just Type) since "Type"
-  // alone would be ambiguous as a model name.
   type        String? // e.g. "Construction", "Medical/Dental" — preset or custom
   description String?   @db.Text // what the team did/will do -- doubles as the public trip overview when isPublic is on
   notes       String?   @db.Text // admin-only
 
-  teamSizeMin        Int? // pre-filled from Partner.tripTeamSizeMin at creation, then editable per-instance
+  teamSizeMin        Int?
   teamSizeMax        Int?
   supportRaisingGoal Int? // whole-dollar team total, matching SupportEntry.amount's existing Int convention
 
-  // Gates this trip's discovery-page listing and whether its plain,
-  // id-addressed public application route will accept a submission at
-  // all (see publicTrips.js/tripEligibility.js). Does NOT gate a
-  // participant's own support-raising/self-service page -- those stay
-  // reachable via shareToken/access token regardless. Off by default.
+  // Gates this trip's discovery-page listing and whether its id-addressed public application
+  // route accepts submissions (publicTrips.js, tripEligibility.js). Does not gate a
+  // participant's own support-raising page, which stays reachable via shareToken.
   isPublic Boolean @default(false)
 
   // Null until staff explicitly generate a private application link for
   // this trip -- a dedicated secret, same shape as
-  // TripParticipant.shareToken below, deliberately not this row's own
-  // id (already visible throughout the admin UI to every logged-in
-  // user, so never a real secret). Regenerating overwrites the old
-  // value, immediately invalidating any link built from it. The
-  // "Generate" action itself only exists when
-  // ChurchSettings.allowPrivateApplicationLinks is on.
+  // Secret for a private application link; null until staff generate one (only when
+  // ChurchSettings.allowPrivateApplicationLinks is on). Deliberately not the row id, which
+  // every logged-in user can see. Regenerating invalidates the old link.
   applicationShareToken String? @unique
 
-  // The questions this trip asks on its application, after the church-wide ones: real rows
-  // (ApplicationQuestion, scope "trip") in the admin's order (#394).
+  // Questions asked on this trip's application after the church-wide ones.
   applicationQuestions ApplicationQuestion[]
 
-  // External album link only -- never in-app file storage (see #130).
-  // albumProvider is app-validated in trips.js, not a DB enum, matching
-  // every other String-typed preset field in this schema (type etc).
+  // External album link only, never in-app file storage (#130). albumProvider is validated in
+  // trips.js, not a DB enum.
   albumProvider String? // "google_photos" | "icloud" | "other"
   albumUrl      String?
 
@@ -361,21 +261,11 @@ model Trip {
   contributions  TripContribution[]
   budgetLines    TripBudgetLine[]
   flightSegments TripFlightSegment[]
-  // Guest logins granted access to this trip (#356) -- any number, since a
-  // trip often has more than one leader and a guest may lead more than one
-  // trip.
   tripAccess     TripAccess[]
 
-  // #341: who last changed this record, as a current-state fact (overwritten in
-  // place, never pruned -- unlike the AuditLog event history). Stamped
-  // centrally by the Prisma client extension in prismaClient.js from the
-  // signed-in user of the request; left alone by background jobs, the seed and
-  // public submissions, which have no signed-in person. The name is a snapshot
-  // so it still reads after that account is deleted.
-  // When the trip was added (#383). Shown on the trip page and sortable on the Trips list.
-  // #358: what the team learned on the way home, one plain-text answer per fixed prompt of the
-  // Wrap up trip wizard (all optional), and when the trip was wrapped up (its status set to
-  // "completed" through that wizard; null for a trip finished any other way).
+  // What the team learned on the way home: one plain-text answer per prompt of the Wrap up
+  // trip wizard, all optional. wrappedUpAt is set when the wizard completes the trip (null for
+  // a trip finished any other way).
   debriefWhatWeDid    String?   @db.Text
   debriefWentWell     String?   @db.Text
   debriefWasHard      String?   @db.Text
@@ -399,17 +289,10 @@ model TripParticipant {
   tripId String
   trip   Trip   @relation(fields: [tripId], references: [id], onDelete: Cascade)
 
-  // #310: lets a later re-check (e.g. PUT /api/trips/:id setting dates
-  // for the first time) tell "a meeting/requirement that existed when
-  // this participant joined, so sendLateJoinerCatchUpEmails already
-  // caught them up on it" apart from "one added since -- they're still
-  // owed a catch-up for this." Without it, re-running catch-up for every
-  // current participant would re-send for things they already got.
+  // Distinguishes meetings/requirements that existed when this participant joined (already
+  // caught up via sendLateJoinerCatchUpEmails) from later ones, so catch-up is not re-sent.
   createdAt DateTime @default(now())
 
-  // New participant/applicant records use split name fields (issue
-  // #257's broader uplift is separate, later work) -- this model's own
-  // first/last columns don't wait on that.
   firstName String?
   lastName  String?
 
@@ -424,15 +307,8 @@ model TripParticipant {
 
   supportRaisingGoal Int? // null/unused for a historical-only row
 
-  // Structured mailing address, same shape as SendingParty's own flat
-  // columns -- real, queryable fields rather than a free-text blob,
-  // matching this app's established address convention. Copied from the
-  // originating TripApplication on approval, same as firstName/lastName/
-  // email/phone already are. Gated on the public form by
-  // ChurchSettings.collectApplicantAddress, not a per-field validation
-  // concern -- a church that doesn't collect this leaves every one of
-  // these columns null, same as a backfilled participant with no
-  // application at all.
+  // Mailing address, copied from the TripApplication on approval. Collected only when
+  // ChurchSettings.collectApplicantAddress is on; otherwise null.
   addressLine1        String?
   addressLine2        String?
   city                String?
@@ -440,32 +316,16 @@ model TripParticipant {
   postalCode          String?
   country             String?
 
-  // Flat columns, not a Json blob -- Partner.emergencyContact (also flat
-  // now, #271 Finding 3) is no longer the inconsistent outlier in this
-  // schema: SendingParty/Address both use flat columns for a similarly
-  // fixed, non-variable shape, which is the better fit for something
-  // that's always exactly name/phone/email. Copied from the
-  // originating TripApplication on approval, same as the address fields
-  // above. Gated on the public form by ChurchSettings.collectEmergencyContact.
-  // #257/#271 Finding 4: split first/last, same treatment as every other
-  // individual-person name field in this schema.
+  // Copied from the TripApplication on approval. Collected only when
+  // ChurchSettings.collectEmergencyContact is on.
   emergencyContactFirstName String?
   emergencyContactLastName  String?
   emergencyContactPhone     String?
   emergencyContactEmail     String?
 
-  // dateOfBirth is always collected and required on every trip's public
-  // application now -- no per-trip or church-wide toggle gates it. A real
-  // date column, not a template question's free-text answer, since the
-  // "minor" determination needs something a server check can actually
-  // compare against a trip's startDate (see isMinorForTrip in
-  // utils/tripParticipantSchema.js), which a Json blob answer keyed by an
-  // admin-editable question id can't reliably provide. The parentGuardian*
-  // fields are collected (and required) only when isMinorForTrip is true
-  // for the submitted dateOfBirth -- the public application wizard inserts
-  // an extra step for them in that case, never shown to an adult applicant.
-  // Copied from the originating TripApplication on approval, same as
-  // address/emergency contact above.
+  // Always required on the public application. A real date column so isMinorForTrip
+  // (utils/tripParticipantSchema.js) can compare it with the trip's startDate. parentGuardian*
+  // are required only when that returns true. Copied from the TripApplication on approval.
   dateOfBirth                DateTime? @db.Date
   parentGuardianFirstName    String?
   parentGuardianLastName     String?
@@ -473,50 +333,30 @@ model TripParticipant {
   parentGuardianPhone        String?
   parentGuardianEmail        String?
 
-  // Short random secret for this participant's public support-raising URL --
-  // a private share-secret functioning as the page's access control, not
-  // a human-readable slug, and not this row's own id either (so the URL
-  // never exposes a sequential/guessable link between participants).
-  // Not auto-generated at creation -- see ChurchSettings.allowPublicSupportRaisingLinks.
+  // Secret for this participant's public support-raising URL: the page's access control,
+  // deliberately not the row id. Not generated at creation; see
+  // ChurchSettings.allowPublicSupportRaisingLinks.
   shareToken String? @unique
   story      String? @db.Text // what shows on their public support-raising page
 
-  // A single current portrait, same mutable-single-value pattern as
-  // story/shareToken above -- not a relation like Partner's own Photo
-  // model, which exists because a partner accumulates a real gallery
-  // over years. A participant's support-raising photo is just one
-  // picture, replaced wholesale when changed, no versioning. The bytes
-  // themselves live in their own one-to-one table (TripParticipantPhoto,
-  // below) -- still Postgres, no separate file storage per CONTRIBUTING.md,
-  // just split off so a plain TripParticipant query can never accidentally
-  // pull the image in (the #274 production-hang bug class: a relation
-  // include with no select/omit base64-inlining a multi-MB file into an
-  // unrelated JSON response -- this makes that structurally impossible
-  // here instead of relying on every future query remembering to omit).
+  // One current portrait, replaced wholesale on change. The bytes live in TripParticipantPhoto
+  // so a plain TripParticipant query can never pull the image into an unrelated JSON response
+  // (#274).
   photoContentType String?
   photoBytesRow    TripParticipantPhoto?
 
-  // Bumped to invalidate every previously-issued self-service link at
-  // once -- same revocation reasoning as User.mfaLastTimeStep's replay
+  // Bump to invalidate every previously issued self-service link at once.
   // protection, applied to a link instead of a TOTP code.
-  accessTokenVersion Int @default(0) // tripFieldVisibility: intentionally admin-invisible -- an internal revocation counter, bumped by the resend/regenerate actions themselves, never a value an admin reads or edits directly
+  accessTokenVersion Int @default(0) // tripFieldVisibility: intentionally admin-invisible -- internal revocation counter, bumped by the resend/regenerate actions
 
   documents           TripDocument[]
   contributions       TripContribution[]
   requirementStatuses TripRequirementStatus[]
-  // Reverse side of TripFlightSegment.participants -- which segments (if
-  // any) this participant is specifically called out on. Empty doesn't
-  // mean "not flying" -- every segment with nobody selected still
-  // applies to them regardless (see TripFlightSegment's own comment).
+  // Segments this participant is specifically called out on. Empty does not mean not flying:
+  // segments with nobody selected apply to everyone.
   flightSegments      TripFlightSegment[]
   meetingRsvps        TripMeetingRsvp[]
 
-  // #341: who last changed this record, as a current-state fact (overwritten in
-  // place, never pruned -- unlike the AuditLog event history). Stamped
-  // centrally by the Prisma client extension in prismaClient.js from the
-  // signed-in user of the request; left alone by background jobs, the seed and
-  // public submissions, which have no signed-in person. The name is a snapshot
-  // so it still reads after that account is deleted.
   lastEditedById   String?
   lastEditedByName String?
   lastEditedAt     DateTime?
@@ -524,20 +364,16 @@ model TripParticipant {
   @@index([tripId])
 }
 
-// Split off from TripParticipant.photo -- see that field's own comment for
-// why. Shared primary key with its parent (id is both this table's own PK
-// and its FK into TripParticipant), the same one-to-one pattern every new
-// Bytes table in this schema uses.
+// Split off from TripParticipant so plain queries never load the image. Shares its primary key
+// with the parent (one-to-one).
 model TripParticipantPhoto {
   id          String          @id
   participant TripParticipant @relation(fields: [id], references: [id], onDelete: Cascade)
   photo       Bytes
 }
 
-// A submitted application to a Trip whose status is accepting_applications.
-// The answers are real rows (TripApplicationAnswer), one per question answered, each keeping the
-// question's wording as it was asked, so editing or deleting a question later never leaves an old
-// answer unlabelled (#394).
+// A submitted application to a trip accepting applications. Answers are TripApplicationAnswer
+// rows that keep the question's wording as asked.
 model TripApplication {
   id     String @id @default(uuid())
   tripId String
@@ -548,13 +384,11 @@ model TripApplication {
   email     String
   phone     String?
 
-  status  String                  @default("pending") // "pending" | "approved" | "declined" | "withdrawn" -- tripFieldVisibility: intentionally admin-invisible on the participant page specifically, since every application reachable from an approved participant is, by construction, always "approved"; the pending-review list is where this status actually matters and does show it
+  status  String                  @default("pending") // "pending" | "approved" | "declined" | "withdrawn" -- tripFieldVisibility: intentionally admin-invisible (every application reachable from a participant is "approved")
   answers TripApplicationAnswer[]
 
-  // Structured mailing address, same shape as SendingParty's own flat
-  // columns -- see TripParticipant's matching fields for the full
-  // rationale. Only ever collected when ChurchSettings.collectApplicantAddress
-  // is on; null otherwise.
+  // Same as TripParticipant's address fields; null unless
+  // ChurchSettings.collectApplicantAddress is on.
   addressLine1        String?
   addressLine2        String?
   city                String?
@@ -562,17 +396,13 @@ model TripApplication {
   postalCode          String?
   country             String?
 
-  // Flat columns -- see TripParticipant's matching fields for the full
-  // rationale. Only ever collected when ChurchSettings.collectEmergencyContact
-  // is on; null otherwise.
+  // Same as TripParticipant; null unless ChurchSettings.collectEmergencyContact is on.
   emergencyContactFirstName String?
   emergencyContactLastName  String?
   emergencyContactPhone     String?
   emergencyContactEmail     String?
 
-  // See TripParticipant's matching fields for the full rationale --
-  // dateOfBirth always required; parentGuardian* required only when
-  // isMinorForTrip is true for it.
+  // See TripParticipant.dateOfBirth.
   dateOfBirth                DateTime? @db.Date
   parentGuardianFirstName    String?
   parentGuardianLastName     String?
@@ -583,20 +413,12 @@ model TripApplication {
   createdAt      DateTime  @default(now())
   reviewedAt     DateTime?
   reviewedById   String?
-  // Admin-only, never shown to the applicant -- set only when declining;
-  // left null for an approval. A declined row isn't deleted (see
-  // trips.js's own review route), so this is the one piece of context an
-  // admin would otherwise have no record of after the fact.
-  declinedReason String?   @db.Text // tripFieldVisibility: intentionally admin-invisible on the participant page -- always null for an approved application (only ever set on a decline, already shown in the applications review list); nothing to show here
+  // Admin-only, never shown to the applicant. Set only when declining; declined rows are kept
+  // (see trips.js's review route).
+  declinedReason String?   @db.Text // tripFieldVisibility: intentionally admin-invisible -- only set on a decline, already shown in the review list
 
   participant TripParticipant?
 
-  // #341: who last changed this record, as a current-state fact (overwritten in
-  // place, never pruned -- unlike the AuditLog event history). Stamped
-  // centrally by the Prisma client extension in prismaClient.js from the
-  // signed-in user of the request; left alone by background jobs, the seed and
-  // public submissions, which have no signed-in person. The name is a snapshot
-  // so it still reads after that account is deleted.
   lastEditedById   String?
   lastEditedByName String?
   lastEditedAt     DateTime?
@@ -604,62 +426,28 @@ model TripApplication {
   @@index([tripId])
 }
 
-// A scheduled prep/planning meeting for a trip's team. location and
-// meetingLink are independent, not an in-person/virtual choice between
-// them -- a hybrid meeting (e.g. "Church fellowship hall" with a Zoom
-// link for anyone who can't attend in person) is a realistic case for
-// this app's audience, and setting both at once already does the right
-// thing with no separate isVirtual boolean: the invite/reminder shows
-// whichever of the two are actually set.
+// A scheduled prep meeting. location and meetingLink are independent (a hybrid meeting sets
+// both); invites and reminders show whichever are set.
 model TripMeeting {
   id             String    @id @default(uuid())
   tripId         String
   trip           Trip      @relation(fields: [tripId], references: [id], onDelete: Cascade)
-  // #310: see TripParticipant.createdAt's own comment -- same reason.
   createdAt      DateTime  @default(now())
   startAt        DateTime
-  // Short, identifying name -- what shows as the email subject and
-  // calendar-entry title. A real, distinct need from the "two unused
-  // fields" case `agenda` below's own comment already rejected: a trip
-  // with more than one meeting (the normal case) sent every meeting's
-  // email with the exact same subject line ("Meeting: <trip name>"),
-  // indistinguishable in an inbox until opened. Optional, with a
-  // same-as-today fallback wherever it's blank -- see sendMeetingEmail
-  // and buildMeetingIcs.
+  // Short name used as the email subject and calendar title; blank falls back to the default
+  // (sendMeetingEmail, buildMeetingIcs).
   title          String?
   location       String?
   meetingLink    String?
-  // Renamed from the former `notes` -- already used at every seed call
-  // site for genuine agenda content ("Pre-field training -- cultural
-  // orientation and safety briefing"), just never surfaced in any UI,
-  // invite, or reminder. One field, not two: adding a second
-  // agenda-shaped column alongside an unused one would just be the same
-  // concept under two names. `title` above is a different concept
-  // (short, identifying) from this (long-form descriptive content), not
-  // a repeat of that same mistake.
   agenda         String?   @db.Text
-  // Guards the day-before reminder against double-sending -- same
-  // "stamp once sent" precedent DispatchRecord's own per-channel columns
-  // already use.
+  // Stamped once the day-before reminder is sent, so it is not sent twice.
   reminderSentAt DateTime?
-  // Soft-cancel, not a delete -- this app's own precedent is to record
-  // what happened rather than silently remove it (DispatchRecord,
-  // TripRequirementStatus), and a meeting that already went out as a
-  // calendar invite needs an actual cancellation notice sent, which a
-  // hard delete can't carry. The DELETE route stays for correcting a
-  // meeting that was never actually announced (created by mistake, no
-  // invite sent yet); cancelling is the right action for anything a
-  // participant may already have on their calendar.
+  // Soft cancel: a meeting already sent as a calendar invite needs a cancellation notice.
+  // DELETE is only for a meeting that was never announced.
   cancelledAt    DateTime?
 
   rsvps TripMeetingRsvp[]
 
-  // #341: who last changed this record, as a current-state fact (overwritten in
-  // place, never pruned -- unlike the AuditLog event history). Stamped
-  // centrally by the Prisma client extension in prismaClient.js from the
-  // signed-in user of the request; left alone by background jobs, the seed and
-  // public submissions, which have no signed-in person. The name is a snapshot
-  // so it still reads after that account is deleted.
   lastEditedById   String?
   lastEditedByName String?
   lastEditedAt     DateTime?
@@ -667,25 +455,16 @@ model TripMeeting {
   @@index([tripId])
 }
 
-// One row per (meeting, participant) -- a many-to-many, not a column on
-// either side, since each participant independently answers each of a
-// trip's own meetings. Link-based only (issue #267's RSVP design
-// decision): a participant clicks one of three token-verified links in
-// their own invite/resend/reschedule/reminder email, no login, no
-// inbound email involved at all. Upserted on (meetingId, participantId)
-// -- clicking a different link later just overwrites the earlier
-// response, same "re-cancelling is harmless" idempotency precedent
-// TripMeeting.cancelledAt's own route already follows.
+// One row per (meeting, participant). Link-based RSVP (#267): the participant clicks a
+// token-verified link in their email, no login. Upserted on (meetingId, participantId), so a
+// later click overwrites the earlier response.
 model TripMeetingRsvp {
   id            String          @id @default(uuid())
   meetingId     String
   meeting       TripMeeting     @relation(fields: [meetingId], references: [id], onDelete: Cascade)
   participantId String
   participant   TripParticipant @relation(fields: [participantId], references: [id], onDelete: Cascade)
-  // "yes" | "no" | "maybe" -- a plain String with app-level validation,
-  // not a Postgres enum, matching this schema's own existing convention
-  // for a small fixed set of values (TripRequirement.kind, TripDocument.
-  // signerRelationship) over a real enum type.
+  // "yes" | "no" | "maybe"
   response      String
   respondedAt   DateTime
 
@@ -693,71 +472,38 @@ model TripMeetingRsvp {
   @@index([participantId])
 }
 
-// An admin-defined, ordered, free-text checklist of what a trip needs
-// from each participant -- a document (e.g. "Signed Waiver," "Passport
-// Photo") or a plain task with no file at all (e.g. "Attended
-// orientation call") -- illustrative examples only, never a
-// fixed/hardcoded list. Generalized from the original document-only
-// TripDocumentRequirement (#252 follow-on round): `kind` distinguishes
-// the two, and `dueAt`/`reminderLeadDays` are optional -- most
-// requirements have neither, same "empty means nothing shows/fires"
-// convention as every other optional field in this feature area. A
-// real child model, not JSON -- TripDocument.requirementId needs an
-// actual foreign key for the fulfillment anti-join to work.
+// An admin-defined, ordered checklist of what a trip needs from each participant: a document, an
+// e-signature or a plain task. dueAt and reminderLeadDays are optional. A real child model (not
+// JSON) because TripDocument.requirementId needs a foreign key for the fulfillment anti-join.
 model TripRequirement {
   id        String   @id @default(uuid())
   tripId    String
   trip      Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
-  // #310: see TripParticipant.createdAt's own comment -- same reason.
   createdAt DateTime @default(now())
   label     String
 
-  // "document" (fulfilled by an upload, the original behavior) |
-  // "task" (fulfilled by an admin directly checking it off for a
-  // specific participant -- no document involved at all) | "esignature"
-  // (fulfilled by a participant signing bodyText below -- generates an
-  // ordinary TripDocument carrying the signature audit fields, see that
-  // model's own comment). App-validated, not a DB enum, matching every
-  // other preset-String field in this schema (Trip.albumProvider etc).
+  // "document" (fulfilled by an upload) | "task" (an admin checks it off for a participant) |
+  // "esignature" (the participant signs bodyText; generates a TripDocument carrying the
+  // signature audit fields).
   kind String @default("document")
 
-  // The real document text an "esignature"-kind requirement asks a
-  // participant to sign (e.g. a full liability-release/code-of-conduct
-  // agreement) -- null for "document"/"task" kinds, which have no text
-  // of their own to show. Free text, matching Trip.notes/flightDetails'
-  // existing convention, not split into clauses -- a waiver's exact
-  // wording varies too much church to church for rigid fields to help.
+  // The text an "esignature" requirement asks a participant to sign; null for other kinds.
   bodyText String? @db.Text
 
-  // Both optional and independent of `kind` -- a document requirement
-  // can have a due date too (e.g. "passport copy by 11/25"), not just a
-  // task. Date-only (no time component), matching Trip.startDate's own
-  // convention. reminderLeadDays is null (no reminder scheduled) unless
-  // an admin sets it; when set, tripReminderScheduler.js fires one
-  // reminder per not-yet-fulfilled participant that many days before
-  // dueAt, never after it.
+  // Both optional and independent of `kind`. reminderLeadDays is how many days before dueAt
+  // tripReminderScheduler.js reminds each unfulfilled participant (never after dueAt); null
+  // means no reminder.
   dueAt            DateTime? @db.Date
   reminderLeadDays Int?
 
-  // #278: scopes this requirement to only the trip's minor participants
-  // (e.g. a minor travel release form) instead of the whole team.
-  // Checked via utils/tripParticipantSchema.js's isMinorForTrip
-  // (dateOfBirth vs. this trip's own startDate) at every point this
-  // requirement is surfaced to or reminds a participant -- never by
-  // creating or withholding a TripRequirementStatus row, since those
-  // are already lazily created on first completion/upload, not
-  // eagerly for every participant.
+  // Limits this requirement to minor participants (isMinorForTrip in
+  // utils/tripParticipantSchema.js), checked wherever it is shown or reminded, not by
+  // withholding TripRequirementStatus rows, which are created lazily.
   minorsOnly Boolean @default(false)
 
   documents           TripDocument[]
   requirementStatuses TripRequirementStatus[]
 
-  // #341: who last changed this record, as a current-state fact (overwritten in
-  // place, never pruned -- unlike the AuditLog event history). Stamped
-  // centrally by the Prisma client extension in prismaClient.js from the
-  // signed-in user of the request; left alone by background jobs, the seed and
-  // public submissions, which have no signed-in person. The name is a snapshot
-  // so it still reads after that account is deleted.
   lastEditedById   String?
   lastEditedByName String?
   lastEditedAt     DateTime?
@@ -765,18 +511,10 @@ model TripRequirement {
   @@index([tripId])
 }
 
-// Per-participant state for a TripRequirement. completedAt is written
-// only for a "task"-kind row -- permanently null for "document"/
-// "esignature", whose fulfillment is instead a computed anti-join
-// against TripDocument (never duplicated here on purpose: a cached
-// field would need every document-creating path, and the document-
-// deletion route, to all separately remember to keep it in sync, where
-// the anti-join just reflects reality on read). reminderSentAt applies
-// to every kind alike, stamped once the due-date reminder has fired for
-// this specific participant so it can't double-send. Created lazily,
-// only once either field actually needs a value -- most participant/
-// requirement pairs with no due date and no completed task never get a
-// row here at all.
+// Per-participant state for a TripRequirement, created lazily (only once a field needs a value).
+// completedAt is written only for "task" kind: document/esignature fulfillment is a computed
+// anti-join against TripDocument, never cached here, so it cannot go stale. reminderSentAt
+// applies to every kind and prevents a double send.
 model TripRequirementStatus {
   id            String          @id @default(uuid())
   requirementId String
@@ -787,12 +525,6 @@ model TripRequirementStatus {
   completedAt    DateTime?
   reminderSentAt DateTime?
 
-  // #341: who last changed this record, as a current-state fact (overwritten in
-  // place, never pruned -- unlike the AuditLog event history). Stamped
-  // centrally by the Prisma client extension in prismaClient.js from the
-  // signed-in user of the request; left alone by background jobs, the seed and
-  // public submissions, which have no signed-in person. The name is a snapshot
-  // so it still reads after that account is deleted.
   lastEditedById   String?
   lastEditedByName String?
   lastEditedAt     DateTime?
@@ -801,14 +533,9 @@ model TripRequirementStatus {
   @@index([participantId])
 }
 
-// Identical storage shape to PartnerFile -- bytes in the row, no
-// separate file storage (see that model's own comment). participantId:
-// null means a trip-wide shared document (itinerary, packing list); set
-// means a document specific to one participant (their own signed
-// waiver, passport photo, health clearance). requirementId is nullable
-// since not every document fulfills a tracked requirement, and when set
-// always points at a `kind: "document"` or `kind: "esignature"`
-// TripRequirement -- a "task" requirement has nothing to attach a file to.
+// Same in-row bytes storage as PartnerFile. participantId null = a trip-wide shared document;
+// set = that participant's own. requirementId, when set, points at a "document" or "esignature"
+// requirement.
 model TripDocument {
   id            String           @id @default(uuid())
   tripId        String
@@ -819,53 +546,26 @@ model TripDocument {
   requirement   TripRequirement? @relation(fields: [requirementId], references: [id], onDelete: SetNull)
 
   title       String?
-  // bytes and signatureImage both live in TripDocumentBytes (below), a
-  // one-to-one split-off table -- see TripParticipantPhoto's own comment
-  // for why.
+  // bytes and signatureImage live in TripDocumentBytes.
   fileName    String
   contentType String
-  fileSize    Int? // bytes -- populated on new uploads only, same convention as PartnerFile.fileSize; existing rows stay null rather than a backfill migration for display-only metadata
+  fileSize    Int? // bytes; null on older rows
 
   createdAt DateTime @default(now())
 
-  // Signature audit fields -- null for an ordinary upload, populated
-  // only when this row is the generated PDF of a signed "esignature"-kind
-  // requirement. Previously a separate TripSignature side table keyed
-  // 1:1 off this row's id; merged in directly since it never had an
-  // independent existence of its own (nothing queried it without this
-  // document, and nothing about esignature fulfillment needs a second
-  // row -- it's the same "does a TripDocument exist for this
-  // requirement+participant" anti-join every other document-fulfilled
-  // requirement already uses).
+  // Signature audit fields: null for an ordinary upload, set only when this row is the
+  // generated PDF of a signed "esignature" requirement.
   signerName           String? // always captured, whether they typed or drew
-  // "self" | "parent/guardian" -- free text, not a DB enum, matching
-  // every other preset-String field in this schema. Recordkeeping only:
-  // nothing verifies that whoever actually typed/drew the signature is
-  // who they claim -- this app has never verified signer identity for
-  // any signature, and a parent using a minor's own self-service link
-  // is mechanically indistinguishable from the minor using it
-  // themselves. Exists so the signed document's own record (and the
-  // signing page's label) are honest about who's expected to sign,
-  // not to enforce it.
+  // "self" | "parent/guardian". Recordkeeping only: signer identity is never verified.
   signerRelationship   String?
   attestedAt           DateTime?
   ip                   String?
-  // Snapshot of the exact text they agreed to, plus a hash of it --
-  // computed server-side, never trusted from the client. Protects
-  // against a later edit to the requirement's own bodyText (e.g. a
-  // church rewording its waiver) silently being attributed to an old
-  // signature; the hash makes any mismatch between this snapshot and a
-  // later-edited requirement detectable, not just theoretically possible.
+  // Snapshot of the exact text agreed to plus a server-computed hash, so a later edit to the
+  // requirement's bodyText is never attributed to an old signature.
   documentTextSnapshot String?            @db.Text
   documentTextHash     String?
   bytesRow             TripDocumentBytes?
 
-  // #341: who last changed this record, as a current-state fact (overwritten in
-  // place, never pruned -- unlike the AuditLog event history). Stamped
-  // centrally by the Prisma client extension in prismaClient.js from the
-  // signed-in user of the request; left alone by background jobs, the seed and
-  // public submissions, which have no signed-in person. The name is a snapshot
-  // so it still reads after that account is deleted.
   lastEditedById   String?
   lastEditedByName String?
   lastEditedAt     DateTime?
@@ -882,13 +582,9 @@ model TripDocumentBytes {
   signatureImage Bytes? // drawn-signature PNG; null if they only typed their name
 }
 
-// A manual ledger entry for an offline gift (check/cash) toward a trip
-// or a specific participant -- payment processing is explicitly out of
-// scope (PCI compliance is a large, independent decision). donorName
-// stays a single field: it's a donor-ledger entry, not a
-// participant/applicant record. donorEmail/donorPhone are both
-// optional and only ever shown when ChurchSettings.collectDonorContactInfo
-// is on.
+// A manual ledger entry for an offline gift (check/cash) toward a trip or participant. Payment
+// processing is out of scope. donorEmail/donorPhone are shown only when
+// ChurchSettings.collectDonorContactInfo is on.
 model TripContribution {
   id            String           @id @default(uuid())
   tripId        String
@@ -906,12 +602,6 @@ model TripContribution {
 
   createdAt DateTime @default(now())
 
-  // #341: who last changed this record, as a current-state fact (overwritten in
-  // place, never pruned -- unlike the AuditLog event history). Stamped
-  // centrally by the Prisma client extension in prismaClient.js from the
-  // signed-in user of the request; left alone by background jobs, the seed and
-  // public submissions, which have no signed-in person. The name is a snapshot
-  // so it still reads after that account is deleted.
   lastEditedById   String?
   lastEditedByName String?
   lastEditedAt     DateTime?
@@ -920,16 +610,9 @@ model TripContribution {
   @@index([participantId])
 }
 
-// A planned-expense line item -- trip-wide only, no per-participant
-// allocation (e.g. "Round-trip flights", "Lodging", "In-country
-// transport"). Estimate-only for v1, deliberately no actualAmount --
-// nothing else in this schema tracks money going out (every financial
-// model here -- SupportEntry, TripContribution -- only tracks money
-// coming in), and real trip expenses are almost certainly reconciled
-// through a church's own accounting system, not this app. Gated by
-// ChurchSettings.enableTripBudgeting; Trip.supportRaisingGoal stays
-// independently editable regardless -- no derivation from this total,
-// just a UI hint when the two numbers diverge.
+// A planned-expense line item, trip-wide, estimate only (no actualAmount: real expenses are
+// reconciled in the church's accounting). Gated by ChurchSettings.enableTripBudgeting;
+// Trip.supportRaisingGoal is independent of its total.
 model TripBudgetLine {
   id     String @id @default(uuid())
   tripId String
@@ -938,12 +621,7 @@ model TripBudgetLine {
   label           String
   estimatedAmount Int
 
-  // #341: who last changed this record, as a current-state fact (overwritten in
-  // place, never pruned -- unlike the AuditLog event history). Stamped
-  // centrally by the Prisma client extension in prismaClient.js from the
-  // signed-in user of the request; left alone by background jobs, the seed and
-  // public submissions, which have no signed-in person. The name is a snapshot
-  // so it still reads after that account is deleted.
+  createdAt        DateTime  @default(now())
   lastEditedById   String?
   lastEditedByName String?
   lastEditedAt     DateTime?
@@ -951,18 +629,8 @@ model TripBudgetLine {
   @@index([tripId])
 }
 
-// Replaces the former Trip.flightDetails free-text field. One rigid
-// record couldn't fit real flight shapes (connections, a shared group
-// booking vs. several individual ones), but a single flight *segment* is
-// genuinely fixed-shape -- the variability is in how many segments
-// exist, not in the shape of one, same reasoning already behind
-// TripBudgetLine/TripRequirement being repeatable lists rather than one
-// wide record. participants is a real relation, not a free-text label
-// of who's on it (issue #265) -- no participants selected means the
-// segment applies to the whole team; one or more selected means just
-// that subset flying on their own itinerary. The self-service page
-// filters on this relation; the admin view always shows every segment
-// regardless.
+// One flight segment. No participants means the segment applies to the whole team; otherwise
+// just that subset. The self-service page filters on this; the admin view shows every segment.
 model TripFlightSegment {
   id     String @id @default(uuid())
   tripId String
@@ -977,12 +645,7 @@ model TripFlightSegment {
 
   participants TripParticipant[]
 
-  // #341: who last changed this record, as a current-state fact (overwritten in
-  // place, never pruned -- unlike the AuditLog event history). Stamped
-  // centrally by the Prisma client extension in prismaClient.js from the
-  // signed-in user of the request; left alone by background jobs, the seed and
-  // public submissions, which have no signed-in person. The name is a snapshot
-  // so it still reads after that account is deleted.
+  createdAt        DateTime  @default(now())
   lastEditedById   String?
   lastEditedByName String?
   lastEditedAt     DateTime?
@@ -990,10 +653,8 @@ model TripFlightSegment {
   @@index([tripId])
 }
 
-// A period of time a missionary is off the field and in their home
-// country — missionary-only, unlike ChurchVisit below, since organizations
-// don't go on furlough. endDate is nullable for an open-ended/ongoing
-// furlough whose return date isn't settled yet.
+// A period a missionary is off the field in their home country. Missionary-only. endDate null
+// means ongoing.
 model Furlough {
   id        String    @id @default(uuid())
   partnerId String
@@ -1003,12 +664,6 @@ model Furlough {
   notes     String?   @db.Text
   createdAt DateTime  @default(now())
 
-  // #341: who last changed this record, as a current-state fact (overwritten in
-  // place, never pruned -- unlike the AuditLog event history). Stamped
-  // centrally by the Prisma client extension in prismaClient.js from the
-  // signed-in user of the request; left alone by background jobs, the seed and
-  // public submissions, which have no signed-in person. The name is a snapshot
-  // so it still reads after that account is deleted.
   lastEditedById   String?
   lastEditedByName String?
   lastEditedAt     DateTime?
@@ -1016,10 +671,8 @@ model Furlough {
   @@index([partnerId])
 }
 
-// A single visit a partner made to (this) church — the reverse direction of
-// Trip, which records us visiting them. "Last visit" is just the entry with
-// the latest visitDate, mirroring how "current support" is read off
-// SupportEntry.
+// A visit a partner made to this church (the reverse of Trip). "Last visit" is the latest
+// visitDate.
 model ChurchVisit {
   id        String   @id @default(uuid())
   partnerId String
@@ -1028,12 +681,6 @@ model ChurchVisit {
   notes     String?  @db.Text
   createdAt DateTime @default(now())
 
-  // #341: who last changed this record, as a current-state fact (overwritten in
-  // place, never pruned -- unlike the AuditLog event history). Stamped
-  // centrally by the Prisma client extension in prismaClient.js from the
-  // signed-in user of the request; left alone by background jobs, the seed and
-  // public submissions, which have no signed-in person. The name is a snapshot
-  // so it still reads after that account is deleted.
   lastEditedById   String?
   lastEditedByName String?
   lastEditedAt     DateTime?
@@ -1041,48 +688,41 @@ model ChurchVisit {
   @@index([partnerId])
 }
 
-// #288: one touchpoint with a partner -- a call, a text, a visit, a card.
-// The relationship history the rest of the schema doesn't keep: ChurchVisit
-// and PartnerFile record what happened, this records that someone reached
-// out (or heard from them). Purely internal -- never on a public page or a
-// dispatch channel. Fixed-choice fields are plain validated Strings (SPEC §3,
-// no native enums); the allowed values live in utils/contactLog.js.
+// One touchpoint with a partner (call, text, visit, card). Internal only: never on a public page
+// or dispatch channel. Fixed-choice fields are validated Strings (SPEC §3); allowed values live
+// in utils/contactLog.js.
 model ContactLog {
-  id              String    @id @default(uuid())
-  partnerId       String
-  partner         Partner   @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  id                 String    @id @default(uuid())
+  partnerId          String
+  partner            Partner   @relation(fields: [partnerId], references: [id], onDelete: Cascade)
   // call | text | email | visit | card | video | prayed | other
-  contactType     String
+  contactType        String
   // outbound (we reached out) | inbound (they reached out)
-  direction       String
+  direction          String
   // Optional topic chips (utils/contactLog.js), e.g. "prayer", "need".
-  topics          String[]
-  // Who made the contact. Defaults to the person logging it; SetNull so a
-  // deleted login doesn't take the history with it.
-  contactedById   String?
-  contactedBy     User?     @relation("ContactLogContactedBy", fields: [contactedById], references: [id], onDelete: SetNull)
+  topics             String[]
+  // Who made the contact. SetNull so a deleted login keeps the history.
+  contactedById      String?
+  contactedBy        User?     @relation("ContactLogContactedBy", fields: [contactedById], references: [id], onDelete: SetNull)
   // Who typed it in (differs from contactedBy when logging for a teammate).
-  createdById     String?
-  createdBy       User?     @relation("ContactLogCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdById        String?
+  createdBy          User?     @relation("ContactLogCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   // A calendar date, like ChurchVisit.visitDate -- not an instant.
-  contactDate     DateTime  @db.Date
-  notes           String?   @db.Text
-  // Optional "reach out again by". Not a task system (see #289/#292).
-  followUpDate    DateTime? @db.Date
-  // Set when the entry was created from something else, so the link can be
-  // shown. Plain ids with no FK on purpose: deleting the prayer request or
-  // need must not delete (or fail on) the history.
-  prayerRequestId String?
-  supportNeedId   String?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  contactDate        DateTime  @db.Date
+  notes              String?   @db.Text
+  // Optional "reach out again by"; not a task system.
+  followUpDate       DateTime? @db.Date
+  // Plain ids with no FK on purpose: deleting the prayer request or need must not delete the
+  // history.
+  prayerRequestId    String?
+  supportNeedId      String?
+  // The support option this contact was about (#424): a plain id and a snapshot of its label, so
+  // retiring or deleting the option never changes the history.
+  supportOptionId    String?
+  supportOptionLabel String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
-  // #341: who last changed this record, as a current-state fact (overwritten in
-  // place, never pruned -- unlike the AuditLog event history). Stamped
-  // centrally by the Prisma client extension in prismaClient.js from the
-  // signed-in user of the request; left alone by background jobs, the seed and
-  // public submissions, which have no signed-in person. The name is a snapshot
-  // so it still reads after that account is deleted.
   lastEditedById   String?
   lastEditedByName String?
   lastEditedAt     DateTime?
@@ -1092,14 +732,10 @@ model ContactLog {
   @@index([followUpDate])
 }
 
-// #341: the admin activity trail -- one row per sensitive event (a sign-in, a
-// role change, a settings change, a delete, a look at a restricted partner).
-// Actor and target are plain ids with an email/name snapshot, NOT foreign
-// keys, so the history stays readable after either account is deleted -- the
-// same reason as ContactLog's prayerRequestId. Retention-bounded (see
-// ChurchSettings.auditRetentionDays); gated by the auditTrail feature. Never
-// holds a secret's value: `details` records that a key changed, not what it
-// was. `action` is a dotted code from utils/auditLog.js's AUDIT_ACTIONS.
+// The admin activity trail: one row per sensitive event. Actor and target are ids plus an
+// email/name snapshot, not foreign keys, so history survives account deletion. Retention-bounded
+// (ChurchSettings.auditRetentionDays), gated by the auditTrail feature. Never stores a secret's
+// value. `action` is a code from utils/auditLog.js's AUDIT_ACTIONS.
 model AuditLog {
   id           String   @id @default(uuid())
   createdAt    DateTime @default(now())
@@ -1108,20 +744,17 @@ model AuditLog {
   actorUserId  String?
   actorEmail   String?
   actorName    String?
-  // Who it was done to, when the event is about another account.
   targetUserId String?
   targetEmail  String?
   targetName   String?
-  // The record it was about, when it is not an account (a partner, a trip,
-  // the church settings...), with its label at the time.
+  // The record it was about when not an account, with its label at the time.
   entityType   String?
   entityId     String?
   entityLabel  String?
-  // Where it came from (sign-in and access events).
   ip           String?
-  // Old/new values and context. Secrets are noted as changed, never stored.
-  // JSON kept on purpose (#394): the shape differs per event type, it is only displayed, and
-  // everything searched or filtered on (actor, target, record, ip, kind, date) is a real column.
+  // Old/new values and context; secrets are noted as changed, never stored. JSON on purpose:
+  // the shape differs per event and it is only displayed; everything filtered on is a real
+  // column.
   details      Json?
 
   @@index([createdAt])
@@ -1131,13 +764,9 @@ model AuditLog {
   @@index([entityType, entityId])
 }
 
-// #291: one key-date reminder EMAILED to one person -- the record that stops
-// the daily job sending the same occurrence twice. The bell is computed live
-// and needs no row. Keyed by the occurrence's own date, so next year's
-// birthday is a new row, and correcting a date after a reminder went out
-// re-arms it. `subjectId` is the adult/child the date belongs to ("" for a
-// partner-level date), because Postgres treats NULLs in a unique key as
-// distinct.
+// A key-date reminder already emailed to one person, so the daily job never sends the same
+// occurrence twice. Keyed by the occurrence's own date (a corrected date re-arms it). subjectId
+// is "" for a partner-level date because NULLs are distinct in a Postgres unique key.
 model KeyDateReminder {
   id             String   @id @default(uuid())
   userId         String
@@ -1148,21 +777,35 @@ model KeyDateReminder {
   kind           String
   subjectId      String   @default("")
   occurrenceDate DateTime @db.Date
+  // Which heads-up this was: 0 = the final one (inside keyDateLeadDays), otherwise the advance threshold
+  // in days (90, 30, ...) it was raised at. Each (date, heads-up) is mailed to a person once.
+  tier           Int      @default(0)
   sentAt         DateTime @default(now())
 
-  @@unique([userId, partnerId, kind, subjectId, occurrenceDate])
+  @@unique([userId, partnerId, kind, subjectId, occurrenceDate, tier])
   @@index([partnerId])
 }
 
-// A link to somewhere else about this partner -- website, support/donate
-// page, newsletter signup, or a social profile. Replaces the old fixed
-// websiteLink/supportLink/newsletterSignup/facebook/twitter/instagram/
-// linkedin columns on Partner: `type` is a plain validated string (see
-// routes/partnerLinks.js), not a native Prisma enum, same convention as
-// PartnerFile.kind -- the admin UI only offers today's known set via a
-// dropdown, but adding a new one later (e.g. a fork wanting TikTok) is a
-// one-line code change, not a migration. @@unique keeps today's "at most
-// one Facebook link" rule.
+// A care post already made to the church's chat (GroupMe/WhatsApp), so the daily run never posts the same one
+// twice. Church-wide, not per person: the chat is one group. `type` is the dispatch type; `subjectKey` and
+// `occurrenceDate` say which occurrence (a key date's own date, the day a quiet stretch began, the date of the
+// decision or answer), and `tier` is the key-date heads-up (as KeyDateReminder.tier; 0 otherwise).
+model CareChatPost {
+  id             String   @id @default(uuid())
+  partnerId      String
+  partner        Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  type           String
+  subjectKey     String   @default("")
+  occurrenceDate DateTime @db.Date
+  tier           Int      @default(0)
+  postedAt       DateTime @default(now())
+
+  @@unique([partnerId, type, subjectKey, occurrenceDate, tier])
+}
+
+// A link about this partner (website, support page, newsletter signup, social profile). `type`
+// is a validated string (routes/partnerLinks.js), not an enum, so a fork can add one without a
+// migration. @@unique allows one link per type.
 model PartnerLink {
   id        String   @id @default(uuid())
   partnerId String
@@ -1171,12 +814,6 @@ model PartnerLink {
   url       String
   createdAt DateTime @default(now())
 
-  // #341: who last changed this record, as a current-state fact (overwritten in
-  // place, never pruned -- unlike the AuditLog event history). Stamped
-  // centrally by the Prisma client extension in prismaClient.js from the
-  // signed-in user of the request; left alone by background jobs, the seed and
-  // public submissions, which have no signed-in person. The name is a snapshot
-  // so it still reads after that account is deleted.
   lastEditedById   String?
   lastEditedByName String?
   lastEditedAt     DateTime?
@@ -1184,14 +821,8 @@ model PartnerLink {
   @@unique([partnerId, type])
 }
 
-// A language this partner speaks, with an optional proficiency level.
-// Replaces the old languagesSpoken String[] column -- giving each language
-// its own row lets a proficiency be attached and updated on just that one
-// language later (e.g. as someone's field language improves) without
-// resending the whole list. proficiency is a plain string (ILR scale --
-// "0".."5" with "+" half-steps -- chosen in the admin UI's own dropdown),
-// not a Prisma enum, for the same fork-extensibility reason as
-// PartnerLink.type above.
+// A language this partner speaks, with optional proficiency on the ILR scale ("0".."5" with "+"
+// half-steps), a plain string like PartnerLink.type.
 model PartnerLanguage {
   id          String   @id @default(uuid())
   partnerId   String
@@ -1200,12 +831,6 @@ model PartnerLanguage {
   proficiency String?
   createdAt   DateTime @default(now())
 
-  // #341: who last changed this record, as a current-state fact (overwritten in
-  // place, never pruned -- unlike the AuditLog event history). Stamped
-  // centrally by the Prisma client extension in prismaClient.js from the
-  // signed-in user of the request; left alone by background jobs, the seed and
-  // public submissions, which have no signed-in person. The name is a snapshot
-  // so it still reads after that account is deleted.
   lastEditedById   String?
   lastEditedByName String?
   lastEditedAt     DateTime?
@@ -1213,12 +838,7 @@ model PartnerLanguage {
   @@index([partnerId])
 }
 
-// Replaces the old Partner.tripTypesSupported String[] column -- same
-// per-row-CRUD reasoning as PartnerLink/PartnerLanguage above, not a
-// trip-capacity-specific exception. No @@unique: a partner can support
-// several trips of what's effectively the same custom type string
-// without that being an error, the same way PartnerLanguage doesn't
-// block a duplicate language either.
+// A trip type this partner can host. No @@unique: duplicates are harmless.
 model TripType {
   id        String   @id @default(uuid())
   partnerId String
@@ -1226,12 +846,6 @@ model TripType {
   type      String // e.g. "Construction", "Medical/Dental" -- preset or custom
   createdAt DateTime @default(now())
 
-  // #341: who last changed this record, as a current-state fact (overwritten in
-  // place, never pruned -- unlike the AuditLog event history). Stamped
-  // centrally by the Prisma client extension in prismaClient.js from the
-  // signed-in user of the request; left alone by background jobs, the seed and
-  // public submissions, which have no signed-in person. The name is a snapshot
-  // so it still reads after that account is deleted.
   lastEditedById   String?
   lastEditedByName String?
   lastEditedAt     DateTime?
@@ -1239,19 +853,14 @@ model TripType {
   @@index([partnerId])
 }
 
-// Who sent this missionary -- their sending church and/or sending
-// organization, each recorded once per partner (`type` distinguishes which;
-// @@unique enforces "at most one of each"). Missionary-only -- an
-// organization has no equivalent "who sent it" concept. The address is real
-// structured columns (matching Address's shape) rather than a JSON blob,
-// which was never validated and never queryable.
+// Who sent this missionary: their sending church and/or organization, at most one of each per
+// partner (`type`). Missionary-only.
 model SendingParty {
   id                  String  @id @default(uuid())
   partnerId           String
   partner             Partner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
   type                String // "church" | "org"
   name                String?
-  // #257/#271 Finding 4: split first/last.
   contactFirstName    String?
   contactLastName     String?
   contactEmail        String?
@@ -1264,12 +873,7 @@ model SendingParty {
   postalCode          String?
   country             String?
 
-  // #341: who last changed this record, as a current-state fact (overwritten in
-  // place, never pruned -- unlike the AuditLog event history). Stamped
-  // centrally by the Prisma client extension in prismaClient.js from the
-  // signed-in user of the request; left alone by background jobs, the seed and
-  // public submissions, which have no signed-in person. The name is a snapshot
-  // so it still reads after that account is deleted.
+  createdAt        DateTime  @default(now())
   lastEditedById   String?
   lastEditedByName String?
   lastEditedAt     DateTime?
@@ -1277,12 +881,9 @@ model SendingParty {
   @@unique([partnerId, type])
 }
 
-// A monthly-support dollar amount effective as of a given date. "Current"
-// support is just the most recent row by effectiveDate — the point of this
-// table is the history, not a single overwritten amount, which is also why
-// there's no update endpoint for it: correcting a mistake means deleting the
-// bad row and adding a new one, the way a ledger works. Admin-only data:
-// never surfaced through the public serializer.
+// A monthly-support dollar amount effective from a date. "Current" support is the latest
+// effectiveDate. It is a ledger: there is no update endpoint, so a mistake is corrected by
+// deleting the row and adding a new one. Admin-only, never in the public serializer.
 model SupportEntry {
   id            String   @id @default(uuid())
   partnerId     String
@@ -1292,12 +893,6 @@ model SupportEntry {
   notes         String?
   createdAt     DateTime @default(now())
 
-  // #341: who last changed this record, as a current-state fact (overwritten in
-  // place, never pruned -- unlike the AuditLog event history). Stamped
-  // centrally by the Prisma client extension in prismaClient.js from the
-  // signed-in user of the request; left alone by background jobs, the seed and
-  // public submissions, which have no signed-in person. The name is a snapshot
-  // so it still reads after that account is deleted.
   lastEditedById   String?
   lastEditedByName String?
   lastEditedAt     DateTime?
@@ -1312,8 +907,7 @@ model SavedReport {
   id        String           @id @default(uuid())
   reportId  String // a report id from backend/src/reporting/registry.js
   name      String
-  // JSON kept on purpose (#394): each report has its own params, validated by that report's schema,
-  // and nothing queries inside them.
+  // JSON on purpose: each report validates its own params and nothing queries inside them.
   params    Json
   shared    Boolean          @default(false)
   ownerId   String
@@ -1321,12 +915,6 @@ model SavedReport {
   createdAt DateTime         @default(now())
   schedules ReportSchedule[]
 
-  // #341: who last changed this record, as a current-state fact (overwritten in
-  // place, never pruned -- unlike the AuditLog event history). Stamped
-  // centrally by the Prisma client extension in prismaClient.js from the
-  // signed-in user of the request; left alone by background jobs, the seed and
-  // public submissions, which have no signed-in person. The name is a snapshot
-  // so it still reads after that account is deleted.
   lastEditedById   String?
   lastEditedByName String?
   lastEditedAt     DateTime?
@@ -1351,12 +939,6 @@ model ReportSchedule {
   lastSentAt    DateTime?
   createdAt     DateTime    @default(now())
 
-  // #341: who last changed this record, as a current-state fact (overwritten in
-  // place, never pruned -- unlike the AuditLog event history). Stamped
-  // centrally by the Prisma client extension in prismaClient.js from the
-  // signed-in user of the request; left alone by background jobs, the seed and
-  // public submissions, which have no signed-in person. The name is a snapshot
-  // so it still reads after that account is deleted.
   lastEditedById   String?
   lastEditedByName String?
   lastEditedAt     DateTime?
@@ -1364,14 +946,10 @@ model ReportSchedule {
   @@index([savedReportId])
 }
 
-// A one-time financial need requested by a partner (e.g. "$1,000 to help a
-// family in their congregation") and our response to it — distinct from
-// SupportEntry, which tracks the recurring monthly amount.
-// approvedAmount/approvedDate stay null until a decision is made, and
-// approvedAmount may be less than requestedAmount (a partial gift) — there's
-// no separate status enum; pending/declined/partial/fully-funded are all
-// just read off of whether approvedAmount is set and how it compares to
-// requestedAmount.
+// A one-time financial need a partner requested, and our response; distinct from SupportEntry
+// (recurring). approvedAmount/approvedDate stay null until decided and may be less than
+// requestedAmount. There is no status enum: pending/declined/partial/funded are read off
+// approvedAmount.
 model SupportNeed {
   id              String    @id @default(uuid())
   partnerId       String
@@ -1381,32 +959,19 @@ model SupportNeed {
   requestDate     DateTime  @db.Date
   approvedAmount  Int?
   approvedDate    DateTime? @db.Date
-  // Documents *why* approvedAmount came out the way it did -- declined,
-  // partially funded, or fully funded with a reason worth keeping on
-  // record. Set alongside approvedAmount/approvedDate when a decision is
-  // recorded, not at creation -- separate from the general `notes` field
-  // below (settable any time, about anything), same reasoning
-  // PrayerRequest.answeredNote is kept separate from a general notes
-  // field. Surfaced in the supportNeedDecided dispatch -- see
-  // dispatchBlurbs.js.
+  // Why approvedAmount came out as it did; set with the decision, separate from the general
+  // notes. Surfaced in the supportNeedDecided dispatch (dispatchBlurbs.js).
   decisionNote    String?   @db.Text
   notes           String?   @db.Text
   createdAt       DateTime  @default(now())
 
-  // Same reasoning as PrayerRequest.isUrgent above.
+  // Same as PrayerRequest.isUrgent.
   isUrgent Boolean @default(false)
 
-  // Same source-link as PrayerRequest.sourceFileId above -- see that
-  // comment for the full reasoning.
+  // See PrayerRequest.sourceFileId.
   sourceFileId String?
   sourceFile   PartnerFile? @relation(fields: [sourceFileId], references: [id], onDelete: SetNull)
 
-  // #341: who last changed this record, as a current-state fact (overwritten in
-  // place, never pruned -- unlike the AuditLog event history). Stamped
-  // centrally by the Prisma client extension in prismaClient.js from the
-  // signed-in user of the request; left alone by background jobs, the seed and
-  // public submissions, which have no signed-in person. The name is a snapshot
-  // so it still reads after that account is deleted.
   lastEditedById   String?
   lastEditedByName String?
   lastEditedAt     DateTime?
@@ -1414,75 +979,45 @@ model SupportNeed {
   @@index([partnerId])
 }
 
-// A prayer request received from a partner — meant as a long-term, ongoing
-// record of what's been prayed for and (when it happens) how it was
-// answered, not a pass/fail checklist. `status` deliberately has no
-// "unanswered" value: "ongoing" (the default) means still-open/still-praying,
-// with no implication anything failed to happen — most requests, especially
-// long-running ones, simply don't have a resolution yet, and that's normal,
-// not a gap to flag. "untracked" is an explicit opt-out for requests nobody
-// intends to revisit for a formal answer (a routine short-term ask like "safe
-// travels this week"). "answered" is the one worth surfacing -- paired with
-// dateAnswered and answeredNote, this is what lets a church look back over
-// time and see how prayers were actually answered.
+// A prayer request from a partner, kept as a long-term record, not a pass/fail checklist.
+// `status` has no "unanswered": "ongoing" (default) means still praying, "untracked" opts out of
+// tracking an answer (e.g. "safe travels this week"), "answered" pairs with dateAnswered and
+// answeredNote.
 //
-// `category` ("strategic" | "situational") controls where a request can ever
-// be shown publicly: only "strategic" requests are eligible, and only when
-// `isPublic` is also explicitly set — same explicit opt-in pattern as
-// Partner.isPublic, so a strategic request isn't shown publicly just because
-// of its category alone.
+// `category` ("strategic" | "situational") controls public eligibility: only "strategic"
+// requests can be shown publicly, and only when `isPublic` is also set.
 model PrayerRequest {
   id        String  @id @default(uuid())
   partnerId String
   partner   Partner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
 
-  // "strategic" (tied to the ministry's long-term vision/calling -- church
-  // planting, discipleship, language study, funding) vs "situational"
-  // (whatever came up -- health, travel, family, paperwork). Replaces an
-  // earlier short_term/long_term split that was about time horizon rather
-  // than what the request actually was, which didn't map cleanly onto
-  // "should this go on the public site/in the booklet" the way this does.
+  // "strategic" (tied to the ministry's long-term calling: church planting, discipleship,
+  // language study, funding) vs "situational" (health, travel, family, paperwork).
   category         String // "strategic" | "situational"
   requestText      String   @db.Text
   dateReceived     DateTime @db.Date
   isPublic         Boolean  @default(false) // only takes effect when category is "strategic"
-  // Booklet space is tight (see AdminBooklet.jsx's per-page cap), so
-  // isPublic alone doesn't mean a request prints -- this only takes effect
-  // when isPublic is also true (a request can be public-site-only).
+  // Booklet space is tight (AdminBooklet.jsx's per-page cap); only takes effect when isPublic
+  // is also true.
   includeInBooklet Boolean  @default(false)
 
   status       String    @default("ongoing") // "ongoing" | "answered" | "untracked"
   dateAnswered DateTime? @db.Date
   answeredNote String?   @db.Text
 
-  // Admin/editor-set at creation (see dispatchOrchestrator.js's
-  // sendUrgentDispatch): bypasses every recipient's own cadence,
-  // dispatching immediately to GroupMe, admins, and public subscribers
-  // alike. Does not bypass the restricted-partner review gate below, or
-  // either channel's own content-type/structural eligibility rules --
-  // see dispatchEligibility.js's isEligibleForChannel, which
-  // sendUrgentDispatch calls exactly like every scheduled pass does.
+  // Set at creation by admin/editor (sendUrgentDispatch): bypasses every recipient's cadence
+  // and dispatches immediately, but not the restricted-partner review gate or the channel
+  // eligibility rules (dispatchEligibility.js isEligibleForChannel).
   isUrgent Boolean @default(false)
 
   notes     String?  @db.Text
   createdAt DateTime @default(now())
 
-  // Set when this request was added from ExtractionReviewModal.jsx's "Scan
-  // for requests" flow, so the admin can get back to the original file
-  // later. onDelete: SetNull, not Cascade -- deleting the source file a
-  // request came from shouldn't delete the request itself, just its
-  // back-link. Null for every request added by hand (the normal case,
-  // unaffected by this). Never surfaced on the public site or in the
-  // booklet.
+  // Set when added from the "Scan for requests" flow, linking back to the original file.
+  // SetNull, so deleting the file keeps the request. Never shown publicly or in the booklet.
   sourceFileId String?
   sourceFile   PartnerFile? @relation(fields: [sourceFileId], references: [id], onDelete: SetNull)
 
-  // #341: who last changed this record, as a current-state fact (overwritten in
-  // place, never pruned -- unlike the AuditLog event history). Stamped
-  // centrally by the Prisma client extension in prismaClient.js from the
-  // signed-in user of the request; left alone by background jobs, the seed and
-  // public submissions, which have no signed-in person. The name is a snapshot
-  // so it still reads after that account is deleted.
   lastEditedById   String?
   lastEditedByName String?
   lastEditedAt     DateTime?
@@ -1492,47 +1027,25 @@ model PrayerRequest {
   @@index([status])
 }
 
-// A file received from a partner -- either a newsletter (PDF, .eml export,
-// or a screenshot image) or a general-purpose document (survey response,
-// signed policy acknowledgment, other office document, long-term email
-// record), distinguished by `kind` -- a single flat, defined list, same
-// convention as Partner.kind ("missionary" | "organization") above:
-// "newsletter" is just one more value alongside the document-specific
-// ones, not a structurally separate concept from them.
+// A file received from a partner: a newsletter or a general document, distinguished by `kind`.
 //
-// The file itself lives right in this row (see `bytes` below) rather than
-// in a separate object store — no external storage service to configure
-// at all, and Postgres's TOAST mechanism already keeps large column values
-// out-of-line and compressed, so this doesn't bloat ordinary queries.
-// Deliberately not exposed by any query that doesn't need the actual file
-// content (see the `omit: { bytes: true }` on every list/detail include
-// across the route files) — reachable only through
-// GET /api/partner-files/:id/download, admin-only. Fine at the scale this
-// app runs at (one church's worth of files, not a multi-tenant media
-// library) — see CONTRIBUTING.md if that ever stops being true for a
-// particular fork.
+// The bytes live in PartnerFileBytes, in Postgres rather than an object store, so plain queries
+// never load them; they are served only by GET /api/partner-files/:id/download (admin-only).
+// Fine at one church's scale; see CONTRIBUTING.md if that stops being true for a fork.
 model PartnerFile {
   id        String  @id @default(uuid())
   partnerId String
   partner   Partner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
 
-  // A plain validated string (see routes/partnerFiles.js), not a native
-  // Prisma enum — same convention as Partner.orgType and User.role
-  // elsewhere in this schema, so a fork can add its own kind without a
-  // migration. Inbound email always defaults new rows to "newsletter"
-  // (that's the overwhelming majority of what actually arrives from a
-  // partner) -- an admin who finds one mis-filed just edits `kind` via
-  // the normal PUT, no separate "reclassify" action needed.
+  // A validated string (routes/partnerFiles.js), not an enum, so a fork can add kinds. Inbound
+  // email defaults to "newsletter"; an admin fixes a mis-filed one with the normal PUT.
   kind       String // "newsletter" | "survey_response" | "signed_policy" | "email" | "office_document" | "other"
   // Free-typed label, only used when kind is "other".
   customKind String?
 
   title        String?
   receivedDate DateTime @db.Date
-  // The file's own bytes live in PartnerFileBytes (below), a one-to-one
-  // split-off table -- see TripParticipantPhoto's own comment for why
-  // (structurally prevents the #274 production-hang bug class rather than
-  // relying on every future query remembering to select/omit).
+  // The bytes live in PartnerFileBytes.
   fileName     String // original uploaded filename, for display/download
   contentType  String
   fileSize     Int? // bytes
@@ -1540,19 +1053,11 @@ model PartnerFile {
 
   createdAt DateTime @default(now())
 
-  // Back-relation for PrayerRequest/SupportNeed.sourceFileId above -- not
-  // read directly (requests/needs are fetched by partner, not by source),
-  // but Prisma requires both sides of a relation declared.
+  // Back-relations for sourceFileId (Prisma needs both sides).
   sourcedPrayerRequests PrayerRequest[]
   sourcedSupportNeeds   SupportNeed[]
   bytesRow              PartnerFileBytes?
 
-  // #341: who last changed this record, as a current-state fact (overwritten in
-  // place, never pruned -- unlike the AuditLog event history). Stamped
-  // centrally by the Prisma client extension in prismaClient.js from the
-  // signed-in user of the request; left alone by background jobs, the seed and
-  // public submissions, which have no signed-in person. The name is a snapshot
-  // so it still reads after that account is deleted.
   lastEditedById   String?
   lastEditedByName String?
   lastEditedAt     DateTime?
@@ -1567,32 +1072,22 @@ model PartnerFileBytes {
   bytes Bytes
 }
 
-// Inbound email (see #72) that couldn't be auto-matched to a partner --
-// held here for an admin to assign by hand or discard. A row's mere
-// existence means "pending": both outcomes (assign, discard) delete the
-// row rather than mark a status, since once assigned it's just a
-// PartnerFile (see routes/inboundEmail.js) and there's nothing left here
-// worth keeping around. No partnerId/relation -- that's the whole point,
-// this is what's left *unmatched*.
+// Inbound email (#72) not auto-matched to a partner, held for an admin to assign or discard. A
+// row's existence means pending; both outcomes delete it (an assigned one becomes a PartnerFile,
+// see routes/inboundEmail.js). No partnerId: it is by definition unmatched.
 model InboundEmail {
   id          String             @id @default(uuid())
   receivedAt  DateTime           @default(now())
   fromAddress String
   subject     String?
-  // The raw .eml source lives in InboundEmailBytes (below), a one-to-one
-  // split-off table -- see TripParticipantPhoto's own comment for why.
+  // The raw .eml source lives in InboundEmailBytes.
   fileName    String
   createdAt   DateTime           @default(now())
   bytesRow    InboundEmailBytes?
-  // #327 Finding 5: null for the original reason this queue exists (zero
-  // or more than one partner matched the sender address -- nothing to
-  // guess between). Set to a short explanation when a message DID match
-  // exactly one partner by address but still landed here because Postmark's
-  // own SPF/DKIM signals didn't confirm the sender -- see
-  // routes/inboundEmail.js's isSenderVerified(). From is trivially
-  // forgeable on its own; this is the one thing standing between a
-  // forged letter and it being auto-filed and broadcast under a real
-  // partner's name.
+  // Set when the message matched exactly one partner by address but Postmark's SPF/DKIM did
+  // not confirm the sender (routes/inboundEmail.js isSenderVerified()); null when zero or
+  // several partners matched. From is trivially forgeable; this is what stops a forged letter
+  // being auto-filed and broadcast under a real partner's name.
   queueReason String?
 }
 
@@ -1602,14 +1097,9 @@ model InboundEmailBytes {
   bytes Bytes
 }
 
-// A webhook call that never became a real InboundEmail row -- bad/missing
-// credentials, a missing From/RawEmail field, or an unexpected exception
-// while processing one. Previously these just returned a 4xx/500 with
-// nothing persisted anywhere, so there was no way to see afterward that
-// anything had even gone wrong (see the in-app notifications plan's
-// "Inbound email processing errors" category). rawPayloadSnippet is a
-// short, truncated excerpt for debugging context, not the full payload --
-// this table is a failure log, not a second copy of InboundEmail/Bytes.
+// A webhook call that never became an InboundEmail (bad credentials, missing fields, an
+// exception), kept as a failure log. rawPayloadSnippet is a truncated excerpt, not the full
+// payload.
 model InboundEmailFailure {
   id                String   @id @default(uuid())
   receivedAt        DateTime @default(now())
@@ -1617,123 +1107,67 @@ model InboundEmailFailure {
   rawPayloadSnippet String?  @db.Text
 }
 
-// A recorded event, capable of independently producing up to four
-// dispatches -- GroupMe, WhatsApp, the admin email dispatch, the public
-// email dispatch -- each tracked by its own stamp column below (see
-// dispatchEligibility.js's isEligibleForChannel, the one function all
-// four channels call identically). Named DispatchRecord rather than an
-// "event"-based name on purpose: a future in-app notification feature is
-// exactly the kind of thing that would want to build itself around
-// "events," and this record is the thing each of those four channels
-// dispatches from, not an event in that sense.
+// A recorded event that can independently produce up to four dispatches (GroupMe, WhatsApp,
+// admin email, public email), each tracked by its own stamp column; all four use
+// dispatchEligibility.js's isEligibleForChannel. Named DispatchRecord, not after an "event", to
+// leave that word for a future in-app notification feature.
 //
-// A row's mere existence means "recorded, not yet fully delivered," same
-// InboundEmail convention above, but deletion here is per-channel-aware
-// rather than unconditional -- see dispatchOrchestrator.js's
-// clearDispatchRecords(): a row is only deleted once every channel's
-// answer is either permanently resolved (ineligible by type/structure, or
-// a toggle/feature that was off at the pass where it was evaluated --
-// also permanent, not retried if the toggle flips back on) or actually
-// sent (that channel's own stamp column is set). A channel whose send
-// failed leaves its own stamp null, so the next pass retries only that
-// channel without re-sending to one that already succeeded.
-//
-// `payload` holds whatever this event type's dispatch text needs to
-// render later (requestText/description/approvedAmount/etc., plus
-// sourceFileId for the source-file cross-link) --
-// a `type` + `payload Json` shape instead of a column per event type,
-// since the 5 event shapes genuinely differ and none of it needs to be
-// relationally queried later, only read back whole at send time.
+// A row's existence means "recorded, not yet fully delivered". dispatchOrchestrator.js's
+// clearDispatchRecords() deletes it once every channel is permanently resolved (ineligible, or
+// toggled off at that pass) or sent (its stamp is set). A failed channel leaves its stamp null,
+// so the next pass retries only that channel.
 model DispatchRecord {
   id        String   @id @default(uuid())
   // "prayerRequestCreated" | "prayerRequestAnswered" | "supportNeedCreated" | "supportNeedDecided" | "newsletterCreated"
+  // | the chat-only care posts "keyDateComing" | "quietPartner" | "updateToPassOn" (utils/careChatDispatch.js)
   type      String
   partnerId String
   partner   Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
-  // JSON kept on purpose (#394): the content depends on `type`, is read whole to build a dispatch,
-  // and is never filtered on.
+  // JSON on purpose: the content depends on `type`, is read whole at send time and never
+  // filtered on.
   payload   Json
   createdAt DateTime @default(now())
 
-  // GroupMe's own stamp -- set once groupmeChannel.js's postToGroupMe
-  // successfully posts this row, or immediately by sendUrgentDispatch.
+  // Set when groupmeChannel.js posts this row (or by sendUrgentDispatch).
   groupmeDispatchedAt DateTime?
 
-  // WhatsApp's own stamp -- same convention as groupmeDispatchedAt
-  // above, set by whatsappChannel.js's postToWhatsApp (or immediately by
-  // sendUrgentDispatch). Its own column, not shared with GroupMe's: a
-  // church can run both channels at once, and one being down or
-  // disconnected must never mark the other's delivery as done.
+  // WhatsApp's own stamp. Separate from GroupMe's so one channel being down never marks the
+  // other delivered.
   whatsappDispatchedAt DateTime?
 
-  // Admin-edited body text (#187) -- any recorded event can be edited
-  // before it sends, restricted or not; see routes/dispatches.js's
-  // PUT /pending/:id. dispatchReviewedAt null means "never edited," same
-  // one-nullable-timestamp convention as groupmeDispatchedAt above, not a
-  // separate boolean that could disagree with it. dispatchReviewedById is
-  // audit-only, no FK, same convention as Partner's own
-  // createdById/updatedById. dispatchReviewedText, once set, overrides
-  // the computed body text for any row -- see dispatchBlurbs.js. For a
-  // RESTRICTED partner's real-content dispatch specifically,
-  // dispatchReviewedAt null also means "held, not eligible to send yet"
-  // for the types REVIEW_GATED_TYPES actually covers (prayer requests,
-  // one-time needs) -- see dispatchEligibility.js's isEligibleForChannel
-  // -- but that hold is a separate concern layered on top of this plain
-  // edit mechanism, not a property of these columns themselves. A
-  // restricted partner's newsletter is exempt from this gate entirely:
-  // buildBlurb() already fully suppresses its content regardless of
-  // review state, so there's nothing left to protect by holding it.
-  // Structural masking (name/photo/source link) stays in effect
-  // regardless of edit state either way. Re-editing overwrites all three.
+  // Admin-edited body text (routes/dispatches.js PUT /pending/:id). dispatchReviewedAt null
+  // means never edited; dispatchReviewedText, once set, overrides the computed body
+  // (dispatchBlurbs.js). dispatchReviewedById is audit-only, no FK.
+  //
+  // For a RESTRICTED partner's prayer requests and one-time needs (REVIEW_GATED_TYPES),
+  // dispatchReviewedAt null also means held, not eligible to send (dispatchEligibility.js). A
+  // restricted partner's newsletter is exempt: buildBlurb() already suppresses its content.
+  // Structural masking (name/photo/source link) applies regardless of edit state.
   dispatchReviewedAt   DateTime?
   dispatchReviewedById String?
   dispatchReviewedText String?   @db.Text
 
-  // #289: held until staff approve it, whether or not the partner is
-  // restricted. Set on a record made from a care team member's (non-staff)
-  // prayer request or need, so nothing a care team member enters is sent
-  // anywhere -- admin email, public email, GroupMe, WhatsApp, or the urgent
-  // path -- until an admin/editor reviews it in Pending Dispatches (the same
-  // review that already holds a restricted partner's content, and the same
-  // dispatchReviewedAt that releases it). false for every staff-made record,
-  // so staff behaviour is unchanged.
+  // Held until staff approve it, restricted partner or not. Set on records made from a care
+  // team member's (non-staff) request or need, so nothing they enter is sent anywhere,
+  // including the urgent path, until an admin/editor reviews it in Pending Dispatches (which
+  // sets dispatchReviewedAt).
   reviewRequired Boolean @default(false)
 
-  // One stamp per email cadence tier, not one per audience -- a single
-  // tier's send pass considers every User and PublicSubscriber on that
-  // tier at once, so a row only needs one "did this tier's pass get to
-  // this" marker, not a separate admin and public pair. A single shared
-  // stamp set by whichever tier fires first would permanently suppress
-  // the slower tiers from ever receiving the row at all, not just delay
-  // them -- that's why there are three of these, not one. See
-  // emailDispatchDelivery.js's send loop for what writes them, and
-  // dispatchOrchestrator.js's clearDispatchRecords() for the
-  // per-row, per-tier eligibility check these pair with. Tiers are
-  // biweekly/monthly/quarterly -- weekly was retired along with the old
-  // church-wide batch mechanism (see ChurchSettings' own comment).
+  // One stamp per email cadence tier, not per audience: a tier's pass covers every User and
+  // PublicSubscriber on it. A single shared stamp would let the first tier to fire suppress
+  // the slower ones permanently. Written by emailDispatchDelivery.js, checked per row and tier
+  // by clearDispatchRecords().
   biweeklyEmailDispatchSentAt  DateTime?
   monthlyEmailDispatchSentAt   DateTime?
   quarterlyEmailDispatchSentAt DateTime?
 
-  // One nullable error string per channel, set in that channel's own
-  // send-attempt catch block (groupmeChannel.js/whatsappChannel.js/
-  // emailDispatchDelivery.js/dispatchOrchestrator.js's urgent-send path)
-  // instead of just console.error-ing and leaving nothing queryable
-  // after the fact -- see the in-app notifications plan's "Dispatch send
-  // failures" category. A row's own *DispatchedAt stamp being null is
-  // already ambiguous between "not attempted"/"ineligible"/"failed"; this
-  // is what actually tells those three apart for "failed." Cleared back
-  // to null the next time that channel's send for this row succeeds.
+  // One error string per channel, set in that channel's send catch block, so "failed" is
+  // distinguishable from "not attempted" or "ineligible" (the *DispatchedAt stamp is null for
+  // all three). Cleared on the next successful send.
   groupmeError  String?
   whatsappError String?
   emailError    String?
 
-  // #341: who last changed this record, as a current-state fact (overwritten in
-  // place, never pruned -- unlike the AuditLog event history). Stamped
-  // centrally by the Prisma client extension in prismaClient.js from the
-  // signed-in user of the request; left alone by background jobs, the seed and
-  // public submissions, which have no signed-in person. The name is a snapshot
-  // so it still reads after that account is deleted.
   lastEditedById   String?
   lastEditedByName String?
   lastEditedAt     DateTime?
@@ -1742,25 +1176,17 @@ model DispatchRecord {
   @@index([partnerId])
 }
 
-// Every photo ever uploaded for a partner, not just the current one — same
-// in-row bytes approach as PartnerFile. Unlike PartnerFile, photos are public
-// (served unauthenticated at GET /api/photos/:id/raw — the public serializer
-// is what keeps a restricted record's real photo out of any response in the
-// first place, not this route). Same `omit: { bytes: true }` discipline
-// applies: every list/detail query synthesizes a `url: "/api/photos/<id>/raw"`
-// string instead of ever returning the raw bytes inline. The "current" photo
-// (shown in the admin UI and, if the partner is public, on the public site)
-// is whichever row has the latest receivedDate — not whichever was uploaded
-// most recently, since backfilling an older photo shouldn't demote a more
-// recent one that just hasn't been uploaded yet. Older photos stay queryable
-// for history and can be deleted individually from the partner's page.
+// Every photo ever uploaded for a partner, not just the current one. Unlike PartnerFile, photos
+// are public (GET /api/photos/:id/raw, unauthenticated): the public serializer is what keeps a
+// restricted record's real photo out of responses, not this route. Responses synthesize a `url`
+// instead of returning bytes. The "current" photo is the row with the latest receivedDate, not
+// the latest upload, so backfilling an older photo does not demote a newer one.
 model Photo {
   id        String  @id @default(uuid())
   partnerId String
   partner   Partner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
 
-  // The image itself lives in PhotoBytes (below), a one-to-one split-off
-  // table -- see TripParticipantPhoto's own comment for why.
+  // The image lives in PhotoBytes.
   receivedDate DateTime @db.Date // when this photo was actually taken/received, not upload time
   contentType  String?
   fileSize     Int? // bytes
@@ -1768,12 +1194,6 @@ model Photo {
   createdAt DateTime    @default(now())
   bytesRow  PhotoBytes?
 
-  // #341: who last changed this record, as a current-state fact (overwritten in
-  // place, never pruned -- unlike the AuditLog event history). Stamped
-  // centrally by the Prisma client extension in prismaClient.js from the
-  // signed-in user of the request; left alone by background jobs, the seed and
-  // public submissions, which have no signed-in person. The name is a snapshot
-  // so it still reads after that account is deleted.
   lastEditedById   String?
   lastEditedByName String?
   lastEditedAt     DateTime?
@@ -1787,18 +1207,13 @@ model PhotoBytes {
   bytes Bytes
 }
 
-// Single-row table describing the church running this instance — used to
-// white-label the app (name/branding/terminology) and to auto-fill the
-// Sending Church section on a missionary when this church is the sender.
-// Fixed id so there's never more than one row; GET returns null before
-// it's ever configured, PUT upserts it into existence.
+// Single-row table describing the church running this instance: white-labels the app and
+// auto-fills a missionary's Sending Church section. Fixed id so there is never more than one
+// row; GET returns null before it is configured, PUT upserts.
 model ChurchSettings {
   id String @id @default("singleton")
 
   churchName          String?
-  // #271 Finding 3: flat columns, not a Json blob -- same shape and
-  // reasoning as SendingParty's own address columns, which this was
-  // always meant to match for a direct copy on autofill.
   addressLine1        String?
   addressLine2        String?
   city                String?
@@ -1806,109 +1221,69 @@ model ChurchSettings {
   postalCode          String?
   country             String?
   phone               String?
-  // #257/#271 Finding 4: split first/last.
   contactFirstName    String?
   contactLastName     String?
   contactEmail        String?
   websiteLink         String?
 
-  // What this church calls its partners, e.g. "Go Team Partner(s)".
-  // Nullable — app code falls back to "Missionary"/"Missionaries" so an
-  // unconfigured instance behaves exactly like it always has.
+  // What this church calls its partners, e.g. "Go Team Partner(s)". Null falls back to
+  // "Missionary"/"Missionaries".
   partnerTermSingular   String?
   partnerTermPlural     String?
-  // Off by default: admin nav/list headings keep saying "Missionary
-  // Partners" (they describe the underlying data type an admin is
-  // editing) unless a church opts into using its own term there too.
+  // Off: admin nav/list headings keep saying "Missionary Partners" (the data type being
+  // edited).
   usePartnerTermInAdmin Boolean @default(false)
 
   publicTagline   String? // short subtitle under the public map/directory header
   aboutText       String?             @db.Text // optional blurb shown on the public directory
-  // Three independently-pickable brand colors (see #182's history for why
-  // not a single color, and why not a full template builder): primaryColor
-  // is the ACCENT role (buttons, links, headings, letterhead -- the color
-  // people actually associate with the church), headerColor is header +
-  // admin sidebar background, highlightColor is hover/focus/active/
-  // selected interaction feedback. primaryColor's field name predates the
-  // other two and is kept as-is rather than renamed -- no church has ever
-  // set a custom value, so there's nothing to preserve, but renaming would
-  // just be churn for a field that already works.
+  // Three brand colors: primaryColor is the ACCENT (buttons, links, headings, letterhead),
+  // headerColor the header and admin sidebar background, highlightColor
+  // hover/focus/active/selected feedback.
   primaryColor    String? // hex, overrides --brand-color; ACCENT role
   headerColor     String? // hex, overrides --brand-header-color; header + admin sidebar background
   highlightColor  String? // hex, overrides --brand-highlight-color; hover/focus/active/selected feedback
   brandFont       String? // literal CSS font-family stack (not an abstract key), overrides --brand-font; curated choices offered in AdminSettingsBranding.jsx
-  // The site logo -- see TripParticipantPhoto's own comment for why the
-  // bytes live in their own one-to-one table (ChurchSettingsLogo, below)
-  // rather than this row, still Postgres, no object store. Public, served
-  // unauthenticated at GET /api/public/settings/logo/raw when set. API
-  // responses synthesize a `logo: { url: "..." } | null` shape rather than
-  // ever returning the bytes inline — same discipline as Photo.
+  // The site logo's bytes live in ChurchSettingsLogo. Public, served unauthenticated at GET
+  // /api/public/settings/logo/raw; API responses synthesize `logo: { url } | null` instead of
+  // returning bytes.
   logoContentType String?
   logoRow         ChurchSettingsLogo?
 
-  // GroupMe integration (see backend/src/utils/groupmeChannel.js). The user's
-  // own personal access token, not a bot -- GroupMe Topics (a group chat
-  // inside a group chat) are undocumented in the public API but real:
-  // each topic is a "subgroup" with its own id (GET
-  // /groups/:groupId/subgroups), and the ordinary messages endpoint
-  // (POST /groups/:id/messages) posts into it when pointed at that id
-  // instead of the parent group's. A bot can't reach any of that -- the
-  // Bots API has no subgroup awareness at all -- so this has to be the
-  // user's own token. Encrypted at rest via utils/crypto.js's
-  // encryptField (the same AES-256-GCM helper User.mfaSecret uses
-  // below). Every route that touches this row outside
-  // routes/settings.js's dedicated /groupme sub-routes must omit it, so
-  // it never rides along in the general settings payload any logged-in
-  // role can read.
+  // GroupMe integration (utils/groupmeChannel.js). The user's own personal access token, not a
+  // bot: Topics are subgroups addressed by their own id through the ordinary messages
+  // endpoint, which the Bots API cannot reach. Encrypted at rest (utils/crypto.js
+  // encryptField). Every route outside routes/settings.js's /groupme sub-routes must omit it,
+  // so it never rides along in the general settings payload any logged-in role can read.
   groupmeAccessToken          String?
-  // The parent group the admin picked, and its topics -- both selected
-  // from live GroupMe API calls (GET /groups, GET /groups/:id/subgroups)
-  // in the admin UI, never hand-typed, so the *Name fields are just a
-  // cached label for display, not something this app invents.
+  // The parent group and its topics, picked from live GroupMe API calls (never hand-typed);
+  // the *Name fields are cached display labels.
   groupmeGroupId              String?
   groupmeGroupName            String?
-  // Phase 1 mapped Prayer Requests only -- this is that later phase.
-  // One-Time Needs and Newsletters each get their own groupme*TopicId/
-  // Name pair, not a single generic "topic" field that would need
-  // renaming once there's more than one dispatch content type.
+  // One topic per dispatch content type.
   groupmePrayerTopicId        String?
   groupmePrayerTopicName      String?
   groupmeOneTimeNeedTopicId   String?
   groupmeOneTimeNeedTopicName String?
   groupmeNewsletterTopicId    String?
   groupmeNewsletterTopicName  String?
+  groupmeCareTopicId          String?
+  groupmeCareTopicName        String?
 
-  // WhatsApp integration (see backend/src/utils/whatsappChannel.js and
-  // whatsappClient.js). Unlike GroupMe there is no token to store: the
-  // credential is a whole Baileys session (creds plus many Signal keys),
-  // which lives in the WhatsAppAuthEntry table below, encrypted per row.
-  // Nothing in this block is a secret -- they're display labels and the
-  // ids picked from live lists in the admin UI (never hand-typed), same
-  // as groupmeGroupName etc.
+  // WhatsApp integration (utils/whatsappChannel.js, whatsappClient.js). No token here: the
+  // credential is a Baileys session stored encrypted per row in WhatsAppAuthEntry. Nothing in
+  // this block is secret: display labels and ids picked from live lists.
   //
-  // One WhatsApp *community* containing several groups, mapped onto the
-  // same three content types GroupMe maps onto Topics. Unlike an
-  // earlier version of this comment claimed, there IS a fallback, same
-  // idea as GroupMe's main-group fallback: every WhatsApp community has
-  // a built-in Announcements group (Baileys flags it as
-  // isCommunityAnnounce), auto-resolved and stored here the moment a
-  // community is picked (see routes/settings.js's PUT /whatsapp and
-  // whatsappClient.js's findAnnouncementGroup) -- never hand-picked,
-  // since it's a structural property of the community, not a choice.
-  // A type with no group of its own posts there instead; only with
-  // neither set is it not sent (see whatsappChannel.js's
-  // hasWhatsAppTarget/postToWhatsApp).
+  // One WhatsApp community with several groups, mapped onto the same three content types as
+  // GroupMe Topics. The community's built-in Announcements group (isCommunityAnnounce) is
+  // resolved and stored when a community is picked (routes/settings.js PUT /whatsapp,
+  // whatsappClient.js findAnnouncementGroup). A type with no group of its own posts there;
+  // with neither set it is not sent (whatsappChannel.js hasWhatsAppTarget/postToWhatsApp).
   whatsappPhoneNumber           String? // digits only, the dedicated number the app is paired as
   whatsappPairedAt              DateTime?
-  // Connection-health tracking for the in-app notifications "WhatsApp
-  // connection drop" category -- whatsappClient.js's own runtime.status/
-  // lastError live only in memory and don't survive a worker restart, so
-  // there was nothing queryable here before. Written whenever the worker's
-  // connection genuinely fails (not on every transient reconnect blip --
-  // see whatsappClient.js's own comment at the write site), cleared on the
-  // next successful (re)connect. whatsappDisconnectedAt null means either
-  // "never paired" or "currently connected" -- the category query
-  // distinguishes those by also requiring whatsappPairedAt to be set.
+  // Connection health for the "WhatsApp connection drop" notification (the worker's in-memory
+  // status does not survive a restart). Written when the connection genuinely fails, not on
+  // transient blips; cleared on the next successful connect. whatsappDisconnectedAt null means
+  // never paired or currently connected; the query tells them apart via whatsappPairedAt.
   whatsappLastError             String?
   whatsappDisconnectedAt        DateTime?
   whatsappCommunityId           String?
@@ -1921,117 +1296,81 @@ model ChurchSettings {
   whatsappOneTimeNeedGroupName  String?
   whatsappNewsletterGroupId     String?
   whatsappNewsletterGroupName   String?
+  whatsappCareGroupId           String?
+  whatsappCareGroupName         String?
 
-  // Joshua Project API key (see backend/src/utils/joshuaProject.js) --
-  // country-level unreached-people-group stats shown on a partner's page,
-  // admin-managed on its own settings page like every other optional
-  // integration. Encrypted at rest the same way as groupmeAccessToken
-  // above, for the same reason -- every route that touches this row
-  // outside routes/settings.js's dedicated
-  // /joshua-project sub-routes must omit it.
+  // Joshua Project API key (utils/joshuaProject.js). Encrypted at rest like
+  // groupmeAccessToken; every route outside routes/settings.js's /joshua-project sub-routes
+  // must omit it.
   joshuaProjectApiKey String?
 
-  // Anthropic API key (see backend/src/utils/extraction.js) -- powers "AI
-  // request scanning," admin-managed on its own settings page like every
-  // other optional integration. Encrypted at rest the same way as
-  // groupmeAccessToken/joshuaProjectApiKey above, for the same reason --
-  // every route that touches this row outside routes/settings.js's
-  // dedicated /ai-extraction sub-routes must omit it. This is real money
-  // (pay-per-scan usage on the key owner's Anthropic account), so treat
-  // "never leaks into a response" here as load-bearing, not a nice-to-have
-  // -- see the dedicated leak-check tests in test/routes/aiExtraction.test.js.
+  // Anthropic API key (utils/extraction.js) for AI request scanning. Encrypted like
+  // groupmeAccessToken; every route outside routes/settings.js's /ai-extraction sub-routes
+  // must omit it. Usage is billed per scan to the key owner, so a leak into a response is a
+  // real cost: see test/routes/aiExtraction.test.js.
   anthropicApiKey String?
 
-  // Anthropic model id used for AI request scanning (see
-  // backend/src/utils/extraction.js) -- null means "use the app's built-in
-  // default," the same optional-override shape as every other per-church
-  // setting that has a sensible built-in fallback. Free text, not an enum --
-  // a self-hosting church may want a model id not on any curated list (see
-  // issue #324), and the built-in default is a separate, deliberate
-  // cost/quality decision tracked elsewhere, not something this field
-  // changes. Not a secret -- plain text, no encryptField, unlike
-  // anthropicApiKey above -- so it rides alongside that write-only key on
-  // the same /ai-extraction settings sub-route instead of needing its own.
+  // Anthropic model id for AI request scanning (utils/extraction.js); null uses the built-in
+  // default. Free text, not an enum, so a church can use any model id (#324). Not a secret, so
+  // unencrypted and saved through the same /ai-extraction sub-route.
   extractionModel String?
 
-  // Postmark server API token for outbound email (see
-  // backend/src/utils/email.js) -- a transactional email provider, not
-  // SMTP against the church's own Gmail/Microsoft mailbox (see #71: that
-  // path has a real expiration date, Microsoft is turning off SMTP AUTH
-  // basic auth for every Exchange Online tenant by end of 2026). Encrypted
-  // at rest the same way as groupmeAccessToken/joshuaProjectApiKey/
-  // anthropicApiKey above, for the same reason -- every route that
-  // touches this row outside routes/settings.js's dedicated /email
-  // sub-routes must omit it. emailFromAddress is the "From:" address
-  // shown to recipients -- not a secret (same as groupmeGroupName etc.
-  // above), so plain text, no encryptField.
+  // Postmark server API token for outbound email (utils/email.js), a transactional provider
+  // rather than SMTP against the church's own mailbox (#71). Encrypted like
+  // groupmeAccessToken; every route outside routes/settings.js's /email sub-routes must omit
+  // it. emailFromAddress is the visible "From:", not a secret.
   postmarkServerToken String?
   emailFromAddress    String?
 
-  // Inbound email (see #72, backend/src/routes/inboundEmail.js) -- same
-  // Postmark account as outbound above, its inbound webhook this time.
-  // Postmark has no HMAC signature verification for inbound webhooks, so
-  // the webhook URL carries HTTP Basic Auth instead; inboundEmailWebhookPassword
-  // is checked against the Authorization header with a constant-time
-  // compare. Encrypted the same way as postmarkServerToken above, for the
-  // same reason -- every route outside routes/settings.js's dedicated
-  // /inbound-email sub-routes (and the webhook handler's own auth check)
-  // must omit it. inboundEmailWebhookUsername is not a secret on its own
-  // (meaningless without the password), so plain text.
+  // Inbound email (#72, routes/inboundEmail.js). Postmark's inbound webhook has no HMAC
+  // signature, so the URL carries HTTP Basic Auth, checked with a constant-time compare. The
+  // password is encrypted like postmarkServerToken; every route outside routes/settings.js's
+  // /inbound-email sub-routes (and the webhook's own check) must omit it. The username is not
+  // a secret on its own.
   inboundEmailWebhookUsername String?
   inboundEmailWebhookPassword String?
 
-  // Per-church on/off switches for optional features -- keys are validated
-  // against the registry in backend/src/utils/features.js (unknown keys
-  // rejected), not modeled as their own columns, so adding a new gate-able
-  // feature later is a one-line registry entry instead of a migration. A
-  // missing key defaults to enabled -- see isFeatureEnabled in that same
-  // file for the one exception (aiExtraction defaults to off).
-  // JSON kept on purpose (#394): a fork adds a feature without a migration.
+  // Per-church feature switches. Keys are validated against utils/features.js's registry, so a
+  // new feature is a registry entry, not a migration. A missing key means enabled (see
+  // isFeatureEnabled for the exception). JSON on purpose.
   enabledFeatures Json @default("{}")
 
-  // Deliberate, explicit opt-out of BackupReminder.jsx's periodic nudge --
-  // distinct from that component's own dismiss-for-30-days (stored in
-  // localStorage, per-browser, temporary). This is server-side and
-  // permanent until an admin turns it back on, for a church that's
-  // confirmed its database provider's own backups are actually working.
-  // Default false: the reminder is on until someone deliberately says
-  // otherwise, not silently opted out by a missing value.
+  // Permanent, server-side opt-out of BackupReminder.jsx's nudge (distinct from its
+  // per-browser 30-day dismiss), for a church that has confirmed its host's backups work.
   backupReminderDisabled Boolean @default(false)
 
-  // #341: how long the audit trail (AuditLog) keeps events, in days -- 30, 60
-  // or 90, pruned daily by the worker. Only the event history expires; the
-  // "last edited by" columns on records are a current-state fact and never do.
+  // How long AuditLog keeps events, in days (30, 60 or 90), pruned daily by the worker. Only
+  // the event history expires; the "last edited by" columns do not.
   auditRetentionDays Int @default(90)
 
-  // #385: require two-factor (TOTP) for every account, whatever its role. One church-wide
-  // switch instead of separate rules per account type. Enforced at sign-in (an account that
-  // hasn't enrolled is sent to enrolment and gets no session) and on every request (a session
-  // opened before the switch was turned on stops working until they enrol), and nobody can
-  // turn it off for themselves while it is on. Off by default: a church turns it on after
-  // its admins have enrolled (the toggle refuses unless the person turning it on has).
+  // Require two-factor (TOTP) for every account. Enforced at sign-in (an unenrolled account is
+  // sent to enrolment and gets no session) and on every request (an earlier session stops
+  // working until they enrol); nobody can turn it off for themselves while it is on. Turning
+  // it on is refused unless the person doing so has enrolled.
   requireTwoFactor Boolean @default(false)
 
-  // #386 Layer 2: passwordless sign-in, church-wide. On: nobody signs in with a password. A person
-  // with a passkey signs in with it alone (it is both factors); one without gets a one-time emailed
-  // link and is then taken through adding a passkey. It implies the two-factor requirement above,
-  // needs working outbound email, and is only turned on by an admin who has a passkey. Passwords
-  // are kept, not deleted, so turning it off puts everyone back where they were.
+  // True on a public demo, written by the demo reset. The environment variable that marks a demo
+  // (DEMO_RESET_TOKEN) is only on the web service, so the separate worker process that runs the
+  // schedules reads this instead, and never emails a demo's seeded accounts (utils/demoMode.js).
+  demoMode Boolean @default(false)
+
+  // Passwordless sign-in, church-wide: a person with a passkey signs in with it alone (it is
+  // both factors); one without gets a one-time emailed link and is taken through adding a
+  // passkey. Implies requireTwoFactor, needs working outbound email, and can only be turned on
+  // by an admin who has a passkey. Passwords are kept, so turning it off restores the previous
+  // state.
   requirePasswordless Boolean @default(false)
 
-  // Schedule for the admin/public email dispatch's three cadence tiers --
-  // biweekly/monthly/quarterly (weekly was retired along with the old
-  // church-wide batch mechanism this replaced; see emailDispatchDelivery.js
-  // and emailDispatchScheduler.js). Biweekly shares emailDispatchDayOfWeek
-  // with nothing else now, kept the same field name rather than renaming
-  // for a tier-set change alone; monthly and quarterly both read
-  // emailDispatchDayOfMonth (capped at 1-28 specifically to dodge the
-  // "the 31st doesn't exist in February" class of edge case), told
-  // apart only by each tier's own minimum-gap check against its own
-  // lastSentAt cursor below -- no separate "which cycle" state needed.
-  // A separate cursor per tier, not one shared one, since the three
-  // fire on different cycles and must each independently dedupe within
-  // their own matching hour.
+  // Offers "Sign in with a passkey" on the sign-in page beside the password form. A passkey (with the
+  // device's own fingerprint, face or screen lock) is the whole sign-in; passwords keep working, so there
+  // is nothing to lock anyone out of. Implied while requirePasswordless is on.
+  allowPasskeySignIn Boolean @default(false)
+
+  // Schedule for the three email dispatch tiers (emailDispatchDelivery.js,
+  // emailDispatchScheduler.js). Biweekly uses emailDispatchDayOfWeek; monthly and quarterly
+  // use emailDispatchDayOfMonth (capped at 1-28 to avoid short months) and are told apart by
+  // each tier's minimum-gap check against its own last*SentAt cursor, which also dedupes
+  // within the matching hour.
   emailDispatchDayOfWeek           Int? // 0 (Sun) - 6 (Sat) -- biweekly
   emailDispatchDayOfMonth          Int? // 1 - 28 -- monthly/quarterly
   emailDispatchHour                Int? // 0 - 23, in this church's configured timezone (see `timezone` below)
@@ -2039,203 +1378,115 @@ model ChurchSettings {
   lastMonthlyEmailDispatchSentAt   DateTime?
   lastQuarterlyEmailDispatchSentAt DateTime?
 
-  // GroupMe's own schedule -- a single daily batch hour, not a tier
-  // pick. GroupMe never actually had an independent schedule before
-  // this (it silently rode the old church-wide digest's now-retired
-  // schedule) -- a weekly/monthly tier wouldn't fit a chat-style,
-  // near-real-time channel anyway, which is also why this field says
-  // "chat dispatch," not "digest" -- GroupMe/WhatsApp are real-time chat
-  // posts, never batched. lastGroupmeChatDispatchSentAt is this
-  // schedule's own dedupe guard, mirroring the email-dispatch cursors
-  // above but at daily granularity -- no day-of-week/day-of-month field
-  // needed, since there's no larger period to pick a day within. See
-  // groupmeChannel.js's shouldFlushGroupMe.
+  // GroupMe/WhatsApp are real-time chat posts, never batched: one daily batch hour, with
+  // lastGroupmeChatDispatchSentAt as its dedupe guard (groupmeChannel.js shouldFlushGroupMe).
   chatDispatchHour               Int? // 0 - 23, in this church's configured timezone
   lastGroupmeChatDispatchSentAt  DateTime?
-  // WhatsApp shares chatDispatchHour above (and the three
-  // chatDispatch* content-type mutes) -- one chat schedule, not two --
-  // but keeps its own dedupe cursor. A shared cursor would let whichever
-  // channel ran first on a tick stamp it and block the other from ever
-  // sending that day.
+  // WhatsApp shares chatDispatchHour and the chatDispatch* mutes but keeps its own cursor: a
+  // shared one would let whichever channel ran first block the other all day.
   lastWhatsappChatDispatchSentAt DateTime?
 
-  // This church's own IANA timezone (e.g. "America/New_York"), applied
-  // to process.env.TZ once at server startup (see server.js) -- every
-  // Hour-based schedule check above, plus birthdays/furlough elsewhere
-  // in this app, depends on process.env.TZ actually matching the
-  // church's real local time, which nothing set before this field
-  // existed (Render's own default is UTC). Defaults to "America/Chicago"
-  // rather than UTC -- every church this app has actually been built
-  // for so far is US-based, so a brand-new deployment that never visits
-  // this setting should already be close to correct, not off by several
-  // hours until someone finds and changes it. Still just a starting
-  // point: any church can pick its own real zone from this field's
-  // `<select>`. Changing this takes effect on the next restart/deploy,
-  // not instantly -- process.env.TZ is read once at boot, since changing
-  // it mid-process is documented as unreliable.
+  // This church's IANA timezone, applied to process.env.TZ at startup (server.js). Every
+  // hour-based schedule check, birthdays and furlough depend on it. Defaults to
+  // America/Chicago, not UTC, so an unconfigured US deployment is close. Takes effect on the
+  // next restart, since changing TZ mid-process is unreliable.
   timezone String @default("America/Chicago")
 
-  // Per-channel content-type mutes, chat channels only (GroupMe and
-  // WhatsApp) -- the admin email dispatch always includes every content
-  // type it's allowed to (no toggle), and the public email dispatch was
-  // never toggle-based either (structurally prayer-requests-only
-  // regardless). Chat channels are different: they're near-real-time,
-  // where muting one content type while keeping others is a real,
-  // worthwhile control. Default true (matches this app's long-standing
-  // behavior: every content type dispatched unless muted).
+  // Content-type mutes for the chat channels only (GroupMe, WhatsApp); email dispatches
+  // include every content type they are allowed to. Default true.
   chatDispatchPrayerRequests     Boolean @default(true)
   chatDispatchOneTimeNeeds       Boolean @default(true)
   chatDispatchNewsletters        Boolean @default(true)
-  // The one setting that applies to every channel equally (GroupMe,
-  // WhatsApp, and both email dispatches), not just the chat channels --
-  // a creation-time safety gate, not a delivery preference: off means a
-  // restricted partner's event is never recorded at all, for any type,
-  // because the review gate it would otherwise wait on (see
-  // DispatchRecord.dispatchReviewedAt) waits on a human action that
-  // might never come, and a church that doesn't actively watch that
-  // review queue needs a way to opt out of the burden entirely rather
-  // than accumulate an ever-growing unreviewed backlog. Defaults off --
-  // this is a real safety gate (restricted-partner content waiting on
-  // manual review, possibly indefinitely), not something a church
-  // should be opted into without deciding to take it on.
+  // Partner care posts to the same chats, one switch each: a coming key date, a partner nobody has heard
+  // from, and news waiting to be passed on to a partner. Off by default, so nothing starts posting to a
+  // church's group until someone turns it on. They share one Partner care topic/group.
+  chatDispatchKeyDates           Boolean @default(false)
+  chatDispatchQuietPartners      Boolean @default(false)
+  chatDispatchUpdatesToPass      Boolean @default(false)
+  // Applies to every channel. Off means a restricted partner's event is never recorded, for
+  // any type, so a church that does not watch the review queue
+  // (DispatchRecord.dispatchReviewedAt) does not accumulate an unreviewed backlog. Default off
+  // because it is a safety gate.
   allowRestrictedPartnerDispatch Boolean @default(false)
 
-  // #327 Finding 10 -- a restricted partner's masked display name is
-  // initials of their real name (e.g. "J.R.") everywhere a restricted
-  // partner can surface publicly: the public site, GroupMe/WhatsApp
-  // dispatch messages, and email digests. For a small country, initials
-  // plus country plus household shape can be enough to re-identify who
-  // that is to someone who knows the local mission community. Default
-  // true (today's long-standing behavior, unchanged unless a church
-  // turns it off) -- turning it off falls back to the partner's own
-  // fieldDisplayName (e.g. "Northern Uganda") if set, else a fixed
-  // generic label. See utils/maskData.js's maskedDisplayName().
+  // A restricted partner's masked display name is the initials of their real name (e.g.
+  // "J.R.") on the public site, chat dispatches and email digests. In a small country,
+  // initials plus country plus household shape can re-identify them. Off falls back to
+  // fieldDisplayName, else a generic label (utils/maskData.js maskedDisplayName()).
   restrictedPartnerInitialsEnabled Boolean @default(true)
 
-  // #291: who key-date reminders go to for a partner with no care team (and,
-  // with the care team feature on, who is "on the hook" until one is set).
-  // Optional; SetNull so deleting the login just clears it. Set from
-  // /api/care-team/default-lead, not the generic settings route.
-  defaultCareLeadUserId String?
-  defaultCareLead       User?   @relation("ChurchDefaultCareLead", fields: [defaultCareLeadUserId], references: [id], onDelete: SetNull)
+  // What this church calls the group that looks after every partner without a care team of its own
+  // ("Missions team", "Missions committee", "Board"...). Null means the app's neutral default. Wording only:
+  // membership is User.onMissionsTeam, and nothing in code depends on the name.
+  ownerGroupName String?
 
-  // #365: how many days ahead a key date is raised (the bell and the daily email always
-  // agree), and how many days without a logged contact make a partner "quiet". Fixed defaults
-  // until an admin changes them under Settings -> Care Teams.
+  // The email-digest tier (biweekly | monthly | quarterly) a person starts on when they are added to the missions
+  // team and have none yet, covering the partners they look after. Null = nobody is subscribed automatically.
+  defaultDigestCadence String?
+
+  // Days ahead a key date is raised (bell and daily email agree), and days without a logged
+  // contact before a partner is "quiet".
   keyDateLeadDays  Int @default(7)
+  // Earlier heads-ups for a key date, in days before it (default 90 and 30). They ride in the email digest;
+  // the final one (keyDateLeadDays) goes out on its own when the next digest would come too late.
+  keyDateAdvanceDays Int[] @default([90, 30])
   contactStaleDays Int @default(90)
 
-  // Email dispatch customization (see #182) -- null subject/signature
-  // means "use the built-in default" (see DEFAULT_SUBJECT_TEMPLATE in
-  // emailDispatchShell.js), same blank-means-default convention every
-  // other admin-text field in this app already follows. Shared config:
-  // the same three settings drive both the admin and public email
-  // dispatch now, not an admin-only concern.
-  // emailDispatchSubjectTemplate supports {church}/{month}/{year}/{date}/
-  // {cadence}/{name}/{term} tokens, substituted in emailDispatchShell.js
-  // -- an admin writes plain text, not a real template language, so no
-  // other token syntax (conditionals, loops) is ever needed or supported.
+  // Email dispatch customization; null subject/signature means the built-in default
+  // (DEFAULT_SUBJECT_TEMPLATE in emailDispatchShell.js). Shared by the admin and public
+  // dispatches. The subject template supports
+  // {church}/{month}/{year}/{date}/{cadence}/{name}/{term}, substituted in
+  // emailDispatchShell.js; no other syntax.
   emailDispatchSubjectTemplate String?
-  // A short closing line (a verse, "Questions? Contact us", etc.) shown
-  // near the email dispatch's footer, above the unsubscribe link.
-  // Deliberately separate from publicTagline (the public-site subtitle)
-  // -- this is email-specific and never shown anywhere else.
+  // Closing line shown above the unsubscribe link; email-only, separate from publicTagline.
   emailDispatchSignature       String? @db.Text
-  // Which layout to render -- "classic" (plain text-only partner cards,
-  // the original design) or "snapshot" (adds each partner's
-  // photo/silhouette, field, "Supporting since", and short overview above
-  // their items -- see emailDispatchShell.js's partnerTileDetails()).
-  // Null/unset means "classic", so every church's email dispatch looks
-  // exactly the same as before this field existed until one opts in.
+  // "classic" (text-only partner cards) or "snapshot" (adds photo, field, "Supporting since"
+  // and short overview; see emailDispatchShell.js partnerTileDetails()). Null means "classic".
   emailDispatchLayout          String? // "classic" | "snapshot"
 
-  // Admin-configurable availability of the three email-digest cadence
-  // tiers themselves (#209) -- which tiers an admin (Account Settings)
-  // and a public subscriber (the Subscribe page / "follow this partner"
-  // form) are even offered, independent of emailDispatchDayOfWeek/
-  // DayOfMonth above (whether a tier's schedule is actually set). Same
-  // per-boolean-column pattern as the chatDispatch* content-type mutes
-  // above, applied to tiers instead of content types. Biweekly defaults
-  // off (the initial ask behind this field: drop biweekly from new
-  // signups, default to monthly) while monthly/quarterly default on,
-  // matching every subscriber's existing behavior before this field
-  // existed. At least one tier must stay enabled -- settingsDispatches.js's
-  // PUT rejects a request that would leave all three off, since the
-  // migration logic below needs somewhere to send a descoped subscriber.
+  // Which of the three cadence tiers are offered to admins (Account Settings) and public
+  // subscribers, independent of whether the tier's schedule is set (#209). At least one must
+  // stay enabled: settingsDispatches.js's PUT rejects all three off.
   cadenceBiweeklyEnabled  Boolean @default(false)
   cadenceMonthlyEnabled   Boolean @default(true)
   cadenceQuarterlyEnabled Boolean @default(true)
 
-  // Trips (#252) -- church-level, not per-trip. A church's online giving
-  // platform and how it's configured doesn't change trip-to-trip.
   onlineGivingUrl          String? // link to the church's own external online giving platform, if it has one
   onlineGivingInstructions String? @db.Text // which fund/category to pick, how to include the participant's name
 
-  // Opt-in gate for TripContribution.donorEmail/donorPhone -- off by
-  // default, since this is extra PII about a third party a church might
-  // not want to collect at all. Purely a UI-surfacing switch, not a
-  // schema gate -- the columns stay regardless of this toggle's state.
+  // Opt-in: donorEmail/donorPhone are extra third-party PII. A UI switch only; the columns
+  // stay.
   collectDonorContactInfo Boolean @default(false)
 
-  // Church-wide gate on whether the public application form asks a
-  // trip applicant for their mailing address at all (TripApplication's
-  // structured address columns, above) -- deliberately defaults to
-  // `true`, unlike collectDonorContactInfo just above: a participant's
-  // own mailing address is routine, expected trip-application content
-  // (useful for support-letter mailings), not third-party PII a church
-  // might be squeamish about collecting by default.
+  // Whether the public application form asks for a mailing address. On by default: routine for
+  // a trip application.
   collectApplicantAddress Boolean @default(true)
 
-  // Church-wide gate on whether the public application form asks a trip
-  // applicant for an emergency contact (TripApplication's structured
-  // emergencyContactName/Phone/Email columns, above) -- defaults to
-  // `true`, same reasoning as collectApplicantAddress: routine,
-  // safety-relevant trip-application content, not optional third-party
-  // PII a church would be squeamish about collecting by default.
+  // Whether the application form asks for an emergency contact. On by default: routine and
+  // safety-relevant.
   collectEmergencyContact Boolean @default(true)
 
-  // Church-wide gate on the "Generate private application link" action
-  // -- without this on, no Trip.applicationShareToken can ever be
-  // created, and a privately-recruited trip is admin-entry-only.
+  // Gate on "Generate private application link": off means no Trip.applicationShareToken can
+  // be created.
   allowPrivateApplicationLinks   Boolean @default(false)
-  // Church-wide gate on whether a TripParticipant.shareToken is ever
-  // generated at all -- a church that wants team/meeting/document/
-  // contribution management but no individual public-facing support-raising
-  // pages leaves this off.
+  // Gate on generating TripParticipant.shareToken.
   allowPublicSupportRaisingLinks Boolean @default(false)
 
-  // Church-wide gate on whether the Budget section (TripBudgetLine)
-  // shows on AdminTripBudget.jsx at all -- defaults to `false`, matched
-  // against allowPrivateApplicationLinks/allowPublicSupportRaisingLinks'
-  // precedent (an opt-in admin planning capability a church either wants
-  // or doesn't), not collectApplicantAddress/collectEmergencyContact's
-  // precedent (routine public-application-form content, default on).
+  // Whether the Budget section (TripBudgetLine) shows in AdminTripBudget.jsx. Opt-in.
   enableTripBudgeting Boolean @default(false)
 
-  // Not trip-specific at all -- the address partners were told (outside
-  // this app) to send their newsletters/updates to, under whatever
-  // inbound domain was configured in Postmark's own dashboard. Purely
-  // informational/display, same as emailFromAddress being informational
-  // about a domain verified entirely in Postmark's own UI -- gives
-  // admins an in-app place to see/share the address partners already
-  // send newsletters to.
+  // The address partners were told (outside this app) to send newsletters to, under the
+  // inbound domain set in Postmark. Display only.
   inboundEmailAddress String?
 
-  // The church-wide application questions, the requirement checklist copied onto every new trip,
-  // and the two pick-from libraries are real rows, not JSON (#394): ApplicationQuestion with scope
-  // "template" or "library", and RequirementTemplateItem with scope "template" or "library".
-  // Settings -> Mission Trips reads and saves them as ordered lists. See utils/tripTemplates.js.
+  // The church-wide application questions, requirement checklist and the two pick-from
+  // libraries are real rows (ApplicationQuestion, RequirementTemplateItem; scope "template" or
+  // "library"); see utils/tripTemplates.js.
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   updatedById String?
 
-  // #341: who last changed this record, as a current-state fact (overwritten in
-  // place, never pruned -- unlike the AuditLog event history). Stamped
-  // centrally by the Prisma client extension in prismaClient.js from the
-  // signed-in user of the request; left alone by background jobs, the seed and
-  // public submissions, which have no signed-in person. The name is a snapshot
-  // so it still reads after that account is deleted.
   lastEditedById   String?
   lastEditedByName String?
   lastEditedAt     DateTime?
@@ -2247,120 +1498,80 @@ model ChurchSettingsLogo {
   logoBytes Bytes
 }
 
-// Users who can log into the admin backend.
-//
-// authProvider is always "local" (email + password, optionally with TOTP
-// two-factor). It used to also carry an SSO provider's type; SSO was removed
-// in 3.1.0 because auto-provisioning handed an account to anyone at the
-// configured identity provider, and in this app any account can read every
-// partner's full record. The column stays so routes/auth.js can keep
-// refusing to password-authenticate anything that isn't "local" -- cheap
-// insurance if a passwordless row is ever created some other way.
+// Users who can log into the admin backend. authProvider is always "local" (email + password,
+// optionally TOTP). The column stays so routes/auth.js can refuse to password-authenticate any
+// row that isn't, as insurance against a passwordless row created some other way. SSO was
+// dropped because auto-provisioning handed an account (which can read every partner's full
+// record) to anyone at the identity provider.
 model User {
   id           String    @id @default(uuid())
   email        String    @unique
-  // #257/#271 Finding 4: split first/last.
   firstName    String?
   lastName     String?
-  passwordHash String? // nullable only for historical rows; every account created now is local
+  // Optional, so the church can reach a login (care team member, trip leader, guest) for an update.
+  // Seen only by signed-in staff roles, never by a guest or on a public page.
+  phone        String?
+  // A line or two about the person: how they help, when they are easiest to reach.
+  profile      String?
+  passwordHash String? // null for a pending account until its setup link is redeemed
   authProvider String    @default("local")
   role         String    @default("editor") // "admin" | "editor" | "viewer" | "guest"
   active       Boolean   @default(true)
   createdAt    DateTime  @default(now())
   lastLoginAt  DateTime?
 
-  // #327 Finding 7: a logged-out-still-valid session token, stolen before
-  // (or during) a password/MFA change, kept working for the rest of its
-  // 8-hour lifespan regardless -- logout only ever cleared the cookie,
-  // never the token itself, and nothing about changing the password or
-  // MFA touched any *other* session already issued. Embedded in the
-  // session JWT at sign time (utils/jwt.js) and compared against this
-  // column on every request (middleware/requireAuth.js) -- a mismatch
-  // means the token predates a change that should have ended it.
-  // Incremented on self-service password change, an admin-set password
-  // reset, MFA enable/disable (self-service or admin-forced), and a role
-  // change -- deliberately NOT on logout itself, which stays scoped to
-  // just the one cookie/browser it actually represents (a user signed in
-  // on two devices who logs out of one shouldn't be silently signed out
-  // of the other).
+  // Embedded in the session JWT (utils/jwt.js) and compared on every request
+  // (middleware/requireAuth.js); a mismatch means the token predates a change that should have
+  // ended it. Incremented on password change or reset, MFA enable/disable and role change, but
+  // not on logout, which stays scoped to one browser.
   sessionVersion Int @default(0)
 
-  // Guest tier only (role: "guest") -- a real login/session account, not a
-  // reduction of any existing role's visibility (see the "auth is the
-  // boundary" model below: every other role still sees everything). A
-  // deliberately narrow tier instead: reach comes only from grant rows
-  // (TripAccess today; #289 adds care team seats), never from the role
-  // itself, so a guest with no active grant can do nothing and
-  // requireAuth refuses the session outright. Replaces the old single
-  // scopedTripId/expiresAt pair (#356).
+  // Guest tier (role "guest"): reach comes only from grant rows (TripAccess, CareTeamMember),
+  // never from the role, so a guest with no active grant can do nothing and requireAuth
+  // refuses the session.
   tripAccess TripAccess[]
 
-  // TOTP MFA — opt-in per user, self-service enroll/disable from Account
-  // Settings; mfaSecret is only ever set once mfaEnabled flow starts, and
-  // is cleared whenever MFA is turned off (self-service or admin reset).
-  // Encrypted at rest (see backend/src/utils/crypto.js) — TOTP verification
-  // needs the raw secret back, so this can't be a one-way hash like a
-  // password.
+  // TOTP MFA, opt-in and self-service. mfaSecret is cleared whenever MFA is turned off.
+  // Encrypted at rest (utils/crypto.js) because verification needs the raw secret, so it
+  // cannot be a one-way hash.
   mfaEnabled       Boolean @default(false)
   mfaSecret        String?
-  // The last TOTP time step accepted for this user, so the same code can't
-  // be used twice. A TOTP code stays valid for its whole 30-second window,
-  // which means one shoulder-surfed or phished code is replayable until it
-  // expires; otplib rejects a repeat when the accepted step is passed back
-  // as `afterTimeStep`. Null until their first successful code.
+  // Last TOTP time step accepted, so a code cannot be replayed within its 30-second window
+  // (otplib's afterTimeStep). Null until the first successful code.
   mfaLastTimeStep  Int?
-  // Admin-set per-user policy flag: forces enrollment at next login when
-  // true and mfaEnabled is still false. Independent of mfaEnabled so an
-  // admin can mandate MFA for an account without knowing/setting the
-  // secret themselves — the user still does the actual QR scan.
+  // Admin-set: forces enrollment at next login while mfaEnabled is false. The user still does
+  // the QR scan.
   mfaSetupRequired Boolean @default(false)
 
-  // #365: someone on a care team who doesn't want the daily key-date email. The bell alert is
-  // unaffected. Self-service from My account.
+  // A care team member who opts out of the daily key-date email; the bell is unaffected.
   keyDateEmailOptOut Boolean @default(false)
+
+  // On the church's missions team (the group named by ChurchSettings.ownerGroupName): looks after every
+  // partner that has no care team of its own, so key-date reminders, My partners and the reach-out alerts
+  // reach them for those partners (utils/ownership.js). A guest is never on it.
+  onMissionsTeam Boolean @default(false)
 
   passkeys         UserPasskey[]
   signInLinkTokens SignInLinkToken[]
 
-  // Opt-in per user, self-service from Account Settings -- same pattern
-  // as MFA above. null = not subscribed to the admin digest email (see
-  // emailDispatchDelivery.js); a value is which of the three cadence
-  // tiers this user picked. Renamed from digestFrequency -- matches the
-  // word this app's own docs/plan already use everywhere in prose, and
-  // no longer collides in meaning with ChurchSettings' own, unrelated
-  // digestFrequency (the old church-wide batch mechanism's field,
-  // retired). One nullable field for "subscribed at all" and "to what
-  // cadence" together, same convention as DispatchRecord.dispatchReviewedAt,
-  // not two fields that could disagree. Flipped to null directly by the
-  // signed unsubscribe link in every digest email's footer, no login
-  // required (see this file's own /unsubscribe route).
+  // Opt-in admin digest email, self-service. null = not subscribed; otherwise the cadence tier
+  // picked. Set to null by the signed unsubscribe link in every digest footer, no login
+  // required.
   cadence           String? // "biweekly" | "monthly" | "quarterly" | null
-  // Scope for this user's own digest, independent of the schedule
-  // above -- mirrors PublicSubscriber's identical shape.
-  // false means only the partners in followedPartners below; true (the
-  // default, matching every existing subscriber's current behavior)
-  // means every partner this user's role can already see.
-  allPartners       Boolean               @default(true)
+  // Which partners the digest covers: "owned" = the partners this person looks after (their care team seats, and
+  // for the missions team every partner with no team: utils/ownership.js), "all" = every partner this user's
+  // role can see, "followed" = only followedPartners. A guest is always "owned" whatever is stored.
+  digestScope       String                @default("all")
   followedPartners  UserFollowedPartner[]
   careTeamSeats     CareTeamMember[]
   contactsMade      ContactLog[]          @relation("ContactLogContactedBy")
   contactsEntered   ContactLog[]          @relation("ContactLogCreatedBy")
   keyDateReminders  KeyDateReminder[]
-  defaultLeadFor    ChurchSettings[]      @relation("ChurchDefaultCareLead")
   notificationsSeen NotificationSeen[]
   savedReports      SavedReport[]
 
-  // Welcome-email / first-time password setup links (see
-  // utils/passwordSetup.js). A pending account has passwordHash null until
-  // one of these is redeemed.
   passwordSetupTokens PasswordSetupToken[]
 
-  // #341: who last changed this record, as a current-state fact (overwritten in
-  // place, never pruned -- unlike the AuditLog event history). Stamped
-  // centrally by the Prisma client extension in prismaClient.js from the
-  // signed-in user of the request; left alone by background jobs, the seed and
-  // public submissions, which have no signed-in person. The name is a snapshot
-  // so it still reads after that account is deleted.
   lastEditedById   String?
   lastEditedByName String?
   lastEditedAt     DateTime?
@@ -2383,17 +1594,13 @@ model PasswordSetupToken {
   @@index([expiresAt])
 }
 
-// #356: a guest login's access to one trip. Effective access = the
-// guest role's (empty) baseline plus whatever grants exist, so this row
-// IS the permission. Grants never allow deletes, profile edits or
-// settings -- that limit lives in the routes' requireRole lists, not
-// here.
+// A guest login's access to one trip: this row is the permission (beyond the guest role's empty
+// baseline). Grants never allow deletes, profile edits or settings; that limit is in the routes'
+// requireRole lists.
 //
-// Expiry is derived at check time (utils/guestAccess.js), not stored:
-// when expiresAt is null the grant lapses 30 days after Trip.endDate, so
-// changing the trip's dates moves the expiry with it; a trip with no end
-// date never lapses on its own. expiresAt is only an admin override
-// ("extend" or "end now"), and it wins over the derived date either way.
+// Expiry is derived at check time (utils/guestAccess.js): expiresAt null lapses 30 days after
+// Trip.endDate (a trip with no end date never lapses). expiresAt is only an admin override
+// ("extend" or "end now") and wins either way.
 model TripAccess {
   id        String    @id @default(uuid())
   userId    String
@@ -2407,13 +1614,9 @@ model TripAccess {
   @@index([tripId])
 }
 
-// Per-user, per-category "last looked at this" marker for the in-app
-// notification bell -- not one shared timestamp, because clearing one
-// person's "new" highlight must never clear it for a teammate who hasn't
-// looked yet (see notifications/categories.js's own header comment for the
-// full reasoning). The *count* a category shows is always a live query
-// against real data, shared by everyone; only the "new since you looked"
-// emphasis is personal, which is all this table tracks.
+// Per-user, per-category "last looked at" marker for the notification bell. Personal so clearing
+// one person's "new" highlight never clears a teammate's (see notifications/categories.js);
+// counts are live queries.
 model NotificationSeen {
   userId   String
   category String
@@ -2423,10 +1626,8 @@ model NotificationSeen {
   @@id([userId, category])
 }
 
-// Join rows for a user's specific-partner digest scope (#202) -- only
-// populated when User.allPartners is false. Identical shape to
-// PublicSubscriberPartner below, intentionally -- same mechanism, two
-// different subscriber sources.
+// A user's specific-partner digest scope; only used when User.digestScope is "followed". Same shape
+// as PublicSubscriberPartner.
 model UserFollowedPartner {
   userId    String
   partnerId String
@@ -2437,19 +1638,12 @@ model UserFollowedPartner {
   @@index([partnerId])
 }
 
-// #289: a login's seat on one partner's care team -- the people at the
-// church who keep in touch with that partner. Any number of members, at
-// most ONE lead per partner (enforced in routes/careTeams.js inside a
-// transaction, and by the partial unique index added to the migration by
-// hand, which Prisma's schema language can't express). Everyone on a care
-// team gets the same notifications (later steps); being on one adds a
-// marker and an "Assigned to me" view, never extra visibility for a full
-// role. For a guest login a seat IS a grant: it reaches that partner (the
-// same way TripAccess reaches a trip's), and unlike a trip grant it never
-// expires -- an admin removes the member when they step down. Every member
-// must have a login (a guest if they're outside the team); there are no
-// account-less members. Gated by the `careTeam` feature; off = hidden and
-// ignored for access, data preserved.
+// A login's seat on one partner's care team. Any number of members, at most one lead per partner
+// (routes/careTeams.js in a transaction, plus a partial unique index added to the migration by
+// hand, which Prisma can't express). A seat adds a marker and an "Assigned to me" view, never
+// extra visibility for a full role. For a guest a seat is a grant that reaches that partner and
+// never expires. Every member has a login. Gated by the `careTeam` feature: off = hidden and
+// ignored for access, data kept.
 model CareTeamMember {
   id        String   @id @default(uuid())
   partnerId String
@@ -2459,12 +1653,6 @@ model CareTeamMember {
   isLead    Boolean  @default(false)
   createdAt DateTime @default(now())
 
-  // #341: who last changed this record, as a current-state fact (overwritten in
-  // place, never pruned -- unlike the AuditLog event history). Stamped
-  // centrally by the Prisma client extension in prismaClient.js from the
-  // signed-in user of the request; left alone by background jobs, the seed and
-  // public submissions, which have no signed-in person. The name is a snapshot
-  // so it still reads after that account is deleted.
   lastEditedById   String?
   lastEditedByName String?
   lastEditedAt     DateTime?
@@ -2473,9 +1661,8 @@ model CareTeamMember {
   @@index([userId])
 }
 
-// #374: support preferences -- the ways a church and a partner's care team can support
-// the partner, as a menu the church owns (it is data, never code, so a fork edits it in
-// Settings) and a partner's choices from it. Gated by the `supportPreferences` feature.
+// Support preferences: a menu of ways to support a partner, owned by the church (data, editable
+// in Settings), and each partner's choices from it. Gated by the `supportPreferences` feature.
 //
 // `kind` is how the partner answers: "offer" (a thing we offer: tick it if wanted),
 // "single" or "multiple" (pick from `choices`, optionally with an "other" box), or "text".
@@ -2491,13 +1678,14 @@ model SupportOption {
   allowOther Boolean  @default(false)
   sortOrder  Int      @default(0)
   active     Boolean  @default(true)
+  // Answers are hidden from care team guests and shown only to staff (admin, editor, viewer).
+  staffOnly  Boolean  @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   preferences PartnerSupportPreference[]
 
-  // #341: who last changed this record (see CareTeamMember).
   lastEditedById   String?
   lastEditedByName String?
   lastEditedAt     DateTime?
@@ -2525,7 +1713,6 @@ model PartnerSupportPreference {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // #341: who last changed this record (see CareTeamMember).
   lastEditedById   String?
   lastEditedByName String?
   lastEditedAt     DateTime?
@@ -2534,7 +1721,7 @@ model PartnerSupportPreference {
   @@index([optionId])
 }
 
-// #394: one question on a trip application, in an admin-chosen order. `scope` says where it lives:
+// One question on a trip application, in an admin-chosen order. `scope` says where it lives:
 // "trip" (that trip's own questions, tripId set), "template" (the church-wide questions every
 // trip's form asks first) or "library" (a pick-from list, never shown on a form until copied).
 // `type` is app-validated (text, textarea, select, checkboxes, date); `options` only matters for
@@ -2552,11 +1739,13 @@ model ApplicationQuestion {
 
   answers TripApplicationAnswer[]
 
+  createdAt DateTime @default(now())
+
   @@index([tripId])
   @@index([scope, position])
 }
 
-// #394: one answer on a submitted application. `label` is the question as it was worded when the
+// One answer on a submitted application. `label` is the question as it was worded when the
 // person answered; `questionId` is cleared if the question is later deleted, so the answer stays
 // readable. A text answer is `value`; a checkboxes answer is `values`.
 model TripApplicationAnswer {
@@ -2574,7 +1763,7 @@ model TripApplicationAnswer {
   @@index([questionId])
 }
 
-// #394: one entry of the church-wide requirement checklist. `scope` "template" is copied onto every
+// One entry of the church-wide requirement checklist. `scope` "template" is copied onto every
 // new, still-active trip as real TripRequirement rows; "library" is a pick-from list for a single
 // trip. Same fields as TripRequirement, minus the dates and statuses that only exist on a real one.
 model RequirementTemplateItem {
@@ -2590,7 +1779,7 @@ model RequirementTemplateItem {
   @@index([scope, position])
 }
 
-// #386 Layer 2: a one-time sign-in link, emailed to someone who has no passkey yet while the church
+// A one-time sign-in link, emailed to someone who has no passkey yet while the church
 // signs in without passwords. Like PasswordSetupToken, only a SHA-256 hash of the random token is
 // stored, a link is dead once used or expired, and issuing a new one deletes the older unused ones.
 model SignInLinkToken {
@@ -2606,7 +1795,7 @@ model SignInLinkToken {
   @@index([expiresAt])
 }
 
-// #412: a passkey challenge that has been used. A challenge travels to the browser and back inside a
+// A passkey challenge that has been used. A challenge travels to the browser and back inside a
 // short-lived signed token, and is accepted once: its id is recorded here until it would have
 // expired anyway, so "once" holds across restarts and across more than one instance. Rows are
 // deleted as they expire; nothing here is worth backing up.
@@ -2617,7 +1806,7 @@ model SpentPasskeyChallenge {
   @@index([expiresAt])
 }
 
-// #386: a passkey (WebAuthn credential) a person has added as a second sign-in factor, next to or
+// A passkey (WebAuthn credential) a person has added as a second sign-in factor, next to or
 // instead of an authenticator app. Only public material is stored: the credential id and the public
 // key (both base64url text), the signature counter, and the transports the browser reported. A
 // person with one or more has User.mfaEnabled true, so everything that asks "is a second factor
@@ -2638,41 +1827,29 @@ model UserPasskey {
   @@index([userId])
 }
 
-// A public, no-login email subscription to prayer-request updates.
-// Rides the exact same DispatchRecord rows an admin subscriber does,
-// through the one shared isEligibleForChannel function
-// (dispatchEligibility.js) -- structurally prayer-requests-only,
-// never a one-time need, never a newsletter or a link back to one; see
-// emailDispatchDelivery.js for the shared send-pass both subscriber types
-// go through, and emailDispatchShell.js for the shared render shell.
-//
-// Double opt-in: confirmedAt null means "never confirmed, never sent
-// to." A row is created unconfirmed on POST /api/public/subscribe and
-// only starts receiving digests once the emailed confirmation link is
-// clicked.
+// A public, no-login email subscription to prayer-request updates, using the same DispatchRecord
+// rows and isEligibleForChannel as admin subscribers: prayer requests only, never a one-time
+// need or newsletter. Double opt-in: a row is created unconfirmed on POST /api/public/subscribe
+// and only starts receiving digests once the emailed link is clicked (confirmedAt null means
+// never sent to).
 model PublicSubscriber {
   id          String    @id @default(uuid())
   email       String    @unique
   confirmedAt DateTime?
   createdAt   DateTime  @default(now())
 
-  // Which of the three cadence tiers this subscriber picked -- same
-  // three options User.cadence above already uses. Renamed from
-  // frequency to match -- see that field's own comment for why.
-  // Defaults to "biweekly," the nearest tier now that weekly is gone.
+  // Same cadence options as User.cadence.
   cadence String @default("biweekly") // "biweekly" | "monthly" | "quarterly"
 
-  // Same all-vs-specific shape as User.allPartners above.
+  // Same all-vs-specific shape as User.digestScope above.
   allPartners    Boolean                   @default(true)
   scopedPartners PublicSubscriberPartner[]
 
   @@index([confirmedAt])
 }
 
-// Join rows for a public subscriber's specific-partner scope -- only
-// populated when PublicSubscriber.allPartners is false. See
-// UserFollowedPartner's own comment above for why this is a separate,
-// identically-shaped table rather than one polymorphic one.
+// A public subscriber's specific-partner scope; only used when PublicSubscriber.allPartners is
+// false.
 model PublicSubscriberPartner {
   subscriberId String
   partnerId    String
@@ -2683,16 +1860,183 @@ model PublicSubscriberPartner {
   @@index([partnerId])
 }
 
-// The WhatsApp (Baileys) session, one row per auth-state key: "creds"
-// plus a row per Signal key ("pre-key-12", "session-<jid>", ...). Lives in
-// the database, not on disk, because Render's web-service filesystem is
-// ephemeral -- a file-based session would be wiped on every deploy and
-// force a re-pair. `value` is always an encryptField() ciphertext (the
-// serialized JSON never touches the table in plaintext), so losing
-// FIELD_ENCRYPTION_KEY means re-pairing, exactly like losing the GroupMe
-// token. Never selected into any API response -- see whatsappAuthState.js.
+// The WhatsApp (Baileys) session, one row per auth-state key ("creds" plus a row per Signal
+// key). In the database because Render's filesystem is ephemeral. `value` is always an
+// encryptField() ciphertext, so losing FIELD_ENCRYPTION_KEY means re-pairing. Never selected
+// into any API response (whatsappAuthState.js).
 model WhatsAppAuthEntry {
   key       String   @id
   value     String
   updatedAt DateTime @updatedAt
+}
+
+// Partner surveys (#419), gated by the `surveys` feature. A church builds a survey (title, intro,
+// ordered questions), opens it, and a person sends each chosen partner a personal link. Answers
+// are one SurveyResponse per partner per survey, entered by the partner through the link or by a
+// staff member on their behalf. Never public, never in the booklet or a dispatch.
+model Survey {
+  id       String    @id @default(uuid())
+  title    String
+  intro    String?   @db.Text
+  status   String    @default("draft") // "draft" | "open" | "closed"
+  closesAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  questions SurveyQuestion[]
+  invites   SurveyInvite[]
+  responses SurveyResponse[]
+  proposals SurveyProposal[]
+
+  lastEditedById   String?
+  lastEditedByName String?
+  lastEditedAt     DateTime?
+}
+
+// `kind`: "single" | "multiple" (pick from `choices`, optionally with an "other" box), "text",
+// "yesno" or "photo". `field` links the question to a part of the partner's record (see
+// utils/surveyFields.js): an answer that differs from what is on file becomes a proposed change
+// for staff to approve, never an automatic edit. Deleting a question keeps its answers readable: each answer carries the label as it
+// was worded when given.
+model SurveyQuestion {
+  id         String   @id @default(uuid())
+  surveyId   String
+  survey     Survey   @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  position   Int      @default(0)
+  kind       String   @default("text")
+  label      String
+  choices    String[]
+  allowOther Boolean  @default(false)
+  required   Boolean  @default(false)
+  field      String?
+
+  createdAt DateTime @default(now())
+
+  answers   SurveyAnswer[]
+  proposals SurveyProposal[]
+  uploads   SurveyUpload[]
+
+  @@index([surveyId, position])
+}
+
+// One personal link for one partner. The link's token is stored only as a hash, so a database
+// read can't be turned back into a working link. `sentAt` is when a person last sent it.
+model SurveyInvite {
+  id         String    @id @default(uuid())
+  surveyId   String
+  survey     Survey    @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  partnerId  String
+  partner    Partner   @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  sentAt     DateTime?
+  sentById   String?
+  sentByName String?
+  openedAt   DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@unique([surveyId, partnerId])
+  @@index([partnerId])
+}
+
+// A partner's answers to one survey: "draft" until submitted. `enteredByName` is the staff member
+// who filled it in, null when the partner answered through their link.
+model SurveyResponse {
+  id            String    @id @default(uuid())
+  surveyId      String
+  survey        Survey    @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  partnerId     String
+  partner       Partner   @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  submittedAt   DateTime?
+  enteredById   String?
+  enteredByName String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  answers   SurveyAnswer[]
+  proposals SurveyProposal[]
+  uploads   SurveyUpload[]
+
+  lastEditedById   String?
+  lastEditedByName String?
+  lastEditedAt     DateTime?
+
+  @@unique([surveyId, partnerId])
+  @@index([partnerId])
+}
+
+// `value` holds a text, yes/no ("yes"/"no") or single-choice answer; `values` a multiple-choice
+// one; `other` their own words where a choice question allows it. `label` and `kind` are the
+// question as it was when answered; `questionId` is cleared if the question is later deleted.
+model SurveyAnswer {
+  id         String          @id @default(uuid())
+  responseId String
+  response   SurveyResponse  @relation(fields: [responseId], references: [id], onDelete: Cascade)
+  questionId String?
+  question   SurveyQuestion? @relation(fields: [questionId], references: [id], onDelete: SetNull)
+  position   Int             @default(0)
+  label      String
+  kind       String
+  value      String?         @db.Text
+  values     String[]
+  other      String?
+
+  @@index([responseId])
+}
+
+// A photo a partner sent through their survey link, held until staff approve it (then it becomes
+// a Photo on the partner) or reject it (then it is deleted). Images only; the type and signature
+// are checked on the way in.
+model SurveyUpload {
+  id          String          @id @default(uuid())
+  responseId  String
+  response    SurveyResponse  @relation(fields: [responseId], references: [id], onDelete: Cascade)
+  partnerId   String
+  partner     Partner         @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  questionId  String?
+  question    SurveyQuestion? @relation(fields: [questionId], references: [id], onDelete: SetNull)
+  contentType String
+  fileSize    Int
+  bytes       Bytes
+  createdAt   DateTime        @default(now())
+
+  proposals SurveyProposal[]
+
+  @@index([responseId])
+}
+
+// One change a survey answer suggests to a partner's record, waiting for a person: `field` is the
+// key in utils/surveyFields.js, `currentValue` what was on file when it was proposed and
+// `proposedValue` what they answered (both as text). "pending" until staff approve (optionally
+// editing the value first, kept in `appliedValue`) or reject it. A photo proposal points at its
+// SurveyUpload instead of carrying a value.
+model SurveyProposal {
+  id            String          @id @default(uuid())
+  surveyId      String
+  survey        Survey          @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  responseId    String
+  response      SurveyResponse  @relation(fields: [responseId], references: [id], onDelete: Cascade)
+  partnerId     String
+  partner       Partner         @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  questionId    String?
+  question      SurveyQuestion? @relation(fields: [questionId], references: [id], onDelete: SetNull)
+  field         String
+  fieldLabel    String
+  currentValue  String?         @db.Text
+  proposedValue String?         @db.Text
+  uploadId      String?
+  upload        SurveyUpload?   @relation(fields: [uploadId], references: [id], onDelete: SetNull)
+  status        String          @default("pending") // "pending" | "approved" | "rejected"
+  appliedValue  String?         @db.Text
+  decidedAt     DateTime?
+  decidedById   String?
+  decidedByName String?
+  createdAt     DateTime        @default(now())
+
+  @@index([status, createdAt])
+  @@index([partnerId])
+  @@index([responseId])
 }

@@ -1,19 +1,14 @@
 import React, { useState } from "react";
 
-// Link to an album the admin already maintains elsewhere -- never in-app
-// file storage, see #130. Fully controlled (no derived local state beyond
-// the blur-triggered validation hint below), so unlike PresetOrCustomSelect
-// there's no stale-mode-on-reused-instance risk to guard against: provider
-// and url come straight from the parent's form state every render.
+// Link to an album the admin maintains elsewhere (never in-app file storage). Fully controlled:
+// provider and url come from the parent's form state every render.
 const PROVIDERS = [
   { value: "google_photos", label: "Google Photos", placeholder: "https://photos.app.goo.gl/..." },
   { value: "icloud", label: "iCloud Shared Album", placeholder: "https://www.icloud.com/sharedalbum/..." },
   { value: "other", label: "Other", placeholder: "https://..." },
 ];
 
-// Mirrors trips.js's ALBUM_URL_PATTERNS -- client-side only as a hint, the
-// backend 400 is the real enforcement, same division of labor as every
-// other validated field in this app.
+// Mirrors trips.js ALBUM_URL_PATTERNS: a client-side hint only; the backend 400 is the enforcement.
 const HINT_PATTERNS = {
   google_photos: /^https:\/\/photos\.(app\.goo\.gl|google\.com)\//i,
   icloud: /^https:\/\/(www\.)?icloud\.com\/(sharedalbum|photos)\//i,
@@ -60,7 +55,7 @@ export default function AlbumLinkField({ provider, url, onChange }) {
           <p
             style={{
               fontSize: "0.8rem",
-              color: "#b45309",
+              color: "var(--warn)",
               marginTop: "0.25rem",
               minHeight: "1.2em",
               visibility: showHint ? "visible" : "hidden",

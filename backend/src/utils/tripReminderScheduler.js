@@ -1,17 +1,11 @@
-// Scheduled reminders for Trips (#252) -- its own independent hourly cron
-// registration, kept separate from emailDispatchScheduler.js/
-// groupmeChannel.js, which stay scoped to the Dispatch system
-// specifically. Two unrelated reminder kinds share this one file/cron
-// tick since both are "trips, time-based, participant email" concerns:
-// the original day-before TripMeeting reminder, and the newer
-// TripRequirement due-date reminder (checklist generalization follow-on
-// round). An hourly tick querying a 2-hour window guarantees every
-// meeting gets caught exactly once regardless of what hour it was
-// scheduled for, without needing per-minute granularity that reminder
-// doesn't benefit from; the requirement reminder below doesn't need a
-// window at all -- see its own comment for why.
+// Scheduled Trips reminders: an independent hourly cron, separate from the
+// Dispatch schedulers. It holds two time-based participant-email reminders: the
+// day-before TripMeeting reminder and the TripRequirement due-date reminder. An
+// hourly tick over a 2-hour window catches every meeting exactly once whatever
+// its scheduled hour; the requirement reminder needs no window (see below).
 const cron = require("node-cron");
 const prisma = require("../prismaClient");
+const { isDemoInstance } = require("./demoMode");
 const { isFeatureEnabled } = require("./features");
 const { sendParticipantEmail, buildMeetingIcs, buildMeetingEmailContent } = require("./tripEmails");
 const { isMinorForTrip } = require("./tripParticipantSchema");
@@ -25,25 +19,21 @@ async function checkAndSendTripMeetingReminders() {
   });
   if (!isFeatureEnabled(settings?.enabledFeatures, "trips")) return;
   if (!isFeatureEnabled(settings?.enabledFeatures, "outboundEmail")) return;
+  if (await isDemoInstance()) return;
 
   const now = new Date();
   const windowStart = new Date(now.getTime() + 23 * 60 * 60 * 1000);
   const windowEnd = new Date(now.getTime() + 25 * 60 * 60 * 1000);
 
-  // cancelledAt: null -- a cancelled meeting already got its own
-  // cancellation notice; it should never also get a day-before reminder
-  // for a meeting that isn't happening.
+  // cancelledAt: null: a cancelled meeting already got its cancellation notice.
   const meetings = await prisma.tripMeeting.findMany({
     where: { startAt: { gte: windowStart, lte: windowEnd }, reminderSentAt: null, cancelledAt: null },
     include: { trip: { include: { participants: true } }, rsvps: true },
   });
 
   for (const meeting of meetings) {
-    // Keyed by participantId -- the reminder is the one email this
-    // feature sends after a participant could plausibly have already
-    // responded to the original invite, so it shows what's on file
-    // instead of bare links (buildMeetingEmailContent's own comment has
-    // the full reasoning).
+    // Keyed by participantId: the reminder shows an existing RSVP instead of bare
+    // links (see buildMeetingEmailContent).
     const rsvpByParticipantId = new Map(meeting.rsvps.map((r) => [r.participantId, r.response]));
     for (const participant of meeting.trip.participants) {
       await sendParticipantEmail(
@@ -72,15 +62,10 @@ async function checkAndSendTripMeetingReminders() {
   }
 }
 
-// TripRequirement due-date reminder -- unlike the meeting reminder above,
-// this doesn't need a tight window: the gate is "on or after the
-// configured lead time, but before the due date itself," which is
-// already a whole-day-or-wider range, and reminderSentAt (stamped per
-// participant, not per requirement -- different participants on the
-// same trip can fulfill the same requirement at different times) makes
-// re-checking it every hour harmless. Never fires once dueAt itself has
-// arrived -- an overdue item is a different situation this round
-// doesn't build a separate flow for.
+// TripRequirement due-date reminder. Needs no tight window: the gate is "on or
+// after the configured lead time, before the due date", and reminderSentAt
+// (stamped per participant, since they fulfil it at different times) makes hourly
+// re-checks harmless. Never fires once dueAt has arrived; overdue is a different situation.
 async function checkAndSendRequirementReminders() {
   const settings = await prisma.churchSettings.findUnique({
     where: { id: "singleton" },
@@ -88,6 +73,7 @@ async function checkAndSendRequirementReminders() {
   });
   if (!isFeatureEnabled(settings?.enabledFeatures, "trips")) return;
   if (!isFeatureEnabled(settings?.enabledFeatures, "outboundEmail")) return;
+  if (await isDemoInstance()) return;
 
   const now = new Date();
   const requirements = await prisma.tripRequirement.findMany({
@@ -101,8 +87,7 @@ async function checkAndSendRequirementReminders() {
     if (now < reminderAt || now >= requirement.dueAt) continue;
 
     for (const participant of requirement.trip.participants) {
-      // #278 -- a minors-only requirement never reminds a non-minor
-      // participant; there's nothing for them to do about it.
+      // A minors-only requirement never reminds a non-minor.
       if (requirement.minorsOnly && !isMinorForTrip(participant.dateOfBirth, requirement.trip.startDate)) {
         continue;
       }

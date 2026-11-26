@@ -1,9 +1,6 @@
 import React, { useRef, useState } from "react";
 
-// Hand-rolled canvas drawing -- no new dependency (this app loads zero
-// third-party UI libraries today, via npm or CDN). A drawn signature is
-// just a sequence of connected line segments; that's a small enough
-// surface to not need a real library for it.
+// Hand-rolled canvas drawing: a signature is just connected line segments, not worth a dependency.
 function SignaturePad({ onChange }) {
   const canvasRef = useRef(null);
   const drawing = useRef(false);
@@ -54,7 +51,7 @@ function SignaturePad({ onChange }) {
         width={320}
         height={110}
         style={{
-          border: "1px solid #c9c6c0",
+          border: "1px solid var(--border)",
           borderRadius: 6,
           background: "white",
           touchAction: "none",
@@ -77,19 +74,11 @@ function SignaturePad({ onChange }) {
   );
 }
 
-// Shared by the participant self-service page's e-signature flow --
-// document text + a typed-name-or-drawn-signature choice + an explicit
-// attestation checkbox gating submit. onSubmit receives
-// { signerName, signerRelationship, signatureImage } (signatureImage is
-// a base64 PNG data URL, or null if they only typed their name).
-//
-// relationship ("self" | "parent/guardian") is recordkeeping only --
-// nothing verifies that whoever's actually at the keyboard matches what
-// they pick here, same as nothing ever verified signer identity at all
-// (see TripDocument.signerRelationship's own schema comment). It exists
-// so a parent signing on a minor's behalf, using that minor's own
-// self-service link, leaves an honest record of who actually signed --
-// not to gate anything.
+// Shared by the participant self-service e-signature flow: document text, a typed-or-drawn
+// signature, and an attestation checkbox gating submit. onSubmit receives
+// { signerName, signerRelationship, signatureImage } (a base64 PNG data URL, null if only typed).
+// relationship ("self" | "parent/guardian") is recordkeeping only: nothing verifies who is at the
+// keyboard (see TripDocument.signerRelationship), it just records an honest parent-signs-for-minor.
 export default function SignatureCapture({ documentText, onSubmit, submitting }) {
   const [mode, setMode] = useState("type"); // "type" | "draw"
   const [typedName, setTypedName] = useState("");
@@ -110,12 +99,12 @@ export default function SignatureCapture({ documentText, onSubmit, submitting })
   }
 
   return (
-    <form onSubmit={handleSubmit} className="admin-section" style={{ background: "#faf9f7" }}>
+    <form onSubmit={handleSubmit} className="admin-section" style={{ background: "var(--surface-2)" }}>
       <div
         style={{
           whiteSpace: "pre-wrap",
           background: "white",
-          border: "1px solid #e1dfdb",
+          border: "1px solid var(--border)",
           borderRadius: 6,
           padding: "0.9rem 1rem",
           maxHeight: 260,
@@ -183,13 +172,9 @@ export default function SignatureCapture({ documentText, onSubmit, submitting })
       >
         {submitting ? "Signing…" : "Sign"}
       </button>
-      {/* The Sign button above gives no feedback on its own when disabled --
-      found from a real report ("didn't seem to let me click sign after I
-      did it") that turned out to be the attested checkbox, not a stuck
-      button. Named one at a time, in the order a signer would actually
-      satisfy them, rather than one generic "fill out the form" message. */}
+      {/* Names which condition is blocking Sign, one at a time in the order a signer would meet them. */}
       {!canSubmit && !submitting && (
-        <p style={{ color: "#888", fontSize: "0.8rem", marginTop: "0.4rem" }}>
+        <p style={{ color: "var(--muted)", fontSize: "0.8rem", marginTop: "0.4rem" }}>
           {!typedName.trim()
             ? "Type your full name above to sign."
             : mode === "draw" && !drawnSignature

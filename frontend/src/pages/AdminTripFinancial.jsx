@@ -15,10 +15,7 @@ import Field from "../components/admin/Field.jsx";
 
 const emptyBudgetLineForm = { label: "", estimatedAmount: "" };
 
-// Budget lines converted from onBlur-autosave onto click-row-opens-popup,
-// same as AdminTripMeetings.jsx/AdminTripRequirements.jsx. Contributions
-// stay a plain add-only list (no edit/delete ever existed for these, same
-// shape as Trip-wide documents on the Requirements page) -- just gated.
+// Contributions are an add-only list; there is no edit/delete for them.
 export default function AdminTripFinancial() {
   const { trip, reload, confirmDialog, canWrite } = useOutletContext();
   const [error, setError] = useState("");
@@ -83,13 +80,15 @@ export default function AdminTripFinancial() {
       confirmLabel: "Remove",
       danger: true,
     });
-    if (!confirmed) return;
+    if (!confirmed) return false;
     try {
       await deleteTripBudgetLine(b.id);
       reload();
       setError("");
+      return true;
     } catch (err) {
       reportError(err, "Couldn't remove this budget line.");
+      return false;
     }
   }
 
@@ -106,7 +105,7 @@ export default function AdminTripFinancial() {
 
       <div className="admin-section">
         <h3>Financial</h3>
-        <p style={{ color: "#888", fontSize: "0.85rem" }}>
+        <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
           Totals for the <strong>whole team</strong>, not per person — e.g. "Round-trip flights: $650" means
           $650 for every traveler's flights combined, not $650 each.
         </p>
@@ -114,11 +113,9 @@ export default function AdminTripFinancial() {
           bare
           items={trip.budgetLines || []}
           canEdit={canWrite}
-          canDelete={canWrite}
           addLabel="+ Add budget line"
           onAdd={openAddLine}
           onEdit={openEditLine}
-          onDelete={handleDeleteBudgetLine}
           emptyMessage="No budget lines yet."
           renderItem={(b) => (
             <>
@@ -230,6 +227,7 @@ export default function AdminTripFinancial() {
           title={lineModal.id == null ? "Add Budget Line" : "Edit Budget Line"}
           onClose={() => setLineModal(null)}
           onSubmit={submitLineModal}
+          onDelete={lineModal.id != null ? () => handleDeleteBudgetLine(lineModal) : undefined}
         >
           <div className="form-grid">
             <label>

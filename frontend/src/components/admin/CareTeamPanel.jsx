@@ -1,44 +1,55 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import {
-  fetchCareTeam,
-  setCareTeam,
-  fetchCareTeamCandidates,
-  fetchDefaultCareLead,
-} from "../../api/client.js";
+import { fetchCareTeam, setCareTeam, fetchCareTeamCandidates, fetchMissionsTeam } from "../../api/client.js";
 import { useSettings } from "../../context/SettingsContext.jsx";
 import QuickActionModal from "../shared/QuickActionModal.jsx";
+import { onClickUnlessSelecting } from "../../utils/clickableRow.js";
 import StatusPill from "./StatusPill.jsx";
 
-// A partner's care team (#289): one Lead plus Members, all logins. The same
-// panel serves the partner page and the trip page, and is the "assign a care
-// team" wizard from both -- pick the lead and the members, save, done.
-// Terms are fixed ("Care team", "Lead", "Member", "Guest"), not settings.
-//
-// Everyone who can see the partner can see the team; only admin/editor
-// (`canEdit`) can change it. A guest sees names only (the API leaves emails
-// off for them). `showHeading` lets the trip page, which has its own
-// heading, drop the card chrome.
+// A partner's care team: one Lead plus Members, all logins. Serves both the partner page and the
+// trip page, and is the "assign a care team" wizard from both. Terms are fixed, not settings.
+// Everyone who can see the partner sees the team; only admin/editor (`canEdit`) can change it. A
+// guest sees names only (the API omits emails). `showHeading` lets the trip page drop the card chrome.
+// Phone, email and a line about them: sent only to signed-in staff roles, never a guest.
+function MemberDetails({ m }) {
+  const reach = [m.phone, m.email].filter(Boolean).join(" · ");
+  if (!reach && !m.profile) return null;
+  return (
+    <div style={{ fontSize: "0.85rem", color: "var(--muted)" }}>
+      {reach}
+      {reach && m.profile ? " — " : ""}
+      {m.profile}
+    </div>
+  );
+}
+
 export function memberName(m) {
   return [m.firstName, m.lastName].filter(Boolean).join(" ") || m.email || "Someone";
 }
 
-export default function CareTeamPanel({ partnerId, canEdit, canInviteGuest = false }) {
+// Who looks after a partner with no care team: the church's missions team (its name is church wording).
+function looksAfterNote(canEdit, members, groupName) {
+  if (!canEdit || members === null) return `The ${groupName} looks after this partner until a team is set.`;
+  return members.length > 0
+    ? `The ${groupName} (${members.map((m) => m.name).join(", ")}) looks after this partner until a team is set.`
+    : `Nobody is on the ${groupName} yet, so nobody is looking after this partner until a team is set.`;
+}
+
+export default function CareTeamPanel({ partnerId, canEdit, canInviteGuest = false, compact = false }) {
   const [team, setTeam] = useState(null);
   const [failed, setFailed] = useState(false);
   const [editing, setEditing] = useState(false);
-  // #291: with nobody assigned, key-date reminders go to the default lead --
-  // say so to staff, who are the ones who can fix it. (The endpoint is
-  // admin/editor only, so this is skipped for everyone else.)
-  const { enabledFeatures } = useSettings();
-  const [defaultLead, setDefaultLead] = useState(null);
+  // With nobody assigned, the missions team looks after the partner: tell staff who (the endpoint is
+  // admin/editor only, so it is skipped for everyone else).
+  const { ownerGroupName } = useSettings();
+  const [missionsTeam, setMissionsTeam] = useState(null);
   const teamIsEmpty = !!team && !team.lead && team.members.length === 0;
   useEffect(() => {
-    if (!canEdit || !enabledFeatures?.keyDates || !teamIsEmpty) return;
-    fetchDefaultCareLead()
-      .then(setDefaultLead)
-      .catch(() => setDefaultLead(null));
-  }, [canEdit, enabledFeatures?.keyDates, teamIsEmpty]);
+    if (!canEdit || !teamIsEmpty) return;
+    fetchMissionsTeam()
+      .then((t) => setMissionsTeam(t.members))
+      .catch(() => setMissionsTeam(null));
+  }, [canEdit, teamIsEmpty]);
 
   const reload = useCallback(
     () =>
@@ -54,28 +65,102 @@ export default function CareTeamPanel({ partnerId, canEdit, canInviteGuest = fal
     reload();
   }, [reload]);
 
-  return (
-    <div className="admin-section" id="section-care-team" style={{ scrollMarginTop: "1rem" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.5rem" }}>
-        <h3 style={{ margin: 0 }}>Care team</h3>
-        {canEdit && team && (
-          <button type="button" className="btn secondary small" onClick={() => setEditing(true)}>
-            {team.lead || team.members.length ? "Edit care team" : "+ Assign care team"}
-          </button>
+  if (compact) {
+    // One line on the contact card: who is on the team, with Edit or Assign beside it.
+    const people = team
+      ? [
+          team.lead && { id: team.lead.userId, name: memberName(team.lead), lead: true },
+          ...team.members.map((m) => ({ id: m.userId, name: memberName(m), lead: false })),
+        ].filter(Boolean)
+      : [];
+    return (
+      <div id="section-care-team" style={{ scrollMarginTop: "1rem" }}>
+        {/* The whole line opens the editor; the "Care team:" label is the keyboard way in. */}
+        {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
+        <div
+          className={canEdit && team ? "admin-section-clickable" : undefined}
+          style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.5rem" }}
+          onClick={canEdit && team ? onClickUnlessSelecting(() => setEditing(true)) : undefined}
+        >
+          <div>
+            {canEdit && team ? (
+              <button
+                type="button"
+                className="summary-item-link"
+                aria-label={people.length ? "Edit team" : "+ Assign team"}
+                style={{ color: "var(--muted)", textDecoration: "none" }}
+                onClick={() => setEditing(true)}
+              >
+                Care team:{" "}
+              </button>
+            ) : (
+              <span style={{ color: "var(--muted)" }}>Care team: </span>
+            )}
+            {failed && <span style={{ color: "var(--danger)" }}>couldn't load</span>}
+            {team && people.length === 0 && (
+              <span style={{ color: "var(--muted)" }}>nobody assigned yet</span>
+            )}
+            {people.map((m, i) => (
+              <span key={m.id}>
+                {i > 0 && ", "}
+                <strong>{m.name}</strong>
+                {m.lead && <span style={{ color: "var(--muted)" }}> (lead)</span>}
+              </span>
+            ))}
+            {team && people.length > 0 && !team.lead && (
+              <span style={{ color: "var(--warn)" }}> · no lead yet</span>
+            )}
+          </div>
+        </div>
+        {team && people.length === 0 && (
+          <div style={{ fontSize: "0.85rem", color: "var(--muted)", marginTop: "0.2rem" }}>
+            {looksAfterNote(canEdit, missionsTeam, ownerGroupName)}
+          </div>
         )}
+        {editing && (
+          <EditCareTeamModal
+            partnerId={partnerId}
+            team={team}
+            canInviteGuest={canInviteGuest}
+            onClose={() => setEditing(false)}
+            onSaved={(next) => setTeam(next)}
+          />
+        )}
+      </div>
+    );
+  }
+
+  return (
+    // Clicking the card opens the editor; the title button is the keyboard way in.
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
+    <div
+      className={canEdit && team ? "admin-section admin-section-clickable" : "admin-section"}
+      id="section-care-team"
+      style={{ scrollMarginTop: "1rem" }}
+      onClick={canEdit && team ? onClickUnlessSelecting(() => setEditing(true)) : undefined}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.5rem" }}>
+        <h3 style={{ margin: 0 }}>
+          {canEdit && team ? (
+            <button
+              type="button"
+              className="summary-item-link"
+              aria-label={team.lead || team.members.length ? "Edit care team" : "+ Assign care team"}
+              style={{ font: "inherit", color: "inherit", textDecoration: "none" }}
+              onClick={() => setEditing(true)}
+            >
+              Care team
+            </button>
+          ) : (
+            "Care team"
+          )}
+        </h3>
       </div>
       {failed && <p style={{ color: "var(--danger)" }}>Couldn't load the care team.</p>}
       {team && !team.lead && team.members.length === 0 && (
-        <p style={{ margin: "0.5rem 0 0", color: "#555" }}>
-          Nobody is assigned to keep in touch with this partner yet.
-          {canEdit && enabledFeatures?.keyDates && (
-            <>
-              {" "}
-              {defaultLead
-                ? `Key-date reminders go to the default lead, ${defaultLead.name}, until a team is set.`
-                : "Key-date reminders have nobody to go to until a team (or a default lead) is set."}
-            </>
-          )}
+        <p style={{ margin: "0.5rem 0 0", color: "var(--muted)" }}>
+          Nobody is assigned to keep in touch with this partner yet.{" "}
+          {looksAfterNote(canEdit, missionsTeam, ownerGroupName)}
         </p>
       )}
       {team && (team.lead || team.members.length > 0) && (
@@ -84,16 +169,18 @@ export default function CareTeamPanel({ partnerId, canEdit, canInviteGuest = fal
             <li style={{ padding: "0.25rem 0" }}>
               <strong>{memberName(team.lead)}</strong> <StatusPill label="Lead" color="#2a5d3c" />
               {team.lead.role === "guest" && <span style={{ color: "var(--muted)" }}> · Guest</span>}
+              <MemberDetails m={team.lead} />
             </li>
           )}
           {team.members.map((m) => (
             <li key={m.userId} style={{ padding: "0.25rem 0" }}>
               {memberName(m)}{" "}
               <span style={{ color: "var(--muted)" }}>Member{m.role === "guest" ? " · Guest" : ""}</span>
+              <MemberDetails m={m} />
             </li>
           ))}
           {team && !team.lead && (
-            <li style={{ color: "#a6540f", fontSize: "0.85rem", paddingTop: "0.25rem" }}>No lead yet.</li>
+            <li style={{ color: "var(--warn)", fontSize: "0.85rem", paddingTop: "0.25rem" }}>No lead yet.</li>
           )}
         </ul>
       )}

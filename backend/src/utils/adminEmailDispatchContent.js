@@ -1,13 +1,9 @@
-// Admin-only digest content building -- source links, newsletter blocks
-// with titles, nesting a request/need under the newsletter it was
-// sourced from. Renamed from emailDigest.js: that name suggested it
-// owned "the email digest" generally, which stopped being true once the
-// public digest got its own content-builder (publicEmailDispatchContent.js).
+// Admin-only digest content building: source links, newsletter blocks with titles,
+// nesting a request/need under the newsletter it came from.
 const { escapeHtml, nl2br, typeLabel, brandButton } = require("./emailDispatchShell");
+const { describe: describeKeyDate, when: whenKeyDate } = require("./keyDateReminderEmail");
 
-// Groups blurbs by partner, and within each partner, nests a
-// request/need under the newsletter blurb it was sourced from when that
-// newsletter is also in this batch.
+// Groups blurbs by partner, nesting a request/need under the newsletter blurb it came from when that newsletter is in the batch.
 function groupByPartner(blurbs) {
   const byPartner = new Map(); // partnerId -> { partnerId, partnerName, newsletters: [{ blurb, children: [] }], standalone: [] }
 
@@ -57,11 +53,8 @@ function renderBlurbHtml(blurb, accentColor, highlightColor) {
     </div>`;
 }
 
-// The newsletter block's own title line (new -- see buildBlurb's
-// newsletterCreated case in dispatchBlurbs.js) renders right under
-// the "New Newsletter" label, above the "Read the full newsletter"
-// button. Masked to nothing for a restricted partner's newsletter, same
-// as every other identifying field on that row.
+// The newsletter's title line renders under the "New Newsletter" label, above the
+// "Read the full newsletter" button; masked to nothing for a restricted partner.
 function renderNewsletterBlock(blurb, children, accentColor, highlightColor) {
   return `
     <div style="margin:0;">
@@ -79,7 +72,7 @@ function renderNewsletterBlock(blurb, children, accentColor, highlightColor) {
 function renderPartnerHtml(group, accentColor, highlightColor, tile) {
   const metaLine = [
     tile?.fieldDisplayName,
-    tile?.supportingSinceYear && `Supporting since ${tile.supportingSinceYear}`,
+    tile?.supportingSinceYear && `Partnering since ${tile.supportingSinceYear}`,
   ]
     .filter(Boolean)
     .join(" · ");
@@ -118,7 +111,7 @@ function renderPartnerText(group, tile) {
   const lines = [group.partnerName, "-".repeat(group.partnerName.length)];
   const metaLine = [
     tile?.fieldDisplayName,
-    tile?.supportingSinceYear && `Supporting since ${tile.supportingSinceYear}`,
+    tile?.supportingSinceYear && `Partnering since ${tile.supportingSinceYear}`,
   ]
     .filter(Boolean)
     .join(" · ");
@@ -143,19 +136,50 @@ function renderPartnerText(group, tile) {
   return lines;
 }
 
-// `eligibleRows` are the DispatchRecord rows already filtered through
-// isEligibleForChannel for CHANNELS.EMAIL_ADMIN, already turned into
-// blurbs via buildBlurb (dispatchBlurbs.js) by the caller
-// (emailDispatchDelivery.js). `tile` lookup is partnerDetailsById -- undefined
-// entries fall back to the classic, tile-less layout.
-function buildAdminEmailDispatchContent(blurbs, partnerDetailsById, churchSettings) {
+// `eligibleRows` are DispatchRecord rows already filtered through isEligibleForChannel
+// for CHANNELS.EMAIL_ADMIN and turned into blurbs via buildBlurb by the caller
+// (emailDispatchDelivery.js). Tile lookup is partnerDetailsById; missing entries fall back to the tile-less layout.
+// The "Key dates coming up" card that leads a person's digest (soonest first), or "" with none.
+function renderKeyDatesHtml(keyDates, churchSettings, highlightColor) {
+  if (!keyDates?.length) return "";
+  const rows = keyDates
+    .map(
+      (i) =>
+        `<p style="margin:0 0 8px;color:#444;line-height:1.55;"><strong>${escapeHtml(whenKeyDate(i))}</strong><br>${escapeHtml(describeKeyDate(i, churchSettings))}</p>`
+    )
+    .join("");
+  return `
+    <div style="margin:20px 0;padding:22px 24px;background-color:#ffffff;border-radius:14px;box-shadow:0 1px 2px rgba(0,0,0,0.04),0 4px 12px rgba(0,0,0,0.06);">
+      ${typeLabel("Key dates coming up", highlightColor)}
+      ${rows}
+      <p style="margin:10px 0 0;color:#888;font-size:12px;">Sent a card or made the call? Log it as a contact with the topic "Key date" and it drops off.</p>
+    </div>`;
+}
+
+function renderKeyDatesText(keyDates, churchSettings) {
+  if (!keyDates?.length) return [];
+  return [
+    "Key dates coming up",
+    "-------------------",
+    ...keyDates.map((i) => `${whenKeyDate(i)}: ${describeKeyDate(i, churchSettings)}`),
+    "",
+  ];
+}
+
+// `keyDates` (optional): this person's open key dates (keyDateQueries.js shape), shown ahead of the partner updates.
+function buildAdminEmailDispatchContent(blurbs, partnerDetailsById, churchSettings, keyDates = []) {
   const groups = groupByPartner(blurbs);
   const accentColor = churchSettings?.primaryColor || "#2a5d3c";
   const highlightColor = churchSettings?.highlightColor || "#a6540f";
-  const itemsHtml = groups
-    .map((g) => renderPartnerHtml(g, accentColor, highlightColor, partnerDetailsById?.get(g.partnerId)))
-    .join("");
-  const textLines = groups.flatMap((g) => renderPartnerText(g, partnerDetailsById?.get(g.partnerId)));
+  const itemsHtml =
+    renderKeyDatesHtml(keyDates, churchSettings, highlightColor) +
+    groups
+      .map((g) => renderPartnerHtml(g, accentColor, highlightColor, partnerDetailsById?.get(g.partnerId)))
+      .join("");
+  const textLines = [
+    ...renderKeyDatesText(keyDates, churchSettings),
+    ...groups.flatMap((g) => renderPartnerText(g, partnerDetailsById?.get(g.partnerId))),
+  ];
   const subtitleLine = `${churchSettings?.partnerTermPlural || "Missionaries"} Updates`;
   return { itemsHtml, textLines, subtitleLine };
 }

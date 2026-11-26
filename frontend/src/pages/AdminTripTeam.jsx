@@ -1,26 +1,21 @@
 import React, { useState } from "react";
-import { Link, useOutletContext } from "react-router-dom";
+import { useOutletContext } from "react-router-dom";
 import { updateTrip, generateApplicationLink, addTripParticipant } from "../api/client.js";
 import { isMinorForTrip } from "../utils/format.js";
 import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
 import ApplicationQuestionsEditor from "../components/admin/ApplicationQuestionsEditor.jsx";
 import Table from "../components/shared/Table.jsx";
 import QuickActionModal from "../components/shared/QuickActionModal.jsx";
+import ManualSendNotice from "../components/shared/ManualSendNotice.jsx";
 import { mapServerErrorMessage } from "../utils/friendlyError.js";
 import useCurrentUser from "../hooks/useCurrentUser.js";
 import { TripGuestsPanel } from "../components/admin/GuestAccessPanels.jsx";
 import CareTeamPanel from "../components/admin/CareTeamPanel.jsx";
 import { useSettings } from "../context/SettingsContext.jsx";
+import CopyButton from "../components/shared/CopyButton.jsx";
 
-// Confirmed Team + the recruiting pipeline that feeds it (Applications,
-// the private link, and this trip's own application questions) --
-// grouped together since an application becomes a team member and the
-// link/questions only exist to produce more applications. Every table
-// here is the shared Table component; row click opens either the
-// participant's own detail page (Confirmed Team -- same destination its
-// "View details" action already goes to) or the application's own detail
-// page (Applications/Declined -- AdminTripApplicationDetail.jsx, a
-// sibling route, not a Modal: see that page's own header comment for why).
+// Confirmed Team plus the recruiting pipeline that feeds it (Applications, the private link,
+// this trip's application questions). Application rows open AdminTripApplicationDetail.jsx.
 export default function AdminTripTeam() {
   const { trip, setTrip, applications, reload, questionLibrary, confirmDialog, navigate, id, canWrite } =
     useOutletContext();
@@ -30,6 +25,8 @@ export default function AdminTripTeam() {
   const [showDeclined, setShowDeclined] = useState(false);
   const [showAddParticipant, setShowAddParticipant] = useState(false);
   const [newParticipant, setNewParticipant] = useState({ firstName: "", lastName: "", email: "" });
+  // The access link for a participant just added, when Email (Sending) is off and nothing was emailed.
+  const [manualAccess, setManualAccess] = useState(null);
 
   function reportError(err, fallback) {
     setError(mapServerErrorMessage(err?.response?.data?.error) || fallback);
@@ -60,7 +57,20 @@ export default function AdminTripTeam() {
 
   async function handleAddParticipant() {
     if (!newParticipant.firstName) return false;
-    await addTripParticipant(id, newParticipant);
+    const added = await addTripParticipant(id, newParticipant);
+    const welcome = added?.teamWelcomeEmail;
+    const who = [newParticipant.firstName, newParticipant.lastName].filter(Boolean).join(" ");
+    setManualAccess(
+      welcome?.manualUrl
+        ? [
+            { name: who, email: newParticipant.email, url: welcome.manualUrl },
+            // The welcome email also carries their support-raising page: hand that over too.
+            ...(welcome.manualSupportRaisingUrl
+              ? [{ name: `${who} (support-raising page)`, url: welcome.manualSupportRaisingUrl }]
+              : []),
+          ]
+        : null
+    );
     setNewParticipant({ firstName: "", lastName: "", email: "" });
     reload();
   }
@@ -94,13 +104,14 @@ export default function AdminTripTeam() {
     {
       key: "name",
       label: "Name",
-      render: (p) => (
-        <Link to={`/admin/trips/${id}/participants/${p.id}`} onClick={(e) => e.stopPropagation()}>
-          {p.firstName} {p.lastName}
-        </Link>
-      ),
+      render: (p) => `${p.firstName} ${p.lastName}`,
       sortable: true,
       sortBy: (p) => `${p.lastName || ""} ${p.firstName || ""}`.toLowerCase(),
+    },
+    {
+      key: "reach",
+      label: "Phone / Email",
+      render: (p) => [p.phone, p.email].filter(Boolean).join(" · ") || "—",
     },
     {
       key: "support",
@@ -148,12 +159,8 @@ export default function AdminTripTeam() {
           columns={teamColumns}
           rows={trip.participants || []}
           onRowClick={(p) => navigate(`/admin/trips/${id}/participants/${p.id}`)}
+          rowHref={(p) => `/admin/trips/${id}/participants/${p.id}`}
           emptyMessage="No one confirmed yet."
-          renderActions={(p) => (
-            <Link className="btn secondary small" to={`/admin/trips/${id}/participants/${p.id}`}>
-              View details
-            </Link>
-          )}
         />
         {canWrite && (
           <button
@@ -176,6 +183,7 @@ export default function AdminTripTeam() {
           ]}
           rows={pending}
           onRowClick={(a) => navigate(`/admin/trips/${id}/applications/${a.id}`)}
+          rowHref={(a) => `/admin/trips/${id}/applications/${a.id}`}
           emptyMessage="Nothing awaiting review."
         />
 
@@ -194,11 +202,12 @@ export default function AdminTripTeam() {
                       key: "declinedReason",
                       label: "Reason",
                       render: (a) =>
-                        a.declinedReason || <span style={{ color: "#888" }}>(no reason given)</span>,
+                        a.declinedReason || <span style={{ color: "var(--muted)" }}>(no reason given)</span>,
                     },
                   ]}
                   rows={declined}
                   onRowClick={(a) => navigate(`/admin/trips/${id}/applications/${a.id}`)}
+                  rowHref={(a) => `/admin/trips/${id}/applications/${a.id}`}
                 />
               </div>
             )}
@@ -206,10 +215,7 @@ export default function AdminTripTeam() {
         )}
       </div>
 
-      {/* The same care team the partner's own page shows, here because the
-          people who keep in touch with this trip's partner are usually the
-          ones planning the trip (#289). Anyone who can see the trip sees it;
-          admin/editor can assign it. */}
+      {/* The partner's care team: the people who keep in touch with the partner usually plan the trip. */}
       {enabledFeatures.careTeam && trip.partner?.id && (
         <CareTeamPanel partnerId={trip.partner.id} canEdit={canWrite && !isGuest} canInviteGuest={isAdmin} />
       )}
@@ -217,7 +223,7 @@ export default function AdminTripTeam() {
       {isAdmin && (
         <div className="admin-section">
           <h3>Guest access</h3>
-          <p style={{ color: "#555" }}>
+          <p style={{ color: "var(--muted)" }}>
             Guests can work on this trip and see its partner, nothing else in the app. Access ends 30 days
             after the trip ends unless you set a different date.
           </p>
@@ -227,21 +233,22 @@ export default function AdminTripTeam() {
 
       <div className="admin-section">
         <h3>Private application link</h3>
-        <p style={{ color: "#555" }}>
+        <p style={{ color: "var(--muted)" }}>
           Share this directly with specific people — never listed, never publicly discoverable. Works even for
           a restricted partner (masked).
         </p>
         {trip.applicationShareToken ? (
           <p>
-            <code>{`${window.location.origin}/apply/by-token/${trip.applicationShareToken}`}</code>
+            <code>{`${window.location.origin}/apply/by-token/${trip.applicationShareToken}`}</code>{" "}
+            <CopyButton
+              text={`${window.location.origin}/apply/by-token/${trip.applicationShareToken}`}
+              label="Copy application link"
+            />
           </p>
         ) : (
-          <p style={{ color: "#888" }}>No link generated yet.</p>
+          <p style={{ color: "var(--muted)" }}>No link generated yet.</p>
         )}
-        {/* Backend blocks this action for a Trip Leader (requireRole on the
-        generate-application-link route excludes guest) -- hiding it
-        here instead of letting them hit the button and get a misleading
-        "check Trip settings" error when the real reason is their role. */}
+        {/* The backend blocks this for a Trip Leader (requireRole excludes guest); hide it rather than show a misleading error. */}
         {canWrite && !isGuest && (
           <button type="button" className="btn secondary small" onClick={handleGenerateLink}>
             {trip.applicationShareToken ? "Regenerate link" : "Generate private application link"}
@@ -251,7 +258,7 @@ export default function AdminTripTeam() {
 
       <div className="admin-section">
         <h3>Application questions</h3>
-        <p style={{ color: "#555" }}>
+        <p style={{ color: "var(--muted)" }}>
           Added after the church-wide questions (Settings → Trips Settings) on both the public and private
           application forms for this trip specifically.
         </p>
@@ -283,7 +290,7 @@ export default function AdminTripTeam() {
             }
           />
         ) : (trip.applicationQuestions || []).length === 0 ? (
-          <p style={{ color: "#888" }}>No extra questions on this trip.</p>
+          <p style={{ color: "var(--muted)" }}>No extra questions on this trip.</p>
         ) : (
           <ul>
             {(trip.applicationQuestions || []).map((q) => (
@@ -292,6 +299,13 @@ export default function AdminTripTeam() {
           </ul>
         )}
       </div>
+
+      {manualAccess && (
+        <ManualSendNotice
+          recipients={manualAccess}
+          title="Email sending isn't enabled here, so send this participant their trip link yourself"
+        />
+      )}
 
       {showAddParticipant && (
         <QuickActionModal

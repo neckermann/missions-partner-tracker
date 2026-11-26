@@ -3,30 +3,14 @@ import Modal from "../Modal.jsx";
 import { createPrayerRequest, createSupportNeed } from "../../api/client.js";
 import { useSettings } from "../../context/SettingsContext.jsx";
 
-// Rendered from 2 places as of this writing -- PartnerFileSection.jsx's and
-// AdminPartnerFiles.jsx's own "Scan for requests" buttons -- grep this
-// component's name before changing a required prop here, so neither caller
-// gets missed. `scan` is the extractFromPartnerFile call (passed in rather
-// than an id, so this
-// component doesn't need to know anything about the file itself) -- runs
-// once on mount. Nothing is written until the admin explicitly clicks Add
-// on a given card; closing the modal without adding just discards the
-// rest of the suggestions (re-runnable any time from the same button).
-// sourceFileId rides along on save so the created row can link back to
-// this file -- see that column's comment in schema.prisma. `onChange`
-// (the same reload callback PartnerFileSection already gets from the
-// partner page) fires after each successful Add, so the partner's Prayer
-// Requests/One-Time Needs sections -- rendered elsewhere on that same
-// page, already mounted with their own stale data from before this modal
-// opened -- pick up the new row (and its source link) without the admin
-// having to reload the page to see what they just added.
+// `scan` is the extractFromPartnerFile call (passed in so this component knows nothing about the
+// file); it runs once on mount. Nothing is written until the admin clicks Add on a card.
+// sourceFileId rides along on save so the created row links back to the file. `onChange` fires
+// after each Add so the partner page's already-mounted sections pick up the new row.
 
-// Seeds a card's single editable textarea as the background followed by
-// the verbatim request/need, so the admin edits one readable block instead
-// of two disconnected fields -- see extraction.js's ExtractionSchema
-// comment for why the server keeps them separate up to this point.
-// Whatever ends up in the textarea after this is what gets saved as
-// requestText/description; background itself is never persisted.
+// Seeds a card's single textarea as the background followed by the verbatim request/need, so the
+// admin edits one block. Only the result is saved (as requestText/description); background itself
+// is never persisted.
 function joinBackground(background, verbatim) {
   const b = (background || "").trim();
   const v = (verbatim || "").trim();
@@ -46,9 +30,7 @@ export default function ExtractionReviewModal({
   const [error, setError] = useState("");
   const [prayerRequests, setPrayerRequests] = useState([]);
   const [oneTimeNeeds, setOneTimeNeeds] = useState([]);
-  // #323: how many PrayerRequest/SupportNeed rows this file already
-  // produced on an earlier scan (0 if never scanned before). Informational
-  // only -- never blocks adding more suggestions below.
+  // How many rows this file already produced on an earlier scan. Informational; never blocks Add.
   const [alreadyScannedCount, setAlreadyScannedCount] = useState(0);
 
   // Runs the scan once, when the modal opens. It is a paid AI call, so it must not re-run if
@@ -57,9 +39,7 @@ export default function ExtractionReviewModal({
     scan()
       .then((result) => {
         setAlreadyScannedCount(result.alreadyScannedCount || 0);
-        // Suggestions for a feature this church has turned off don't make
-        // sense to offer -- the Add button would just 404 (see
-        // requireFeature("prayerRequests"/"oneTimeNeeds") on the backend).
+        // Don't offer suggestions for a feature the church turned off: Add would 404.
         setPrayerRequests(
           enabledFeatures.prayerRequests
             ? (result.prayerRequests || []).map((r) => ({
@@ -165,16 +145,14 @@ export default function ExtractionReviewModal({
 
   return (
     <Modal title="Scan results" onClose={onClose}>
-      {/* role="status" so a screen reader announces the result when a scan
-            that can take a minute finally finishes, rather than leaving the
-            user to poll it. */}
+      {/* role="status" so a screen reader announces the result of a scan that can take a minute. */}
       {status === "loading" && (
-        <p style={{ color: "#555" }} role="status">
+        <p style={{ color: "var(--muted)" }} role="status">
           Reading the file with Claude — this can take up to a minute...
         </p>
       )}
       {status === "error" && (
-        <p style={{ color: "#b91c1c" }} role="alert">
+        <p style={{ color: "var(--danger)" }} role="alert">
           {error}
         </p>
       )}
@@ -182,8 +160,8 @@ export default function ExtractionReviewModal({
         <p
           role="status"
           style={{
-            background: "#fff8e6",
-            border: "1px solid #f0d999",
+            background: "var(--warn-soft)",
+            border: "1px solid var(--warn)",
             borderRadius: "4px",
             padding: "0.5rem 0.75rem",
           }}
@@ -192,7 +170,7 @@ export default function ExtractionReviewModal({
         </p>
       )}
       {nothingFound && (
-        <p style={{ color: "#888" }}>No prayer requests or one-time needs found in this file.</p>
+        <p style={{ color: "var(--muted)" }}>No prayer requests or one-time needs found in this file.</p>
       )}
 
       {prayerRequests.length > 0 && (
@@ -218,7 +196,7 @@ export default function ExtractionReviewModal({
               />
               <div className="table-actions" style={{ marginTop: "0.5rem" }}>
                 {r.state === "added" ? (
-                  <span style={{ color: "#2a5d3c" }}>Added ✓</span>
+                  <span style={{ color: "var(--accent)" }}>Added ✓</span>
                 ) : (
                   <button
                     type="button"
@@ -231,7 +209,7 @@ export default function ExtractionReviewModal({
                 )}
               </div>
               {r.cardError && (
-                <p style={{ color: "#b91c1c", marginTop: "0.25rem" }} role="alert">
+                <p style={{ color: "var(--danger)", marginTop: "0.25rem" }} role="alert">
                   {r.cardError}
                 </p>
               )}
@@ -268,7 +246,7 @@ export default function ExtractionReviewModal({
               </label>
               <div className="table-actions" style={{ marginTop: "0.5rem" }}>
                 {n.state === "added" ? (
-                  <span style={{ color: "#2a5d3c" }}>Added ✓</span>
+                  <span style={{ color: "var(--accent)" }}>Added ✓</span>
                 ) : (
                   <button
                     type="button"
@@ -281,7 +259,7 @@ export default function ExtractionReviewModal({
                 )}
               </div>
               {n.cardError && (
-                <p style={{ color: "#b91c1c", marginTop: "0.25rem" }} role="alert">
+                <p style={{ color: "var(--danger)", marginTop: "0.25rem" }} role="alert">
                   {n.cardError}
                 </p>
               )}

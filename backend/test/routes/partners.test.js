@@ -45,9 +45,8 @@ before(async () => {
       country: true,
     },
   });
-  // trips defaults to off (#252); the "collections are not writable
-  // through the partner record" test below creates a trip, so this needs
-  // it on.
+  // trips defaults to off; the "collections are not writable through the partner record" test
+  // creates a trip, so turn it on.
   const featureSettings = await prisma.churchSettings.findUnique({
     where: { id: "singleton" },
     select: { enabledFeatures: true },
@@ -117,14 +116,11 @@ describe("partners: auth gates", () => {
 });
 
 describe("partners: validation", () => {
-  // Regression test for two bugs in a row on the same line of code. First
-  // every 400 serialized to a literal {}, because Zod v4 renamed
-  // ZodError.errors to .issues. The fix returned err.issues -- an array of
-  // objects -- which the frontend renders straight into JSX, so React threw
-  // "Objects are not valid as a React child" and blanked the page.
-  //
-  // So the contract is now both halves at once: the body must name the
-  // offending field, AND it must be a string. See middleware/errors.js.
+  // Regression test for two bugs in a row on the same line: every 400 serialized to {} (Zod v4
+  // renamed ZodError.errors to .issues), then the fix returned err.issues, an array of objects
+  // the frontend renders into JSX, which made React throw and blank the page. So the contract is
+  // both halves: the body must name the offending field AND be a string. See
+  // middleware/errors.js.
   test("a validation error names the offending field, as a string", async () => {
     const res = await admin("/api/partners", {
       method: "POST",
@@ -317,10 +313,9 @@ describe("partners: last prayed with congregation (#228)", () => {
 });
 
 describe("partners: collections are not writable through the partner record", () => {
-  // This is the regression test for the data-loss bug. Before the rebuild,
-  // saving a partner replaced every child collection wholesale from the
-  // request body -- so a stale form could silently delete rows added
-  // through a collection's own endpoint since the form was opened.
+  // The data-loss regression test: saving a partner once replaced every child collection
+  // wholesale from the request body, so a stale form could silently delete rows added through a
+  // collection's own endpoint since the form was opened.
   test("a partner save cannot delete rows owned by a collection endpoint", async () => {
     const p = await createPartner();
 
@@ -335,8 +330,7 @@ describe("partners: collections are not writable through the partner record", ()
     });
     assert.equal(entry.status, 201);
 
-    // Save the partner while explicitly sending empty collection arrays --
-    // exactly what a stale edit form used to do.
+    // Save the partner while sending empty collection arrays, as a stale edit form would.
     const saved = await admin(`/api/partners/${p.id}`, {
       method: "PUT",
       body: {
@@ -508,14 +502,11 @@ describe("partners: Sent by our church auto-fills Sending Church", () => {
     assert.equal(p.sendingChurch.contactLastName, "Draycott");
   });
 
-  // Regression test: the real admin UI's Sending Church box saves
-  // sentByOurChurch and sendingChurch together in one PUT, even when every
-  // Sending Church field is still blank (see AdminPartnerDetail.jsx's
-  // Sending Church loop). The trigger used to key off "did this payload
-  // include its own sendingChurch at all," which made this exact, entirely
-  // realistic save shape silently skip the auto-fill -- the fill only ever
-  // worked for a hand-crafted API call with no sendingChurch key present,
-  // which nothing in the real frontend actually sends.
+  // Regression test: the admin UI's Sending Church box saves sentByOurChurch and sendingChurch
+  // together in one PUT even when every Sending Church field is blank (see
+  // AdminPartnerDetail.jsx's Sending Church loop). The auto-fill must still run for that shape;
+  // keying it off "did this payload include its own sendingChurch at all" skipped it for the
+  // real form and only worked for a hand-crafted API call.
   test("checking it via a save that bundles blank sendingChurch fields still fills in from Church Settings", async () => {
     const p = await createPartner({ sentByOurChurch: false });
 

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import PageHeader from "../components/shared/PageHeader.jsx";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { fetchPartners, archivePartner, unarchivePartner, deletePartner } from "../api/client.js";
 import { useSettings } from "../context/SettingsContext.jsx";
@@ -20,19 +21,16 @@ import useSendingChurchField from "../hooks/useSendingChurchField.js";
 import { partnersTabState } from "../utils/partnersTabs.js";
 import LastUpdatedCell, { lastUpdatedSortKey } from "../components/shared/LastUpdatedCell.jsx";
 import AssignedPartnersTable from "../components/admin/AssignedPartnersTable.jsx";
+import TabBar from "../components/shared/TabBar.jsx";
 
-// Same field as backend/src/utils/maskData.js's public `country` -- the
-// physical address's country, nothing else. fipsCountryCode is for Joshua
-// Project lookups only, deliberately not a fallback here either, so "which
-// country is this partner in" means the same thing here as it does on the
-// public site/map.
+// Same field as the public `country` in backend/src/utils/maskData.js: the physical address's
+// country only. fipsCountryCode is for Joshua Project lookups, deliberately not a fallback.
 function resolveCountry(record) {
   const physical = addressByType(record.addresses, "physical");
   return physical?.country || null;
 }
 
-// The API orders churchVisits by visitDate descending, so the first entry
-// (if any) is the last visit.
+// The API orders churchVisits by visitDate descending, so the first is the last visit.
 function lastVisit(churchVisits) {
   return formatDate(churchVisits?.[0]?.visitDate, { fallback: "—" });
 }
@@ -42,10 +40,8 @@ function lastVisitTimestamp(row) {
   return d ? new Date(d).getTime() : null;
 }
 
-// "Never visited" deliberately matches the quick bucket's low end
-// ("Never visited" itself) but not "Within.../Over..." -- those ask about
-// a real last-visit date, and a partner with none hasn't earned a bucket
-// either way.
+// "Never visited" matches the quick bucket's "Never visited" but not "Within.../Over...",
+// which ask about a real date.
 function matchesLastVisitQuick(row, quick) {
   if (quick === "all") return true;
   const ts = lastVisitTimestamp(row);
@@ -71,19 +67,10 @@ const emptyFilters = {
   search: "",
 };
 
-// Missionaries and organizations share one list page and nav link --
-// once a church sets a shared partner term (see Church Settings), two
-// separate links reading identically would look like a bug.
-//
-// type/public/restricted/continent/country are real backend query params
-// (GET /api/partners); `archived` is server-side filterable too. Free-text
-// search stays client-side against the already-filtered result set
-// (matchesSearch over name/field/focus/summary/country) -- debouncing a
-// server round-trip per keystroke isn't worth it for a dataset this size.
-// Last Visit's quick-bucket select is client-side too, for the same
-// reason: it reads churchVisits[0] off a row already fetched for the
-// Last Visit column and its sort, so there's no new request to make it
-// server-side for.
+// Missionaries and organizations share one list page and nav link.
+// type/public/restricted/continent/country/archived are backend query params
+// (GET /api/partners). Free-text search and the Last Visit quick bucket stay client-side:
+// no per-keystroke round-trip, and the bucket reads churchVisits[0] already fetched.
 // Sent by our church only applies to missionaries.
 const isSentByUs = (row) => row.type === "missionary" && row.sentByOurChurch;
 
@@ -91,21 +78,17 @@ export default function AdminPartners() {
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
   const [partners, setPartners] = useState([]);
   const [loading, setLoading] = useState(true);
-  // Unfiltered, fetched once -- only used to build the continent/country
-  // <select> option lists from what's actually on file, since the main
-  // `partners` state above is a server-filtered subset and can't be used
-  // for that without the options shrinking/disappearing as a filter narrows.
+  // Unfiltered, fetched once, only to build the continent/country option lists; the main
+  // `partners` state is a filtered subset and the options would shrink as a filter narrows.
   const [allForOptions, setAllForOptions] = useState([]);
   const navigate = useNavigate();
   const { partnerTermPlural, usePartnerTermInAdmin, enabledFeatures } = useSettings();
   const sectionTitle = usePartnerTermInAdmin ? partnerTermPlural : "Partners";
-  const { canWrite, isAdmin, isGuest, careTeamSeats } = useCurrentUser();
-  // #288: "My partners" -- only for someone who holds a care team seat,
-  // and only while both features are on. The notification's link lands here
-  // with ?assigned=1.
+  const { canWrite, isAdmin, isGuest, careTeamSeats, onMissionsTeam } = useCurrentUser();
+  // "My partners": for someone who looks after partners (holds a care team seat, or is on the missions team)
+  // while the contact log is on. The notification's link lands here with ?assigned=1.
   const [searchParams, setSearchParams] = useSearchParams();
-  const hasAssignedTab =
-    !!enabledFeatures.contactLog && !!enabledFeatures.careTeam && careTeamSeats.length > 0;
+  const hasAssignedTab = !!enabledFeatures.contactLog && (careTeamSeats.length > 0 || onMissionsTeam);
   // Staff land on All; a guest gets one plain list, no tabs (see utils/partnersTabs.js).
   const { showAssigned, showTabs } = partnersTabState({
     hasAssignedTab,
@@ -157,11 +140,9 @@ export default function AdminPartners() {
           ...availableContinents.map((c) => ({ value: c, label: c })),
         ],
       },
-      // `options` here is a placeholder -- useFilterState only ever reads
-      // `name`/`type` off a field (see its own comment), so this is safe to
-      // pass to it before `availableCountries` (below, which itself depends
-      // on `filters.continent`) exists. The real options get merged in for
-      // FilterBar specifically, in `fieldsWithCountryOptions`.
+      // `options` is a placeholder: useFilterState only reads `name`/`type` (see its comment),
+      // so this is safe before `availableCountries` exists. Real options are merged for
+      // FilterBar in `fieldsWithCountryOptions`.
       { name: "country", label: "Country", type: "select", options: [] },
       INCLUDE_ARCHIVED_PARTNERS_FILTER_FIELD,
       {
@@ -239,11 +220,8 @@ export default function AdminPartners() {
     [partners]
   );
 
-  // Without ?archived param, the backend already returns both archived and
-  // non-archived rows -- filters.includeArchived both drives the request (so
-  // the archived param narrows server-side when checked) and, since the
-  // unchecked default omits the param entirely (both), still needs a
-  // client-side pass to hide them from the default view.
+  // Without an ?archived param the backend returns both. filters.includeArchived drives the
+  // request, and the unchecked default omits the param, so it still needs a client-side pass.
   const visibleBeforeSearch = filters.includeArchived ? rows : rows.filter((r) => !r.archived);
   const availableCountries = useMemo(
     () =>
@@ -271,11 +249,8 @@ export default function AdminPartners() {
       ),
     [fields, availableCountries]
   );
-  // Switching continent can leave a previously-chosen country no longer in
-  // range (e.g. "Kenya" selected, then continent changed to Asia) -- a
-  // native <select> just silently shows nothing selected in that case
-  // while the stale value keeps filtering the request, so reset it
-  // explicitly instead of leaving that mismatch.
+  // Changing continent can leave the chosen country out of range; a native <select> would
+  // show nothing selected while the stale value kept filtering, so reset it.
   useEffect(() => {
     if (filters.country !== "all" && !availableCountries.includes(filters.country)) {
       updateFilter("country", "all");
@@ -309,11 +284,8 @@ export default function AdminPartners() {
     reload();
   }
 
-  // Archiving is the deliberate first step — the backend rejects DELETE for
-  // anything not already archived, so the UI only ever offers the button
-  // once that's true. Typing "confirm" back is extra friction on top of
-  // that, since this step is genuinely permanent -- see useConfirmDialog's
-  // own typedConfirmation option, built for exactly this one case.
+  // Archiving is the first step: the backend rejects DELETE unless already archived. Typing
+  // "confirm" adds friction since this is permanent (useConfirmDialog typedConfirmation).
   async function handleDelete(row) {
     const confirmed = await confirmDialog({
       title: `Permanently delete ${row.name}?`,
@@ -337,59 +309,34 @@ export default function AdminPartners() {
 
   return (
     <div className="admin-shell">
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          flexWrap: "wrap",
-          gap: "0.5rem",
-        }}
-      >
-        <div>
-          <h2 style={{ margin: 0 }}>{sectionTitle}</h2>
-          <p style={{ margin: "0.2rem 0 0", color: "var(--muted)" }}>
-            {visible.length} active{" "}
-            {visible.length === 1 ? sectionTitle.toLowerCase().replace(/s$/, "") : sectionTitle.toLowerCase()}
-          </p>
-        </div>
-        {canWrite && (
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
-            <Link to="/admin/partners/new?kind=missionary" className="btn">
-              + Add Missionary
-            </Link>
-            <Link to="/admin/partners/new?kind=organization" className="btn">
-              + Add Organization
-            </Link>
-          </div>
-        )}
-      </div>
+      <PageHeader
+        title={sectionTitle}
+        subtitle={`${visible.length} active ${
+          visible.length === 1 ? sectionTitle.toLowerCase().replace(/s$/, "") : sectionTitle.toLowerCase()
+        }`}
+        actions={
+          canWrite && (
+            <>
+              <Link to="/admin/partners/new?kind=missionary" className="btn">
+                + Add Missionary
+              </Link>
+              <Link to="/admin/partners/new?kind=organization" className="btn">
+                + Add Organization
+              </Link>
+            </>
+          )
+        }
+      />
 
       {showTabs && (
-        <div
-          role="tablist"
-          aria-label="Partner views"
-          style={{ display: "flex", gap: "0.4rem", marginTop: "0.75rem" }}
-        >
-          <button
-            type="button"
-            role="tab"
-            aria-selected={!showAssigned}
-            className={showAssigned ? "btn secondary small" : "btn small"}
-            onClick={() => setTab(false)}
-          >
-            All
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={showAssigned}
-            className={showAssigned ? "btn small" : "btn secondary small"}
-            onClick={() => setTab(true)}
-          >
-            My partners
-          </button>
-        </div>
+        <TabBar
+          ariaLabel="Partner views"
+          activeKey={showAssigned ? "mine" : "all"}
+          tabs={[
+            { key: "all", label: "All", onClick: () => setTab(false) },
+            { key: "mine", label: "My partners", onClick: () => setTab(true) },
+          ]}
+        />
       )}
 
       {showAssigned ? (
@@ -409,14 +356,14 @@ export default function AdminPartners() {
             rows={partnersLoadMore.visible}
             rowKey={(row) => `${row.type}-${row.id}`}
             onRowClick={(row) => navigate(row.detailLink)}
+            rowHref={(row) => row.detailLink}
             emptyMessage={loading ? "Loading…" : "No partners match these filters."}
             columns={[
               {
                 key: "name",
                 label: "Display Name",
-                // The photo sits beside the name instead of in a column of its own:
-                // that column was blank for every partner without one. A fixed-size
-                // slot keeps the names aligned whether or not a row has a photo.
+                // Photo beside the name, not its own column (blank for most partners); a
+                // fixed-size slot keeps names aligned.
                 render: (row) => (
                   <span style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
                     <span style={{ width: 36, height: 36, flexShrink: 0 }}>
@@ -446,10 +393,8 @@ export default function AdminPartners() {
               {
                 key: "flags",
                 label: "Flags",
-                // Only what is out of the ordinary (Restricted, not on the public site,
-                // sent by us), not three yes/no columns where "No" is the usual answer.
-                // Not sortable: a row can carry several flags at once, so a sort could
-                // not isolate one; the filters above do that.
+                // Only what is out of the ordinary, not three yes/no columns. Not sortable:
+                // a row can carry several flags; the filters above isolate one.
                 render: (row) =>
                   row.isRestricted || !row.isPublic || isSentByUs(row) ? (
                     <span style={{ display: "flex", flexWrap: "wrap", gap: "0.25rem" }}>
@@ -489,9 +434,6 @@ export default function AdminPartners() {
             ]}
             renderActions={(row) => (
               <>
-                <Link to={row.detailLink} className="btn secondary small">
-                  Open
-                </Link>
                 {row.archived ? (
                   <>
                     {canWrite && (

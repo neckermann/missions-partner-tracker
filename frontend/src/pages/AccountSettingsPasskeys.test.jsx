@@ -1,4 +1,4 @@
-// #386: the Passkeys section on My account, and how Two-Factor Authentication reads with one.
+// The Passkeys section on My account, and how Two-Factor Authentication reads with one.
 import React from "react";
 import { describe, test, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
@@ -67,6 +67,22 @@ describe("Passkeys on My account", () => {
     expect(await screen.findByText(/That was cancelled/)).toBeInTheDocument();
   });
 
+  test.each([
+    ["InvalidStateError", /already has a passkey for this account/],
+    ["SecurityError", /won't make a passkey for this web address/],
+    ["NotSupportedError", /screen lock/],
+    ["SomethingElseError", /Couldn't add a passkey on this device \(SomethingElseError\)/],
+  ])(
+    "a %s from the browser says why, so a phone's biometrics problem can be diagnosed",
+    async (name, text) => {
+      client.fetchCurrentUser.mockResolvedValue(user());
+      client.registerPasskey.mockRejectedValue(Object.assign(new Error("x"), { name }));
+      render(<AccountSettings />);
+      fireEvent.click(await screen.findByRole("button", { name: "Add a passkey" }));
+      expect(await screen.findByText(text)).toBeInTheDocument();
+    }
+  );
+
   test("lists them and removes one only with the password", async () => {
     client.fetchCurrentUser.mockResolvedValue(user({ mfaEnabled: true, passkeyCount: 1 }));
     client.fetchPasskeys.mockResolvedValue({ passkeys: [passkey()], max: 5 });
@@ -110,12 +126,12 @@ describe("Passkeys on My account", () => {
     expect(await screen.findByText(/can't create passkeys/)).toBeInTheDocument();
   });
 
-  test("on the public demo it says passkeys are off and offers no add form", async () => {
+  test("on the public demo it still offers the add form, and says it never changes anyone's sign-in", async () => {
     client.fetchCurrentUser.mockResolvedValue(user());
     client.fetchPasskeys.mockResolvedValue({ passkeys: [], max: 5, demo: true });
     render(<AccountSettings />);
-    expect(await screen.findByText(/turned off on the public demo/)).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Add a passkey" })).not.toBeInTheDocument();
+    expect(await screen.findByText(/never changes how anyone signs in/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add a passkey" })).toBeInTheDocument();
   });
 
   test("with only passkeys, Two-Factor says so and offers no authenticator-app switch-off", async () => {

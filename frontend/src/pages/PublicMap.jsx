@@ -9,57 +9,21 @@ import { formatYear } from "../utils/format.js";
 import PublicSiteHeader from "../components/PublicSiteHeader.jsx";
 import PhotoTile from "../components/shared/PhotoTile.jsx";
 
-// Marker images come from the installed leaflet package, not a CDN. Vite
-// rewrites these imports to hashed files it serves itself.
-//
-// They used to point at unpkg.com, with a comment saying bundlers couldn't
-// resolve them otherwise. That is true of the *default* icon paths Leaflet
-// builds at runtime -- it guesses them from its own stylesheet URL, which a
-// bundler moves -- but it was never true of an explicit import, which is
-// the normal fix. The CDN version meant every pin on the public map, and
-// the Leaflet stylesheet in index.html, depended on a third party staying
-// reachable. See the tile comment below for what that costs.
+// Marker images come from the installed leaflet package, not a CDN: Leaflet's default icon paths are
+// guessed at runtime and break under a bundler, and a CDN would make every pin depend on a third party.
 import markerIconUrl from "leaflet/dist/images/marker-icon.png";
 import markerIcon2xUrl from "leaflet/dist/images/marker-icon-2x.png";
 import markerShadowUrl from "leaflet/dist/images/marker-shadow.png";
 
-// A 1x1 transparent pixel, used for tiles that fail to load.
-//
-// Leaflet's default is to leave the failed response visible, so when a tile
-// provider refuses a request its error image tiles the whole viewport --
-// OpenStreetMap's is a yellow hazard-tape graphic reading "Access blocked",
-// repeated across the map. The pins stay correct underneath it, so a blank
-// background is both more honest and more usable than the provider's
-// complaint rendered five hundred times.
+// A 1x1 transparent pixel for failed tiles. Leaflet otherwise leaves the failed response visible, and
+// a provider's error image (OSM's "Access blocked" tape) would tile the whole viewport.
 const BLANK_TILE = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
 
-// Basemap tiles, in preference order.
-//
-// Why a list and not one URL: OpenStreetMap blocks by network. Their tile
-// servers are donated infrastructure, and when they refuse a client they
-// refuse that IP -- so the same build serves a working map to one person
-// and a blank one to another on a different connection. That is exactly
-// what happened here: the tile URL and the CSP were byte-identical to a
-// build that had worked for weeks, tiles loaded fine from one network and
-// returned 403 from another, and no code change could have fixed it for
-// everyone because the code was never the variable.
-//
-// So the map tries these in order and moves to the next when one fails
-// repeatedly, per visitor. Someone whose network OSM is happy with gets
-// OSM; someone whose network it blocks gets Esri, instead of a map with
-// no land on it.
-//
-// Both are keyless, which is the constraint that matters for this project:
-// a church deploying its own instance cannot be made to register for a
-// tile account first. CARTO was tried and removed -- they now serve an
-// "API KEY REQUIRED" watermark, at a constant 2049 bytes per tile, with a
-// 200 status, so it looks fine to anything checking status codes alone.
-//
-// Note Esri's path order is {z}/{y}/{x}, not {z}/{x}/{y}.
-//
-// Every host here must also be allowed by the CSP img-src in
-// backend/src/server.js, or the browser blocks it silently -- there is a
-// test pinning the two together.
+// Basemap tiles, in preference order. OpenStreetMap blocks by network, so the same build can work for
+// one visitor and be blank for another; the map moves to the next source when one fails repeatedly.
+// Sources must be keyless (a self-hosting church can't register for a tile account). CARTO was removed:
+// it serves a 200 "API KEY REQUIRED" watermark tile. Esri's path order is {z}/{y}/{x}. Every host must
+// also be allowed by the CSP img-src in backend/src/server.js, or the browser blocks it silently (a test pins the two).
 const TILE_SOURCES = [
   {
     name: "OpenStreetMap",
@@ -73,10 +37,7 @@ const TILE_SOURCES = [
   },
 ];
 
-// How many tile failures on one source before moving to the next. A world
-// view loads roughly a dozen tiles, so this is high enough that one flaky
-// request doesn't cause a switch and low enough to happen within the first
-// screenful.
+// Tile failures on one source before moving to the next: above one flaky request, within the first screenful.
 const TILE_FAILURES_BEFORE_FALLBACK = 4;
 
 const icon = new L.Icon({
@@ -92,9 +53,7 @@ const restrictedIcon = new L.Icon({
   iconAnchor: [9, 30],
   className: "restricted-marker",
 });
-// Same marker image as missionaries, tinted via a CSS hue-rotate filter
-// (see .org-marker in index.css) so organization pins are visually distinct
-// without needing a separate image asset.
+// Same marker image as missionaries, tinted via CSS hue-rotate (.org-marker in index.css).
 const orgIcon = new L.Icon({
   iconUrl: markerIconUrl,
   shadowUrl: markerShadowUrl,
@@ -118,17 +77,8 @@ function FlyToController({ target }) {
   return null;
 }
 
-// Popups are just "quick details" — name, photo, a one-line meta, and
-// overviewShort — with everything else (full overview, links, sending
-// party, country stats) living on the dedicated detail page linked at the
-// bottom. Content is static (no more inline expand/collapse), but Leaflet
-// still only auto-pans a popup once, at open time, based on its content's
-// size at that instant. If that measurement happens to land before the
-// browser has finished laying out the popup (e.g. the overviewShort text
-// wrapping to a couple lines), part of the popup can end up rendered
-// outside the visible map area. Calling update() once after mount forces
-// Leaflet to recompute size/position — and re-run its auto-pan — against
-// the fully-rendered content.
+// Popups are quick details only; the rest lives on the detail page. Leaflet auto-pans a popup once, using its
+// size at open time, which can be measured before layout finishes; calling update() after mount re-runs the pan.
 function MissionaryPopup({ m }) {
   const popupRef = useRef(null);
   useEffect(() => {
@@ -140,10 +90,7 @@ function MissionaryPopup({ m }) {
       ref={popupRef}
       minWidth={220}
       maxWidth={280}
-      // The app header is a fixed bar sitting on top of the map, which
-      // Leaflet's auto-pan has no knowledge of — without extra top padding
-      // it can still leave part of a tall popup rendering underneath/behind
-      // the header instead of fully inside the visible map area.
+      // The fixed app header sits over the map and Leaflet's auto-pan doesn't know it; pad the top.
       autoPanPaddingTopLeft={[20, 80]}
       autoPanPaddingBottomRight={[20, 20]}
     >
@@ -154,7 +101,7 @@ function MissionaryPopup({ m }) {
           )}
           <h3 className="popup-name">{m.displayName}</h3>
           <p className="popup-meta">
-            {[m.fieldDisplayName, m.supportingSince && `Supporting since ${formatYear(m.supportingSince)}`]
+            {[m.fieldDisplayName, m.supportingSince && `Partnering since ${formatYear(m.supportingSince)}`]
               .filter(Boolean)
               .join(" · ")}
           </p>
@@ -204,18 +151,13 @@ export default function PublicMap() {
   const [partners, setPartners] = useState([]);
   const [activeIndex, setActiveIndex] = useState(null);
   const [activeOrg, setActiveOrg] = useState(null);
-  // Which entry of TILE_SOURCES is in use, and how many tiles it has
-  // failed to deliver. A ref, not state, for the counter: it changes on
-  // every failed tile and nothing renders from it directly, so making it
-  // state would re-render the map a dozen times while a source is dying.
+  // Which TILE_SOURCES entry is in use; failures are counted in a ref (it changes on every failed
+  // tile and nothing renders from it).
   const [tileSourceIndex, setTileSourceIndex] = useState(0);
   const tileFailures = useRef(0);
-  // True only once every source has been tried and failed. The pins are
-  // our own data and stay correct, so the map still works -- this just
-  // explains the blank background instead of leaving it a mystery.
+  // True once every source has failed; the pins stay correct, this explains the blank background.
   const [tilesFailed, setTilesFailed] = useState(false);
-  // ?tour=1 (or just ?tourSeconds=..., which implies tour=1) auto-starts the
-  // tour on load, instead of requiring a click on "Start Tour".
+  // ?tour=1 (or ?tourSeconds=..., which implies it) auto-starts the tour on load.
   const [autoScroll, setAutoScroll] = useState(searchParams.has("tour") || searchParams.has("tourSeconds"));
   const intervalRef = useRef(null);
   const markerRefs = useRef({});
@@ -223,16 +165,8 @@ export default function PublicMap() {
   const { partnerTermPlural, publicTagline } = useSettings();
   const tileSource = TILE_SOURCES[tileSourceIndex];
 
-  // ?tourSeconds=15 slows down/speeds up the auto-tour; defaults to 30s.
-  //
-  // Floored, because the tour is the one thing here that fetches tiles
-  // without anyone touching the page: every hop flies the map to another
-  // continent, pulling tiles the whole way, and ?tour=1 on a lobby screen
-  // runs that indefinitely. OpenStreetMap's tile usage policy draws its
-  // line at heavy use of donated infrastructure, and an unattended display
-  // panning the world every second or two is the shape of thing it means.
-  // Any value below the floor is treated as the floor rather than
-  // rejected, so an old bookmark still works, just more politely.
+  // ?tourSeconds sets the tour pace (default 30s). Floored because an unattended ?tour=1 display fetches
+  // tiles continuously, which OSM's tile usage policy prohibits; lower values are clamped, not rejected.
   const tourSeconds = (() => {
     const raw = Number(searchParams.get("tourSeconds"));
     if (!(raw > 0)) return DEFAULT_TOUR_SECONDS;
@@ -243,19 +177,14 @@ export default function PublicMap() {
     fetchPublicPartners().then(setPartners).catch(console.error);
   }, []);
 
-  // Both kinds arrive from one endpoint now, split here for the two
-  // differently-styled marker sets and the two sidebar groups.
+  // Split for the two marker styles and sidebar groups.
   const missionaries = partners.filter((p) => p.kind === "missionary");
   const organizations = partners.filter((p) => p.kind === "organization");
   const withCoords = missionaries.filter((m) => m.gpsLat && m.gpsLng);
   const orgsWithCoords = organizations.filter((o) => o.gpsLat && o.gpsLng);
 
-  // Auto fly-through: advance to the next pin every `tourSeconds` seconds.
-  // Jumps to the first pin immediately whenever the tour (re)starts, rather
-  // than waiting a full interval — unconditionally, not just when nothing
-  // was active yet, so this still fires even if the visitor had already
-  // clicked a pin/list card before starting the tour (otherwise it would
-  // silently keep showing that pin for a full tourSeconds before advancing).
+  // Auto fly-through: advance every `tourSeconds`, jumping to the first pin immediately on (re)start,
+  // even if the visitor had already clicked a pin.
   useEffect(() => {
     if (autoScroll && withCoords.length > 0) {
       setActiveIndex(0);
@@ -271,17 +200,14 @@ export default function PublicMap() {
 
   const activeMissionary = activeIndex !== null ? withCoords[activeIndex] : null;
 
-  // Whenever the active pin changes (tour advancing, a list click, or a
-  // marker click), open its popup automatically instead of requiring an
-  // extra click on the pin itself.
+  // Open the active pin's popup automatically when it changes.
   useEffect(() => {
     if (activeMissionary) {
       markerRefs.current[activeMissionary.id]?.openPopup();
     }
   }, [activeMissionary]);
 
-  // Organizations aren't part of the tour/activeIndex cycling — just a
-  // click-to-fly-and-open-popup, independent of the missionary tour state.
+  // Organizations aren't part of the tour cycle; click flies to them and opens the popup.
   useEffect(() => {
     if (activeOrg) {
       orgMarkerRefs.current[activeOrg.id]?.openPopup();
@@ -297,10 +223,7 @@ export default function PublicMap() {
       </PublicSiteHeader>
 
       <div className={`map-layout ${autoScroll ? "tour-mode" : ""}`}>
-        {/* Quick-identify-and-fly list — just enough to pick a pin. Full
-            write-ups (overview, links, country stats, sending party, etc.)
-            live on /partners now; a click here still opens the marker's
-            popup, which links out to that full profile. */}
+        {/* Quick-identify-and-fly list; full write-ups live on the partner detail page. */}
         {!autoScroll && (
           <div className="missionary-list" role="region" aria-label="Partner list">
             {partners.length === 0 && <p style={{ padding: "1rem" }}>Loading...</p>}
@@ -384,9 +307,7 @@ export default function PublicMap() {
             scrollWheelZoom={true}
           >
             <TileLayer
-              // Keyed so Leaflet tears the layer down and refetches when
-              // the source changes; without it the new URL is only used
-              // for tiles not already in its cache.
+              // Keyed so Leaflet refetches when the source changes (otherwise only uncached tiles use the new URL).
               key={tileSource.url}
               attribution={tileSource.attribution}
               url={tileSource.url}
@@ -403,12 +324,8 @@ export default function PublicMap() {
                     return current;
                   });
                 },
-                // Only a tile that really arrived counts as success. The
-                // naive version cleared the warning on any tileload, which
-                // never showed it at all: Leaflet swaps a failed tile's
-                // src to errorTileUrl, that blank data: URI loads fine,
-                // and its load event immediately undid the tileerror that
-                // had just fired.
+                // Only a tile that really arrived counts: Leaflet swaps a failed tile to errorTileUrl, whose
+                // load event would otherwise immediately undo the tileerror.
                 tileload: (e) => {
                   if (e.tile?.src && !e.tile.src.startsWith("data:")) {
                     tileFailures.current = 0;

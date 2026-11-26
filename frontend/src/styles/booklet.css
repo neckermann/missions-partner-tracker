@@ -1,44 +1,17 @@
-/* Print-only visual system for the missionary booklet (AdminBooklet.jsx).
-   A plain, route-level import — Vite code-splits it into the Booklet
-   route's own chunk, so it still only loads on navigation there, but it's
-   an ordinary stylesheet now rather than a URL handed to a pagination
-   polyfill. The @page rule below applies document-wide while this page
-   is open, same as the (identical) one in index.css for Reports.
-
-   #322 rebuilt the template system as a data-driven catalog
-   (frontend/src/booklet/templates.js), mirroring the registry/definitions
-   split backend/src/reporting/registry.js + definitions.js established
-   for Reports (#296): a template is a small token object, not a
-   hand-duplicated CSS block. Every rule below is shared across all
-   templates and reads a template's look from CSS custom properties
-   (--tpl-*, --accent) and data-* attributes set on the single
-   `.booklet-doc` wrapper buildBookletHtml returns (see
-   templateWrapperMarkup() in templates.js) -- adding template #3 means
-   adding token values there, not more CSS here.
-
-   Before this rebuild there were six templates (Classic, Modern,
-   Traditional, Keepsake, Portfolio, Friendly), each a full hand-authored
-   ~150-line block. v1 of the catalog ships exactly two -- Classic and
-   Modern, ported onto this token system -- per #322's scope. The other
-   four's CSS was deleted outright rather than left unreferenced (one of
-   the issue's open questions, resolved toward deleting per its own
-   leaning): a follow-up issue can re-add any of them onto this token
-   system; keeping dead, soon-to-be-superseded per-template CSS around
-   pending that follow-up was judged a bigger drift risk than losing the
-   old rules, which are still in git history. */
+/* Print-only visual system for the missionary booklet (AdminBooklet.jsx), code-split with the
+   Booklet route. The @page rule applies document-wide while the page is open, same as the one in
+   index.css for Reports. Every rule is shared across templates and reads a template's look from
+   custom properties (--tpl-*, --accent) and data-* attributes on the `.booklet-doc` wrapper
+   (templateWrapperMarkup() in templates.js): a new template adds token values there, not CSS here. */
 
 @page {
   size: letter;
   margin: 0.6in;
 }
 
-/* Page numbers used to be an @page margin box (@bottom-right { content:
-   counter(page) }) under paged.js's polyfill. Chromium's print/PDF engine
-   doesn't implement CSS Paged Media margin boxes at all -- that's the
-   actual reason paged.js existed -- so under native printing that rule
-   silently renders nothing. Real numbers are emitted straight into each
-   page's HTML instead (see PAGE_NUM / pageNumberMarkup in
-   AdminBooklet.jsx); this just positions them. */
+/* Page numbers are emitted into each page's HTML (PAGE_NUM / pageNumberMarkup in AdminBooklet.jsx),
+   not an @page margin box: Chromium's print engine doesn't implement margin boxes. This just
+   positions them. */
 .booklet-page-number {
   position: absolute;
   right: 0.3in;
@@ -48,27 +21,18 @@
   font-family: Arial, sans-serif;
 }
 
-* {
+.booklet-doc,
+.booklet-doc * {
   box-sizing: border-box;
-  /* Chromium strips background colors and images by default when
-     printing, to save ink -- every decorative shape, tinted callout and
-     colored header band is a background, so without this they simply
-     don't exist in a real printed page or a browser's own "Save as PDF".
-     This was invisible in all of this feature's own testing because
-     Playwright's page.pdf() takes printBackground: true as a call
-     argument, which bypasses the browser's default and masks exactly
-     this bug -- a real person clicking Print Booklet and using their
-     browser's print dialog has no such override. */
+  /* Chromium strips background colors and images when printing, and every decorative shape, tinted
+       callout and header band is a background. Playwright's page.pdf() sets printBackground: true,
+       which masks this in tests, but a person using the browser print dialog gets no such override. */
   -webkit-print-color-adjust: exact;
   print-color-adjust: exact;
 }
 
-body {
-  color: #222;
-  margin: 0;
-}
-
 .booklet-doc {
+  color: #222;
   font-family: var(--tpl-font, Georgia, "Times New Roman", serif);
 }
 
@@ -77,44 +41,21 @@ body {
 .booklet-page {
   position: relative;
   min-height: 9.2in;
-  /* overflow: hidden clips anything that visually escapes this box --
-     the decorative corner shapes below are deliberately positioned
-     partway off the edge (see .booklet-shape), and without this they
-     bled straight through into whichever page/section happened to sit
-     next to them in normal flow, overlapping its content and page
-     number on screen (confirmed via screenshot, #346). min-height alone
-     never caused that on its own -- it only lets the box grow taller to
-     fit content, which is still the accepted "an overlong entry spills
-     onto an extra physical page" fallback described below on
-     .booklet-notes-lines -- overflow: hidden doesn't change that, since
-     a box that has grown to fit its content has nothing left to clip;
-     it only clips a positioned child (like .booklet-shape) that sticks
-     out past whatever size the box ends up at. */
+  /* overflow: hidden clips the decorative corner shapes (see .booklet-shape), which are positioned
+       partly off the edge and otherwise bled into neighbouring pages. min-height alone never caused
+       that; a box grown to fit its content has nothing to clip (see the overlong-entry fallback on
+       .booklet-notes-lines). */
   overflow: hidden;
   break-after: page;
   padding: 0.25in;
-  /* A real page is white paper -- correct for print, and on screen it's
-     also what actually makes each page read as a distinct sheet against
-     .booklet-preview-pane's grey admin-chrome background (index.css)
-     rather than blending into it. Harmless at print: this is the page's
-     own background either way, nothing added on top of it. */
+  /* White paper: right for print, and on screen it makes each page read as a sheet against
+       .booklet-preview-pane's grey background (index.css). */
   background: #fff;
 }
 
-/* Decorative corner shapes -- Classic's `shapeStyle: "circles"` token.
-   Modern's `shapeStyle: "none"` just hides them; a future template could
-   introduce a third shapeStyle value and its own rule here without
-   touching Classic's or Modern's.
-
-   Both shapes now anchor to a corner and bleed the same modest amount
-   off that corner's two edges, clipped by .booklet-page's own
-   `overflow: hidden` above -- a plain, legible "corner accent" look.
-   Before the #346 fix, shape-b in particular floated mid-edge
-   (`bottom: 30px; left: -35px`) rather than anchoring to a corner, which
-   read as arbitrary even before the overflow bug made it bleed into the
-   next page outright -- both problems came from the same missing
-   containment, so fixing the clip was the moment to also make the
-   placement itself read as deliberate. */
+/* Decorative corner shapes: Classic's `shapeStyle: "circles"` token; Modern's "none" hides them.
+   Both anchor to a corner and bleed a modest amount off its two edges, clipped by .booklet-page's
+   `overflow: hidden`. */
 .booklet-shape {
   position: absolute;
   border-radius: 50%;
@@ -138,22 +79,16 @@ body {
   left: -40px;
 }
 
-/* Cover + index + per-entry heading typography. headingWeight/
-   headingTransform/coverAlign are plain scalar tokens (a weight number, a
-   text-transform keyword, a text-align keyword), so they're consumed
-   directly as custom properties rather than needing a data-* branch. */
+/* Cover + index + per-entry heading typography. headingWeight/headingTransform/coverAlign are
+   plain scalar tokens, consumed directly as custom properties. */
 .booklet-cover-title {
   font-size: 44pt;
   font-weight: var(--tpl-heading-weight, 700);
   text-transform: var(--tpl-heading-transform, none);
   text-align: var(--tpl-cover-align, center);
-  /* Classic has no frame/flex-anchoring (frameStyle: "none") -- a large
-     top margin in normal block flow is what pushes the title down to a
-     centered-ish position on the page. A frameStyle: "rule" template
-     anchors this block to the bottom of the page via flexbox instead
-     (see the frame-style rule below), so it overrides this margin down
-     to a small spacing value rather than stacking a second, conflicting
-     positioning mechanism on top of the first. */
+  /* Classic has no frame (frameStyle: "none"): a large top margin pushes the title down. A
+       frameStyle: "rule" template anchors this block with flexbox instead, so it overrides this
+       margin rather than stacking two positioning mechanisms. */
   margin: 3in 0 0.2in;
 }
 .booklet-cover-subtitle {
@@ -169,13 +104,8 @@ body {
   margin-top: 0.5in;
   font-family: Arial, sans-serif;
 }
-/* Modern's `frameStyle: "rule"` token: a bold accent rule anchoring the
-   cover and back cover, instead of Classic's plain page (`frameStyle:
-   "none"`). Position comes from flexbox here, not the title's own large
-   top margin (see above), so that margin is overridden down to a small
-   spacing value. Title/subtitle/date already read text-align from
-   --tpl-cover-align (Modern's token value is "left"), so no separate
-   alignment override is needed here. */
+/* Modern's `frameStyle: "rule"` token: a bold accent rule anchoring the cover and back cover.
+   Position comes from flexbox, so the title's large top margin is overridden to a small value. */
 [data-frame-style="rule"] .booklet-cover,
 [data-frame-style="rule"] .booklet-back-cover {
   border-top: 10px solid var(--accent, #4c7a79);
@@ -199,20 +129,16 @@ body {
   font-size: 12pt;
   line-height: 1.8;
   font-family: Arial, sans-serif;
-  /* Two columns rather than one long list -- a church with enough
-     missionaries to fill a page one-at-a-time would otherwise push the
-     index itself to a second page, ahead of any actual content. */
+  /* Two columns, or a church with many missionaries would push the index itself to a second page. */
   column-count: 2;
   column-gap: 0.4in;
 }
 .booklet-index-list li {
-  /* Without this, Chromium will split a single entry's name and field
-     across the column break rather than only breaking between entries. */
+  /* Keeps a single entry's name and fields from splitting across the column break. */
   break-inside: avoid;
 }
-/* Modern's `headingRule: "rule"` token: a bold accent underline below the
-   index title (and, further below, the entry name and notes heading).
-   Classic's `headingRule: "none"` leaves these plain. */
+/* Modern's `headingRule: "rule"` token: a bold accent underline below the index title, entry name
+   and notes heading. Classic's "none" leaves them plain. */
 [data-heading-rule="rule"] .booklet-index-title {
   padding-bottom: 0.15in;
   border-bottom: 3px solid var(--accent, #4c7a79);
@@ -242,8 +168,7 @@ body {
   border-bottom: 3px solid var(--accent, #4c7a79);
 }
 
-/* photoShape: Classic is "circle" (round, floated), Modern is "rect"
-   (square corners, larger). */
+/* photoShape: Classic is "circle" (round, floated), Modern is "rect" (square corners, larger). */
 .booklet-photo {
   width: 1.4in;
   height: 1.4in;
@@ -258,12 +183,8 @@ body {
   height: 1.7in;
 }
 
-/* calloutStyle: Classic's "tint" is a soft background box (the tint
-   itself derived from --accent via color-mix rather than a second
-   hand-picked hex per entry, which is what the four-color PALETTE used
-   to carry as --tint -- see templates.js's own comment on why one
-   fallback list is now enough). Modern's "rule" is a plain left border,
-   no fill. */
+/* calloutStyle: Classic's "tint" is a soft box derived from --accent via color-mix; Modern's
+   "rule" is a plain left border, no fill. */
 .booklet-callout p {
   margin: 0;
 }
@@ -310,11 +231,8 @@ body {
   font-family: Arial, sans-serif;
 }
 
-/* A dedicated full page: the entry's current prayer requests up top (see
-   buildNotesPageHtml, and .booklet-block's own styling above for that),
-   then ruled, spaced lines for handwriting notes and any further
-   requests -- inserted as its own page immediately after an entry's
-   detail page. The detail page's own layout is untouched. */
+/* A dedicated full page after an entry's detail page: current prayer requests up top, then ruled
+   lines for handwritten notes and further requests. */
 .booklet-notes-page {
   display: flex;
   flex-direction: column;
@@ -337,17 +255,9 @@ body {
   margin: 0 0 0.3in;
 }
 .booklet-notes-lines {
-  /* A fixed height, not flex: 1 -- .booklet-page only sets min-height, not
-     height, and a flex child can't grow to fill a container whose own
-     size isn't definite, it just reverts to its content size (here,
-     nothing, since this div has none). 5in leaves roughly 3.7in above it
-     within .booklet-page's ~8.7in usable height (9.2in min-height minus
-     0.25in padding top and bottom) -- comfortably clearing the heading,
-     subheading, and a typical prayer-requests block (a handful of
-     short/medium requests). An entry with an unusually long one eats into
-     this space; the accepted fallback is the same one already in play for
-     an overlong detail page: the page grows and the content spills onto
-     an extra physical page -- a layout nuisance, never a crash. */
+  /* A fixed height, not flex: 1: .booklet-page only sets min-height, so a flex child would collapse
+       to its (empty) content. 5in leaves ~3.7in above it within the ~8.7in usable height. An overlong
+       entry spills onto an extra physical page: a layout nuisance, never a crash. */
   height: 5in;
   background-image: linear-gradient(
     to bottom,
@@ -358,9 +268,8 @@ body {
   background-size: 100% 0.4in;
 }
 
-/* Intentional filler page inserted to keep detail+notes pairs aligned to a
-   facing spread when printed as a booklet — see the pad() logic in
-   buildBookletHtml. Labeled per standard print convention. */
+/* Intentional filler page keeping detail+notes pairs aligned to a facing spread (see pad() in
+   buildBookletHtml). */
 .booklet-blank-page {
   display: flex;
   align-items: center;
@@ -373,8 +282,7 @@ body {
   font-style: italic;
 }
 
-/* Closing page, always last — deliberately simpler than the front cover
-   (see buildBackCoverHtml), never a repeat of it. */
+/* Closing page, always last; simpler than the front cover (see buildBackCoverHtml). */
 .booklet-back-cover {
   display: flex;
   flex-direction: column;

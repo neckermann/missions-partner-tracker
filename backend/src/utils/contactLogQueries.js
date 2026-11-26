@@ -1,15 +1,15 @@
-// #288: the "partners I look after" read model, shared by the My partners
-// tab (GET /api/contact-log/assigned) and the partnersNeedingContact
-// notification so the two can never disagree about who is overdue.
+// The "partners I look after" read model, shared by the My partners tab (GET
+// /api/contact-log/assigned) and the partnersNeedingContact notification so they agree on who is overdue.
 
 const prisma = require("../prismaClient");
 const { nextAnnual, daysBetween, toUtcDay, DAY_MS } = require("../reporting/definitions");
 const { isFeatureEnabled } = require("./features");
 const { autoLogForPrayerRequest } = require("./contactLog");
+const { emailBlockReason, surveyEmailFor } = require("./contactReach");
 const { careTimings } = require("./careSettings");
+const { partnersOwnedBy } = require("./ownership");
 
-// Latest contact date per partner, from the log alone. Any entry counts,
-// whichever direction and whoever made it -- "has anyone been in touch".
+// Latest contact date per partner, from the log alone. Any entry counts: "has anyone been in touch".
 async function lastContactByPartner(partnerIds) {
   if (partnerIds.length === 0) return new Map();
   const rows = await prisma.contactLog.groupBy({
@@ -20,8 +20,7 @@ async function lastContactByPartner(partnerIds) {
   return new Map(rows.map((r) => [r.partnerId, r._max.contactDate]));
 }
 
-// The earliest follow-up date still waiting on a later contact: a follow-up
-// is answered the moment anything is logged on or after the day it was set.
+// The earliest follow-up date still waiting on a later contact (answered once anything is logged on or after it).
 function openFollowUp(logs) {
   const open = logs.filter(
     (l) =>
@@ -31,8 +30,7 @@ function openFollowUp(logs) {
   return open.reduce((min, l) => (!min || l.followUpDate < min ? l.followUpDate : min), null);
 }
 
-// Every partner this login holds a care team seat on (not archived), with the
-// columns the tab shows. `today` is a Date (UTC day) so tests can pin it.
+// Every partner this login looks after (not archived), with the tab's columns. `today` is a UTC-day Date so tests can pin it.
 async function loadAssignedPartners(userId, today = new Date()) {
   const { contactStaleDays } = await careTimings();
   const partnerSelect = {
@@ -42,45 +40,36 @@ async function loadAssignedPartners(userId, today = new Date()) {
     isRestricted: true,
     createdAt: true,
     anniversary: true,
-    adults: { select: { firstName: true, birthday: true } },
+    commissionedAt: true,
+    contactLevel: true,
+    contactChannels: true,
+    contactEmail: true,
+    adults: { select: { firstName: true, birthday: true, email: true, isPrimaryContact: true } },
     children: { select: { firstName: true, birthday: true } },
     contactLogs: { select: { id: true, contactDate: true, followUpDate: true, createdAt: true } },
     prayerRequests: { where: { status: "ongoing" }, select: { id: true } },
     needRequests: { where: { approvedAmount: null }, select: { id: true } },
   };
-  const seats = await prisma.careTeamMember.findMany({
-    where: { userId, partner: { archived: false } },
-    select: { isLead: true, createdAt: true, partner: { select: partnerSelect } },
-  });
-
-  // The church's default lead is the fallback for a partner with no care team (#365), the same
-  // fallback key-date reminders already use. Only for staff: a guest's reach is exactly the
-  // partners they hold a grant on, and a fallback must not widen that.
-  let fallback = [];
-  const settings = await prisma.churchSettings.findUnique({
-    where: { id: "singleton" },
-    select: { defaultCareLeadUserId: true },
-  });
-  if (settings?.defaultCareLeadUserId && settings.defaultCareLeadUserId === userId) {
-    const lead = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { role: true, active: true },
-    });
-    if (lead?.active && lead.role !== "guest") {
-      const partners = await prisma.partner.findMany({
-        where: { archived: false, careTeam: { none: {} } },
+  // The partners this login looks after (utils/ownership.js): its care team seats, plus, on the missions
+  // team, every partner with no team of its own.
+  const owned = await partnersOwnedBy(userId);
+  const partners = owned.length
+    ? await prisma.partner.findMany({
+        where: { id: { in: owned.map((o) => o.partnerId) }, archived: false },
         select: partnerSelect,
-      });
-      fallback = partners.map((partner) => ({
-        isLead: false,
-        createdAt: partner.createdAt,
-        partner,
-        viaDefaultLead: true,
-      }));
-    }
-  }
+      })
+    : [];
+  const byId = new Map(partners.map((p) => [p.id, p]));
+  const seats = owned
+    .filter((o) => byId.has(o.partnerId))
+    .map((o) => ({
+      isLead: o.seat.isLead,
+      createdAt: o.seat.createdAt,
+      partner: byId.get(o.partnerId),
+      viaMissionsTeam: o.via === "missionsTeam",
+    }));
 
-  const rows = [...seats, ...fallback].map(({ isLead, createdAt: seatSince, partner: p, viaDefaultLead }) => {
+  const rows = seats.map(({ isLead, createdAt: seatSince, partner: p, viaMissionsTeam }) => {
     const last = p.contactLogs.reduce((m, l) => (!m || l.contactDate > m ? l.contactDate : m), null);
     const daysSinceContact = last ? daysBetween(today, last) : null;
     const followUp = openFollowUp(p.contactLogs);
@@ -98,11 +87,11 @@ async function loadAssignedPartners(userId, today = new Date()) {
     p.adults.forEach((a) => consider(a.birthday, "Birthday", a.firstName || ""));
     p.children.forEach((c) => consider(c.birthday, "Birthday", c.firstName || ""));
     consider(p.anniversary, "Anniversary", "");
+    consider(p.commissionedAt, "Commissioned", "");
 
-    // When this partner became overdue: the day the quiet clock ran out (from
-    // the last contact, or from joining the team if never contacted), or the
-    // follow-up date, whichever came first. The notification uses the latest
-    // of these to know when something NEW needs attention.
+    // When this partner became overdue: when the quiet clock ran out (from the last
+    // contact, or joining the team if never contacted) or the follow-up date,
+    // whichever came first. The notification uses the latest to detect NEW items.
     const quietSince = new Date(toUtcDay(last || seatSince).getTime() + contactStaleDays * DAY_MS);
     const dueDates = [];
     if (daysSinceContact === null || daysSinceContact >= contactStaleDays) dueDates.push(quietSince);
@@ -115,7 +104,7 @@ async function loadAssignedPartners(userId, today = new Date()) {
       displayName: p.displayName,
       isRestricted: p.isRestricted,
       isLead,
-      viaDefaultLead: viaDefaultLead === true,
+      viaMissionsTeam: viaMissionsTeam === true,
       lastContact: last ? toUtcDay(last).toISOString().slice(0, 10) : null,
       daysSinceContact,
       quiet: daysSinceContact === null || daysSinceContact >= contactStaleDays,
@@ -123,6 +112,9 @@ async function loadAssignedPartners(userId, today = new Date()) {
       followUpDue,
       overdueSince: overdueSince ? overdueSince.toISOString().slice(0, 10) : null,
       nextKeyDate,
+      // Where a greeting for that date could be emailed: null when we must not (restricted, don't
+      // contact directly, ways exclude email) or have no address.
+      greetingEmail: emailBlockReason(p) ? null : surveyEmailFor(p, p.adults),
       openPrayers: p.prayerRequests.length,
       openNeeds: p.needRequests.length,
     };
@@ -137,11 +129,11 @@ async function loadAssignedPartners(userId, today = new Date()) {
   return rows;
 }
 
-// An answered prayer or a decided need on these partners that nobody has passed on yet (#292,
-// shown on the bell and, per partner, on the contact log): done once someone logs an OUTBOUND
-// contact for the partner on or after it, topic "need" for a decision, "encouragement" or "prayer"
-// for an answer. Items are [{ partnerId, kind: "need" | "prayer", id, date, label, topic }],
-// `topic` being the one a thank-you would be logged under.
+// An answered prayer or decided need nobody has passed on yet (bell and per-partner
+// contact log): done once someone logs an OUTBOUND contact for the partner on or
+// after it (topic "need" for a decision, "encouragement" or "prayer" for an answer).
+// Items are [{ partnerId, kind: "need" | "prayer", id, date, label, topic }], `topic`
+// being what a thank-you would be logged under.
 const UPDATE_WINDOW_DAYS = 30;
 
 async function loadUpdatesToPassOn(partnerIds, now = new Date()) {
@@ -149,15 +141,21 @@ async function loadUpdatesToPassOn(partnerIds, now = new Date()) {
   const since = new Date(
     Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) - UPDATE_WINDOW_DAYS * 86400000
   );
+  // A church that has switched Needs or Prayer Requests off isn't told about old ones.
+  const features = await enabledFeaturesOf();
   const [needs, prayers, logs] = await Promise.all([
-    prisma.supportNeed.findMany({
-      where: { partnerId: { in: partnerIds }, approvedDate: { gte: since } },
-      select: { id: true, partnerId: true, approvedDate: true, description: true },
-    }),
-    prisma.prayerRequest.findMany({
-      where: { partnerId: { in: partnerIds }, status: "answered", dateAnswered: { gte: since } },
-      select: { id: true, partnerId: true, dateAnswered: true, requestText: true },
-    }),
+    isFeatureEnabled(features, "oneTimeNeeds")
+      ? prisma.supportNeed.findMany({
+          where: { partnerId: { in: partnerIds }, approvedDate: { gte: since } },
+          select: { id: true, partnerId: true, approvedDate: true, description: true },
+        })
+      : [],
+    isFeatureEnabled(features, "prayerRequests")
+      ? prisma.prayerRequest.findMany({
+          where: { partnerId: { in: partnerIds }, status: "answered", dateAnswered: { gte: since } },
+          select: { id: true, partnerId: true, dateAnswered: true, requestText: true },
+        })
+      : [],
     prisma.contactLog.findMany({
       where: { partnerId: { in: partnerIds }, direction: "outbound", contactDate: { gte: since } },
       select: { partnerId: true, contactDate: true, topics: true },
@@ -197,17 +195,20 @@ async function loadUpdatesToPassOn(partnerIds, now = new Date()) {
   ];
 }
 
-async function isContactLogEnabled() {
+async function enabledFeaturesOf() {
   const settings = await prisma.churchSettings.findUnique({
     where: { id: "singleton" },
     select: { enabledFeatures: true },
   });
-  return isFeatureEnabled(settings?.enabledFeatures, "contactLog");
+  return settings?.enabledFeatures;
 }
 
-// A care team member's new prayer request is also the contact they just had.
-// Best-effort, like the notifications: a failure here must never block saving
-// the request itself. Returns the entry, or null when off / not applicable.
+async function isContactLogEnabled() {
+  return isFeatureEnabled(await enabledFeaturesOf(), "contactLog");
+}
+
+// A care team member's new prayer request is also a contact they just had.
+// Best-effort: a failure must never block saving the request. Returns the entry, or null.
 async function logContactForPrayerRequest(request, user, options) {
   try {
     if (!(await isContactLogEnabled())) return null;
@@ -224,5 +225,6 @@ module.exports = {
   loadUpdatesToPassOn,
   openFollowUp,
   isContactLogEnabled,
+  enabledFeaturesOf,
   logContactForPrayerRequest,
 };

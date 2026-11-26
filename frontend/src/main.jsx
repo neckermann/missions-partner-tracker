@@ -8,10 +8,12 @@ import PublicTripOpportunities from "./pages/PublicTripOpportunities.jsx";
 import PublicTripApplication from "./pages/PublicTripApplication.jsx";
 import PublicTripParticipant from "./pages/PublicTripParticipant.jsx";
 import PublicTripAccessRecovery from "./pages/PublicTripAccessRecovery.jsx";
+import PublicSurvey from "./pages/PublicSurvey.jsx";
 import Login from "./pages/Login.jsx";
 import SignInLink from "./pages/SignInLink.jsx";
 import Setup from "./pages/Setup.jsx";
 import SetPassword from "./pages/SetPassword.jsx";
+import ForgotPassword from "./pages/ForgotPassword.jsx";
 import RequireAdminAuth from "./components/RequireAdminAuth.jsx";
 import RequirePublicSite from "./components/RequirePublicSite.jsx";
 import RequireAdminFeature from "./components/RequireAdminFeature.jsx";
@@ -19,20 +21,10 @@ import { SettingsProvider } from "./context/SettingsContext.jsx";
 import ErrorBoundary from "./components/ErrorBoundary.jsx";
 import "./index.css";
 
-// Everything below is split out of the entry bundle, for two reasons.
-//
-// The first is privacy: until this split, a single bundle held every admin
-// page, so someone who only ever looked at the public directory still
-// downloaded the whole admin surface -- the printed-booklet templates, the
-// settings screens, all of it. No partner data leaked (every admin endpoint
-// is behind requireAuth, and the public API runs through the masking
-// serializer), but handing an anonymous visitor a readable map of the admin
-// app is worth avoiding on its own. e2e/public-bundle.spec.js asserts the
-// public entry point stays clean.
-//
-// The second is weight: the map pulls in Leaflet and the booklet pulls in
-// paged.js plus a 980-line print stylesheet, none of which a visitor
-// browsing the directory should pay for.
+// Everything below is split out of the entry bundle. Privacy: a visitor to the public directory
+// shouldn't download a readable map of the admin app (no data leaks, since admin endpoints require
+// auth and the public API is masked); e2e/public-bundle.spec.js asserts the public entry stays
+// clean. Weight: the map (Leaflet) and booklet (paged.js, print CSS) are not paid for by visitors.
 const AdminReports = lazy(() => import("./pages/AdminReports.jsx"));
 const AdminReport = lazy(() => import("./pages/AdminReport.jsx"));
 const PublicMap = lazy(() => import("./pages/PublicMap.jsx"));
@@ -70,14 +62,20 @@ const AdminTripFlights = lazy(() => import("./pages/AdminTripFlights.jsx"));
 const AdminTripParticipantDetail = lazy(() => import("./pages/AdminTripParticipantDetail.jsx"));
 const AdminTripApplicationDetail = lazy(() => import("./pages/AdminTripApplicationDetail.jsx"));
 const AdminSettingsTrips = lazy(() => import("./pages/AdminSettingsTrips.jsx"));
-const AdminSettingsCareTeam = lazy(() => import("./pages/AdminSettingsCareTeam.jsx"));
+const AdminSettingsPartnerCare = lazy(() => import("./pages/AdminSettingsPartnerCare.jsx"));
 const AdminTripWrapUp = lazy(() => import("./pages/AdminTripWrapUp.jsx"));
 const AdminSettingsSupportPreferences = lazy(() => import("./pages/AdminSettingsSupportPreferences.jsx"));
+const AdminSettingsSupportPreferencesPrint = lazy(
+  () => import("./pages/AdminSettingsSupportPreferencesPrint.jsx")
+);
+const AdminContactLog = lazy(() => import("./pages/AdminContactLog.jsx"));
+const AdminSurveyUpdates = lazy(() => import("./pages/AdminSurveyUpdates.jsx"));
+const AdminSettingsSurveys = lazy(() => import("./pages/AdminSettingsSurveys.jsx"));
+const AdminSettingsSurveyDetail = lazy(() => import("./pages/AdminSettingsSurveyDetail.jsx"));
 const AdminSettingsAudit = lazy(() => import("./pages/AdminSettingsAudit.jsx"));
 const AdminPartnerFiles = lazy(() => import("./pages/AdminPartnerFiles.jsx"));
 
-// Chunks are served same-origin from this app, so the gap is a network hop
-// on a local connection, not a spinner anyone will study.
+// Chunks are same-origin, so the gap is a local network hop, not a spinner anyone will study.
 function RouteFallback() {
   return <p style={{ padding: "2rem" }}>Loading...</p>;
 }
@@ -86,9 +84,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <SettingsProvider>
       <BrowserRouter>
-        {/* Outermost net: catches a render error on any page, and a failed
-            lazy-chunk import after a deploy -- Suspense covers the pending
-            state, not the failure. */}
+        {/* Outermost net: a render error on any page, or a failed lazy-chunk import after a deploy. */}
         <ErrorBoundary homeHref="/" homeLabel="the home page">
           <Suspense fallback={<RouteFallback />}>
             <Routes>
@@ -133,29 +129,23 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                   </RequirePublicSite>
                 }
               />
-              {/* Trips (#252) public application/support-raising/recovery pages
-              are NOT wrapped in RequirePublicSite -- unlike /trips (the
-              broadly-discoverable listing), these are reached only via a
-              direct link (plain, or the private applicationShareToken/
-              shareToken/access-token links), and the backend route itself
-              is what enforces every eligibility rule (status/isPublic/
-              publicTripDiscovery/restricted-partner) per trip -- there's no
-              single church-wide flag that correctly gates all of them at
-              once the way RequirePublicSite's single-feature check assumes. */}
+              {/* Trips public application/support-raising/recovery pages are not wrapped in RequirePublicSite:
+                            they are reached by direct link and the backend route enforces each eligibility rule per
+                            trip; no single church-wide flag gates them all. */}
               <Route path="/apply/:id" element={<PublicTripApplication />} />
               <Route path="/apply/by-token/:token" element={<PublicTripApplication />} />
               <Route path="/trip-support-raising/:shareToken" element={<PublicTripParticipant />} />
               <Route path="/my-trip" element={<PublicTripParticipant />} />
               <Route path="/trip-access-recovery" element={<PublicTripAccessRecovery />} />
+              <Route path="/survey/:token" element={<PublicSurvey />} />
               <Route path="/login" element={<Login />} />
               <Route path="/login/link" element={<SignInLink />} />
               <Route path="/setup" element={<Setup />} />
               <Route path="/set-password" element={<SetPassword />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
 
-              {/* Admin (protected) — one shared sidebar layout for every
-              sub-route below, including detail/edit forms. Role-specific
-              routes (users, settings) add their own extra RequireAdminAuth
-              on top of the outer any-logged-in-role check. */}
+              {/* Admin (protected): one shared sidebar layout; role-specific routes add their own
+                            RequireAdminAuth on top of the outer any-logged-in-role check. */}
               <Route
                 path="/admin"
                 element={
@@ -232,10 +222,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                     </RequireAdminFeature>
                   }
                 />
-                {/* Static segment, so React Router ranks it ahead of the
-                    dynamic trips/:id below regardless of declaration order --
-                    still placed here, next to it, for a human reading this
-                    route list. */}
+                {/* Static segment: React Router ranks it ahead of trips/:id regardless of order. */}
                 <Route
                   path="trips/contributions"
                   element={
@@ -293,6 +280,22 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                   }
                 />
                 <Route
+                  path="contact-log"
+                  element={
+                    <RequireAdminFeature feature="contactLog">
+                      <AdminContactLog />
+                    </RequireAdminFeature>
+                  }
+                />
+                <Route
+                  path="survey-updates"
+                  element={
+                    <RequireAdminFeature feature="surveys">
+                      <AdminSurveyUpdates />
+                    </RequireAdminFeature>
+                  }
+                />
+                <Route
                   path="pending-dispatches"
                   element={
                     <RequireAdminFeature feature={["groupme", "whatsapp", "outboundEmail"]}>
@@ -301,13 +304,8 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                   }
                 />
                 <Route path="account" element={<AccountSettings />} />
-                {/* Settings -- one admin-only guard on the whole sub-tree
-                instead of repeating RequireAdminAuth per leaf route. No
-                shared visual layout here (no wrapper element, just
-                Outlet) -- unlike the rest of /admin/*, these pages are
-                reached via the sidebar's own expandable "Settings" group
-                (see AdminSidebar.jsx), not a same-page tab bar, so each
-                page owns its own heading. */}
+                {/* Settings: one admin-only guard on the whole sub-tree, no shared layout (reached via the
+                                sidebar's Settings group, so each page owns its heading). */}
                 <Route
                   path="settings"
                   element={
@@ -339,10 +337,10 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                     }
                   />
                   <Route
-                    path="care-team"
+                    path="partner-care"
                     element={
-                      <RequireAdminFeature feature="careTeam">
-                        <AdminSettingsCareTeam />
+                      <RequireAdminFeature feature={["careTeam", "keyDates", "contactLog"]}>
+                        <AdminSettingsPartnerCare />
                       </RequireAdminFeature>
                     }
                   />
@@ -351,6 +349,30 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                     element={
                       <RequireAdminFeature feature="supportPreferences">
                         <AdminSettingsSupportPreferences />
+                      </RequireAdminFeature>
+                    }
+                  />
+                  <Route
+                    path="support-preferences/print"
+                    element={
+                      <RequireAdminFeature feature="supportPreferences">
+                        <AdminSettingsSupportPreferencesPrint />
+                      </RequireAdminFeature>
+                    }
+                  />
+                  <Route
+                    path="surveys"
+                    element={
+                      <RequireAdminFeature feature="surveys">
+                        <AdminSettingsSurveys />
+                      </RequireAdminFeature>
+                    }
+                  />
+                  <Route
+                    path="surveys/:id"
+                    element={
+                      <RequireAdminFeature feature="surveys">
+                        <AdminSettingsSurveyDetail />
                       </RequireAdminFeature>
                     }
                   />

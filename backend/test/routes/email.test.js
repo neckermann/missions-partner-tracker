@@ -66,14 +66,9 @@ before(async () => {
       emailFromAddress: null,
       inboundEmailWebhookUsername: null,
       inboundEmailWebhookPassword: null,
-      // Missing here was the real bug behind #284's "admin sees
-      // unconfigured" failure -- every other inbound/outbound email
-      // credential field got reset to a clean slate except this one, so
-      // a Postgres instance that ever had Trips (#252) inbound email
-      // configured on it (manual testing, an earlier seed run, ...) left
-      // this field set, and "admin sees unconfigured" failed against
-      // that real leftover value instead of this test's own assumed
-      // blank state.
+      // Reset like every other credential field: left unreset, a Postgres instance that ever had
+      // inbound email configured (manual testing, an earlier seed run) keeps this set and "admin
+      // sees unconfigured" fails against that leftover value.
       inboundEmailAddress: null,
       enabledFeatures: { outboundEmail: true },
     },
@@ -115,7 +110,7 @@ describe("GET/PUT /api/settings/email -- admin gate", () => {
       inboundConfigured: false,
       webhookUsername: null,
       webhookPath: "/api/inbound-email/postmark",
-      // Trips (#252) -- purely informational, not a credential.
+      // Informational, not a credential.
       inboundEmailAddress: null,
     });
   });
@@ -363,14 +358,11 @@ describe("POST /api/settings/email/test", () => {
   });
 });
 
-// Unlike GroupMe/Joshua Project/AI Extraction (whose settings routes stay
-// reachable while their feature is off, so an admin can configure them
-// before flipping the switch), Email's settings route is gated by the
-// feature flag the same way a real content feature's routes are -- see
-// the same reasoning in routes/settings.js's comment on GET /email. It
-// takes BOTH directions being off to 404 here, since GET/PUT /email is
-// reachable if either is on (see the "independently reachable" block
-// above) -- this block is specifically the all-off case.
+// Unlike GroupMe/Joshua Project/AI Extraction (whose settings routes stay reachable while
+// their feature is off), Email's settings route is gated by the feature flag like a content
+// feature's routes (see routes/settings.js's comment on GET /email). It takes BOTH directions
+// being off to 404, since GET/PUT /email is reachable if either is on (see the "independently
+// reachable" block above); this block is the all-off case.
 describe("email settings routes are gated by the feature flag", () => {
   test("GET/PUT /email 404 with both directions off; POST /email/test 404s on sending alone", async () => {
     await prisma.churchSettings.update({

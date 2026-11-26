@@ -1,9 +1,7 @@
 import { useState } from "react";
 
-// Caps how many rows of a long, newest-first list render by default, with a
-// "Load More" button to reveal more of what's already in memory -- the
-// parent already fetches the whole collection per partner, so this doesn't
-// trigger another request, it just slices what's already there.
+// Caps how many rows of a long newest-first list render, with a "Load More" button. It slices what
+// is already in memory (the parent fetched the whole collection), so no further request is made.
 export default function useLoadMore(items, { initialCount = 3, step = 10 } = {}) {
   const [count, setCount] = useState(initialCount);
   const list = items || [];

@@ -6,15 +6,12 @@ import useCurrentUser from "../../hooks/useCurrentUser.js";
 import useNotifications from "../../hooks/useNotifications.js";
 import ThemeToggle from "../shared/ThemeToggle.jsx";
 
-// nav item key -> notification category key(s) worth a badge directly on
-// the nav link (zero extra clicks to see "there's something here"). Not
-// every category needs a nav badge; the bell below is the complete list.
-// "trips" sums all 4 trip-related categories into one badge for that
-// single nav link, rather than picking just the most urgent -- same
-// shape a Trip Leader's own minimal nav uses for their one trip's signal.
+// nav item key -> notification categories worth a badge on the nav link. "trips" sums all four
+// trip-related categories into one badge.
 const NAV_BADGE_CATEGORIES = {
   pendingDispatches: ["dispatchesNeedingApproval"],
   inboundEmail: ["unmatchedEmails"],
+  surveyUpdates: ["surveyUpdatesPending"],
   prayerRequests: ["newPrayerRequests"],
   oneTimeNeeds: ["newOneTimeNeeds"],
   trips: [
@@ -26,9 +23,7 @@ const NAV_BADGE_CATEGORIES = {
   ],
 };
 
-// Same convention as GitHub/Slack notification badges -- a 3+ digit count
-// just stretches a pill meant to be a small circle; the real number is
-// still available via the badge's own title/aria-label.
+// A 3+ digit count stretches the pill; the real number stays in the title/aria-label.
 function badgeText(count) {
   return count > 99 ? "99+" : String(count);
 }
@@ -51,9 +46,7 @@ function NotificationBell({ categories, totalUnread, markSeen }) {
     return () => document.removeEventListener("mousedown", onClickOutside);
   }, [open]);
 
-  // The dropdown is position: fixed, so it stays put while the page scrolls under it and
-  // while the window resizes; the bell moves, the dropdown doesn't. Close it instead of
-  // leaving it floating away from its button.
+  // The dropdown is position: fixed, so it would drift from its button on scroll or resize: close it.
   useEffect(() => {
     if (!open) return undefined;
     function close(e) {
@@ -68,9 +61,8 @@ function NotificationBell({ categories, totalUnread, markSeen }) {
     };
   }, [open]);
 
-  // Keep the dropdown fully on screen. Its left edge starts at the bell's, which on a phone
-  // (where the sidebar stacks above the page and the bell sits near the right) would put
-  // most of it past the screen edge. Measure it once rendered and pull it back in.
+  // Keep the dropdown on screen: on a phone the bell sits near the right edge, so measure once
+  // rendered and pull it back in.
   useLayoutEffect(() => {
     if (!open || !coords || !dropdownRef.current) return;
     const width = dropdownRef.current.getBoundingClientRect().width;
@@ -83,14 +75,8 @@ function NotificationBell({ categories, totalUnread, markSeen }) {
   function toggle() {
     const opening = !open;
     if (opening && btnRef.current) {
-      // position: fixed, computed from the button's own screen position --
-      // `.admin-sidebar` clips horizontal overflow (overflow-x: hidden, for
-      // its own text-truncation needs elsewhere), which silently clipped
-      // this dropdown down to a sliver when it was just `position:
-      // absolute` nested inside that ancestor. Fixed positioning escapes
-      // that clip (no transformed ancestor sits between here and the
-      // viewport), so the dropdown renders at its real width regardless of
-      // the sidebar's own.
+      // position: fixed from the button's screen position: `.admin-sidebar` clips horizontal overflow,
+      // which cut an absolutely positioned dropdown to a sliver.
       const rect = btnRef.current.getBoundingClientRect();
       setCoords({ top: rect.bottom + 4, left: rect.left });
     }
@@ -123,7 +109,7 @@ function NotificationBell({ categories, totalUnread, markSeen }) {
           style={{ top: coords.top, left: coords.left }}
         >
           {withCount.length === 0 ? (
-            <p style={{ margin: 0, color: "#888", fontSize: "0.85rem" }}>Nothing waiting.</p>
+            <p style={{ margin: 0, color: "var(--muted)", fontSize: "0.85rem" }}>Nothing waiting.</p>
           ) : (
             withCount.map((c) => (
               <Link
@@ -184,6 +170,12 @@ function buildNavItems(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures
       icon: "📥",
       label: "Unmatched Email",
     },
+    enabledFeatures.surveys && {
+      key: "surveyUpdates",
+      to: "/admin/survey-updates",
+      icon: "📝",
+      label: "Survey Updates",
+    },
     enabledFeatures.booklet && { key: "booklet", to: "/admin/booklet", icon: "📘", label: "Print Booklet" },
     enabledFeatures.reports && { key: "reports", to: "/admin/reports", icon: "📊", label: "Reports" },
   ].filter(Boolean);
@@ -196,13 +188,17 @@ function buildSiteAdminLinks(enabledFeatures) {
     enabledFeatures.auditTrail && { to: "/admin/settings/audit", label: "Audit log", icon: "📜" },
     { to: "/admin/settings/features", label: "Enabled Features", icon: "🧩" },
     enabledFeatures.trips && { to: "/admin/settings/trips", label: "Trips", icon: "✈️" },
-    enabledFeatures.careTeam && { to: "/admin/settings/care-team", label: "Care Teams", icon: "🤝" },
-    enabledFeatures.supportPreferences &&
-      enabledFeatures.careTeam && {
-        to: "/admin/settings/support-preferences",
-        label: "Support Preferences",
-        icon: "💛",
-      },
+    (enabledFeatures.careTeam || enabledFeatures.keyDates || enabledFeatures.contactLog) && {
+      to: "/admin/settings/partner-care",
+      label: "Partner Care",
+      icon: "🤝",
+    },
+    enabledFeatures.supportPreferences && {
+      to: "/admin/settings/support-preferences",
+      label: "Support Preferences",
+      icon: "💛",
+    },
+    enabledFeatures.surveys && { to: "/admin/settings/surveys", label: "Surveys", icon: "📝" },
     (enabledFeatures.outboundEmail || enabledFeatures.inboundEmail) && {
       to: "/admin/settings/email",
       label: "Email",
@@ -280,17 +276,9 @@ function SidebarLink({ to, label, end, icon, badgeCount }) {
   );
 }
 
-// A guest (role: "guest") sees the same sidebar as everyone -- same header with
-// the bell and collapse button, same footer with My Account, Log out and the
-// theme toggle, and the same nav entries in the same order (#289). They just
-// get fewer of them: only the pages that are limited server-side to the
-// partners and trips they reach. No Home dashboard, Print Booklet, Reports,
-// Pending Dispatches, Unmatched Email or Settings.
-//
-// Two sizes, because the two kinds of guest have different scopes: a trip
-// leader (a trip grant) gets just Trips and the Partners page, which lists only
-// their trip's partner; a care team member also gets the list pages for the
-// partners they look after.
+// A guest sees the same sidebar shell with fewer entries: only pages limited server-side to the
+// partners and trips they reach. A trip leader gets Trips and Partners; a care team member also
+// gets the list pages for the partners they look after.
 const TRIP_GUEST_NAV_KEYS = new Set(["partners", "trips"]);
 const CARE_GUEST_NAV_KEYS = new Set(["partners", "partnerFiles", "prayerRequests", "oneTimeNeeds", "trips"]);
 
@@ -299,9 +287,8 @@ export default function AdminSidebar() {
   const { categories, totalUnread, markSeen } = useNotifications();
   const categoryByKey = new Map(categories.map((c) => [c.key, c]));
   const [collapsedPref, setCollapsed] = useState(readSidebarCollapsed);
-  // On a phone the menu starts closed behind a Menu button, so the page a person opened is on the
-  // first screen (#384), and closes again after they choose a page. The desktop collapse
-  // preference (icons only) means nothing there: the menu is either open with labels or closed.
+  // On a phone the menu starts closed so the opened page is on the first screen, and closes again
+  // after a choice. The desktop collapse preference means nothing there.
   const phone = usePhoneWidth();
   const [menuOpen, setMenuOpen] = useState(false);
   const collapsed = collapsedPref && !phone;
@@ -313,10 +300,8 @@ export default function AdminSidebar() {
   const { churchName, partnerTermPlural, usePartnerTermInAdmin, enabledFeatures } = useSettings();
   const title = churchName ? `${churchName} Admin` : "Missions Team Admin";
 
-  // Until the role is known, render neither nav -- showing the full admin
-  // nav by default (useCurrentUser's `user` starts null, so isGuest
-  // is briefly false on every load) flashed every item a guest must
-  // never see, for the instant before this resolves.
+  // Until the role is known render neither nav: `user` starts null, so isGuest is briefly false and
+  // the full admin nav would flash items a guest must never see.
   if (userLoading) {
     return (
       <aside className="admin-sidebar no-print">

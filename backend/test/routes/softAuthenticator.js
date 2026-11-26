@@ -1,6 +1,6 @@
-// A software WebAuthn authenticator for tests (#386): builds the same registration and
-// assertion messages a browser would hand the server, with a real ES256 key, so the route tests
-// exercise the real verification instead of mocking it.
+// A software WebAuthn authenticator for tests: builds the same registration and assertion
+// messages a browser would hand the server, with a real ES256 key, so the route tests exercise
+// the real verification instead of mocking it.
 const crypto = require("crypto");
 
 // Just enough CBOR for an attestation object and a COSE key.

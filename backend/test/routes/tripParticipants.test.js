@@ -1,23 +1,10 @@
-// Trip participants/applications (#252) -- split out of trips.test.js
-// to mirror #271's route split (routes/tripParticipants.js).
-//
-// This file deliberately holds every "late-joiner catch-up" test,
-// regardless of whether the catch-up email is about an existing
-// meeting, an existing requirement, or both -- not split further by
-// that distinction. The reason: every one of these tests calls exactly
-// one HTTP endpoint, either `POST /:id/participants` (direct add) or
-// `PUT /applications/:id` (approve), both owned by
-// routes/tripParticipants.js -- the meeting/requirement fixtures they
-// need are created directly via Prisma, never through
-// tripMeetings.js's or tripRequirements.js's own routers. So the
-// router actually under test here is always tripParticipants.js; what
-// varies is only which existing data its one side-effect function
-// (sendLateJoinerCatchUpEmails, utils/tripEmails.js) has to catch up
-// on. Splitting these tests by catch-up *content* instead of by
-// *endpoint called* was tried first and abandoned -- it would have
-// meant either duplicating the add/approve fixtures across multiple
-// files for no benefit, or inventing an artificial boundary inside one
-// side-effect function's own test coverage.
+// Trip participants/applications. This file holds every "late-joiner catch-up" test, whether
+// the catch-up email is about an existing meeting, requirement, or both, because each calls
+// exactly one endpoint, `POST /:id/participants` (direct add) or `PUT /applications/:id`
+// (approve), both owned by routes/tripParticipants.js; the meeting/requirement fixtures are
+// created directly via Prisma. What varies is only which existing data
+// sendLateJoinerCatchUpEmails (utils/tripEmails.js) has to catch up on, so splitting by
+// content would duplicate fixtures or invent an artificial boundary.
 const { test, describe, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 require("dotenv").config({ quiet: true });
@@ -31,10 +18,9 @@ const {
   FIXTURE_TAG,
 } = require("./helpers");
 
-// Same mock-the-whole-domain technique publicSubscribe.test.js/
-// dispatches.test.js already use for Postmark -- monkey-patch
-// global.fetch, matching only the Postmark host, so no real email ever
-// sends in this suite.
+// Same mock-the-whole-domain technique as publicSubscribe.test.js/dispatches.test.js for
+// Postmark: patch global.fetch, matching only the Postmark host, so no real email ever sends
+// in this suite.
 const realFetch = global.fetch;
 global.fetch = (url, options) => {
   if (String(url).startsWith("https://api.postmarkapp.com")) {
@@ -128,10 +114,9 @@ async function captureEmails(run) {
   return captured;
 }
 
-// A participant added after meetings already exist would otherwise
-// never learn about them short of an admin remembering to click
-// "Resend" on each one -- adding them should surface every meeting
-// still ahead of them, and only those.
+// A participant added after meetings already exist would otherwise never learn about them
+// short of an admin clicking "Resend" on each: adding them should surface every meeting still
+// ahead of them, and only those.
 describe("Trips: adding a participant late catches up on existing meetings", () => {
   test("adding a participant late sends an invite for each future meeting, but not past or cancelled ones", async () => {
     const partner = await createPartner();
@@ -211,15 +196,9 @@ describe("Trips: adding a participant late catches up on existing meetings", () 
       assert.equal(res.status, 201);
     });
 
-    // Scoped to this test's own participant (#284) -- a bare sent.length
-    // assertion is fragile against anything else captureEmails() happens
-    // to see fire during this window on a long-lived, reused local
-    // Postgres (confirmed: this and the other 3 "behaves unchanged"-style
-    // tests in this file all pass cleanly, with the original bare-length
-    // assertions, against a genuinely fresh database -- so the failure
-    // this guards against was environmental, not a real duplicate-send
-    // bug, but scoping by recipient is simply the more correct assertion
-    // regardless of a shared test DB's history).
+    // Scoped to this test's own participant: a bare sent.length assertion is fragile against
+    // anything else captureEmails() sees fire during this window on a long-lived, reused local
+    // Postgres.
     const toThisParticipant = sent.filter((m) => m.To === "solo-joiner@example.test");
     assert.equal(
       toThisParticipant.length,
@@ -253,17 +232,52 @@ describe("Trips: adding a participant late catches up on existing meetings", () 
       await setFeatures({ outboundEmail: true });
     }
   });
+
+  test("outboundEmail off hands the admin the new participant's access link to send themselves", async () => {
+    await setFeatures({ outboundEmail: false });
+    try {
+      const partner = await createPartner();
+      const dated = await admin("/api/trips", {
+        method: "POST",
+        body: {
+          partnerId: partner.id,
+          type: "Construction",
+          status: "planning",
+          startDate: "2027-03-01",
+          endDate: "2027-03-10",
+        },
+      });
+      const added = await admin(`/api/trips/${dated.body.id}/participants`, {
+        method: "POST",
+        body: { firstName: "Link", lastName: "Needed", email: "link-needed@example.test" },
+      });
+      assert.equal(added.status, 201);
+      assert.equal(added.body.teamWelcomeEmail.sent, false);
+      assert.match(added.body.teamWelcomeEmail.manualUrl, /^https?:\/\//);
+      // The welcome email also carries their support-raising page, so the admin is handed that link too.
+      assert.match(added.body.teamWelcomeEmail.manualSupportRaisingUrl, /\/trip-support-raising\/\w+/);
+      assert.equal(added.body.firstName, "Link", "the participant itself is still the response");
+
+      const undated = await admin("/api/trips", {
+        method: "POST",
+        body: { partnerId: partner.id, type: "Construction", status: "planning" },
+      });
+      const second = await admin(`/api/trips/${undated.body.id}/participants`, {
+        method: "POST",
+        body: { firstName: "No", lastName: "Dates", email: "no-dates@example.test" },
+      });
+      assert.equal(second.body.teamWelcomeEmail, null, "no welcome email applies without trip dates");
+    } finally {
+      await setFeatures({ outboundEmail: true });
+    }
+  });
 });
 
-// The document/esignature-requirement counterpart to the late-joiner
-// meeting-invite coverage above -- a participant added after a
-// document-kind requirement already exists would otherwise never learn
-// about it short of revisiting their own trip page unprompted. Also
-// covers the identical catch-up triggered by approving an application
-// (a separate code path, its own tx.tripParticipant.create in
-// PUT /applications/:id, that previously got neither catch-up) --
-// plausibly the more common real-world way someone becomes a
-// participant at all.
+// The document/esignature-requirement counterpart to the late-joiner meeting-invite coverage
+// above: a participant added after a document-kind requirement exists would otherwise never
+// learn about it short of revisiting their trip page unprompted. Also covers the same catch-up
+// triggered by approving an application (a separate code path, its own
+// tx.tripParticipant.create in PUT /applications/:id).
 describe("Trips: adding or approving a participant catches up on existing requirements and meetings", () => {
   test("adding a participant to a trip with an existing document requirement sends the checklist notice too", async () => {
     const partner = await createPartner();
@@ -370,9 +384,8 @@ describe("Trips: adding or approving a participant catches up on existing requir
       assert.equal(res.status, 201);
     });
 
-    // Scoped to this participant -- see #284's own note on the "behaves
-    // unchanged" test just above for why a bare check across every
-    // captured email is fragile against a shared test database's history.
+    // Scoped to this participant, as in the first "behaves unchanged" test above: a bare check
+    // across every captured email is fragile against a shared test database's history.
     assert.ok(
       !sent.some((m) => m.To === "late-task-joiner@example.test" && /^New item needed:/.test(m.Subject)),
       "a task-kind requirement is not newly actionable and must not trigger a notice"
@@ -400,7 +413,7 @@ describe("Trips: adding or approving a participant catches up on existing requir
       assert.equal(res.status, 201);
     });
 
-    // Scoped per #284 -- see the first "behaves unchanged" test above.
+    // Scoped to this participant; see the first "behaves unchanged" test above.
     const toThisParticipant = sent.filter((m) => m.To === "solo-doc-joiner@example.test");
     assert.equal(
       toThisParticipant.length,
@@ -576,7 +589,7 @@ describe("Trips: adding or approving a participant catches up on existing requir
       assert.equal(res.status, 200);
     });
 
-    // Scoped per #284 -- see the first "behaves unchanged" test above.
+    // Scoped to this participant; see the first "behaves unchanged" test above.
     const toThisApplicant = sent.filter((m) => m.To === "approved-solo-applicant@example.test");
     assert.equal(toThisApplicant.length, 1, "only the one-time welcome email -- nothing to catch up on");
     assert.match(toThisApplicant[0].Subject, /^You're on the team:/);
@@ -618,13 +631,11 @@ describe("Trips: adding or approving a participant catches up on existing requir
     }
   });
 
-  // Regression: unlike every other participant-facing email in this app
-  // (meeting invites, requirement notices -- see utils/tripEmails.js's own
-  // manualFallback()), this was the one place that silently dropped the
-  // link entirely with outboundEmail off, rather than handing it back for
-  // an admin to send manually -- a newly-approved participant had no way
-  // to ever reach their own trip page until an admin happened to notice
-  // and use "Resend access link" separately.
+  // Regression: unlike every other participant-facing email (meeting invites, requirement
+  // notices; see utils/tripEmails.js's manualFallback()), this one silently dropped the link
+  // entirely with outboundEmail off instead of handing it back for an admin to send manually, so
+  // a newly-approved participant had no way to reach their trip page until an admin used "Resend
+  // access link".
   test("outboundEmail off hands back a manual access link instead of silently dropping it", async () => {
     const partner = await createPartner();
     const trip = await admin("/api/trips", {
@@ -655,6 +666,7 @@ describe("Trips: adding or approving a participant catches up on existing requir
       assert.equal(res.status, 200);
       assert.equal(res.body.teamWelcomeEmail?.sent, false);
       assert.match(res.body.teamWelcomeEmail?.manualUrl || "", /^https?:\/\//);
+      assert.match(res.body.teamWelcomeEmail?.manualSupportRaisingUrl || "", /\/trip-support-raising\/\w+/);
     } finally {
       await setFeatures({ outboundEmail: true });
     }
@@ -692,10 +704,9 @@ describe("Trips: adding or approving a participant catches up on existing requir
       assert.equal(res.status, 201);
     });
 
-    // The welcome email's own gating only checks trip.status -- unchanged
-    // by this directive, out of scope here -- so it still sends for a
-    // "closed" trip regardless of dates. Only the catch-up sends
-    // (meeting invite, checklist notice) are what this test is about.
+    // The welcome email's gating only checks trip.status, so it still sends for a "closed" trip
+    // regardless of dates. Only the catch-up sends (meeting invite, checklist notice) are what
+    // this test is about.
     assert.ok(
       !sent.some((m) => /^Meeting:/.test(m.Subject) || /^New item needed:/.test(m.Subject)),
       "a closed-but-already-past trip is a historical record -- no catch-up emails either"
@@ -737,9 +748,8 @@ describe("Trips: adding or approving a participant catches up on existing requir
       assert.equal(res.status, 200);
     });
 
-    // Same reasoning as the direct-add test above -- the welcome email's
-    // own gating only checks status, so it still sends; only the catch-up
-    // sends are what this test is about.
+    // As in the direct-add test above: the welcome email's gating only checks status, so it still
+    // sends; only the catch-up sends are under test.
     assert.ok(
       !sent.some((m) => /^Meeting:/.test(m.Subject) || /^New item needed:/.test(m.Subject)),
       "a closed-but-already-past trip is a historical record -- no catch-up for an approved applicant either"

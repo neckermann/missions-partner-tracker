@@ -1,18 +1,7 @@
-// Shared send helper for every participant-facing email in the Trips
-// feature area (#252) -- meeting invites/reschedules/reminders, the
-// trip-dates team invite, the document request. Resolves the
-// missing-email skip and the per-recipient try/catch in exactly one
-// place, so a later fix to one of those doesn't silently miss the other
-// four call sites.
-//
-// #271: every higher-level send-orchestration function for Trips
-// (sendMeetingEmail, sendRequirementNotificationEmail,
-// sendLateJoinerCatchUpEmails, sendTripDatesUpdateEmail, and the
-// isTripHistorical check they share) also lives here now, not inline in
-// routes/trips.js -- matching the convention every other notification
-// channel in this app already follows (groupmeChannel.js,
-// whatsappChannel.js, emailDispatchDelivery.js): send/notify logic goes
-// in utils, never inline in a route file.
+// Shared send helper for every participant-facing Trips email (meeting
+// invites/reschedules/reminders, trip-dates team invite, document request).
+// The missing-email skip and per-recipient try/catch live here once. The
+// send-orchestration functions also live here, never inline in a route file.
 const prisma = require("../prismaClient");
 const { sendEmail } = require("./email");
 const { isFeatureEnabled } = require("./features");
@@ -23,9 +12,7 @@ const {
   buildTripParticipantAccessUrl,
 } = require("./tripAccessToken");
 
-// Every function below only ever needs this one setting -- narrower than
-// a full getSettings() fetch, same narrow-select discipline the rest of
-// this app already follows.
+// Every function below needs only this one setting, so select narrowly.
 async function outboundEmailEnabled() {
   const settings = await prisma.churchSettings.findUnique({
     where: { id: "singleton" },
@@ -34,13 +21,9 @@ async function outboundEmailEnabled() {
   return isFeatureEnabled(settings?.enabledFeatures, "outboundEmail");
 }
 
-// What every one of this file's self-gating senders returns instead of
-// silently no-op'ing when outboundEmail is off. Each participant's own
-// trip page already shows the meeting/requirement/dates info the email
-// would have -- "go check your trip page" is complete, accurate guidance
-// on its own, so this hands back exactly enough for an admin to tell
-// people manually (a text, a call, in person) rather than trying to
-// recreate the richer HTML email body as copyable text.
+// What the self-gating senders return instead of silently no-op'ing when
+// outboundEmail is off: enough for an admin to tell people manually, since each
+// participant's trip page already shows the information.
 function manualFallback(participants) {
   return {
     sent: false,
@@ -54,34 +37,16 @@ function manualFallback(participants) {
   };
 }
 
-// #274 hardening: sendRequirementNotificationEmail/sendMeetingEmail (and
-// everything they call -- sendParticipantEmail, buildTripParticipantAccessUrl/
-// Token, buildMeetingEmailBody/RsvpUrls) only ever read a participant's
-// email/id/accessTokenVersion. The route handlers that build a trip's
-// `include` before calling into these functions used to fetch
-// `participants: true` (every column, including the up-to-5MB `photo`
-// bytes) just to loop over them for a side-effect email send -- nothing
-// in a response, so not the #274 production bug itself, but real
-// avoidable memory churn on a trip with many/large participant photos.
-// A `select` this narrow, not the plain `participants: true`
-// tripInclude.participants now uses for its own display use-case in
-// trips.js (the photo's bytes live in their own table since #274's
-// hardening follow-up, so a bare `true` there no longer pulls them in
-// either) -- these call sites need almost nothing else even once that's
-// accounted for.
+// Participant selects here are narrow on purpose: these senders read only
+// email/id/accessTokenVersion, and `participants: true` would pull every column
+// (the photo bytes live in their own table) just to loop over a side-effect send.
 const emailParticipantSelect = { id: true, email: true, accessTokenVersion: true };
 
-// Every email in this feature area renders through the shared branded
-// template (emailTemplate.js) -- the same church-colored shell the digests
-// use -- with a small "Lost your link?" footer link, same convention a
-// digest's unsubscribe footer follows elsewhere in this app.
+// Every email here renders through the shared branded template (emailTemplate.js)
+// with a "Lost your link?" footer link.
 //
-// `content` is either { eyebrow, blocks } (the structured, preferred
-// form -- see buildMeetingEmailContent and friends below) or a plain
-// string (rendered as a paragraph, for any caller not yet converted).
-//
-// attachments: [{ name, content (Buffer), contentType }] -- passed
-// straight through to Postmark's Attachments field (base64-encoded).
+// `content` is { eyebrow, blocks } (preferred) or a plain string (one paragraph).
+// attachments: [{ name, content (Buffer), contentType }], passed to Postmark base64-encoded.
 async function sendParticipantEmail(participant, subject, content, { attachments } = {}) {
   if (!participant.email) return { sent: false, reason: "no-email" };
   try {
@@ -113,9 +78,8 @@ async function sendParticipantEmail(participant, subject, content, { attachments
   }
 }
 
-// A real .ics VEVENT -- UID derived deterministically from the owning
-// row's id (stable across resends, so a calendar client updates the
-// existing entry rather than creating a duplicate).
+// A real .ics VEVENT; the UID is derived from the row id so resends update the
+// calendar entry instead of duplicating it.
 function icsDateTime(date) {
   return date
     .toISOString()
@@ -126,15 +90,10 @@ function icsDate(date) {
   return date.toISOString().slice(0, 10).replace(/-/g, "");
 }
 
-// cancelled: true emits a METHOD:CANCEL/STATUS:CANCELLED .ics -- the
-// real iCalendar-standard way to tell a calendar client to remove an
-// event it already has, rather than just saying so in the email body.
-// SEQUENCE increments on cancel so a client that already has the
-// original (SEQUENCE:0) invite recognizes this as a newer revision of
-// the same UID, not a stale duplicate -- a real reschedule (handled by
-// the caller resending with the same UID and SEQUENCE:0) relies on that
-// same UID match to update the existing entry rather than create a
-// second one.
+// cancelled: true emits METHOD:CANCEL/STATUS:CANCELLED so the calendar client
+// removes the event. SEQUENCE increments on cancel so a client holding the
+// original (SEQUENCE:0) treats it as a newer revision; a reschedule resends with
+// the same UID and SEQUENCE:0 to update in place.
 function buildMeetingIcs(meeting, { cancelled = false } = {}) {
   const start = new Date(meeting.startAt);
   const end = new Date(start.getTime() + 60 * 60 * 1000); // one-hour default duration
@@ -161,13 +120,9 @@ function buildMeetingIcs(meeting, { cancelled = false } = {}) {
     .join("\r\n");
 }
 
-// Link-based RSVP (issue #267's design decision) -- three token-
-// verified GET links, same trust boundary as the existing self-service
-// access link (buildTripParticipantAccessToken), reused rather than
-// inventing a parallel auth mechanism. meetingId/response travel as
-// plain query params (not secret -- the token is what proves this is
-// really that participant); GET, not POST, since this has to work from
-// a plain click in a dumb mail client with no JS involved.
+// Link-based RSVP: token-verified GET links, same trust boundary as the
+// self-service access link. meetingId/response are plain query params (the token
+// proves who); GET so it works from a click in a mail client with no JS.
 function buildMeetingRsvpUrls(meeting, participant) {
   const base = appBaseUrl();
   const token = encodeURIComponent(buildTripParticipantAccessToken(participant));
@@ -178,24 +133,10 @@ function buildMeetingRsvpUrls(meeting, participant) {
 
 const RSVP_LABELS = { yes: "Yes", no: "No", maybe: "Maybe" };
 
-// Shared by every meeting email (invite, reschedule-resend, explicit
-// resend, day-before reminder, cancellation) so the agenda/join-link/
-// RSVP-link rendering lives in exactly one place -- a church-facing
-// wording tweak or a new field shouldn't require updating four
-// near-duplicate email bodies in four different files.
-//
-// `participant` is optional -- omitted, no RSVP links render at all
-// (used nowhere today, but keeps this function safe to call without one
-// rather than throwing). `cancelled` suppresses links outright: there's
-// nothing left to RSVP to once a meeting's been called off.
-// `existingResponse` is only ever passed by the day-before reminder
-// (the one email this feature sends after a participant could
-// plausibly have already responded to the original invite) -- it shows
-// what's on file instead of bare links, with a line underneath letting
-// them still change it. The invite/reschedule/resend emails always show
-// plain links with no "previously RSVP'd" framing: resending the exact
-// same invite content is the simpler, more predictable choice, and
-// clicking a link again is already a harmless overwrite either way.
+// Shared by every meeting email so agenda/join-link/RSVP rendering lives in one
+// place. `participant` is optional (no RSVP links without it). `cancelled`
+// suppresses links. `existingResponse` is passed only by the day-before reminder:
+// it shows what's on file with a line to change it; other emails show plain links.
 function formatMeetingTime(startAt) {
   return new Date(startAt).toLocaleString("en-US", {
     weekday: "long",
@@ -246,8 +187,7 @@ function buildMeetingEmailContent(
 
 function buildTripDatesIcs(trip) {
   const start = new Date(trip.startDate);
-  // All-day DTEND is exclusive per the iCalendar spec -- one day past the
-  // real end date, not the end date itself.
+  // All-day DTEND is exclusive per the iCalendar spec.
   const end = new Date(trip.endDate);
   end.setDate(end.getDate() + 1);
   return [
@@ -265,17 +205,10 @@ function buildTripDatesIcs(trip) {
   ].join("\r\n");
 }
 
-// Shared by the requirement-creation route and the late-joiner check in
-// participant creation -- same email, two different moments a
-// participant can first become aware a document- or esignature-kind
-// requirement applies to them (a new one gets added to their trip, or
-// they get added to a trip that already has one). Covers both kinds (not
-// "task", which has no participant-facing action) with one deliberately
-// generic "checklist item" wording rather than kind-specific phrasing
-// ("upload"/"sign") -- it already read as kind-neutral before esignature
-// was added here, so no wording change was needed, just the broader
-// scope. Gates and loops internally, same shape as sendMeetingEmail just
-// below, so neither call site needs its own settings check.
+// Shared by requirement creation and the late-joiner check: the moment a
+// participant first learns a document/esignature requirement applies to them.
+// ("task" has no participant-facing action.) Gates and loops internally, so
+// call sites need no settings check.
 async function sendRequirementNotificationEmail(trip, requirement, participants) {
   if (!(await outboundEmailEnabled())) return manualFallback(participants);
   for (const participant of participants) {
@@ -293,52 +226,26 @@ async function sendRequirementNotificationEmail(trip, requirement, participants)
   return { sent: true };
 }
 
-// Shared by both ways a participant can land on a trip after other
-// things already exist on it -- a direct admin add (POST
-// /:id/participants) or an approved application (PUT /applications/:id,
-// a separate code path with its own tx.tripParticipant.create). Both
-// used to only backfill this for the direct-add path; approval got
-// nothing, despite being the more common real-world way someone becomes
-// a participant. Both sub-sends already gate on outboundEmail internally
-// (sendMeetingEmail/sendRequirementNotificationEmail each check it
-// themselves), so this only needs to own the one cross-cutting exclusion
-// both call sites already applied: a backfilled participant doesn't need
-// catch-up notifications for things that already happened or never will.
+// Shared by both ways a participant lands on a trip with things already on it
+// (direct admin add, or approved application). Sub-sends gate on outboundEmail
+// themselves; this owns the exclusion for historical trips.
 //
-// "completed" alone isn't enough to detect that, though -- "closed"
-// covers two different real situations that share the same status
-// string: a team finalized for a trip that hasn't happened yet (still
-// wants catch-up), and a trip entered after the fact purely as a
-// historical record (should get none, same as "completed", despite never
-// being marked that). Status can't tell those apart; the trip's own
-// dates can -- so check both signals, not just status, rather than
-// replacing one with the other. Shared with sendTripDatesUpdateEmail
-// below, which needs the exact same exclusion for the same reason (a
-// historical-record trip shouldn't get a "dates changed" email either).
+// Status alone can't detect "historical": "closed" covers both a team finalized
+// for a future trip (wants catch-up) and a trip entered after the fact as a
+// record (should get none). So check the trip's dates as well as status. Also
+// used by sendTripDatesUpdateEmail.
 function isTripHistorical(trip) {
   const referenceDate = trip.endDate || trip.startDate;
   const alreadyHappened = referenceDate && new Date(referenceDate) < new Date();
   return trip.status === "completed" || !!alreadyHappened;
 }
 
-// Background catch-up, not a direct admin-triggered action anyone's
-// watching a response for (fired as a side effect of joining a trip) --
-// unlike the single-notification senders above, this one deliberately
-// doesn't collect/return a manual fallback. The participant's own
-// welcome email (sent right alongside this, from the same route) already
-// carries their access link and already gets the manual-link treatment
-// when email's off; re-surfacing that same link again here would just be
-// noise for the admin, not a second genuinely missed notification.
+// Background catch-up (a side effect of joining), so unlike the single-notification
+// senders it deliberately returns no manual fallback: the welcome email sent
+// alongside already carries the access link and its own manual-link treatment.
 //
-// `since`, when passed (issue #310's re-check path -- see
-// sendTripDatesUpdateEmail below), scopes this to only meetings/
-// requirements created after that moment. Without it (every existing
-// join-time call site, unchanged), every current meeting/requirement is
-// in scope, exactly as before -- `since` exists so a *re-run* against a
-// participant who already got a real join-time catch-up doesn't re-send
-// for something they were already notified about. TripMeeting/
-// TripRequirement.createdAt (added for this) make that comparison
-// possible at all; neither existed before.
+// `since`, when passed, limits this to meetings/requirements created after that
+// moment, so a re-run doesn't re-send what the participant was already notified of.
 async function sendLateJoinerCatchUpEmails(trip, participant, { since } = {}) {
   if (isTripHistorical(trip)) return;
   const now = new Date();
@@ -361,21 +268,9 @@ async function sendLateJoinerCatchUpEmails(trip, participant, { since } = {}) {
   }
 }
 
-// A different gap than the late-joiner one above: an EXISTING
-// participant, not a new one. Every participant's welcome email attaches
-// the trip-dates .ics at the moment they join (buildTripDatesIcs, same
-// UID-per-trip convention as buildMeetingIcs) -- but if an admin later
-// changes startDate/endDate, nothing resent that .ics, so every
-// participant who already joined kept a calendar entry with the old,
-// now-wrong dates. The reused UID means a calendar client updates its
-// existing entry rather than creating a duplicate one, exactly as a
-// meeting reschedule's resend already relies on for the same reason.
-//
-// #310: this is also the one sender in this file that used to have no
-// manual-fallback path at all -- outbound email off meant a completely
-// silent no-op, with the calling route not even inspecting a return
-// value. Now returns the same { sent, manual } shape every sibling
-// sender already does.
+// For EXISTING participants: their welcome email attached the trip-dates .ics,
+// so when an admin changes startDate/endDate this resends it. The reused UID
+// makes the calendar client update its entry. Returns { sent, manual } like its siblings.
 async function sendTripDatesUpdateEmail(trip) {
   if (isTripHistorical(trip) || !trip.startDate || !trip.endDate) return null;
   if (!(await outboundEmailEnabled())) return manualFallback(trip.participants);
@@ -410,14 +305,11 @@ async function sendTripDatesUpdateEmail(trip) {
   return { sent: true };
 }
 
-// participant email with the same .ics attachment shape, just a
-// different lead sentence and (for cancel) the CANCEL variant.
+// Participant email with the same .ics attachment shape; cancel uses the CANCEL variant.
 async function sendMeetingEmail(trip, meeting, lead, { cancelled = false } = {}) {
   if (!(await outboundEmailEnabled())) return manualFallback(trip.participants);
-  // Falls back to exactly today's trip-name-only subject when a meeting
-  // has no title set -- a trip with more than one meeting (the normal
-  // case) otherwise sends every meeting's email with the identical
-  // subject line, indistinguishable in an inbox until opened.
+  // Falls back to the trip-name-only subject when a meeting has no title; otherwise
+  // every meeting email of a trip would have an identical subject.
   const subjectLabel = meeting.title || trip.name || trip.type || "your trip";
   for (const participant of trip.participants) {
     await sendParticipantEmail(
@@ -428,9 +320,7 @@ async function sendMeetingEmail(trip, meeting, lead, { cancelled = false } = {})
         attachments: [
           {
             name: "meeting.ics",
-            // Same resolved label as the email subject above -- the
-            // calendar entry's own title and the email that delivered it
-            // should always read as the same thing, not drift apart.
+            // Same label as the email subject so the calendar entry and email read alike.
             content: Buffer.from(buildMeetingIcs({ ...meeting, title: subjectLabel }, { cancelled })),
             contentType: "text/calendar",
           },
@@ -441,11 +331,15 @@ async function sendMeetingEmail(trip, meeting, lead, { cancelled = false } = {})
   return { sent: true };
 }
 
-// The "You're on the team" email, shared by both ways someone joins a trip
-// (an admin adding them directly, or an approved application) so the two
-// can't drift apart. `approved` only changes the opening line.
+// The participant's public support-raising page, or null while they have no share token. The same link the
+// welcome email carries, so an admin can hand it over when email is off.
+function buildSupportRaisingUrl(participant) {
+  return participant?.shareToken ? `${appBaseUrl()}/trip-support-raising/${participant.shareToken}` : null;
+}
+
+// The "You're on the team" email, shared by both ways someone joins a trip.
+// `approved` only changes the opening line.
 function buildTeamWelcomeContent(trip, participant, { approved = false } = {}) {
-  const base = appBaseUrl();
   return {
     eyebrow: "Welcome to the team",
     blocks: [
@@ -464,7 +358,7 @@ function buildTeamWelcomeContent(trip, participant, { approved = false } = {}) {
         ? blocks.paragraph("Share your support-raising page with family and friends:")
         : null,
       participant.shareToken
-        ? blocks.button(`${base}/trip-support-raising/${participant.shareToken}`, "Your support-raising page")
+        ? blocks.button(buildSupportRaisingUrl(participant), "Your support-raising page")
         : null,
     ],
   };
@@ -475,6 +369,7 @@ module.exports = {
   buildMeetingIcs,
   buildMeetingEmailContent,
   buildTeamWelcomeContent,
+  buildSupportRaisingUrl,
   buildMeetingRsvpUrls,
   buildTripDatesIcs,
   emailParticipantSelect,

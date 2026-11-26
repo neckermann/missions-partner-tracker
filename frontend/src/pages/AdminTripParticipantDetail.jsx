@@ -23,6 +23,7 @@ import { mapServerErrorMessage } from "../utils/friendlyError.js";
 import useCurrentUser from "../hooks/useCurrentUser.js";
 import RecordUnavailable, { loadErrorStatus } from "../components/shared/RecordUnavailable.jsx";
 import GiveGuestAccessModal from "../components/admin/GiveGuestAccessModal.jsx";
+import CopyButton from "../components/shared/CopyButton.jsx";
 
 function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
@@ -33,19 +34,7 @@ function readFileAsDataUrl(file) {
   });
 }
 
-// One participant's full picture, split out of the Trips Team page's
-// Confirmed Team table (#252 follow-on). That table used to cram
-// document upload, a requirement picker, task checkboxes, and access-
-// link controls into one action column per row -- everything here is
-// that same functionality, just given the room a person's full record
-// actually needs. The Team page's Confirmed Team table still covers
-// "who's on the team and what's outstanding across everyone, at a
-// glance"; this page is the canonical complete record for one person.
-//
-// Every editable section on this page is EditableSection -- Contact &
-// access, Support-raising goal, and Their Public Page (photo + story,
-// the last onBlur/fire-on-select fields left on this page) all share
-// the same explicit edit -> save/cancel boundary.
+// One participant's full record; the Team page's table is the at-a-glance view across everyone.
 export default function AdminTripParticipantDetail() {
   const { tripId, participantId } = useParams();
   const {
@@ -55,9 +44,7 @@ export default function AdminTripParticipantDetail() {
     canAccessTrip,
     loading: userLoading,
   } = useCurrentUser();
-  // Mirrors TripDetailLayout.jsx's own canWrite -- this page is a sibling
-  // route, not nested under that layout's Outlet, so it can't inherit its
-  // context and has to repeat the same scope check here.
+  // Sibling route, so it can't inherit TripDetailLayout's context; repeats its scope check.
   const canWrite = globalCanWrite || canAccessTrip(tripId);
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
   const [trip, setTrip] = useState(null);
@@ -241,9 +228,7 @@ export default function AdminTripParticipantDetail() {
   return (
     <div className="admin-shell">
       <Breadcrumb
-        // A guest has no access to the Partners directory or a
-        // cross-trip "Trips" list -- same reasoning as TripDetailLayout.jsx's
-        // identically-trimmed breadcrumb.
+        // A guest has no access to the Partners directory or cross-trip Trips list.
         items={
           isGuest
             ? [
@@ -275,17 +260,15 @@ export default function AdminTripParticipantDetail() {
       </h2>
       <LastEdited name={participant.lastEditedByName} at={participant.lastEditedAt} />
       {error && (
-        <p style={{ color: "#b91c1c" }} role="alert">
+        <p style={{ color: "var(--danger)" }} role="alert">
           {error}
         </p>
       )}
       {missingFields.length > 0 && (
-        <p style={{ color: "#a6540f", fontSize: "0.85rem" }}>Missing: {missingFields.join(", ")}</p>
+        <p style={{ color: "var(--warn)", fontSize: "0.85rem" }}>Missing: {missingFields.join(", ")}</p>
       )}
 
-      {/* Right above "Contact & access", not up by the page title -- that's
-          where "Resend access link" (below) actually lives, so the link
-          this produces shows up next to the action that asked for it. */}
+      {/* Next to "Resend access link", the action that produces this link. */}
       {manualAccessLink && <ManualSendNotice recipients={manualAccessLink} />}
       <EditableSection
         title="Contact & access"
@@ -553,17 +536,21 @@ export default function AdminTripParticipantDetail() {
       {participant.application && (
         <div className="admin-section">
           <h3>Application answers</h3>
-          <p style={{ fontSize: "0.8rem", color: "#888", marginTop: 0 }}>
+          <p style={{ fontSize: "0.8rem", color: "var(--muted)", marginTop: 0 }}>
             Submitted {formatDate(participant.application.createdAt)}
           </p>
           {applicationAnswers.length === 0 ? (
-            <p style={{ color: "#888", fontSize: "0.85rem" }}>This trip has no application questions set.</p>
+            <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
+              This trip has no application questions set.
+            </p>
           ) : (
             <dl style={{ margin: 0 }}>
               {applicationAnswers.map((q) => (
                 <div key={q.id} style={{ marginBottom: "0.4rem" }}>
                   <dt style={{ fontSize: "0.85rem", fontWeight: 600 }}>{q.label}</dt>
-                  <dd style={{ margin: "0.1rem 0 0", fontSize: "0.85rem", color: "#333" }}>{q.answer}</dd>
+                  <dd style={{ margin: "0.1rem 0 0", fontSize: "0.85rem", color: "var(--text)" }}>
+                    {q.answer}
+                  </dd>
                 </div>
               ))}
             </dl>
@@ -597,6 +584,10 @@ export default function AdminTripParticipantDetail() {
               <>
                 <p style={{ fontSize: "0.75rem", marginTop: "0.4rem" }}>
                   <code>{`${window.location.origin}/trip-support-raising/${participant.shareToken}`}</code>{" "}
+                  <CopyButton
+                    text={`${window.location.origin}/trip-support-raising/${participant.shareToken}`}
+                    label="Copy support-raising link"
+                  />{" "}
                   <a
                     href={`${window.location.origin}/trip-support-raising/${participant.shareToken}`}
                     target="_blank"
@@ -709,7 +700,7 @@ export default function AdminTripParticipantDetail() {
       <div className="admin-section">
         <h3>Requirements</h3>
         {requirementRows.length === 0 ? (
-          <p style={{ color: "#888" }}>This trip has no requirements defined.</p>
+          <p style={{ color: "var(--muted)" }}>This trip has no requirements defined.</p>
         ) : (
           <ul style={{ listStyle: "none", padding: 0 }}>
             {requirementRows.map((r) => (
@@ -735,7 +726,7 @@ export default function AdminTripParticipantDetail() {
                   </span>
                 )}
                 {r.dueAt && new Date(r.dueAt) < new Date() && !r.fulfilled && (
-                  <span style={{ color: "#b91c1c", fontWeight: 600, fontSize: "0.8rem" }}>overdue</span>
+                  <span style={{ color: "var(--danger)", fontWeight: 600, fontSize: "0.8rem" }}>overdue</span>
                 )}
               </li>
             ))}
@@ -759,7 +750,7 @@ export default function AdminTripParticipantDetail() {
               )}
             </li>
           ))}
-          {documents.length === 0 && <p style={{ color: "#888" }}>No documents on file yet.</p>}
+          {documents.length === 0 && <p style={{ color: "var(--muted)" }}>No documents on file yet.</p>}
         </ul>
 
         {canWrite && (
@@ -813,7 +804,7 @@ export default function AdminTripParticipantDetail() {
 function ViewField({ label, value }) {
   return (
     <div>
-      <div style={{ fontSize: "0.75rem", color: "#888", fontWeight: 600 }}>{label}</div>
+      <div style={{ fontSize: "0.75rem", color: "var(--muted)", fontWeight: 600 }}>{label}</div>
       <div>{value || "—"}</div>
     </div>
   );

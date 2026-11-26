@@ -1,6 +1,4 @@
-// #271 Finding 1: split out of trips.js -- see tripMeetings.js's own
-// header comment for the full reasoning. Covers TripRequirement CRUD
-// and its per-participant completion status (task-kind only).
+// TripRequirement CRUD and its per-participant completion status (task-kind only).
 const express = require("express");
 const { z } = require("zod");
 const prisma = require("../prismaClient");
@@ -10,7 +8,7 @@ const { sendRequirementNotificationEmail, emailParticipantSelect } = require("..
 const { isMinorForTrip } = require("../utils/tripParticipantSchema");
 
 const router = express.Router();
-router.use(requireAuth); // everything below requires a logged-in user
+router.use(requireAuth);
 router.use(requireFeature("trips"));
 
 async function tripIdOfRequirement(req) {
@@ -21,25 +19,16 @@ async function tripIdOfRequirement(req) {
   return row?.tripId;
 }
 
-// ---- Requirements (document or task, #252 generalization) ----
-
 const requirementSchema = z.object({
   label: z.string().min(1),
   kind: z.enum(["document", "task", "esignature"]).optional(),
-  // Only meaningful for kind: "esignature" -- the real agreement text a
-  // participant signs. Not validated against kind here (a requirement
-  // can be switched between kinds while editing; the frontend only shows
-  // this field for esignature, but the backend doesn't need to enforce
-  // it's empty for the other two).
+  // Only meaningful for kind "esignature": the agreement text a participant signs. Not validated
+  // against kind, since a requirement can be switched between kinds while editing.
   bodyText: z.string().optional().nullable(),
   dueAt: z.coerce.date().optional().nullable(),
-  // Only meaningful alongside dueAt -- validated together below, not
-  // enforced as a DB constraint (same style as this file's other
-  // cross-field zod .refine()s).
+  // Only meaningful alongside dueAt; validated together below, not a DB constraint.
   reminderLeadDays: z.coerce.number().int().positive().optional().nullable(),
-  // #278 -- scopes this requirement to only the trip's minor
-  // participants. See schema.prisma's own comment on this column for
-  // where it's checked.
+  // #278: scopes the requirement to the trip's minors (see schema.prisma for where it is checked).
   minorsOnly: z.boolean().optional(),
 });
 function reminderNeedsDueDate(data) {
@@ -61,13 +50,9 @@ router.post(
         .parse(req.body);
       const created = await prisma.tripRequirement.create({ data: { tripId: req.params.id, ...data } });
 
-      // document- and esignature-kind requirements are the two kinds a
-      // participant can self-serve (the public upload route and the
-      // existing "Sign now" flow) -- tell them it exists the same moment an
-      // admin adds it, rather than leaving them to discover it only by
-      // revisiting their own trip page on their own. "task" stays excluded:
-      // there's nothing for a participant to do from this email for one --
-      // an admin checks it off, so a notice would just be noise.
+      // Document and esignature requirements are self-serve for a participant (public upload, "Sign
+      // now"), so tell them when one is added. "task" is excluded: an admin checks it off, so a notice
+      // would be noise.
       let emailResult;
       if (created.kind === "document" || created.kind === "esignature") {
         const trip = await prisma.trip.findUnique({
@@ -116,12 +101,9 @@ router.delete(
   }
 );
 
-// PUT /api/trips/requirements/:id/participants/:participantId/complete --
-// task-kind only (a document's fulfillment is always the existing
-// anti-join against TripDocument, never this). Upsert, not a plain
-// update, since most participant/requirement pairs have no
-// TripRequirementStatus row until the first time either this or the
-// reminder scheduler needs one.
+// PUT /api/trips/requirements/:id/participants/:participantId/complete -- task-kind only (a document
+// is fulfilled via the anti-join against TripDocument). Upsert: most participant/requirement pairs
+// have no TripRequirementStatus row until first needed.
 router.put(
   "/requirements/:id/participants/:participantId/complete",
   requireRole("admin", "editor", "guest"),
@@ -140,14 +122,9 @@ router.put(
             "Only a task requirement can be marked complete directly -- a document or e-signature requirement is fulfilled by its own document, not this",
         });
       }
-      // #327 Finding 3: requireTripScope above only confirms the CALLER's
-      // own trip matches this requirement's trip -- it says nothing about
-      // :participantId, which was never checked against the requirement's
-      // trip at all. Without this, a Trip Leader scoped to Trip A could
-      // mark any participant id (someone else's roster, Trip B) complete
-      // against one of Trip A's own requirements. Loaded unconditionally
-      // now (not just for the minorsOnly branch below) since every path
-      // needs the ownership check, not only that one.
+      // #327 Finding 3: requireTripScope only checks the CALLER's trip against the requirement's trip, not
+      // :participantId; without this check a Trip Leader scoped to Trip A could mark a participant on
+      // Trip B complete against Trip A's requirement. Loaded unconditionally since every path needs it.
       const participant = await prisma.tripParticipant.findUnique({
         where: { id: req.params.participantId },
         select: { tripId: true, dateOfBirth: true },
@@ -155,9 +132,7 @@ router.put(
       if (!participant || participant.tripId !== requirement.tripId) {
         return res.status(404).json({ error: "Not found" });
       }
-      // #278 -- a minors-only requirement never applies to a non-minor
-      // participant at all, so there's nothing for an admin to complete
-      // on their behalf either.
+      // #278: a minors-only requirement never applies to a non-minor: nothing for an admin to complete.
       if (requirement.minorsOnly && !isMinorForTrip(participant.dateOfBirth, requirement.trip.startDate)) {
         return res.status(400).json({
           error: "This requirement only applies to minor participants",

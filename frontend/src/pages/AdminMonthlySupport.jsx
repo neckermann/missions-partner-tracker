@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import StatTiles from "../components/shared/StatTiles.jsx";
+import PageHeader from "../components/shared/PageHeader.jsx";
 import { useNavigate } from "react-router-dom";
 import { fetchPartners, fetchSupportEntries, createSupportEntry, deleteSupportEntry } from "../api/client.js";
 import PartnerSelect from "../components/admin/PartnerSelect.jsx";
@@ -17,31 +19,20 @@ import usePartnerUrlFilter from "../hooks/usePartnerUrlFilter.js";
 import useCurrentUser from "../hooks/useCurrentUser.js";
 import QuickActionModal from "../components/shared/QuickActionModal.jsx";
 
-// Thin binding so the call sites below stay unchanged; the formatting
-// itself lives in utils/format.js, which is also where the em-dash
-// convention for "no amount recorded" is documented.
+// Formatting lives in utils/format.js, which also documents the em-dash for "no amount recorded".
 const formatCurrency = (amount) => formatMoney(amount, { fallback: "—" });
 
 const emptyNewEntry = { partnerId: "", amount: "", effectiveDate: todayInputValue(), notes: "" };
 const emptyFilters = { sendingChurch: "all", includeArchived: false };
 
-// Phase 2 of the UX-rebuild plan: this page already used the expanded-row-
-// below-the-row pattern by hand (History toggle) -- Table's own
-// expandedRowId/renderExpanded was built for exactly this, so this
-// migration is close to a 1:1 lift rather than a redesign. Left client-side
-// (no FilterBar date-range/entity-type added): this dataset has one real
-// filter dimension (archived) and a small row count -- see the plan's own
-// "Backend filter-support judgment calls" table.
+// Filtering stays client-side: one real filter dimension (archived) and a small row count.
 export default function AdminMonthlySupport() {
   const { canWrite, isAdmin } = useCurrentUser();
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
   const [partners, setPartners] = useState([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newEntry, setNewEntry] = useState(emptyNewEntry);
-  // The partner whose full history is expanded, plus that history. It's
-  // fetched on demand rather than arriving with every row: the summary
-  // list carries only each partner's *current* amount, which is all the
-  // table itself shows.
+  // Full history is fetched on demand; the summary list carries only each partner's current amount.
   const [historyFor, setHistoryFor] = useState(null);
   const [history, setHistory] = useState([]);
   const navigate = useNavigate();
@@ -63,12 +54,8 @@ export default function AdminMonthlySupport() {
     setPartnerFilter,
   } = usePartnerUrlFilter();
 
-  // Clicking History on partner A, then quickly clicking it on partner B
-  // before A's slower fetch resolves, would otherwise let A's history
-  // land in the panel after B's already did. Tracks which partner the
-  // most recent loadHistory() call was actually for, checked when it
-  // resolves -- not just closed over, since toggleHistory can move this
-  // on before an in-flight fetch finishes.
+  // Which partner the latest loadHistory() call was for, so a slower earlier fetch can't land
+  // in the panel after a later one.
   const historyForRef = useRef(null);
 
   function reload() {
@@ -92,9 +79,7 @@ export default function AdminMonthlySupport() {
       .catch(console.error);
   }
 
-  // Arriving here via a partner's own "View all" link is specifically
-  // about that partner's support history, not just their current amount --
-  // open it automatically instead of making that a second click.
+  // Arriving via a partner's "View all" link is about that partner's history: open it automatically.
   useEffect(() => {
     if (filterPartnerId) {
       setHistoryFor(filterPartnerId);
@@ -114,9 +99,8 @@ export default function AdminMonthlySupport() {
     loadHistory(partnerId);
   }
 
-  // fetchPartners returns each partner's latest support entry (the summary
-  // select takes 1, ordered by effectiveDate desc), which is exactly what
-  // this table shows.
+  // fetchPartners returns each partner's latest support entry (summary select takes 1,
+  // effectiveDate desc), which is what this table shows.
   const rows = partners
     .map((p) => ({
       id: p.id,
@@ -171,22 +155,16 @@ export default function AdminMonthlySupport() {
           ]}
         />
       )}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          flexWrap: "wrap",
-          gap: "0.5rem",
-        }}
-      >
-        <h2>Monthly Support</h2>
-        {canWrite && (
-          <button className="btn" onClick={() => setShowAddForm(true)}>
-            + Add Support Entry
-          </button>
-        )}
-      </div>
+      <PageHeader
+        title="Monthly Support"
+        actions={
+          canWrite && (
+            <button className="btn" onClick={() => setShowAddForm(true)}>
+              + Add Support Entry
+            </button>
+          )
+        }
+      />
 
       {canWrite && showAddForm && (
         <QuickActionModal
@@ -232,12 +210,16 @@ export default function AdminMonthlySupport() {
         }
       />
 
-      <div className="admin-section" style={{ marginTop: "1rem" }}>
-        <div style={{ display: "flex", gap: "0.5rem", alignItems: "baseline" }}>
-          <span style={{ fontSize: "0.85rem", color: "#555" }}>Total monthly support ({rows.length}):</span>
-          <span style={{ fontSize: "1.3rem", fontWeight: 700 }}>{formatCurrency(total)}</span>
-        </div>
-      </div>
+      <StatTiles
+        ariaLabel="Monthly support total"
+        items={[
+          {
+            label: "Total monthly support",
+            value: formatCurrency(total),
+            hint: `across ${rows.length} partners`,
+          },
+        ]}
+      />
 
       <Table
         style={{ marginTop: "1rem" }}
@@ -245,6 +227,7 @@ export default function AdminMonthlySupport() {
         rowKey={(row) => row.id}
         rowAttrs={(row) => ({ "data-partner-id": row.id })}
         onRowClick={(row) => navigate(row.link)}
+        rowHref={(row) => row.link}
         emptyMessage="No support entries on file yet."
         expandedRowId={historyFor}
         renderExpanded={() => (

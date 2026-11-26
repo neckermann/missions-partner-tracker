@@ -1,13 +1,9 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { fetchPublicSettings } from "../api/client.js";
 
-// The one piece of shared/global state in this app (every other page fetches
-// its own data independently) — justified because these settings are read by
-// nearly every page: every admin page renders the AdminSidebar, every public page
-// renders a header. Always reads the public endpoint regardless of login
-// state, since none of this is sensitive (address/phone/contact fields are
-// deliberately withheld server-side — see routes/publicSettings.js) and it
-// needs to work identically for a logged-out visitor and a logged-in admin.
+// The one piece of global state: read by nearly every page (sidebar, public header). Always reads
+// the public endpoint, whose contact fields are withheld server-side (routes/publicSettings.js),
+// so it works the same logged out or in.
 const DEFAULTS = {
   churchName: null,
   logo: null,
@@ -18,21 +14,19 @@ const DEFAULTS = {
   partnerTermSingular: "Missionary",
   partnerTermPlural: "Missionaries",
   usePartnerTermInAdmin: false,
+  // What this church calls the group that looks after partners with no care team (routes/publicSettings.js).
+  ownerGroupName: "Missions team",
   publicTagline: null,
   aboutText: null,
-  // Demo-mode banner fields -- see the comment on these in
-  // routes/publicSettings.js. null/false here (not just omitted) so
-  // DemoBanner.jsx's `if (!isDemo) return null` is correct even before
-  // the first fetch resolves, same reasoning as the rest of this object.
+  // Demo banner fields (routes/publicSettings.js). null/false, not omitted, so DemoBanner is correct
+  // before the first fetch resolves.
   isDemo: false,
   demoLoginEmail: null,
   demoLoginPassword: null,
   demoGuestLogins: [],
-  // Resolved booleans (env-var checks already applied server-side, see
-  // routes/publicSettings.js) -- every key defaults to true here so a page
-  // never flashes "disabled" while this first fetch is still in flight,
-  // except aiExtraction, groupme, whatsapp, and joshuaProject, whose real registry
-  // default is off.
+  // Resolved booleans (routes/publicSettings.js). Keys default to true so a page never flashes
+  // "disabled" while loading, except aiExtraction, groupme, whatsapp and joshuaProject, which
+  // default off.
   enabledFeatures: {
     partnerFiles: true,
     publicDirectory: true,
@@ -48,12 +42,8 @@ const DEFAULTS = {
     whatsapp: false,
     joshuaProject: false,
   },
-  // Which of the three email-digest cadence tiers an admin offers (#209)
-  // -- defaults match ChurchSettings' own column defaults (see
-  // routes/publicSettings.js), same reasoning as enabledFeatures above:
-  // this is what an unconfigured instance already behaves as, so a page
-  // never flashes a tier that's about to disappear once the real fetch
-  // resolves.
+  // Email-digest cadence tiers an admin offers. Defaults match ChurchSettings' column defaults so a
+  // page never flashes a tier that is about to disappear.
   cadenceTiersEnabled: {
     biweekly: false,
     monthly: true,
@@ -66,11 +56,8 @@ const SettingsContext = createContext({ ...DEFAULTS, loading: true, refreshSetti
 export function SettingsProvider({ children }) {
   const [settings, setSettings] = useState({ ...DEFAULTS, loading: true });
 
-  // Extracted so a page that just changed a setting this context carries
-  // (Enabled Features, the Email page's own inline toggles, Branding,
-  // ...) can call refreshSettings() afterward instead of leaving the
-  // sidebar/Home tiles showing stale data until a full page reload --
-  // this context only ever fetches once on mount otherwise.
+  // Exposed so a page that changes a setting this context carries can refresh it; otherwise it only
+  // fetches on mount.
   function loadSettings() {
     return fetchPublicSettings()
       .then((data) => setSettings({ ...DEFAULTS, ...data, loading: false }))
@@ -81,12 +68,8 @@ export function SettingsProvider({ children }) {
     loadSettings();
   }, []);
 
-  // All five side effects below are harmless no-ops on an unconfigured
-  // instance (every field stays null), so nothing changes until a church
-  // actually sets them in Church Settings. primaryColor drives --brand-color
-  // (the ACCENT role: buttons, links, headings, letterhead -- see its
-  // comment in schema.prisma), headerColor/highlightColor are the other two
-  // brand colors, brandFont is the font choice.
+  // No-ops on an unconfigured instance (every field stays null). primaryColor drives --brand-color
+  // (the accent role); headerColor/highlightColor are the other brand colors, brandFont the font.
   useEffect(() => {
     if (settings.primaryColor) {
       document.documentElement.style.setProperty("--brand-color", settings.primaryColor);
