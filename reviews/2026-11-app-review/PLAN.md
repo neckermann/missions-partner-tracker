@@ -47,6 +47,7 @@ Not re-run: A1 (needs the live demo, which is off limits and not mine to touch),
 | D3 | Keep current behavior (initials, country, region) | A4 only moves the two settings to a page that always exists. No default change |
 | D4 | Guests cannot change visibility or restricted status | A4 gains a backend check plus UI hidden for guests, with tests |
 | D14 | New "Privacy and safety" settings page for the restricted-partner settings (and the public directory and map switches), linked from the restricted switch | A4 (#491) |
+| D15 | Two demos: production demo gets the safety measures; dev-test keeps real keys on purpose, for testing and screenshots | A1 (#489): guard must be switchable, with dev-test opting out; Wave 0 credential removal is production demo only |
 | D5 | Blueprint default names | A8: drop the `name-instance` step, add a Deploy to Render button, list true requirements and cost |
 | D7 | No church has real data yet | Confirmed; wipe-on-upgrade is acceptable for now |
 
