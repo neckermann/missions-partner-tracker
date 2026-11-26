@@ -93,10 +93,11 @@ function invalidBodyCases() {
       expect: /amount/,
     },
     {
-      name: "support-needs: missing requestedAmount",
+      // The amount is optional now (a need can be raised with no figure); the description is not.
+      name: "support-needs: missing description",
       path: "/api/support-needs",
-      body: { partnerId: () => partner.id, description: "A need", requestDate: "2026-01-01" },
-      expect: /requestedAmount/,
+      body: { partnerId: () => partner.id, requestedAmount: 100, requestDate: "2026-01-01" },
+      expect: /description/,
     },
     {
       name: "prayer-requests: bad category",

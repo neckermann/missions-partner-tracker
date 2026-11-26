@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import NeedDecisionFields from "../components/admin/NeedDecisionFields.jsx";
 import { HeldForReviewNote } from "../components/admin/GuestNotice.jsx";
 import PageHeader from "../components/shared/PageHeader.jsx";
 import { Link } from "react-router-dom";
@@ -15,7 +16,7 @@ import SupportNeedFormFields from "../components/admin/SupportNeedFormFields.jsx
 import QuickActionModal from "../components/shared/QuickActionModal.jsx";
 import Modal from "../components/Modal.jsx";
 import Field from "../components/admin/Field.jsx";
-import { formatDateLong, formatCurrency as formatMoney } from "../utils/format.js";
+import { formatDateLong, formatCurrency as formatMoney, formatRequestedAmount } from "../utils/format.js";
 import { DATE_RANGE_OPTIONS, resolveQuickRangeDates } from "../utils/dateRange.js";
 import { entityFor, INCLUDE_ARCHIVED_PARTNERS_FILTER_FIELD } from "../utils/partnerEntity.js";
 import { supportNeedStatus as statusFor } from "../utils/supportNeedStatus.js";
@@ -335,8 +336,8 @@ export default function AdminOneTimeNeeds() {
             label: "Requested",
             render: (need) =>
               need.approvedAmount != null && need.approvedAmount !== need.requestedAmount
-                ? `${formatCurrency(need.requestedAmount)} → ${formatCurrency(need.approvedAmount)}`
-                : formatCurrency(need.requestedAmount),
+                ? `${formatRequestedAmount(need.requestedAmount)} → ${formatCurrency(need.approvedAmount)}`
+                : formatRequestedAmount(need.requestedAmount),
           },
           {
             key: "status",
@@ -412,34 +413,7 @@ export default function AdminOneTimeNeeds() {
           submitLabel="Save Decision"
           submitDisabled={decision.approvedAmount === "" || !decision.approvedDate}
         >
-          <div style={{ display: "flex", gap: "0.75rem", alignItems: "flex-end", flexWrap: "wrap" }}>
-            <label>
-              Approved Amount ($)
-              <input
-                type="number"
-                min="0"
-                value={decision.approvedAmount}
-                onChange={(e) => setDecision((d) => ({ ...d, approvedAmount: e.target.value }))}
-              />
-            </label>
-            <label>
-              Approved Date
-              <input
-                type="date"
-                value={decision.approvedDate}
-                onChange={(e) => setDecision((d) => ({ ...d, approvedDate: e.target.value }))}
-              />
-            </label>
-          </div>
-          <label style={{ display: "block", marginTop: "0.75rem" }}>
-            Decision Note (optional)
-            <textarea
-              rows={2}
-              value={decision.decisionNote}
-              onChange={(e) => setDecision((d) => ({ ...d, decisionNote: e.target.value }))}
-              placeholder="Why this amount -- declined, partially funded, etc. Shown in the admin notification."
-            />
-          </label>
+          <NeedDecisionFields decision={decision} setDecision={setDecision} noteAsTextarea />
         </QuickActionModal>
       )}
 
@@ -486,14 +460,14 @@ export default function AdminOneTimeNeeds() {
             </Link>
             {!isGuest && <LastEdited name={needDetail.lastEditedByName} at={needDetail.lastEditedAt} />}
             <Field label="Description" value={needDetail.form.description} />
-            <Field label="Requested Amount" value={formatCurrency(needDetail.form.requestedAmount)} />
+            <Field label="Requested Amount" value={formatRequestedAmount(needDetail.form.requestedAmount)} />
             <Field label="Request Date" value={formatDateLong(needDetail.form.requestDate)} />
             <Field label="Notes" value={needDetail.form.notes} />
             <Field
               label="Approved"
               value={
                 needDetail.form.approvedAmount != null
-                  ? `${formatCurrency(needDetail.form.approvedAmount)} on ${formatDateLong(needDetail.form.approvedDate)}`
+                  ? `${needDetail.form.approvedAmount === 0 ? "Declined" : formatCurrency(needDetail.form.approvedAmount)} on ${formatDateLong(needDetail.form.approvedDate)}`
                   : "Not yet decided"
               }
               showEmpty

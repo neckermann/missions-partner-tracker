@@ -56,7 +56,7 @@ export default function AdminDispatchSettings() {
   }
 
   useEffect(() => {
-    reload().catch(() => setLoadError("Couldn't load dispatch settings."));
+    reload().catch(() => setLoadError("Couldn't load the sending settings."));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabledFeatures.publicPrayerDigest]);
 
@@ -68,7 +68,7 @@ export default function AdminDispatchSettings() {
   if (loadError) {
     return (
       <div className="admin-shell">
-        <SettingsPageHeader title="Dispatch Settings" />
+        <SettingsPageHeader title="Sending updates" />
         <p className="form-error" role="alert">
           {loadError}
         </p>
@@ -80,7 +80,7 @@ export default function AdminDispatchSettings() {
   return (
     <div className="admin-shell">
       <SettingsPageHeader
-        title="Dispatch Settings"
+        title="Sending updates"
         actions={
           <TemplatePackButtons
             importLabel="Import wording…"
@@ -90,15 +90,15 @@ export default function AdminDispatchSettings() {
         }
       />
       <p style={{ color: "var(--muted)" }}>
-        Schedules for the admin/public email dispatch and for {chatLabel || "GroupMe/WhatsApp"}, the chat
-        channels' own content-type mutes, and email dispatch appearance. The settings for partners in
+        Schedules for the admin and public update emails and for {chatLabel || "GroupMe/WhatsApp"}, the chat
+        channels' choice of what gets posted, and how the update email looks. The settings for partners in
         sensitive places are under <Link to="/admin/settings/privacy">Privacy and safety</Link>. To review or
-        edit what's currently queued, see the <strong>Pending Dispatches</strong> page in the main menu.
+        edit what's currently queued, see the <strong>Updates to share</strong> page in the main menu.
       </p>
 
       {enabledFeatures.publicPrayerDigest && (
         <div className="admin-section">
-          <h3>Email Dispatch Subscribers</h3>
+          <h3>Who gets update emails</h3>
           <p style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
             Who's subscribed to the email prayer digest -- admins via Account Settings, and the public via the
             Subscribe page or a partner's own public page. Counts only, no email addresses.
@@ -121,7 +121,7 @@ export default function AdminDispatchSettings() {
       {enabledFeatures.outboundEmail && (
         <div style={{ marginTop: "1rem" }}>
           <EditableSection
-            title="Email Dispatch Customization"
+            title="How the update email looks"
             value={{
               emailDispatchLayout: settings.emailDispatchLayout || "classic",
               emailDispatchSubjectTemplate: settings.emailDispatchSubjectTemplate || "",
@@ -230,15 +230,14 @@ export default function AdminDispatchSettings() {
             edit={(d, set) => (
               <>
                 <p style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
-                  The cadence each admin (from their own <a href="/admin/account">Account Settings</a>) and
-                  each public subscriber (from the Subscribe page or a partner's own "follow this partner"
-                  form) picks for themselves. Nothing sends on a given tier until its schedule here is
-                  actually set.
+                  How often each admin (from their own <a href="/admin/account">Account Settings</a>) and each
+                  public subscriber (from the Subscribe page or a partner's own "follow this partner" form)
+                  picks to hear from you. Nothing sends for a choice until its schedule here is actually set.
                 </p>
                 <p style={{ margin: "0 0 0.5rem", color: "var(--muted)", fontSize: "0.9rem" }}>
-                  Which tiers to offer at all (#209). Turning a tier off moves anyone currently on it to the
-                  first tier still enabled, in order Monthly, Quarterly, Biweekly -- a one-time move, not
-                  reversible by re-enabling the tier later. At least one tier must stay enabled.
+                  Choose which options people can pick. Turning one off moves anyone on it to the first option
+                  still on, in order Monthly, Quarterly, Biweekly -- a one-time move, not undone by turning it
+                  back on later. At least one option must stay on.
                 </p>
                 <div className="admin-checkbox-row" style={{ marginBottom: "1rem" }}>
                   <label>
@@ -292,7 +291,7 @@ export default function AdminDispatchSettings() {
                     }
                     style={{ width: "auto" }}
                   >
-                    <option value="">Not set -- these tiers won't send</option>
+                    <option value="">Not set -- these emails won't send</option>
                     {Array.from({ length: 28 }, (_, i) => i + 1).map((day) => (
                       <option key={day} value={day}>
                         {day}
@@ -301,7 +300,7 @@ export default function AdminDispatchSettings() {
                   </select>
                 </label>
                 <label htmlFor="email-dispatch-hour" style={{ marginTop: "1rem" }}>
-                  Time (shared by all three tiers)
+                  Time of day (the same for all three)
                   <HourSelect
                     id="email-dispatch-hour"
                     value={d.emailDispatchHour}
@@ -359,7 +358,7 @@ export default function AdminDispatchSettings() {
             edit={(d, set) => (
               <>
                 <p style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
-                  A single daily batch time, not a weekly/monthly tier --{" "}
+                  A single daily time, not a weekly or monthly schedule --{" "}
                   {chatNames.length > 1
                     ? "these are near-real-time, chat-style channels"
                     : "this is a near-real-time, chat-style channel"}
@@ -377,9 +376,9 @@ export default function AdminDispatchSettings() {
                 </label>
 
                 <p style={{ margin: "1.25rem 0 0.5rem", color: "var(--muted)", fontSize: "0.9rem" }}>
-                  Mute any content type you don't want posted to {chatLabel} -- unlike the email dispatches,
-                  which always include everything they're allowed to, chat benefits from finer control since
-                  it's a live conversation, not a periodic email.
+                  Untick anything you don't want posted to {chatLabel} -- unlike the update emails, which
+                  always include everything they're allowed to, chat benefits from finer control since it's a
+                  live conversation, not a periodic email.
                 </p>
                 <div className="admin-checkbox-row">
                   <label>

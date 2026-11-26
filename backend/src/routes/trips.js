@@ -2,6 +2,7 @@
 // contributions). Requirements, applications/participants and meetings live in tripRequirements.js,
 // tripParticipants.js and tripMeetings.js, mounted at the same /api/trips prefix.
 const express = require("express");
+const { optionalWebAddress } = require("../utils/webAddress");
 const { z } = require("zod");
 const prisma = require("../prismaClient");
 const { recordAudit } = require("../utils/auditLog");
@@ -95,7 +96,7 @@ const tripSchema = z.object({
   isPublic: z.boolean().optional(),
   applicationQuestions: APPLICATION_QUESTION_SCHEMA.optional().nullable(),
   albumProvider: z.enum(["google_photos", "icloud", "other"]).optional().nullable(),
-  albumUrl: z.string().optional().nullable(),
+  albumUrl: optionalWebAddress(),
   participants: z.array(participantSchema).optional(),
 });
 
@@ -517,7 +518,7 @@ const wrapUpSchema = z
       })
       .optional(),
     albumProvider: z.enum(["google_photos", "icloud", "other"]).optional().nullable(),
-    albumUrl: z.string().optional().nullable(),
+    albumUrl: optionalWebAddress(),
     followUp: z
       .object({
         logContact: z.boolean(),

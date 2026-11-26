@@ -178,7 +178,7 @@ test.describe("Guest access", () => {
       // Staff see it waiting, flagged as held because a care team member entered it.
       const pending = await (await admin.request.get("/api/dispatches/pending")).json();
       const held = pending.find((item) => String(item.bodyText).includes(text));
-      expect(held, "the entry shows in Pending Dispatches").toBeTruthy();
+      expect(held, "the entry shows in Updates to share").toBeTruthy();
       expect(held.reviewRequired, "held for review because a care team member entered it").toBe(true);
       await context.close();
     });

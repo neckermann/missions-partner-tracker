@@ -79,8 +79,8 @@ export default function AdminPrayerRequests() {
         type: "select",
         options: [
           { value: "all", label: "All" },
-          { value: "strategic", label: "Strategic" },
-          { value: "situational", label: "Situational" },
+          { value: "strategic", label: "Ministry" },
+          { value: "situational", label: "Everyday" },
         ],
       },
       { name: "dateRange", label: "Received", type: "select", options: DATE_RANGE_OPTIONS },
@@ -342,7 +342,7 @@ export default function AdminPrayerRequests() {
           {
             key: "category",
             label: "Category",
-            render: (request) => (request.category === "strategic" ? "Strategic" : "Situational"),
+            render: (request) => (request.category === "strategic" ? "Ministry" : "Everyday"),
           },
           { key: "requestText", label: "Request", render: (request) => truncate(request.requestText, 80) },
           {
@@ -476,7 +476,7 @@ export default function AdminPrayerRequests() {
             {!isGuest && <LastEdited name={requestDetail.lastEditedByName} at={requestDetail.lastEditedAt} />}
             <Field
               label="Category"
-              value={requestDetail.form.category === "strategic" ? "Strategic" : "Situational"}
+              value={requestDetail.form.category === "strategic" ? "Ministry" : "Everyday"}
             />
             <Field label="Date Received" value={formatDateLong(requestDetail.form.dateReceived)} />
             <Field label="Prayer Request" value={requestDetail.form.requestText} />

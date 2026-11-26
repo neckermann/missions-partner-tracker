@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import NeedDecisionFields from "../components/admin/NeedDecisionFields.jsx";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   fetchPartner,
@@ -83,6 +84,7 @@ import {
   formatDateLong,
   formatDate,
   formatCurrency,
+  formatRequestedAmount,
   toDateInputValue,
   todayInputValue,
 } from "../utils/format.js";
@@ -1159,8 +1161,8 @@ export default function AdminPartnerDetail() {
                     )}
                   </label>
                   {enabledFeatures.joshuaProject && (
-                    <label title="Looks up Joshua Project's country statistics for this field/region -- nothing else uses this field. Auto-fills from the country entered below, but Joshua Project uses the older FIPS codes, not ISO -- they disagree for some countries, so correct it here if the stats below look wrong.">
-                      Country Code (FIPS/ISO)
+                    <label title="Looks up Joshua Project's country statistics for this field/region -- nothing else uses this field. Auto-fills from the country entered below, but Joshua Project uses its own country codes, which differ from the usual ones for some countries, so correct it here if the stats below look wrong.">
+                      Country Code
                       <input
                         value={d.fipsCountryCode}
                         onChange={(e) => set("fipsCountryCode", e.target.value)}
@@ -1507,7 +1509,7 @@ export default function AdminPartnerDetail() {
               title="Prayer Requests"
               count={collections.prayerRequests.length}
               items={prayerRequestsLoadMore.visible.map((r) => ({
-                text: `${truncate(r.requestText, 60)} · ${r.category === "strategic" ? "Strategic" : "Situational"}`,
+                text: `${truncate(r.requestText, 60)} · ${r.category === "strategic" ? "Ministry" : "Everyday"}`,
                 onClick: () => openPrayerDetail(r),
               }))}
               hasMore={prayerRequestsLoadMore.hasMore}
@@ -1614,7 +1616,7 @@ export default function AdminPartnerDetail() {
                 title="One-Time Needs"
                 count={collections.needRequests.length}
                 items={needRequestsLoadMore.visible.map((n) => ({
-                  text: `${truncate(n.description, 60)} · ${formatCurrency(n.requestedAmount)} · ${
+                  text: `${truncate(n.description, 60)} · ${formatRequestedAmount(n.requestedAmount)} · ${
                     supportNeedStatus(n).label
                   }`,
                   onClick: () => openNeedDetail(n),
@@ -1838,7 +1840,7 @@ export default function AdminPartnerDetail() {
           <Modal title="Prayer Request" onClose={closeModal}>
             <Field
               label="Category"
-              value={prayerDetail.form.category === "strategic" ? "Strategic" : "Situational"}
+              value={prayerDetail.form.category === "strategic" ? "Ministry" : "Everyday"}
             />
             <Field label="Date Received" value={formatDateLong(prayerDetail.form.dateReceived)} />
             <Field label="Prayer Request" value={prayerDetail.form.requestText} />
@@ -1873,35 +1875,13 @@ export default function AdminPartnerDetail() {
       )}
 
       {activeModal === "decide-need" && (
-        <QuickActionModal title="Record Decision" onClose={closeModal} onSubmit={submitRecordDecision}>
-          <div className="form-grid">
-            <label>
-              Approved Amount ($)
-              <input
-                type="number"
-                min="0"
-                value={needDecisionForm.approvedAmount}
-                onChange={(e) => setNeedDecisionForm((f) => ({ ...f, approvedAmount: e.target.value }))}
-                required
-              />
-            </label>
-            <label>
-              Approved Date
-              <input
-                type="date"
-                value={needDecisionForm.approvedDate}
-                onChange={(e) => setNeedDecisionForm((f) => ({ ...f, approvedDate: e.target.value }))}
-                required
-              />
-            </label>
-            <label style={{ gridColumn: "1 / -1" }}>
-              Decision Note
-              <input
-                value={needDecisionForm.decisionNote}
-                onChange={(e) => setNeedDecisionForm((f) => ({ ...f, decisionNote: e.target.value }))}
-              />
-            </label>
-          </div>
+        <QuickActionModal
+          title="Record Decision"
+          onClose={closeModal}
+          onSubmit={submitRecordDecision}
+          submitDisabled={needDecisionForm.approvedAmount === "" || !needDecisionForm.approvedDate}
+        >
+          <NeedDecisionFields decision={needDecisionForm} setDecision={setNeedDecisionForm} />
         </QuickActionModal>
       )}
 
@@ -1934,7 +1914,7 @@ export default function AdminPartnerDetail() {
         ) : (
           <Modal title="One-Time Need" onClose={closeModal}>
             <Field label="Description" value={needDetail.form.description} />
-            <Field label="Requested Amount" value={formatCurrency(needDetail.form.requestedAmount)} />
+            <Field label="Requested Amount" value={formatRequestedAmount(needDetail.form.requestedAmount)} />
             <Field label="Request Date" value={formatDateLong(needDetail.form.requestDate)} />
             <Field label="Notes" value={needDetail.form.notes} />
             <Field

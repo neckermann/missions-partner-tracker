@@ -423,7 +423,7 @@ const FIELD_OPTIONS = [
   [
     "showPrayerRequests",
     "Prayer Requests",
-    'Printed at the top of each entry\'s Notes & Prayer page, which this turns on too. Only strategic requests marked both "Show on public profile" and "Include in printed booklet" -- capped per partner below.',
+    'Printed at the top of each entry\'s Notes & Prayer page, which this turns on too. Only ministry requests marked both "Show on public profile" and "Include in printed booklet" -- capped per partner below.',
   ],
   ["showNotesPage", "Notes & Prayer Page (facing page per entry)"],
 ];

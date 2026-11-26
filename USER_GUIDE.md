@@ -113,9 +113,9 @@ at your church.
 The sidebar (and the Home page's card grid, which mirrors it) lists:
 **Home**, [**Partners**](#the-partners-list) (or your church's custom
 term, e.g. "Go Team Partners," if enabled in Branding),
-[**Unmatched Emails**](#receiving) (inbound email only — see
+[**Emails to sort**](#receiving) (inbound email only — see
 [Email](#email-admin-only) below),
-[**Pending Dispatches**](#pending-dispatches) (GroupMe and/or
+[**Updates to share**](#updates-to-share) (GroupMe and/or
 email sending only),
 [**Monthly Support**](#financial-support--one-time-needs),
 [**One-Time Needs**](#financial-support--one-time-needs),
@@ -140,10 +140,10 @@ that only appear once their own features are on:
 - **Communications** — [**Email**](#email-admin-only),
   [**GroupMe**](#groupme-dispatch-admin-only),
   [**WhatsApp**](#whatsapp-dispatch-admin-only), and
-  [**Dispatch Settings**](#dispatch-settings-admin-only) (schedules,
+  [**Sending updates**](#sending-updates-admin-only) (schedules,
   GroupMe's content-type mutes, the restricted-partner safety gate,
   digest appearance, and subscriber counts — the queue itself is
-  [**Pending Dispatches**](#pending-dispatches) in the main menu).
+  [**Updates to share**](#updates-to-share) in the main menu).
 - **Integrations** — [**AI Features**](#ai-features-admin-only) and
   [**Joshua Project**](#joshua-project-admin-only).
 
@@ -454,10 +454,12 @@ status pill (Pending Decision / Fully Funded / Partially Funded /
 Declined) computed from the approved vs. requested amount. **+ Add Need**
 adds one without leaving the page; an undecided need gets a **Record
 Decision** button to fill in the approved amount/date once your church
-has made a call, plus an optional **Decision Note** for why it came out
-that way (a reason for declining, or for funding less than what was
-asked). Both the requested amount (on creation) and the approved
-amount/decision note (once decided) show up in the GroupMe post and the
+has made a call (tick **Decline this request** to record a no), plus an
+optional **Decision Note** for why it came out that way (a reason for
+declining, or for funding less than what was asked). The requested
+amount is optional: leave it blank when a letter names no figure, and the
+need shows "No amount". The requested amount (when there is one) and the
+approved amount/decision note (once decided) show up in the GroupMe post and the
 admin email digest for that need — one-time needs never reach the
 public digest, so there's no reason to hold that detail back from the
 audiences that do see it. Both **+ Add Need** and its Edit form have a
@@ -467,7 +469,7 @@ leave it as "None." A need pointed at a source this way, or added
 automatically by [AI Features](#ai-features-admin-only), shows a
 "From: ..." link back to that file, rendered the same either way. For
 marking a new need urgent, or (for a restricted partner) approving it at
-creation instead of from Pending Dispatches, see [Marking something
+creation instead of from Updates to share, see [Marking something
 urgent](#marking-something-urgent).
 
 ![The One-Time Needs page, with status pills per need](docs/assets/screenshots/one-time-needs.png)
@@ -486,13 +488,13 @@ or leave it as "None."
 
 ![The Source (optional) dropdown on the Add Prayer Request form, listing this partner's newsletters and documents](docs/assets/screenshots/source-picker.png)
 
-- **Category** is **Strategic** (tied to the ministry's long-term vision
+- **Category** is **Ministry** (tied to the ministry's long-term vision
   or calling — church planting, discipleship, language study, funding —
   can optionally be shown on that partner's public profile via **Show on
-  public profile**) or **Situational** (whatever came up — health,
+  public profile**) or **Everyday** (whatever came up — health,
   travel, family needs, paperwork; admin-only, never shown publicly
   regardless of any setting).
-- A strategic request marked **Show on public profile** can also be
+- A ministry request marked **Show on public profile** can also be
   checked **Include in printed booklet** — a separate setting, since a
   partner can build up more public strategic requests over time than
   would ever fit on a printed page. Only requests checked both ways ever
@@ -532,7 +534,7 @@ been answered so far. A request pointed at a source this way, or added
 automatically by [AI Features](#ai-features-admin-only),
 shows a "From: ..." link back to that file, rendered the same either
 way. For marking a new request urgent, or (for a restricted partner)
-approving it at creation instead of from Pending Dispatches, see
+approving it at creation instead of from Updates to share, see
 [Marking something urgent](#marking-something-urgent).
 
 ![The central Prayer Requests page, newest first across every partner](docs/assets/screenshots/prayer-requests-list.png)
@@ -906,13 +908,13 @@ The team shows as one line on the partner's **Contact** card ("Care team: Pat (l
 
 A care team member uses the same app as everyone, and for **their own partner** they can do what an editor can: edit the partner's profile, family, contact details, links and photos; add and edit prayer requests (and record answers) and one-time needs; and upload and edit newsletters and documents. They can also see that partner's trips, read-only. Three things are different:
 
-- **What they enter is saved immediately, but isn't sent to the church** by email, GroupMe or WhatsApp **until an admin or editor approves it** in [Pending Dispatches](#pending-dispatches). They can't mark anything urgent or use "approve now".
+- **What they enter is saved immediately, but isn't sent to the church** by email, GroupMe or WhatsApp **until an admin or editor approves it** in [Updates to share](#updates-to-share). They can't mark anything urgent or use "approve now".
 - **They can't approve or decline a one-time need** or record a decision on it. That stays with the committee or board.
 - **They never see monthly support** — its amount, how long it has run, or its history.
 
 They also can't create or delete partners, or delete records, and they can't use the AI scan of a newsletter (it sends the letter to an outside service, so it is for admins and editors only). If you're an admin or editor yourself, being on a team doesn't limit you or hold your entries; it just adds the care-team features.
 
-![Pending Dispatches, where an entry from a care team member is held for staff to approve](docs/assets/screenshots/pending-dispatches-care-team.png)
+![Updates to share, where an entry from a care team member is held for staff to approve](docs/assets/screenshots/pending-dispatches-care-team.png)
 
 A **Guest**, whether on a care team, given a trip, or both, sees one plain **Partners** list of every partner they can reach, with no tabs. Staff who are on a care team still land on All and switch to the **My partners** tab when they want it.
 
@@ -972,7 +974,7 @@ With **Key-date reminders** turned on, whoever looks after a partner (its [care 
 
 - **Send a greeting.** On the **My partners** tab, a key date inside the window has a **Send greeting** button where we may email them (not for a restricted partner, one marked not to be contacted directly, or one whose allowed ways exclude email, and not when there is no address). It opens a prefilled draft in your own mail program, so you read and send it yourself; the app never sends it. Afterwards it asks whether to log it, and saying yes records an email with the **Key date** topic, which clears the reminder.
 
-- **In your email digest**, if you have one (My account → Email Dispatch). A **Key dates coming up** section leads the digest, listing dates **90 and 30 days out**, each once, so a monthly or quarterly digest still gives you time to plan. The earlier heads-ups are a church setting (Settings → Partner Care → Timing).
+- **In your email digest**, if you have one (My account → Email updates). A **Key dates coming up** section leads the digest, listing dates **90 and 30 days out**, each once, so a monthly or quarterly digest still gives you time to plan. The earlier heads-ups are a church setting (Settings → Partner Care → Timing).
 - **By a short email of its own** for the last stretch (the final **7 days** by default), sent at 7am church time on a day something is due, listing everything coming up for your partners (not one email per partner). If your next digest would reach you on or before the date, you get it there instead, so you aren't emailed twice. Someone with no digest always gets the short email. It needs Email (Sending) turned on, and it's sent at 7am church time. **You can turn the email off for yourself** under **My account → Key-date email** (a Guest on a care team can too); the alert on the bell stays either way.
 
 ![The grouped key-date email](docs/assets/screenshots/key-date-email.png)
@@ -1080,7 +1082,7 @@ needed:
   - **Highlight Color** — hover, focus, and active/selected states, e.g.
     a button on hover or the current nav item.
 
-  All three also flow into the [email digest](#email-dispatch-customization)'s
+  All three also flow into the [email digest](#how-the-update-email-looks)'s
   Snapshot layout and its masthead/buttons, so the digest looks like the
   same product as the rest of the site, not a separately-styled email.
   **Reset to Default** clears all three colors and the font back to the
@@ -1235,11 +1237,10 @@ in [Enabled Features](ADMIN_GUIDE.md#feature-toggles) once it's set up
 here.
 
 These don't post the instant they happen — GroupMe has its own daily
-batch time (set on the Dispatch Settings page), and an item marked
+batch time (set on the Sending updates page), and an item marked
 **urgent** posts right away regardless of that schedule — see [Marking
-something urgent](#marking-something-urgent). See [Pending
-Dispatches](#pending-dispatches) for the queue itself, and
-[Dispatch Settings](#dispatch-settings-admin-only) for the
+something urgent](#marking-something-urgent). See [Updates to share](#updates-to-share) for the queue itself, and
+[Sending updates](#sending-updates-admin-only) for the
 schedule.
 
 Setup, on the **GroupMe** page under Settings, builds up in
@@ -1300,7 +1301,7 @@ unofficial connection and you'll want a dedicated phone number for it.
 
 WhatsApp sends once a day, at an admin-set hour, and has its own three
 content-type mutes (Prayer Requests / One-Time Needs / Newsletters) —
-both set on the [Dispatch Settings](#dispatch-settings-admin-only)
+both set on the [Sending updates](#sending-updates-admin-only)
 page. Beside those three, **partner care posts** (a coming key date, a
 partner nobody has heard from, and news to pass on to a partner) have
 their own switches, **off until you turn them on**, and share one
@@ -1350,10 +1351,10 @@ group with new and decided needs:
 ![The Prayer Requests group showing new and answered prayer requests](docs/assets/screenshots/whatsapp-prayer-requests-group.png)
 ![The One-Time Needs group showing new and decided one-time needs](docs/assets/screenshots/whatsapp-one-time-needs-group.png)
 
-### Pending Dispatches
+### Updates to share
 
-The **Pending Dispatches** page (in the main menu, alongside If Email (Sending), GroupMe and WhatsApp are all off, nothing goes out on its own: the page offers **Copy the updates that are ready** (grouped by partner, leaving out anything still held for review) so you can share them yourself, then clear them.
-Unmatched Emails) is where every prayer request, one-time need, and
+The **Updates to share** page (in the main menu, alongside If Email (Sending), GroupMe and WhatsApp are all off, nothing goes out on its own: the page offers **Copy the updates that are ready** (grouped by partner, leaving out anything still held for review) so you can share them yourself, then clear them.
+Emails to sort) is where every prayer request, one-time need, and
 newsletter queues before going out — the shared review-and-send queue
 behind both GroupMe dispatch above and email digests below. Only
 shows up once GroupMe dispatch or Email (Sending) is turned on —
@@ -1361,7 +1362,7 @@ no point reviewing a queue neither channel will ever read. Visible to
 any logged-in role; only an admin or editor can actually edit, approve,
 or clear an item. For the schedules, GroupMe's content-type mutes, the
 restricted-partner safety gate, and email dispatch appearance, see
-[Dispatch Settings](#dispatch-settings-admin-only) below.
+[Sending updates](#sending-updates-admin-only) below.
 
 The list shows everything currently queued, grouped by partner, with a
 prayer request or need that came from a newsletter nested right under
@@ -1370,7 +1371,7 @@ that newsletter instead of repeated separately. There's no manual
 go out right away, check **urgent** on it when you create it instead,
 see [Marking something urgent](#marking-something-urgent).
 
-![The Pending Dispatches page: a regular partner's prayer requests and one-time needs (new and answered/decided), grouped with a restricted partner's already-reviewed items below](docs/assets/screenshots/pending-dispatches.png)
+![The Updates to share page: a regular partner's prayer requests and one-time needs (new and answered/decided), grouped with a restricted partner's already-reviewed items below](docs/assets/screenshots/pending-dispatches.png)
 
 Items a [care team member](#care-teams) enters are held here for review whatever the partner — nothing goes out until an admin or editor approves it, the same way a restricted partner's items are held.
 
@@ -1448,7 +1449,7 @@ and public subscribers about to be notified before it actually sends.
 
 What it doesn't bypass: a restricted partner's item still waits on
 review exactly as it would without the checkbox (see [Reviewing a
-restricted partner's request or need](#pending-dispatches) above),
+restricted partner's request or need](#updates-to-share) above),
 and a muted GroupMe content type still blocks that one channel — urgent
 only skips waiting for a schedule, never either of those safety rules.
 
@@ -1456,22 +1457,22 @@ only skips waiting for a schedule, never either of those safety rules.
 second checkbox appears alongside "Mark as urgent": **Review and
 approve now**. Checking it confirms, right then, that the text you just
 typed is safe to send out exactly as written — the same confirmation
-[Pending Dispatches](#pending-dispatches)'s own **Approve** does,
+[Updates to share](#updates-to-share)'s own **Approve** does,
 just at creation time instead of a second visit later. It clears the
 review hold; it doesn't by itself make anything send immediately — that
 still needs "Mark as urgent" too, or whatever channel's own regular
 schedule picks the item up next.
 
-### Dispatch Settings (Admin only)
+### Sending updates (Admin only)
 
-The **Dispatch Settings** page under Settings → Communications
+The **Sending updates** page under Settings → Communications
 holds every schedule, the chat channels' (GroupMe and WhatsApp) shared
 content-type mutes, the one restricted-partner safety gate, and the
 email dispatch's own appearance —
 separate from the actual queue above, same split Email already has
-between its own settings page and Unmatched Emails. Top to bottom:
+between its own settings page and Emails to sort. Top to bottom:
 
-#### Email Dispatch Subscribers
+#### Who gets update emails
 
 A read-only section at the top of the page (only shown once [Public
 prayer digest](ADMIN_GUIDE.md#feature-toggles) is turned on) showing
@@ -1485,15 +1486,15 @@ only — no email addresses, here or anywhere else an admin can see.
 One checkbox, off by default: turned on, a restricted-access partner's
 prayer requests and one-time needs are recorded and can reach GroupMe,
 WhatsApp, and both email digests, subject to the review requirement described in
-[Pending Dispatches](#pending-dispatches) above. Left off (the
+[Updates to share](#updates-to-share) above. Left off (the
 default), their events are never recorded in the first place, for any
 type — nothing to hold, nothing to review, because nothing's queued.
 Turning it on takes on that review responsibility in exchange for
 restricted partners' content reaching every channel like anyone else's.
 
-![The Dispatch Settings page: subscriber counts, the Restricted Partners gate, digest customization, email schedule, and the GroupMe/WhatsApp chat schedule](docs/assets/screenshots/dispatch-settings.png)
+![The Sending updates page: subscriber counts, the Restricted Partners gate, digest customization, email schedule, and the GroupMe/WhatsApp chat schedule](docs/assets/screenshots/dispatch-settings.png)
 
-#### Email Dispatch Customization
+#### How the update email looks
 
 Everything here controls the **email digest specifically** — GroupMe
 and WhatsApp's own message format doesn't change, since both are
@@ -1590,7 +1591,7 @@ the digest doesn't need Receiving on, and vice versa.
 #### Sending
 
 Once turned on, this is the email half of the
-[Pending Dispatches](#pending-dispatches) queue above — an
+[Updates to share](#updates-to-share) queue above — an
 opted-in user gets one digest email covering everything currently
 queued, instead of one email per item. Setup builds up in steps:
 
@@ -1636,7 +1637,7 @@ email arrives:
 
 - If the sender's address matches **exactly one** partner — either that
   organization's own Contact Email, or any household adult's email on a
-  missionary's record — it waits in **Unmatched Emails** for a quick look
+  missionary's record — it waits in **Emails to sort** for a quick look
   (a sender address can be forged, so nothing is filed or announced on its
   own). An admin or editor assigns it to that partner as a **Newsletter**
   (title = the email's subject, the original `.eml` as the file), and it
@@ -1646,10 +1647,10 @@ email arrives:
   automatically; only an admin can discard a message.
 - If the sender's address matches **no partner, or more than one** (two
   partners happen to share a household-adult email, for instance),
-  there's no safe guess to make — it lands in the **Unmatched Emails**
+  there's no safe guess to make — it lands in the **Emails to sort**
   queue instead, visible to any logged-in role.
 
-**Unmatched Emails** (its own nav item, next to Partners) lists what's
+**Emails to sort** (its own nav item, next to Partners) lists what's
 waiting: From, Subject, Received. **View raw** opens the original email.
 **Assign** (editor or admin) picks the right partner _and_ what kind of
 file it actually is — Newsletter, Survey Response, Signed Policy, Email
@@ -1666,9 +1667,9 @@ participant (grouped by trip) and, if it fulfills one, which document
 requirement. Useful for a signed waiver or passport photo that arrives
 by email rather than through the participant's own self-service page.
 
-![The Unmatched Emails queue, waiting on review](docs/assets/screenshots/unmatched-emails.png)
+![The Emails to sort queue, waiting on review](docs/assets/screenshots/unmatched-emails.png)
 
-![The Unmatched Emails queue, waiting on review](docs/assets/screenshots/unmatched-emails.png)
+![The Emails to sort queue, waiting on review](docs/assets/screenshots/unmatched-emails.png)
 
 ## Integrations
 
@@ -1759,10 +1760,9 @@ your passkeys along with your authenticator app.
 ![My Account: two-factor enabled with passkeys, and the list of passkeys](docs/assets/screenshots/my-account-passkeys.png)
 
 If [Email (Sending)](#email-admin-only) is turned on for the church,
-there's also an **Email Dispatch** section here: a cadence (no
+there's also an **Email updates** section here: a cadence (no
 automatic digest by default, or one of whichever of biweekly, monthly,
-and quarterly the admin has chosen to offer — see [Dispatch
-Settings](#dispatch-settings-admin-only)) and, once a cadence is
+and quarterly the admin has chosen to offer — see [Sending updates](#sending-updates-admin-only)) and, once a cadence is
 picked, a choice of what it covers: **the partners you look after** (the
 default: your care team seats, plus, if you're on the missions team, the
 partners that have no care team of their own), **all partners**, or **only
@@ -1776,14 +1776,14 @@ switched to something else. The digest itself
 still includes prayer requests, one-time needs, and newsletters, same
 as before — picking a cadence and scope here doesn't narrow what you
 get, just when and for whom. It sends on whatever [Email
-Schedule](#dispatch-settings-admin-only) the admin set up at Site
-Administration → Dispatch Settings. You can also turn it off directly from
+Schedule](#sending-updates-admin-only) the admin set up at Site
+Administration → Sending updates. You can also turn it off directly from
 the unsubscribe link in any digest email, without logging in. Besides
 your chosen cadence, you may occasionally get an item right away
 outside that schedule — see [Marking something
 urgent](#marking-something-urgent).
 
-![Account settings, Email Dispatch: a biweekly cadence picked, with the specific-partners scope list expanded](docs/assets/screenshots/account-settings-digest.png)
+![Account settings, Email updates: a biweekly cadence picked, with the specific-partners scope list expanded](docs/assets/screenshots/account-settings-digest.png)
 
 ![Account settings, mid-enrollment: the QR code step of enabling two-factor authentication](docs/assets/screenshots/mfa-enrollment.png)
 
@@ -1878,6 +1878,6 @@ whatever's marked public in the admin dashboard.
 The app ships no church-specific content in its code. Starting points (survey questions, a support menu, trip requirement documents, trip application questions, email update wording) are **template packs**: small JSON files you import from the page where that content lives. Example packs are in the project's [`examples/template-packs`](https://github.com/neckermann/missions-partner-tracker/tree/main/examples/template-packs) folder, and the public demo imports them so it shows everything.
 
 - **Import** (admins): open the page, press **Import…**, choose the file or paste its text, **Check this pack** to see what it would do, then **Import**. Importing only adds: nothing you have is deleted, a duplicate (same name) is skipped, and importing the same pack twice does nothing the second time. A survey arrives as a draft. Email update wording is the one exception: it replaces the subject line, sign-off and layout the pack contains, and the preview says so.
-- **Where:** surveys under **Settings → Surveys**, the support menu under **Settings → Support Preferences**, trip requirements and application questions under **Settings → Trips**, wording under **Settings → Dispatch Settings**.
+- **Where:** surveys under **Settings → Surveys**, the support menu under **Settings → Support Preferences**, trip requirements and application questions under **Settings → Trips**, wording under **Settings → Sending updates**.
 - **Export:** each of those pages has an **Export** button that saves what you have as a pack, so a church can share its own.
 - **A new install starts empty** in each of these areas, with a prompt to import an example or start blank. Existing installs keep everything they have.

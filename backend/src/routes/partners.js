@@ -1,4 +1,5 @@
 const express = require("express");
+const { webAddress, optionalWebAddress } = require("../utils/webAddress");
 const { z } = require("zod");
 const { CONTACT_METHODS, CONTACT_LEVELS } = require("../utils/contactMethods");
 const prisma = require("../prismaClient");
@@ -136,7 +137,7 @@ const sendingPartySchema = z
     contactFirstName: z.string().optional().nullable(),
     contactLastName: z.string().optional().nullable(),
     contactEmail: z.string().optional().nullable(),
-    websiteLink: z.string().optional().nullable(),
+    websiteLink: optionalWebAddress(),
     mailingAddress: addressFieldsSchema
       .pick({
         addressLine1: true,
@@ -232,7 +233,7 @@ const childSchema = z.object({
   lastName: z.string().optional().nullable(),
   birthday: z.coerce.date().optional().nullable(),
 });
-const partnerLinkSchema = z.object({ type: z.enum(LINK_TYPES), url: z.string().min(1) });
+const partnerLinkSchema = z.object({ type: z.enum(LINK_TYPES), url: webAddress() });
 const partnerLanguageSchema = z.object({
   language: z.string().min(1),
   proficiency: z.enum(PROFICIENCY_LEVELS).optional().nullable(),

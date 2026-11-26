@@ -145,8 +145,8 @@ function buildBlurb(row, partner, settings) {
       // so the requested amount is safe to show like the approved amount below.
       // Restricted masking still applies to name/description. Guards a missing
       // requestedAmount (non-nullable in the schema, but fixtures may omit it) to avoid "$NaN".
-      const amount =
-        payload.requestedAmount != null ? `$${Number(payload.requestedAmount).toLocaleString()}` : null;
+      // A need can be saved with no amount (stored as 0): say nothing about money rather than "$0".
+      const amount = payload.requestedAmount ? `$${Number(payload.requestedAmount).toLocaleString()}` : null;
       return {
         id: row.id,
         type,
@@ -171,7 +171,9 @@ function buildBlurb(row, partner, settings) {
 
     case "supportNeedDecided": {
       const label = supportNeedOutcomeLabel(payload);
-      const amount = `$${Number(payload.approvedAmount).toLocaleString()}`;
+      // A decline (approved $0) says "Declined" and no amount, rather than "Approved: $0".
+      const amount = payload.approvedAmount ? `$${Number(payload.approvedAmount).toLocaleString()}` : null;
+      const approvedLine = amount ? `\n\nApproved: ${amount}` : "";
       const bodyText = row.dispatchReviewedAt
         ? row.dispatchReviewedText
         : restricted
@@ -195,8 +197,8 @@ function buildBlurb(row, partner, settings) {
         sourceFileId: maskedSourceFileId,
         sourceLinkUrl: maskedSourceLinkUrl,
         groupmeText: restricted
-          ? `🎁 One-time need decided (${label}), from ${partnerName}:\n${bodyText}\n\nApproved: ${amount}${decisionNoteLine}`
-          : `🎁 One-time need decided (${label}), from ${partnerName}:\n${bodyText}\n\nApproved: ${amount}${decisionNoteLine}${maskedSourceLinkLine}`,
+          ? `🎁 One-time need decided (${label}), from ${partnerName}:\n${bodyText}${approvedLine}${decisionNoteLine}`
+          : `🎁 One-time need decided (${label}), from ${partnerName}:\n${bodyText}${approvedLine}${decisionNoteLine}${maskedSourceLinkLine}`,
       };
     }
 

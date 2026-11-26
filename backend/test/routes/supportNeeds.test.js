@@ -232,6 +232,51 @@ describe("POST /api/support-needs", () => {
   });
 });
 
+describe("a need with no amount, and a decline", () => {
+  test("can be raised with no amount (omitted, blank or null): saved as 0, meaning no amount", async () => {
+    for (const requestedAmount of [undefined, "", null]) {
+      const body = { description: `${FIXTURE_TAG} no amount`, requestDate: "2026-01-01" };
+      if (requestedAmount !== undefined) body.requestedAmount = requestedAmount;
+      const res = await create(body);
+      assert.equal(res.status, 201, JSON.stringify(res.body));
+      assert.equal(res.body.requestedAmount, 0);
+    }
+  });
+
+  test("editing a need without sending an amount leaves the stored amount alone", async () => {
+    const made = await create({
+      description: `${FIXTURE_TAG} keeps amount`,
+      requestedAmount: 250,
+      requestDate: "2026-01-01",
+    });
+    const res = await admin(`/api/support-needs/${made.body.id}`, {
+      method: "PUT",
+      body: { notes: "just a note" },
+    });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.requestedAmount, 250);
+  });
+
+  test("a decision of $0 is a decline: it is recorded, and the need is no longer pending", async () => {
+    const made = await create({
+      description: `${FIXTURE_TAG} to decline`,
+      requestedAmount: 500,
+      requestDate: "2026-01-01",
+    });
+    const res = await admin(`/api/support-needs/${made.body.id}`, {
+      method: "PUT",
+      body: { approvedAmount: 0, approvedDate: "2026-02-01", decisionNote: "Not this year" },
+    });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.approvedAmount, 0);
+    assert.equal(res.body.decisionNote, "Not this year");
+    const pending = await admin(`/api/support-needs?partnerId=${partnerId}&status=pending`);
+    assert.ok(!pending.body.some((n) => n.id === made.body.id), "a declined need is no longer pending");
+    const decided = await admin(`/api/support-needs?partnerId=${partnerId}&status=decided`);
+    assert.ok(decided.body.some((n) => n.id === made.body.id));
+  });
+});
+
 describe("PUT /api/support-needs/:id", () => {
   test("viewer is rejected", async () => {
     const created = await create({

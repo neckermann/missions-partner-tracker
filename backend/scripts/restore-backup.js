@@ -96,10 +96,11 @@ async function main() {
 
   console.log("Restore complete.");
   console.log(
-    "If this backup's encrypted fields (MFA secrets, GroupMe/Joshua Project/Anthropic API keys) were\n" +
-      "created under a different FIELD_ENCRYPTION_KEY than this environment's, those specific values\n" +
-      "won't decrypt -- MFA will need re-enrolling and those integrations' keys re-entering. Nothing\n" +
-      "else is affected; password hashes aren't tied to FIELD_ENCRYPTION_KEY at all."
+    "If this backup's encrypted fields (MFA secrets, and the Postmark, GroupMe, Joshua Project and Anthropic keys)\n" +
+      "were created under a different FIELD_ENCRYPTION_KEY than this environment's, those specific values\n" +
+      "won't decrypt -- MFA will need re-enrolling and those integrations' keys re-entering. A linked WhatsApp\n" +
+      "number is not part of a backup and always needs linking again. Nothing else is affected; password\n" +
+      "hashes aren't tied to FIELD_ENCRYPTION_KEY at all."
   );
 }
 
