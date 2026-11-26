@@ -356,8 +356,11 @@ describe("contact log: My partners", () => {
     );
     await setFeatures({ careTeam: false });
     try {
+      // Care teams off is not an error: seats are ignored, so someone on no missions team looks after nothing.
       // (a seat-only guest has no way in at all while care teams are off, so ask as staff)
-      assert.equal((await admin("/api/contact-log/assigned")).status, 404);
+      const none = await admin("/api/contact-log/assigned");
+      assert.equal(none.status, 200);
+      assert.deepEqual(none.body, []);
     } finally {
       await setFeatures({ careTeam: true });
     }
