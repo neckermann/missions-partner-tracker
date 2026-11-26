@@ -65,6 +65,7 @@ Issues for the B and C items were filed on 2026-11-26 (#498 to #514) and are lin
 |---|---|---|---|
 | 17 | **A10** two-factor: recovery codes at enrolment; documented command to clear two-factor; `FIELD_ENCRYPTION_KEY` required at start-up; encourage a second admin in setup | #496 | New table or columns. Check `render.yaml`, docs and the demo setup so existing deployments still start |
 | 19 | **C9b** a one-time need gets a "someone's on it" / "met" state, shown on the need and in the bell and reports where needs are counted | #511 | New column or table; confirm the state names with the owner once the code is read |
+| 20 | **B10b** setting to skip the inbound-mail review for trusted senders (default: review everything) | #505 | New column; the hold itself shipped in #529 |
 | 18 | **B13** the Bible passage on the public subscribe page becomes a church setting, empty by default | #508 | New column |
 
 One PR for the batch is fine. Open it, then stop and report. The owner approves the dev-test reset.
@@ -104,8 +105,8 @@ A6's PR is #515.
 | 11 | B1 | merged to dev | #525 |
 | 12 | B9 | merged to dev | #526 |
 | 13 | B7 | merged | #527 |
-| 14 | B8 | PR open, CI running | #528 |
-| 15 | B10 | not started | |
+| 14 | B8 | PR open, CI running (formatting and e2e fixes pushed) | #528 |
+| 15 | B10 | PR open, CI running (hold only; no cap/expiry, owner said never delete mail) | #529 |
 | 16 | B12 | not started | |
 | 16a | B2 | not started | |
 | 16b | B11 | not started | |
@@ -121,6 +122,7 @@ A6's PR is #515.
 | 17 | A10 | not started | |
 | 18 | B13 | not started | |
 | 19 | C9b | not started | |
+| 20 | B10b | not started: setting to skip review for trusted senders (new column) | #505 |
 
 ## Log
 
@@ -137,3 +139,4 @@ A6's PR is #515.
 - 2026-11-26: item 13 (B7) opened as #527 (jobs use the church's own day; a saved time zone applies at once). #526 (B9) CI still running (e2e).
 - 2026-11-26: item 12 (B9) merged as #526 (all four checks green). #527 (B7) had a changelog and `server.js` import conflict with it, resolved by keeping both sides; CI re-running. Item 14 (B8) started.
 - 2026-11-26: item 13 (B7) merged as #527 (all four checks green). Item 14 (B8) opened as #528: no record while no channel is on; unsent rows nothing applies to are dropped after 14 days; held and digest-waiting rows kept. Five existing route test files now switch a channel on in their setup. Local: 463 unit, 1067 route.
+- 2026-11-26: #528 (B8) first run failed lint (Prettier on three test files) and e2e (guest-access spec expected a queued dispatch with no channel on): both fixed and pushed. Item 15 (B10) opened as #529 after the owner said no inbound letter may ever be deleted: every inbound message is held in Unmatched Emails for review; the cap and expiry were removed. The skip-review setting is new item 20 in the schema batch. Local: 469 unit, 1068 route.
