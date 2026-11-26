@@ -20,6 +20,7 @@ After those, the work in issue #477 (a first-run guide and fewer switches) is wh
 | 3 | [Usability and acceptance](3-usability.md) | Walkthroughs as each kind of user, with screenshots, and "would a church say yes?" |
 | 4 | [General problems](4-general-problems.md) | Docs against code, stale screenshots, recurring issues, bugs in the risky areas |
 | 5 | [A hosted version](5-hosted-version.md) | Feasibility note on two routes to a hosted service |
+| - | [Plan](PLAN.md) and [Work queue](WORK-QUEUE.md) | The owner's decisions and the ordered list of fixes |
 
 **Where these live, and why.** The brief asked for `docs/reviews/…`. AGENTS.md says `docs/` is the published marketing site, so the reports are in `reviews/` at the repo root instead, on the branch `review/2026-11-app-review` (not on `dev`, so dev-test is not redeployed by each push). Both were the owner's choices during the review.
 

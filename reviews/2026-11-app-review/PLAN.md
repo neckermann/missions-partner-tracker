@@ -1,5 +1,7 @@
 # Plan: acting on the November 2026 review
 
+> The ordered, unattended work queue is in [WORK-QUEUE.md](WORK-QUEUE.md).
+
 **Written:** 2026-11-26, from `README.md` and a spot-check of the code. Nothing here has been started.
 
 ## 1. Review of the review
@@ -49,6 +51,10 @@ Not re-run: A1 (needs the live demo, which is off limits and not mine to touch),
 | D14 | New "Privacy and safety" settings page for the restricted-partner settings (and the public directory and map switches), linked from the restricted switch | A4 (#491) |
 | D15 | Two demos: production demo gets the safety measures; dev-test keeps real keys on purpose, for testing and screenshots | A1 (#489): guard must be switchable, with dev-test opting out; Wave 0 credential removal is production demo only |
 | D16 | dev-test: its own private admin login, no published logins; one `DEMO_TESTING_SITE` switch hides logins, allows real sends and replaces `DEMO_ALLOW_PASSWORDLESS` | A1 (#489, comment). Owner sets dev-test's own `DEMO_ADMIN_EMAIL`/`DEMO_ADMIN_PASSWORD` in Render |
+| D17 | Unattended: open a PR per item and merge to `dev` when CI is green; never merge to `main` | WORK-QUEUE.md rule 2 |
+| D18 | Schema changes batched last; stop for the owner before merging (dev-test reset) | WORK-QUEUE.md rule 3, Phase 2 |
+| D19 | Small B bug fixes (B1, B7, B8, B9, B10, B12, B13) are in the queue | WORK-QUEUE.md |
+| D20 | When stuck: skip, note on the issue, continue | WORK-QUEUE.md rule 4 |
 | D5 | Blueprint default names | A8: drop the `name-instance` step, add a Deploy to Render button, list true requirements and cost |
 | D7 | No church has real data yet | Confirmed; wipe-on-upgrade is acceptable for now |
 
