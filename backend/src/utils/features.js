@@ -4,6 +4,8 @@
 // adding a feature is adding an entry here.
 //
 // `requires` (optional): keys of features this one cannot work without; see isFeatureEnabled below.
+// `withoutEmail` (optional): one line on what you get when Email (Sending) is off, for features whose emails
+// matter; shown on Enabled Features. The rule behind it lives in utils/emailSenders.js.
 // `setupNeeds` (optional): keys the settings page asks you to turn on before this one, that are NOT required
 // for it to keep working once it is on (e.g. sending needs email; confirming an existing subscription doesn't).
 //
@@ -31,6 +33,7 @@ const FEATURES = {
     label: "Newsletters & Docs",
     description:
       "Newsletters and documents (survey responses, signed policies, etc.) on missionary/organization pages and their own admin section.",
+    withoutEmail: "New newsletters wait on Pending Dispatches, where you can copy what is ready to share.",
     defaultEnabled: true,
     group: "admin",
   },
@@ -38,6 +41,7 @@ const FEATURES = {
     label: "Prayer requests",
     description:
       "The Prayer Requests admin section, and the prayer request list on missionary/organization pages.",
+    withoutEmail: "New requests wait on Pending Dispatches, where you can copy what is ready to share.",
     defaultEnabled: true,
     group: "admin",
   },
@@ -45,6 +49,7 @@ const FEATURES = {
     label: "One-time needs",
     description:
       "The One-Time Needs admin section, and the one-time needs list on missionary/organization pages.",
+    withoutEmail: "New needs wait on Pending Dispatches, where you can copy what is ready to share.",
     defaultEnabled: true,
     group: "admin",
   },
@@ -61,6 +66,8 @@ const FEATURES = {
     label: "Mission trips",
     description:
       "Trip tracking, recruiting, teams, meetings, documents, and support raising. The Trips and Plan a Trip admin pages.",
+    withoutEmail:
+      "You are handed each link and its wording to copy and pass on (invites, access links, meetings, requirements).",
     defaultEnabled: false,
     group: "admin",
   },
@@ -85,6 +92,7 @@ const FEATURES = {
     label: "Reports",
     description:
       "Read-only reports over existing data — committed support, prayer requests, one-time needs, data completeness, trip fundraising and readiness, mailing list — with CSV download and a print view.",
+    withoutEmail: "Scheduled report emails aren't sent; run and download a report from Reports any time.",
     defaultEnabled: true,
     group: "admin",
   },
@@ -131,6 +139,7 @@ const FEATURES = {
     // Needed to switch it on (the settings page makes you enable email first), not to keep working: an
     // existing subscriber can still confirm and unsubscribe while email is off.
     setupNeeds: ["outboundEmail"],
+    withoutEmail: "Can't be turned on: it needs working email to send confirmations and digests.",
     defaultEnabled: false,
     group: "admin",
     section: "communications",
@@ -153,6 +162,7 @@ const FEATURES = {
     label: "Key-date reminders",
     description:
       "Remind whoever looks after each partner (its care team if it has one, otherwise your missions team) about coming birthdays (including children), anniversaries and supported-since milestones: on the bell, and in one grouped email a day that is sent only on days something is due. The email needs Email (Sending).",
+    withoutEmail: "My partners shows what the daily email would have said, with Copy this week's list.",
     defaultEnabled: false,
     group: "admin",
   },
@@ -178,6 +188,7 @@ const FEATURES = {
     label: "Partner surveys",
     description:
       "Build short surveys (a check-in, an annual update, a poll) and send each partner a personal link to answer, or fill one in for them after a conversation. Answers show on the partner's page for staff (and their care team, when Care teams is on) only, never publicly, in the booklet or in dispatches. A person starts every send; the app never emails a partner on its own. Sending the links needs Email (Sending).",
+    withoutEmail: "Sending a survey gives you each partner's link to copy (Get link).",
     defaultEnabled: false,
     group: "admin",
   },

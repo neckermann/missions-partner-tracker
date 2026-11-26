@@ -212,6 +212,7 @@ router.get("/", async (req, res, next) => {
       section: FEATURES[key].section,
       requires: FEATURES[key].requires || [],
       setupNeeds: FEATURES[key].setupNeeds || [],
+      withoutEmail: FEATURES[key].withoutEmail || null,
     }));
     res.json({
       ...shapeSettings(settings),
