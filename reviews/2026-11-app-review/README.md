@@ -390,7 +390,7 @@ Filed 2026-11-26 after the owner's approval, with the owner's decisions folded i
 |---|---|
 | A1 | neckermann/missions-partner-tracker#489 |
 | A2 | neckermann/missions-partner-tracker#490 |
-| A3 | **Held**: the owner wants to discuss the setup-code requirement first |
+| A3 | neckermann/missions-partner-tracker#497 (setup code dropped by the owner; atomic creation and front-page fix only) |
 | A4 | neckermann/missions-partner-tracker#491 |
 | A5 | neckermann/missions-partner-tracker#492 |
 | A6 | neckermann/missions-partner-tracker#493 |
