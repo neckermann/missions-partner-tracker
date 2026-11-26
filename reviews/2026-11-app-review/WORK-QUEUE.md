@@ -92,8 +92,8 @@ A6's PR is #515.
 | # | Item | Status | PR |
 |---|---|---|---|
 | 1 | A6 | merged to dev | #515 |
-| 2 | A2a | PR open, CI running | #516 |
-| 3 | A1 | not started | |
+| 2 | A2a | merged to dev | #516 |
+| 3 | A1 | in progress | |
 | 4 | A3 | not started | |
 | 5 | A9 small piece | not started | |
 | 6 | A4 | not started | |
@@ -124,4 +124,4 @@ A6's PR is #515.
 
 ## Log
 
-- 2026-11-26: item 1 (A6) merged to `dev` as #515 after all four checks (backend-tests, lint, frontend-build, e2e) passed. Item 2 (A2a) opened as #516. #490 stays open for A2b.
+- 2026-11-26: item 1 (A6) merged to `dev` as #515 after all four checks (backend-tests, lint, frontend-build, e2e) passed. Item 2 (A2a) merged as #516 (all four checks green). #490 stays open for A2b. Item 3 (A1) started.
