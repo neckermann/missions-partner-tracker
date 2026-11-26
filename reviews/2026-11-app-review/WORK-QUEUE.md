@@ -100,7 +100,7 @@ A6's PR is #515.
 | 7 | A2b | merged to dev | #521 |
 | 8 | A7 | merged to dev | #522 |
 | 9 | A5 | merged to dev | #523 |
-| 10 | A8 | in progress | |
+| 10 | A8 | PR open, CI running | #524 |
 | 11 | B1 | not started | |
 | 12 | B9 | not started | |
 | 13 | B7 | not started | |
@@ -129,3 +129,4 @@ A6's PR is #515.
 - 2026-11-26: item 8 (A7) merged to `dev` as #522 after all four checks passed. Owner follow-ups: delete the production and dev-test `...-worker` services in Render (they will fail to start now). Local memory check: the web process alone ~227 MB, with the jobs ~239 MB; to confirm on dev-test.
 - 2026-11-26: item 9 (A5) opened as #523: the server refuses to start on a database whose migration was rewritten; the next deploy of any out-of-date database (dev-test, the demo) will fail until reset. #521 hit a changelog merge conflict with #522 and was brought up to date.
 - 2026-11-26: items 7 (A2b, #521) and 9 (A5, #523) merged to `dev` after all four checks passed on their final heads. Item 10 (A8) started.
+- 2026-11-26: item 10 (A8) opened as #524 (docs and Blueprint comments only). Checked the review's claim that `APP_BASE_URL` is missing from the Blueprint: wrong, every link already falls back to Render's `RENDER_EXTERNAL_URL`, so no Blueprint change; the guide now says so. Not verifiable from here: whether the default service name is accepted when taken, and the exact address a fresh install gets (needs one real test deploy).
