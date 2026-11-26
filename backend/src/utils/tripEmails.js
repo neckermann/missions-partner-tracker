@@ -331,10 +331,15 @@ async function sendMeetingEmail(trip, meeting, lead, { cancelled = false } = {})
   return { sent: true };
 }
 
+// The participant's public support-raising page, or null while they have no share token. The same link the
+// welcome email carries, so an admin can hand it over when email is off.
+function buildSupportRaisingUrl(participant) {
+  return participant?.shareToken ? `${appBaseUrl()}/trip-support-raising/${participant.shareToken}` : null;
+}
+
 // The "You're on the team" email, shared by both ways someone joins a trip.
 // `approved` only changes the opening line.
 function buildTeamWelcomeContent(trip, participant, { approved = false } = {}) {
-  const base = appBaseUrl();
   return {
     eyebrow: "Welcome to the team",
     blocks: [
@@ -353,7 +358,7 @@ function buildTeamWelcomeContent(trip, participant, { approved = false } = {}) {
         ? blocks.paragraph("Share your support-raising page with family and friends:")
         : null,
       participant.shareToken
-        ? blocks.button(`${base}/trip-support-raising/${participant.shareToken}`, "Your support-raising page")
+        ? blocks.button(buildSupportRaisingUrl(participant), "Your support-raising page")
         : null,
     ],
   };
@@ -364,6 +369,7 @@ module.exports = {
   buildMeetingIcs,
   buildMeetingEmailContent,
   buildTeamWelcomeContent,
+  buildSupportRaisingUrl,
   buildMeetingRsvpUrls,
   buildTripDatesIcs,
   emailParticipantSelect,
