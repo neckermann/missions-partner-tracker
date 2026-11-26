@@ -67,6 +67,7 @@ const publicTripApplicationRoutes = require("./routes/publicTripApplications");
 const publicTripParticipantRoutes = require("./routes/publicTripParticipants");
 const prisma = require("./prismaClient");
 const { backgroundJobsEnabled, startBackgroundJobs, stopBackgroundJobs } = require("./utils/backgroundJobs");
+const { assertSchemaMatches } = require("./utils/schemaCheck");
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -285,6 +286,15 @@ if (require.main === module) {
     } catch (err) {
       console.error("Couldn't read ChurchSettings.timezone at startup, defaulting to UTC:", err);
       process.env.TZ = process.env.TZ || "UTC";
+    }
+
+    // Do not go live on a database that was not built from this release's migrations: the deploy fails and the
+    // previous version keeps serving (utils/schemaCheck.js).
+    try {
+      await assertSchemaMatches(prisma);
+    } catch (err) {
+      console.error(`\nNot starting: ${err.message}\n`);
+      process.exit(1);
     }
 
     const server = app.listen(PORT, () => {

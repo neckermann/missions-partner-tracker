@@ -1260,11 +1260,18 @@ A single squashed baseline migration rather than an accumulated history —
 every schema change is edited directly into it. This means `prisma
 migrate deploy` against an already-provisioned database (demo, or any
 fork) requires `migrate reset --force` whenever the baseline's SQL
-changes, not an incremental `deploy` — expected to fail at
-`preDeployCommand` on every such release; Render doesn't cut over on a
-failed pre-deploy, so the live site stays up throughout. Recovery
-procedure: `demo/README.md`. Intentional until 1.0.0 ships; will need to
-stop once there's real production data anywhere.
+changes, not an incremental `deploy`. `migrate deploy` itself does not
+notice: the migration keeps its name, so it reports "No pending
+migrations" and succeeds, and the pre-deploy step does **not** reliably
+fail. What makes the deploy fail safely is the start-up check in
+`utils/schemaCheck.js`: Prisma records a SHA-256 of each migration file
+when it applies it, and the server compares those with the files in this
+code before it listens; on a mismatch (or a migration not applied) it
+prints why and exits, so the new version never goes live and Render
+leaves the previous one serving. `SKIP_SCHEMA_CHECK=true` skips the
+check (RUNBOOK.md). Recovery procedure: `demo/README.md`. Intentional
+until 1.0.0 ships; will need to stop once there's real production data
+anywhere.
 
 ### 8.4 Environment variables
 
