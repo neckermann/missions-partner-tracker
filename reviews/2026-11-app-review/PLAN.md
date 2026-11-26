@@ -38,6 +38,19 @@ Not re-run: A1 (needs the live demo, which is off limits and not mine to touch),
 | D6 | Remove WhatsApp, Viewer role, "Trips departing soon" alert? | B4, C2, C3 | Decide later; not blocking |
 | D7 | Confirm no church has real data yet | A5 | Needed before wave 2 |
 
+### Answers (2026-11-26)
+
+| # | Answer | Effect on the plan |
+|---|---|---|
+| D1 | Keep squashing until 1.0 | A5 shrinks: no freeze, `CLAUDE.md` and `CONTRIBUTING.md` rules stay. Remaining A5 work: start-up/health-check refusal on a mismatched database, correct SPEC § 8.3 and UPGRADING.md, and a plain "installs made today must be wiped on upgrade" warning in README, UPGRADING.md and the marketing page. Schema changes can go in any wave (edited into the baseline) |
+| D2 | Public directory and map off on a new install, offered in first-run setup | A2 grows: change the defaults, and add the choice to setup |
+| D3 | Keep current behavior (initials, country, region) | A4 only moves the two settings to a page that always exists. No default change |
+| D4 | Guests cannot change visibility or restricted status | A4 gains a backend check plus UI hidden for guests, with tests |
+| D5 | Blueprint default names | A8: drop the `name-instance` step, add a Deploy to Render button, list true requirements and cost |
+| D7 | No church has real data yet | Confirmed; wipe-on-upgrade is acceptable for now |
+
+Still open: D6 (WhatsApp, Viewer role, "Trips departing soon" alert), not blocking.
+
 ## 3. Waves
 
 Each work item is one branch off `dev` and one PR into `dev` (per `CONTRIBUTING.md § Feature branches`), with tests. Sizes are the review's. Nothing goes to `main` without the owner's usual `dev` check on dev-test.
@@ -67,7 +80,7 @@ Do in this order:
 1. **A3 + A9's small piece + A10** (one PR): atomic first-admin creation, setup code, `/` redirects to `/setup` or shows an empty state, first admin joins the missions team, contact log and key-date reminders on by default, recovery codes, documented clear-2FA command, `FIELD_ENCRYPTION_KEY` required at start-up.
 2. **A7** (including the heartbeat table): worker shares the web service's secrets, last-seen record, admin warning, true cost in every place. Heartbeat is a schema change, so it goes in before the freeze.
 3. **A4 move** (and D3, D4 once decided): move the two settings to a page that always exists. Also B13's setting if wanted.
-4. **A5**: cut the freeze release. Switch to normal `prisma migrate dev` migrations, add the start-up mismatch check, fix SPEC § 8.3 and the hard rule in `CLAUDE.md` and `CONTRIBUTING.md`, add an upgrade test from release N to N+1 with data. This changes the project's own hard rules, so I will not touch `CLAUDE.md` without the owner's say-so.
+4. **A5 (reduced, per D1)**: start-up mismatch check so a bad upgrade never goes live, fix SPEC § 8.3 and the UPGRADING.md "easy way", and add the wipe-on-upgrade warning to README, UPGRADING.md and the marketing page. No freeze, so the hard rules stay as they are.
 5. **A8** per D5, plus the corrected requirements text.
 
 ### Wave 3: "fix soon" (B group), grouped
