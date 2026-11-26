@@ -162,8 +162,20 @@ describe("POST /api/inbound-email/postmark -- webhook auth", () => {
   });
 });
 
+// A verified single-partner match is still queued: nothing is filed or announced until a person assigns it.
+async function assertHeldNotFiled(partnerId, fromAddress) {
+  assert.equal(await prisma.partnerFile.count({ where: { partnerId } }), 0, "nothing is filed");
+  assert.equal(await prisma.dispatchRecord.count({ where: { partnerId } }), 0, "nothing is announced");
+  const queued = await prisma.inboundEmail.findMany({
+    where: fromAddress ? { fromAddress } : { fromAddress: { contains: FROM_DOMAIN } },
+    orderBy: { receivedAt: "desc" },
+  });
+  assert.ok(queued.length >= 1, "waits in the queue");
+  assert.match(queued[0].queueReason, /SPF\/DKIM confirmed/);
+}
+
 describe("POST /api/inbound-email/postmark -- matching", () => {
-  test("an org's own contactEmail matching exactly one partner files a Newsletter directly, no queue row", async () => {
+  test("an org's own contactEmail matching exactly one partner is held in the queue, not filed or announced", async () => {
     const partner = await createPartner({
       kind: "organization",
       contactEmail: `org@${FROM_DOMAIN}`,
@@ -175,18 +187,12 @@ describe("POST /api/inbound-email/postmark -- matching", () => {
       body: postmarkPayload({ from: `org@${FROM_DOMAIN}` }),
     });
     assert.equal(res.status, 200);
-    assert.deepEqual(res.body, { matched: true });
+    assert.deepEqual(res.body, { matched: false });
 
-    const newsletters = await prisma.partnerFile.findMany({ where: { partnerId: partner.id } });
-    assert.equal(newsletters.length, 1);
-    assert.equal(newsletters[0].contentType, "message/rfc822");
-    assert.equal(newsletters[0].title, "Update from the field", "the email's Subject becomes the title");
-
-    const queued = await prisma.inboundEmail.findMany({ where: { fromAddress: `org@${FROM_DOMAIN}` } });
-    assert.equal(queued.length, 0);
+    await assertHeldNotFiled(partner.id, `org@${FROM_DOMAIN}`);
   });
 
-  test("a missionary's Adult.email matching exactly one partner files a Newsletter directly", async () => {
+  test("a missionary's Adult.email matching exactly one partner is held in the queue too", async () => {
     const partner = await createPartner({
       adults: [{ firstName: "Test", lastName: "Adult", email: `adult@${FROM_DOMAIN}` }],
     });
@@ -197,10 +203,9 @@ describe("POST /api/inbound-email/postmark -- matching", () => {
       body: postmarkPayload({ from: `adult@${FROM_DOMAIN}` }),
     });
     assert.equal(res.status, 200);
-    assert.deepEqual(res.body, { matched: true });
+    assert.deepEqual(res.body, { matched: false });
 
-    const newsletters = await prisma.partnerFile.findMany({ where: { partnerId: partner.id } });
-    assert.equal(newsletters.length, 1);
+    await assertHeldNotFiled(partner.id, null);
   });
 
   test("matching is case-insensitive", async () => {
@@ -212,10 +217,9 @@ describe("POST /api/inbound-email/postmark -- matching", () => {
       body: postmarkPayload({ from: `CaseInsensitive@${FROM_DOMAIN.toUpperCase()}` }),
     });
     assert.equal(res.status, 200);
-    assert.deepEqual(res.body, { matched: true });
+    assert.deepEqual(res.body, { matched: false });
 
-    const newsletters = await prisma.partnerFile.findMany({ where: { partnerId: partner.id } });
-    assert.equal(newsletters.length, 1);
+    await assertHeldNotFiled(partner.id, null);
   });
 
   test("zero matches queues the email for review instead of guessing", async () => {
@@ -295,7 +299,7 @@ describe("POST /api/inbound-email/postmark -- matching", () => {
     assert.equal(newsletters.length, 0);
   });
 
-  test("a single match whose only signal is DKIM_VALID in X-Spam-Tests is still auto-filed", async () => {
+  test("a single match whose only signal is DKIM_VALID in X-Spam-Tests is still held for review", async () => {
     const partner = await createPartner({ contactEmail: `dkimonly@${FROM_DOMAIN}` });
 
     const res = await unauthenticated("/api/inbound-email/postmark", {
@@ -307,10 +311,9 @@ describe("POST /api/inbound-email/postmark -- matching", () => {
       }),
     });
     assert.equal(res.status, 200);
-    assert.deepEqual(res.body, { matched: true });
+    assert.deepEqual(res.body, { matched: false });
 
-    const newsletters = await prisma.partnerFile.findMany({ where: { partnerId: partner.id } });
-    assert.equal(newsletters.length, 1);
+    await assertHeldNotFiled(partner.id, null);
   });
 
   test("the longer prose form of a passing Received-SPF is also recognized", async () => {
@@ -330,10 +333,9 @@ describe("POST /api/inbound-email/postmark -- matching", () => {
       }),
     });
     assert.equal(res.status, 200);
-    assert.deepEqual(res.body, { matched: true });
+    assert.deepEqual(res.body, { matched: false });
 
-    const newsletters = await prisma.partnerFile.findMany({ where: { partnerId: partner.id } });
-    assert.equal(newsletters.length, 1);
+    await assertHeldNotFiled(partner.id, null);
   });
 });
 

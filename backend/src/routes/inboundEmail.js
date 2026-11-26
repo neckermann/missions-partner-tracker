@@ -39,8 +39,8 @@ async function recordInboundEmailFailure(reason, payload) {
 }
 
 // `From` is trivially forgeable: without this check, anyone who knows a
-// partner's email could have a document auto-filed under that partner and
-// broadcast unreviewed. Keep it.
+// partner's email could have a document queued as coming from that partner with a
+// reassuring reason. Keep it (it only changes the note; every message is reviewed).
 //
 // Postmark's inbound JSON has no Authentication-Results header; only two
 // `Headers` entries carry a signal:
@@ -81,7 +81,7 @@ function checkWebhookAuth(req, expectedUsername, expectedPassword) {
 }
 
 // POST /api/inbound-email/postmark -- the webhook. Always 200s once the payload
-// is valid: "queued for review" is a normal outcome, and a non-200 would make
+// is valid: "queued for review" is the only outcome, and a non-200 would make
 // Postmark retry delivery.
 router.post("/postmark", async (req, res, next) => {
   try {
@@ -131,33 +131,15 @@ router.post("/postmark", async (req, res, next) => {
       select: { id: true },
     });
 
-    if (matches.length === 1 && isSenderVerified(payload.Headers)) {
-      const created = await prisma.partnerFile.create({
-        data: {
-          partnerId: matches[0].id,
-          kind: "newsletter",
-          title: subject,
-          receivedDate: new Date(),
-          fileName,
-          contentType: "message/rfc822",
-          fileSize: bytes.length,
-          notes: "Received via inbound email.",
-          bytesRow: { create: { bytes } },
-        },
-        include: { partner: partnerRefSelect },
-      });
-      // A broken notification channel must never affect whether this email got filed.
-      await notifyNewsletterCreated(created);
-      return res.status(200).json({ matched: true });
+    // Nothing is filed or announced straight from the webhook: the sender address is forgeable and the
+    // SPF/DKIM signal is best-effort, so every message waits in the queue for a person to look at it.
+    // queueReason tells the reviewing admin why (and, for a verified single match, that it is likely fine).
+    let queueReason = null;
+    if (matches.length === 1) {
+      queueReason = isSenderVerified(payload.Headers)
+        ? "Matched a partner by sender address and SPF/DKIM confirmed it. Held for a quick look before it is filed and announced."
+        : "Matched a partner by sender address, but SPF/DKIM didn't confirm it -- review before assigning.";
     }
-
-    // Zero matches, several, or one whose sender didn't verify: never
-    // auto-file or notify channels on anything the sender address alone can't
-    // vouch for. queueReason tells the reviewing admin why.
-    const queueReason =
-      matches.length === 1
-        ? "Matched a partner by sender address, but SPF/DKIM didn't confirm it -- review before assigning."
-        : null;
     await prisma.inboundEmail.create({
       data: { fromAddress, subject, fileName, queueReason, bytesRow: { create: { bytes } } },
     });

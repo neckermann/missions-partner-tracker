@@ -109,7 +109,8 @@ const FEATURES = {
   },
   inboundEmail: {
     label: "Email (Receiving)",
-    description: "Receive email through a configured Postmark account, matched to partners automatically.",
+    description:
+      "Receive email through a configured Postmark account, held for a quick review, then assigned to the partner.",
     defaultEnabled: false,
     group: "admin",
     section: "communications",
