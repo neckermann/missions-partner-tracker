@@ -9,6 +9,7 @@
 const crypto = require("crypto");
 const prisma = require("../prismaClient");
 const { decryptField } = require("./crypto");
+const { isGuardedDemo } = require("./demoMode");
 const { isFeatureEnabled } = require("./features");
 const { buildBlurb } = require("./dispatchBlurbs");
 const { CHANNELS, isEligibleForChannel } = require("./dispatchEligibility");
@@ -55,6 +56,11 @@ async function listTopics(accessToken, groupId) {
 async function postMessage(accessToken, targetId, text) {
   if (text.length > MAX_MESSAGE_LENGTH) {
     throw new Error(`postMessage received ${text.length} chars, over the ${MAX_MESSAGE_LENGTH} limit`);
+  }
+  // A public demo posts nothing to a real group (utils/demoMode.js).
+  if (isGuardedDemo()) {
+    console.log("[demo] GroupMe post not sent");
+    return;
   }
   await groupmeRequest(accessToken, "POST", `/groups/${encodeURIComponent(targetId)}/messages`, {
     message: { source_guid: crypto.randomUUID(), text },

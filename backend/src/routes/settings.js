@@ -7,7 +7,9 @@ const { FEATURES, FEATURE_KEYS } = require("../utils/features");
 const { encryptField } = require("../utils/crypto");
 const { isTwoFactorRequired } = require("../utils/twoFactor");
 const { isPasswordlessOn, passwordlessBlocker } = require("../utils/passwordless");
-const { isDemoDeployment } = require("../utils/demoMode");
+const { isDemoDeployment, refuseOnGuardedDemo } = require("../utils/demoMode");
+
+const noIntegrationChangesOnDemo = refuseOnGuardedDemo("Changing integration settings");
 const { makeExtResolver, uploadFilteredBy } = require("../utils/upload");
 
 // General/logo settings. GroupMe, WhatsApp, Email, Trips and Dispatches settings live in sibling
@@ -384,7 +386,7 @@ function registerApiKeySetting(path, field, textField) {
   });
 
   // PUT (admin only).
-  router.put(`/${path}`, requireRole("admin"), async (req, res, next) => {
+  router.put(`/${path}`, requireRole("admin"), noIntegrationChangesOnDemo, async (req, res, next) => {
     try {
       const body = schema.parse(req.body);
       const fields = body.apiKey ? { [field]: encryptField(body.apiKey) } : {};

@@ -17,6 +17,7 @@ const {
 } = require("../utils/guestAccess");
 const { passwordSchema } = require("../utils/password");
 const { isTwoFactorRequired } = require("../utils/twoFactor");
+const { isGuardedDemo } = require("../utils/demoMode");
 
 // Narrow select: this route only needs to know whether outbound email is on.
 async function getSettings() {
@@ -540,6 +541,11 @@ router.delete("/:id/trip-access/:tripId", async (req, res, next) => {
 router.put("/:id", async (req, res, next) => {
   try {
     const { password, tripAccess, careTeam: careInputs = [], ...data } = updateUserSchema.parse(req.body);
+
+    // The demo's logins are shared and published: a visitor changing one would lock everyone else out.
+    if (password && isGuardedDemo()) {
+      return res.status(403).json({ error: "Changing a password isn't available on the public demo" });
+    }
 
     const becomingNonAdminOrInactive =
       (data.role !== undefined && data.role !== "admin") || data.active === false;

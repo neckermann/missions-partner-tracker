@@ -6,6 +6,7 @@ const { requireFeature } = require("../middleware/requireFeature");
 const { isFeatureEnabled } = require("../utils/features");
 const { encryptField } = require("../utils/crypto");
 const { sendEmail } = require("../utils/email");
+const { refuseOnGuardedDemo } = require("../utils/demoMode");
 
 const router = express.Router();
 router.use(requireAuth);
@@ -62,6 +63,7 @@ router.get(
   "/email",
   requireFeature(["outboundEmail", "inboundEmail"]),
   requireRole("admin"),
+  refuseOnGuardedDemo("Changing integration settings"),
   async (req, res, next) => {
     try {
       const settings = await prisma.churchSettings.findUnique({
