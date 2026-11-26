@@ -116,6 +116,7 @@ const settingsSchema = z.object({
   // Turning it on has guards in PUT / below.
   requireTwoFactor: z.boolean().optional(),
   requirePasswordless: z.boolean().optional(),
+  allowPasskeySignIn: z.boolean().optional(),
   // How far ahead a key date is raised, and how long without a logged contact makes a partner
   // "quiet" (#365); see utils/careSettings.js for the bounds.
   keyDateLeadDays: z.number().int().min(KEY_DATE_LEAD_RANGE.min).max(KEY_DATE_LEAD_RANGE.max).optional(),
@@ -177,6 +178,7 @@ router.get("/", async (req, res, next) => {
           // /api/auth/me (#402).
           requireTwoFactor: true,
           requirePasswordless: true,
+          allowPasskeySignIn: true,
           keyDateLeadDays: true,
           keyDateAdvanceDays: true,
           contactStaleDays: true,

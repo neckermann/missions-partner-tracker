@@ -112,6 +112,39 @@ describe("forced enrolment", () => {
   });
 });
 
+describe("a passkey beside the password form", () => {
+  const renderLogin = () =>
+    render(
+      <MemoryRouter>
+        <Login />
+      </MemoryRouter>
+    );
+
+  test("is offered when the church allows it, and signs in with it alone", async () => {
+    client.fetchSetupStatus.mockResolvedValue({ needed: false, passwordless: false, passkeySignIn: true });
+    client.signInWithPasskeyOnly.mockResolvedValue({ user: {} });
+    renderLogin();
+    expect(screen.getByLabelText("Password")).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("button", { name: "Sign in with a passkey" }));
+    await waitFor(() => expect(client.signInWithPasskeyOnly).toHaveBeenCalled());
+  });
+
+  test("is not shown when the church hasn't allowed it, or the browser can't use one", async () => {
+    client.fetchSetupStatus.mockResolvedValue({ needed: false, passwordless: false, passkeySignIn: false });
+    const { unmount } = renderLogin();
+    await screen.findByLabelText("Password");
+    expect(screen.queryByRole("button", { name: "Sign in with a passkey" })).not.toBeInTheDocument();
+    unmount();
+    client.fetchSetupStatus.mockResolvedValue({ needed: false, passwordless: false, passkeySignIn: true });
+    client.browserSupportsWebAuthn.mockReturnValue(false);
+    renderLogin();
+    await screen.findByLabelText("Password");
+    await waitFor(() => expect(client.fetchSetupStatus).toHaveBeenCalledTimes(2));
+    expect(screen.queryByRole("button", { name: "Sign in with a passkey" })).not.toBeInTheDocument();
+    client.browserSupportsWebAuthn.mockReturnValue(true);
+  });
+});
+
 describe("passwordless sign-in (#386 Layer 2)", () => {
   async function renderPasswordless() {
     client.fetchSetupStatus.mockResolvedValue({ needed: false, passwordless: true });

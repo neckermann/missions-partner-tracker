@@ -239,8 +239,17 @@ describe("with it on", () => {
     }
   });
 
-  test("the passwordless passkey endpoints are not there while it is off", async () => {
+  test("passkey-only sign-in is off by default; allowing it opens it, but never the emailed link", async () => {
     assert.equal((await anon("/api/auth/passkeys/passwordless/options", { method: "POST" })).status, 404);
+    assert.equal((await anon("/api/auth/setup-status")).body.passkeySignIn, false);
+    await settings({ allowPasskeySignIn: true });
+    try {
+      assert.equal((await anon("/api/auth/passkeys/passwordless/options", { method: "POST" })).status, 200);
+      assert.equal((await anon("/api/auth/setup-status")).body.passkeySignIn, true);
+      assert.equal((await anon("/api/auth/setup-status")).body.passwordless, false);
+    } finally {
+      await settings({ allowPasskeySignIn: false });
+    }
     assert.equal(
       (await anon("/api/auth/passwordless/email-link", { method: "POST", body: { email: "x@y.z" } })).status,
       404

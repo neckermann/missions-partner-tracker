@@ -42,6 +42,8 @@ export default function Login() {
   const [error, setError] = useState("");
   // The church signs in without passwords.
   const [passwordless, setPasswordless] = useState(false);
+  // The church allows passkey sign-in, so the password form also offers "Sign in with a passkey".
+  const [passkeySignIn, setPasskeySignIn] = useState(false);
   // "Forgot your password?" is offered when the site can email a link (never on a demo).
   const [canReset, setCanReset] = useState(false);
   const [linkSent, setLinkSent] = useState(false);
@@ -65,6 +67,7 @@ export default function Login() {
       .then((status) => {
         if (status.needed) navigate("/setup", { replace: true });
         setPasswordless(status.passwordless === true);
+        setPasskeySignIn(status.passkeySignIn === true);
         setCanReset(status.passwordReset === true);
       })
       .catch(() => {});
@@ -110,7 +113,9 @@ export default function Login() {
         err.response?.data?.error ||
           (err.name === "NotAllowedError"
             ? "That was cancelled. Try again when you're ready."
-            : "That passkey didn't work. Try again, or use an emailed link.")
+            : passwordless
+              ? "That passkey didn't work. Try again, or use an emailed link."
+              : "That passkey didn't work. Try again, or use your password.")
       );
     }
   }
@@ -367,6 +372,14 @@ export default function Login() {
           </p>
         )}
       </form>
+      {passkeySignIn && browserSupportsWebAuthn() && (
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", marginTop: "1.25rem" }}>
+          <p style={{ margin: 0, color: "var(--muted)" }}>Or use your fingerprint, face or screen lock:</p>
+          <button type="button" className="btn secondary" onClick={handlePasskeyOnly}>
+            Sign in with a passkey
+          </button>
+        </div>
+      )}
     </div>
   );
 }
