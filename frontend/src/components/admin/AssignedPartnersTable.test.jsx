@@ -3,9 +3,13 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import AssignedPartnersTable from "./AssignedPartnersTable.jsx";
-import { fetchAssignedPartners, createContactLogEntry } from "../../api/client.js";
+import { fetchAssignedPartners, createContactLogEntry, fetchMyKeyDates } from "../../api/client.js";
 
-vi.mock("../../api/client.js", () => ({ fetchAssignedPartners: vi.fn(), createContactLogEntry: vi.fn() }));
+vi.mock("../../api/client.js", () => ({
+  fetchAssignedPartners: vi.fn(),
+  createContactLogEntry: vi.fn(),
+  fetchMyKeyDates: vi.fn(),
+}));
 let features = { prayerRequests: true, oneTimeNeeds: false };
 vi.mock("../../context/SettingsContext.jsx", () => ({
   useSettings: () => ({ enabledFeatures: features, churchName: "Hillside" }),
@@ -49,6 +53,35 @@ const renderIt = () =>
       <AssignedPartnersTable />
     </MemoryRouter>
   );
+
+describe("the key-date list you can copy when email is off", () => {
+  const items = [
+    { partnerId: "p1", when: "In 2 days · Sat Nov 28", text: "The Reeds: Dana's birthday (turning 40)" },
+  ];
+
+  it("shows what the email would have said, with a copy button, only when email is off", async () => {
+    features = { keyDates: true, outboundEmail: false };
+    fetchMyKeyDates.mockResolvedValue({ emailOn: false, items });
+    renderIt();
+    expect(await screen.findByText(/Key-date emails aren.t on here/)).toBeTruthy();
+    expect(screen.getByText(/Dana's birthday/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Copy this week's list/ })).toBeTruthy();
+  });
+
+  it("is not shown when email is on, or when nothing is coming up", async () => {
+    features = { keyDates: true, outboundEmail: true };
+    renderIt();
+    await screen.findByText("The Reeds");
+    expect(fetchMyKeyDates).not.toHaveBeenCalled();
+    expect(screen.queryByText(/Key-date emails aren.t on here/)).toBeNull();
+
+    features = { keyDates: true, outboundEmail: false };
+    fetchMyKeyDates.mockResolvedValue({ emailOn: false, items: [] });
+    renderIt();
+    await waitFor(() => expect(fetchMyKeyDates).toHaveBeenCalled());
+    expect(screen.queryByText(/Key-date emails aren.t on here/)).toBeNull();
+  });
+});
 
 describe("AssignedPartnersTable (#288)", () => {
   it("shows the care columns, with quiet and due flagged", async () => {

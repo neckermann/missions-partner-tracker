@@ -7,6 +7,7 @@ import StatusPill from "./StatusPill.jsx";
 import { formatDateLong } from "../../utils/format.js";
 import { buildGreeting, greetingHref } from "../../utils/greeting.js";
 import useConfirmDialog from "../../hooks/useConfirmDialog.jsx";
+import KeyDatesCopyList from "./KeyDatesCopyList.jsx";
 
 // "My partners": the partners this login looks after (a care team seat, or the missions team for a partner with no team), longest-quiet first. The server
 // computes everything (GET /api/contact-log/assigned), the same read model the "Partners to reach
@@ -143,6 +144,7 @@ export default function AssignedPartnersTable() {
   if (error) return <p role="alert">{error}</p>;
   return (
     <>
+      {enabledFeatures?.keyDates && !enabledFeatures?.outboundEmail && <KeyDatesCopyList />}
       {message && (
         <p role="status" style={{ color: "var(--accent)" }}>
           {message}

@@ -1083,6 +1083,12 @@ export async function setCareTeam(partnerId, { leadUserId, memberUserIds }) {
   return data;
 }
 // Active logins a team can be made from (admin/editor).
+// The key dates coming up for the partners you look after, as plain lines (what the daily email would say), so a
+// church with email off can copy them. { emailOn, items: [{ partnerId, when, text }] }
+export async function fetchMyKeyDates() {
+  const { data } = await api.get("/key-dates/mine");
+  return data;
+}
 // The missions team: who looks after partners with no care team of their own (admin/editor read, admin set).
 // { members: [{ id, name, email, role }], candidates: [...] }
 export async function fetchMissionsTeam() {
