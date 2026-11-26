@@ -1,4 +1,5 @@
 const express = require("express");
+const { optionalWebAddress } = require("../utils/webAddress");
 const { z } = require("zod");
 const prisma = require("../prismaClient");
 const { requireAuth, requireRole } = require("../middleware/requireAuth");
@@ -94,7 +95,7 @@ const settingsSchema = z.object({
   contactFirstName: z.string().optional().nullable(),
   contactLastName: z.string().optional().nullable(),
   contactEmail: z.string().optional().nullable(),
-  websiteLink: z.string().optional().nullable(),
+  websiteLink: optionalWebAddress(),
   partnerTermSingular: z.string().optional().nullable(),
   partnerTermPlural: z.string().optional().nullable(),
   ownerGroupName: z.string().trim().max(60).optional().nullable(),

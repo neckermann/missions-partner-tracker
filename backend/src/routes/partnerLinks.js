@@ -1,4 +1,5 @@
 const express = require("express");
+const { webAddress } = require("../utils/webAddress");
 const { z } = require("zod");
 const prisma = require("../prismaClient");
 const {
@@ -18,7 +19,7 @@ router.use(requireAuth);
 const partnerLinkSchema = z.object({
   partnerId: z.string(),
   type: z.enum(LINK_TYPES),
-  url: z.string().min(1),
+  url: webAddress(),
 });
 
 const partnerLinkInclude = { partner: partnerRefSelect };
