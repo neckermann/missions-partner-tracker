@@ -67,6 +67,22 @@ describe("Passkeys on My account", () => {
     expect(await screen.findByText(/That was cancelled/)).toBeInTheDocument();
   });
 
+  test.each([
+    ["InvalidStateError", /already has a passkey for this account/],
+    ["SecurityError", /won't make a passkey for this web address/],
+    ["NotSupportedError", /screen lock/],
+    ["SomethingElseError", /Couldn't add a passkey on this device \(SomethingElseError\)/],
+  ])(
+    "a %s from the browser says why, so a phone's biometrics problem can be diagnosed",
+    async (name, text) => {
+      client.fetchCurrentUser.mockResolvedValue(user());
+      client.registerPasskey.mockRejectedValue(Object.assign(new Error("x"), { name }));
+      render(<AccountSettings />);
+      fireEvent.click(await screen.findByRole("button", { name: "Add a passkey" }));
+      expect(await screen.findByText(text)).toBeInTheDocument();
+    }
+  );
+
   test("lists them and removes one only with the password", async () => {
     client.fetchCurrentUser.mockResolvedValue(user({ mfaEnabled: true, passkeyCount: 1 }));
     client.fetchPasskeys.mockResolvedValue({ passkeys: [passkey()], max: 5 });

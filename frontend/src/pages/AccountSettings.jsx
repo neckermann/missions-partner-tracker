@@ -14,6 +14,7 @@ import {
   removePasskey,
   browserSupportsWebAuthn,
 } from "../api/client.js";
+import { passkeyErrorMessage } from "../utils/passkeyError.js";
 import { passwordsMatch } from "../utils/password.js";
 import { useSettings } from "../context/SettingsContext.jsx";
 import EditableSection from "../components/admin/EditableSection.jsx";
@@ -374,13 +375,7 @@ function PasskeysSection({ onChange }) {
       await load();
       await onChange();
     } catch (err) {
-      // The person closing the browser's prompt is not an error worth shouting about.
-      setError(
-        err.response?.data?.error ||
-          (err.name === "NotAllowedError"
-            ? "That was cancelled. Try again when you're ready."
-            : "Couldn't add a passkey on this device.")
-      );
+      setError(passkeyErrorMessage(err));
     } finally {
       setBusy(false);
     }

@@ -16,6 +16,10 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ## [Unreleased]
 
+### Changed
+
+- **Adding a passkey says why it failed.** A phone's fingerprint or face unlock that wouldn't register just said "Couldn't add a passkey on this device". It now names the cause (already registered on this device, the site's address isn't allowed, no screen lock set or an unsupported browser) so it can be fixed.
+
 ## [0.1.0-beta.3] - 2026-11-26
 
 ### Changed
