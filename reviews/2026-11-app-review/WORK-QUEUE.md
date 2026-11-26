@@ -93,8 +93,8 @@ A6's PR is #515.
 |---|---|---|---|
 | 1 | A6 | merged to dev | #515 |
 | 2 | A2a | merged to dev | #516 |
-| 3 | A1 | PR open, CI running | #517 |
-| 4 | A3 | not started | |
+| 3 | A1 | merged to dev | #517 |
+| 4 | A3 | in progress | |
 | 5 | A9 small piece | not started | |
 | 6 | A4 | not started | |
 | 7 | A2b | not started | |
@@ -124,4 +124,4 @@ A6's PR is #515.
 
 ## Log
 
-- 2026-11-26: item 1 (A6) merged to `dev` as #515 after all four checks (backend-tests, lint, frontend-build, e2e) passed. Item 2 (A2a) merged as #516 (all four checks green). #490 stays open for A2b. Item 3 (A1) opened as #517; a code review of the first version found four real problems (email settings guard on the wrong method, remote reset scripts, the worker, setup links), all fixed before merge.
+- 2026-11-26: item 1 (A6) merged to `dev` as #515 after all four checks (backend-tests, lint, frontend-build, e2e) passed. Item 2 (A2a) merged as #516 (all four checks green). #490 stays open for A2b. Item 3 (A1) opened as #517; a code review of the first version found four real problems (email settings guard on the wrong method, remote reset scripts, the worker, setup links), all fixed before merge. #517 merged after all four checks passed. Owner follow-ups from #517: set `DEMO_TESTING_SITE=true` on dev-test's web service AND worker, give it its own `DEMO_ADMIN_EMAIL`/`DEMO_ADMIN_PASSWORD`; clean the production demo's keys. Item 4 (A3) started.
