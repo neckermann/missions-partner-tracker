@@ -267,31 +267,15 @@ from an async handler here automatically.
 
 ### 2.5 External integrations
 
-| Integration                  | Used for                                                   | Key | Label | Default | Group | Depends on |
-| --- | --- | --- | --- | --- |
-| `publicDirectory` | Public directory | **off** | public | — |
-| `publicMap` | Public map | **off** | public | — |
-| `partnerFiles` | Newsletters & Docs | on | admin | — |
-| `prayerRequests` | Prayer requests | on | admin | — |
-| `oneTimeNeeds` | One-time needs | on | admin | — |
-| `monthlySupport` | Monthly support | on | admin | — |
-| `trips` | Mission trips | **off** | admin | — |
-| `publicTripDiscovery` | Public trip discovery | **off** | public | `trips` |
-| `booklet` | Print booklet | on | admin | — |
-| `reports` | Reports | on | admin | — |
-| `outboundEmail` | Email (Sending) | **off** | admin/communications | — |
-| `inboundEmail` | Email (Receiving) | **off** | admin/communications | — |
-| `groupme` | Post updates to GroupMe | **off** | admin/communications | — |
-| `whatsapp` | Post updates to WhatsApp | **off** | admin/communications | — |
-| `publicPrayerDigest` | Public prayer digest | **off** | admin/communications | `publicDirectory` + `outboundEmail` |
-| `contactLog` | Contact log | on | admin | — |
-| `keyDates` | Key-date reminders | on | admin | — |
-| `careTeam` | Care teams | **off** | admin | — |
-| `supportPreferences` | Support preferences | **off** | admin | — |
-| `surveys` | Partner surveys | **off** | admin | — |
-| `auditTrail` | Audit log | on | admin | — |
-| `aiExtraction` | AI Features | **off** | admin/integrations | `partnerFiles` |
-| `joshuaProject` | Joshua Project stats | **off** | admin/integrations | — |
+| Integration                  | Used for                                                   | Key storage                                      | Feature flag    |
+| ---------------------------- | ---------------------------------------------------------- | ------------------------------------------------ | --------------- |
+| Postmark (outbound)          | Admin/public digest email, test-email                      | `ChurchSettings.postmarkServerToken` (encrypted) | `outboundEmail` |
+| Postmark (inbound)           | Receiving mail into a review list (a person files it)     | same token; webhook creds separate               | `inboundEmail`  |
+| GroupMe                      | Posting prayer requests/needs/newsletters to church Topics | `ChurchSettings.groupmeAccessToken` (encrypted)  | `groupme`       |
+| Joshua Project               | Country-level unreached-people-group stats                 | `ChurchSettings.joshuaProjectApiKey` (encrypted) | `joshuaProject` |
+| Anthropic (Claude)           | AI extraction of requests/needs from uploaded documents    | `ChurchSettings.anthropicApiKey` (encrypted)     | `aiExtraction`  |
+| OpenStreetMap Nominatim      | Forward geocoding on address save                          | none (free, no key)                              | always on       |
+| OpenStreetMap / ArcGIS tiles | Public map basemap                                         | none                                             | `publicMap`     |
 
 Every encrypted `ChurchSettings` secret is explicitly `omit`ted from every
 query outside its own dedicated settings sub-route — enforced by
@@ -411,25 +395,31 @@ object. A church's choices live in `ChurchSettings.enabledFeatures`
 `defaultEnabled`. Enforced server-side (`requireFeature` middleware → 404
 when off) independent of the frontend hiding the corresponding nav entry.
 
-| Key                   | Label                 | Default | Group                | Depends on                          |
-| --------------------- | --------------------- | ------- | -------------------- | ----------------------------------- |
-| `publicDirectory`     | Public directory      | on      | public               | —                                   |
-| `publicMap`           | Public map            | on      | public               | —                                   |
-| `partnerFiles`        | Newsletters & Docs    | on      | admin                | —                                   |
-| `prayerRequests`      | Prayer requests       | on      | admin                | —                                   |
-| `oneTimeNeeds`        | One-time needs        | on      | admin                | —                                   |
-| `monthlySupport`      | Monthly support       | on      | admin                | —                                   |
-| `trips`               | Mission trips         | **off** | admin                | —                                   |
-| `publicTripDiscovery` | Public trip discovery | **off** | public               | `trips`                             |
-| `booklet`             | Print booklet         | on      | admin                | —                                   |
-| `reports`             | Reports               | on      | admin                | —                                   |
-| `outboundEmail`       | Email (Sending)       | **off** | admin/communications | —                                   |
-| `inboundEmail`        | Email (Receiving)     | **off** | admin/communications | —                                   |
-| `groupme`             | GroupMe dispatch      | **off** | admin/communications | —                                   |
-| `whatsapp`            | WhatsApp dispatch     | **off** | admin/communications | —                                   |
-| `publicPrayerDigest`  | Public prayer digest  | **off** | admin/communications | `publicDirectory` + `outboundEmail` |
-| `aiExtraction`        | AI Features           | **off** | admin/integrations   | —                                   |
-| `joshuaProject`       | Joshua Project stats  | **off** | admin/integrations   | —                                   |
+| Key | Label | Default | Group | Depends on |
+| --- | --- | --- | --- | --- |
+| `publicDirectory` | Public directory | **off** | public | — |
+| `publicMap` | Public map | **off** | public | — |
+| `partnerFiles` | Newsletters & Docs | on | admin | — |
+| `prayerRequests` | Prayer requests | on | admin | — |
+| `oneTimeNeeds` | One-time needs | on | admin | — |
+| `monthlySupport` | Monthly support | on | admin | — |
+| `trips` | Mission trips | **off** | admin | — |
+| `publicTripDiscovery` | Public trip discovery | **off** | public | `trips` |
+| `booklet` | Print booklet | on | admin | — |
+| `reports` | Reports | on | admin | — |
+| `outboundEmail` | Email (Sending) | **off** | admin/communications | — |
+| `inboundEmail` | Email (Receiving) | **off** | admin/communications | — |
+| `groupme` | Post updates to GroupMe | **off** | admin/communications | — |
+| `whatsapp` | Post updates to WhatsApp | **off** | admin/communications | — |
+| `publicPrayerDigest` | Public prayer digest | **off** | admin/communications | `publicDirectory` + `outboundEmail` |
+| `contactLog` | Contact log | on | admin | — |
+| `keyDates` | Key-date reminders | on | admin | — |
+| `careTeam` | Care teams | **off** | admin | — |
+| `supportPreferences` | Support preferences | **off** | admin | — |
+| `surveys` | Partner surveys | **off** | admin | — |
+| `auditTrail` | Audit log | on | admin | — |
+| `aiExtraction` | AI Features | **off** | admin/integrations | `partnerFiles` |
+| `joshuaProject` | Joshua Project stats | **off** | admin/integrations | — |
 
 `isAnyFeatureEnabled` supports "reachable if at least one of N is on" —
 used for the public partner data routes (back both directory and map) and
@@ -1323,9 +1313,8 @@ these are bugs severe enough to block current operation.
    which takes a Postgres advisory lock first, so a second instance (for example during a
    deploy) waits and does not double-send. The consequence worth knowing: the jobs stop
    when the web service is down or asleep, and a free-tier host that sleeps would miss
-   them. Two of the registrations (the email digests and the GroupMe/WhatsApp daily
-   flush) both live in `emailDispatchScheduler.js` and both end by calling the same
-   `clearDispatchRecords()`.
+   them. The email digests and the GroupMe/WhatsApp daily flush both live in
+   `emailDispatchScheduler.js` and both end by calling the same `clearDispatchRecords()`.
 3. **`SendingParty`, `Address`, and `ChurchSettings.address` all re-declare
    the same address-field shape** (`addressLine1`/`addressLine2`/`city`/
    `stateProvinceRegion`/`postalCode`/`country`) three times — twice as
