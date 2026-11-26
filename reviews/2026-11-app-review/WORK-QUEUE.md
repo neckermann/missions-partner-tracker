@@ -43,6 +43,12 @@ Order is: safety first, then the install path, then the small bugs, then everyth
 | 15 | **B10** email receiving: hold auto-filed mail for a quick review by default (admins can switch it off); cap and expire the unmatched queue | (new) | May need a column; if so, move to Phase 2 |
 | 16 | **B12** seed: seeded people inactive or random printed password; seed creates the settings row it needs | (new) | |
 
+| 16a | **B2** email "on but not ready" is treated as off everywhere (use the existing copy-link fallbacks) and one "Email isn't finished setting up" notice is shown. Does not tackle the Postmark-is-hard question | (new) | Covers Add User dead end and the Subscribe page's false "check your email" |
+| 16b | **B11** guest wording: one line at each place a care-team guest is told what they are, what is hidden, and that their entries wait for approval; the Add User form stops offering Guest when it cannot be used and no longer calls it trips-only | (new) | |
+| 16c | **B15** dead ends: no bell item or link leads to a switched-off or hidden page; Enabled Features no longer says updates "wait on Pending Dispatches" when that page is blocked; Monthly Support gets a menu entry | (new) | |
+| 16d | **B6 part 2 only** ask for the password again before a backup download; replace the restore guide's "temporary, unlisted file host" advice with safe handling; separately, read-only: record in the issue what Render's Postgres plan already backs up (no change to Render) | (new) | Scheduled backups and an in-app restore are deferred (D25) |
+| 16e | **B5** plain words, using report 1's jargon table (exact string, file, replacement), including the ticket number printed at `AdminDispatchSettings.jsx:313`; update tests | (new) | Last in Phase 1: touches many files, so run it after the others to avoid conflicts |
+
 The B items have no issue yet. File one per item from the draft text in `README.md` (section B) before starting each, and link it in the PR.
 
 ### Phase 2: schema batch (stop before merging)
@@ -56,7 +62,7 @@ One PR for the batch is fine. Open it, then stop and report. The owner approves 
 
 ### Not in the queue
 
-- **B2 to B6, B11, B14, B15** and the whole C group: larger, or decisions first. B3, B4, B5, B11 and B15 belong to #477. B14's docs fixes are partly picked up by A8 and A5; the rest waits.
+- **B3, B4, B14, scheduled backups and in-app restore (B6 parts 1 and 3)** and the whole C group: larger, or decisions first. B3 and B4 belong to #477. B14's docs fixes are partly picked up by A8 and A5; the rest waits.
 - **The Viewer role, WhatsApp removal, the "Trips departing soon" alert, what to do with trips (C1 to C3):** owner decisions, undecided. WhatsApp stays (D12).
 
 ## Owner tasks (not mine)
@@ -90,6 +96,11 @@ Update this table as items land.
 | 14 | B8 | not started | |
 | 15 | B10 | not started | |
 | 16 | B12 | not started | |
+| 16a | B2 | not started | |
+| 16b | B11 | not started | |
+| 16c | B15 | not started | |
+| 16d | B6 part 2 | not started | |
+| 16e | B5 | not started | |
 | 17 | A10 | not started | |
 | 18 | B13 | not started | |
 
