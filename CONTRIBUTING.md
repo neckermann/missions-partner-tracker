@@ -75,12 +75,19 @@ npm test
 ```
 
 Tests use Node's built-in test runner (`node:test`) — no extra dependencies
-required. Coverage is intentionally focused on logic that's risky to get
-wrong silently: the public/restricted data-masking rules
-(`backend/test/maskData.test.js`) and the auth middleware
-(`backend/test/requireAuth.test.js`). Routes that hit Prisma directly
-(login, user management, missionary/organization CRUD, etc.) aren't
-covered by these unit tests — that's what the e2e suite below is for.
+required. There are two backend suites:
+
+- **Unit tests** (`backend/test/*.test.js`, about 50 files, `npm test`): masking,
+  auth middleware, the schedulers' pure logic and so on. Most need no database;
+  about a dozen import the database client and want `DATABASE_URL` set.
+- **Route tests** (`backend/test/routes/*.test.js`, about 85 files,
+  `npm run test:routes`): each boots the real app on a free port and talks to it over
+  HTTP against a real Postgres. They create and delete real rows, so use a throwaway
+  database (see below). They need, besides `DATABASE_URL`: `NODE_ENV=test` (otherwise
+  the sign-in rate limits are the production ones and dozens of tests fail with 429),
+  `APP_BASE_URL` (for example `http://localhost:3001`; without it about 15 tests that
+  build links fail), `SESSION_SECRET`, and `FIELD_ENCRYPTION_KEY` (`npm run
+  generate-secrets` prints both).
 
 ### End-to-end tests (`frontend/e2e/`)
 

@@ -44,7 +44,7 @@ organization partners.
   country is. Off by default; add a free API key and turn it on, no code
   changes.
 - **Auth**: email and password, with TOTP two-factor that an admin can
-  require for everyone at once (a new install starts with it on). Deliberately no single sign-on — see
+  require for everyone at once (a site set up through the first-visit setup screen starts with it on; one set up with the `createAdmin.js` command can switch it on under Manage Users). Deliberately no single sign-on — see
   [ADMIN_GUIDE.md § Authentication setup](ADMIN_GUIDE.md#authentication-setup)
   for why. Sessions are secured with an `httpOnly` cookie, never exposed to
   client-side JavaScript.
