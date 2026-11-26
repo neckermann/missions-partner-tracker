@@ -97,10 +97,10 @@ A6's PR is #515.
 | 4 | A3 | merged to dev | #518 |
 | 5 | A9 small piece | merged to dev | #519 |
 | 6 | A4 | merged to dev | #520 |
-| 7 | A2b | PR open, merged `dev` into it after a conflict, CI re-running | #521 |
+| 7 | A2b | merged to dev | #521 |
 | 8 | A7 | merged to dev | #522 |
-| 9 | A5 | PR open, CI running | #523 |
-| 10 | A8 | not started | |
+| 9 | A5 | merged to dev | #523 |
+| 10 | A8 | in progress | |
 | 11 | B1 | not started | |
 | 12 | B9 | not started | |
 | 13 | B7 | not started | |
@@ -128,3 +128,4 @@ A6's PR is #515.
 
 - 2026-11-26: item 8 (A7) merged to `dev` as #522 after all four checks passed. Owner follow-ups: delete the production and dev-test `...-worker` services in Render (they will fail to start now). Local memory check: the web process alone ~227 MB, with the jobs ~239 MB; to confirm on dev-test.
 - 2026-11-26: item 9 (A5) opened as #523: the server refuses to start on a database whose migration was rewritten; the next deploy of any out-of-date database (dev-test, the demo) will fail until reset. #521 hit a changelog merge conflict with #522 and was brought up to date.
+- 2026-11-26: items 7 (A2b, #521) and 9 (A5, #523) merged to `dev` after all four checks passed on their final heads. Item 10 (A8) started.
