@@ -16,7 +16,7 @@ Decided by the owner (D17 to D20):
 
 ### Running the tests locally (what worked in this container)
 
-Postgres 16 is installed. `service postgresql start`; create a role and a database; export `DATABASE_URL`, `APP_BASE_URL=http://localhost:3000`, and the secrets the config check demands (`SESSION_SECRET`, and `FIELD_ENCRYPTION_KEY` once A10 makes it required; `npm run generate-secrets` prints values). Then `cd backend && npm ci && npx prisma migrate deploy`. Without `APP_BASE_URL`, about 15 route tests fail (B14). The first attempt failed only on the missing `SESSION_SECRET`.
+Postgres 16 is installed. `service postgresql start`; create a role and a database; export `DATABASE_URL`, `APP_BASE_URL=http://localhost:3000`, and the secrets the config check demands (`SESSION_SECRET`, and `FIELD_ENCRYPTION_KEY` once A10 makes it required; `npm run generate-secrets` prints values). Then `cd backend && npm ci && npx prisma migrate deploy`. Also export `NODE_ENV=test`, as CI does: without it the sign-in rate limits are the production ones and about 57 route tests fail with HTTP 429 (checked: the same 57 fail on plain `dev`). Without `APP_BASE_URL`, about 15 route tests fail (B14). Also run `npm ci` at the repo root, which provides the pinned eslint and prettier (`npx eslint <files> --quiet`, `npx prettier --check <files>`). With those set, A6 passed 427 unit tests and 1040 route tests.
 
 ## The queue, in order
 
@@ -87,9 +87,11 @@ One PR for the batch is fine. Open it, then stop and report. The owner approves 
 
 Update this table as items land.
 
+A6's PR is #515.
+
 | # | Item | Status | PR |
 |---|---|---|---|
-| 1 | A6 | not started | |
+| 1 | A6 | PR open, CI running | #515 |
 | 2 | A2a | not started | |
 | 3 | A1 | not started | |
 | 4 | A3 | not started | |
