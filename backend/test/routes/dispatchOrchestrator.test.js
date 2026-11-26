@@ -271,7 +271,7 @@ describe("sendUrgentDispatch", () => {
   test("cadence-blind: reaches an admin and a confirmed public subscriber immediately, regardless of their tier having fired", async () => {
     await prisma.churchSettings.update({
       where: { id: "singleton" },
-      data: { enabledFeatures: { outboundEmail: true, publicPrayerDigest: true } },
+      data: { enabledFeatures: { outboundEmail: true, publicDirectory: true, publicPrayerDigest: true } },
     });
     const admin = await createAdminUser({ cadence: "monthly" }); // arbitrary tier -- never checked
     const sub = await createPublicSubscriber();
@@ -304,7 +304,7 @@ describe("sendUrgentDispatch", () => {
   test("a one-time need's urgent send never reaches the public email dispatch, even though it's otherwise eligible", async () => {
     await prisma.churchSettings.update({
       where: { id: "singleton" },
-      data: { enabledFeatures: { outboundEmail: true, publicPrayerDigest: true } },
+      data: { enabledFeatures: { outboundEmail: true, publicDirectory: true, publicPrayerDigest: true } },
     });
     const admin = await createAdminUser({ cadence: "monthly" });
     const sub = await createPublicSubscriber();

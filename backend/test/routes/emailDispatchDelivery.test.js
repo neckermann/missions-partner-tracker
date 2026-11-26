@@ -109,7 +109,7 @@ before(async () => {
   await prisma.churchSettings.upsert({
     where: { id: "singleton" },
     update: {
-      enabledFeatures: { outboundEmail: true, publicPrayerDigest: true },
+      enabledFeatures: { outboundEmail: true, publicDirectory: true, publicPrayerDigest: true },
       // Defaults off; this file's restricted-partner review-gate tests need it on, so it is set
       // explicitly rather than relying on the schema default.
       allowRestrictedPartnerDispatch: true,
@@ -120,7 +120,7 @@ before(async () => {
     },
     create: {
       id: "singleton",
-      enabledFeatures: { outboundEmail: true, publicPrayerDigest: true },
+      enabledFeatures: { outboundEmail: true, publicDirectory: true, publicPrayerDigest: true },
       allowRestrictedPartnerDispatch: true,
       postmarkServerToken: encryptField("pm-test-token"),
       emailFromAddress: "updates@example.test",

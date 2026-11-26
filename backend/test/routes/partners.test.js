@@ -54,8 +54,10 @@ before(async () => {
   originalEnabledFeatures = featureSettings?.enabledFeatures ?? {};
   await prisma.churchSettings.upsert({
     where: { id: "singleton" },
-    update: { enabledFeatures: { ...originalEnabledFeatures, trips: true } },
-    create: { id: "singleton", enabledFeatures: { trips: true } },
+    update: {
+      enabledFeatures: { ...originalEnabledFeatures, trips: true, publicDirectory: true, publicMap: true },
+    },
+    create: { id: "singleton", enabledFeatures: { trips: true, publicDirectory: true, publicMap: true } },
   });
 });
 

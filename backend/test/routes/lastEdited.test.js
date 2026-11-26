@@ -31,8 +31,13 @@ describe("last edited by", () => {
     originalFeatures = current?.enabledFeatures ?? {};
     await prisma.churchSettings.upsert({
       where: { id: "singleton" },
-      update: { enabledFeatures: { ...originalFeatures, trips: true } },
-      create: { id: "singleton", enabledFeatures: { ...originalFeatures, trips: true } },
+      update: {
+        enabledFeatures: { ...originalFeatures, trips: true, publicDirectory: true, publicMap: true },
+      },
+      create: {
+        id: "singleton",
+        enabledFeatures: { ...originalFeatures, trips: true, publicDirectory: true, publicMap: true },
+      },
     });
     await ensureTestUsers();
     await prisma.user.updateMany({

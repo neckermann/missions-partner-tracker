@@ -18,6 +18,15 @@ describe("isFeatureEnabled", () => {
     }
   });
 
+  // A new install publishes nothing until the church chooses (A2b of the November 2026 review).
+  test("the public directory and map are off for a church that has never chosen, and can be turned on", () => {
+    for (const key of ["publicDirectory", "publicMap"]) {
+      assert.equal(isFeatureEnabled({}, key), false, key);
+      assert.equal(isFeatureEnabled(null, key), false, key);
+      assert.equal(isFeatureEnabled({ [key]: true }, key), true, `${key} can be turned on`);
+    }
+  });
+
   test("an explicit false overrides the default-enabled state", () => {
     assert.equal(isFeatureEnabled({ partnerFiles: false }, "partnerFiles"), false);
   });

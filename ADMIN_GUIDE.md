@@ -183,8 +183,8 @@ sign-in, the public prayer digest). Enabled Features shows a "Without email" lin
 
 | Feature | Default | Notes |
 |---|---|---|
-| Public directory | On | The public list/search view at the site's root (`/`). Off shows a short "this isn't public" page there instead. |
-| Public map | On | The public map view (`/map`). Same off-behavior as above. Independent of the directory toggle — a church can run either one alone, or both, or neither; the partner-detail page stays reachable as long as at least one of the two is on. |
+| Public directory | **Off** | The public list/search view at the site's root (`/`). **Off on a new install:** the first time an admin reaches the admin area they are asked once whether to turn on the public directory and map ("Not yet" is fine), and it can be changed any time under Settings → Privacy and safety. Off shows a short "this isn't public" page there instead. |
+| Public map | **Off** | The public map view (`/map`). Same off-behavior as above. Independent of the directory toggle — a church can run either one alone, or both, or neither; the partner-detail page stays reachable as long as at least one of the two is on. |
 | Newsletters & Docs | On | Newsletters and documents (survey responses, signed policies, etc.) on missionary/organization pages and their own admin section. |
 | Prayer requests | On | The Prayer Requests admin section, and the prayer request list on missionary/organization pages. |
 | One-time needs | On | The One-Time Needs admin section, and the one-time needs list on missionary/organization pages. Only gates the standalone `/api/support-needs` CRUD — a need can still be added via a missionary/organization's own edit form either way (a narrower gap than the other toggles here). |

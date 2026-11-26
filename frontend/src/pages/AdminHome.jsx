@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { fetchPartners } from "../api/client.js";
+import usePublicSiteChoiceRedirect from "../hooks/usePublicSiteChoiceRedirect.js";
 import { useSettings } from "../context/SettingsContext.jsx";
 import { getRecentlyViewed } from "../hooks/useRecentlyViewed.js";
 import CardGrid from "../components/admin/CardGrid.jsx";
@@ -171,6 +172,8 @@ export default function AdminHome() {
   const [search, setSearch] = useState("");
   const { partnerTermPlural, usePartnerTermInAdmin, enabledFeatures } = useSettings();
   const { categories } = useNotifications();
+
+  usePublicSiteChoiceRedirect(isAdmin);
   // Categories with a zero count are hidden. Reads the shared registry the bell uses
   // (/api/notifications/summary); don't add a page-level fetch alongside it, the two
   // drifted apart before and a card never cleared.

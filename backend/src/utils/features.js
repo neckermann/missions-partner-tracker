@@ -18,15 +18,15 @@ const FEATURES = {
   publicDirectory: {
     label: "Public directory",
     description:
-      'The public list/search view at the site\'s root ("/"). Turning this off shows a private-instance message there instead.',
-    defaultEnabled: true,
+      'The public list/search view at the site\'s root ("/"). Off by default: a new install publishes nothing until the church chooses to (one question after the first sign-in, or Settings → Privacy and safety). Off shows a private-instance message there instead.',
+    defaultEnabled: false,
     group: "public",
   },
   publicMap: {
     label: "Public map",
     description:
       'The public map view ("/map"). Turning this off shows a private-instance message there instead.',
-    defaultEnabled: true,
+    defaultEnabled: false,
     group: "public",
   },
   partnerFiles: {
