@@ -17,7 +17,7 @@ const QRCode = require("qrcode");
 const { Client } = require("pg");
 const prisma = require("../prismaClient");
 const { parseDatabaseUrl } = require("./databaseUrl");
-const { isGuardedDemo } = require("./demoMode");
+const { isGuardedDemoInstance } = require("./demoMode");
 const { useDbAuthState, clearAuthState } = require("./whatsappAuthState");
 
 // Fixed: every instance must use the same number to contend for the same lock.
@@ -448,7 +448,7 @@ function requireConnected() {
 // reads `options.circuitBreaker` unguarded, so a 2-argument call throws.
 async function sendText(jid, text) {
   // A public demo sends nothing to a real number or group (utils/demoMode.js).
-  if (isGuardedDemo()) {
+  if (await isGuardedDemoInstance()) {
     console.log("[demo] WhatsApp message not sent");
     return;
   }

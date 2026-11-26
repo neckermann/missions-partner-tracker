@@ -63,7 +63,6 @@ router.get(
   "/email",
   requireFeature(["outboundEmail", "inboundEmail"]),
   requireRole("admin"),
-  refuseOnGuardedDemo("Changing integration settings"),
   async (req, res, next) => {
     try {
       const settings = await prisma.churchSettings.findUnique({
@@ -82,6 +81,7 @@ router.put(
   "/email",
   requireFeature(["outboundEmail", "inboundEmail"]),
   requireRole("admin"),
+  refuseOnGuardedDemo("Changing integration settings"),
   async (req, res, next) => {
     try {
       const {

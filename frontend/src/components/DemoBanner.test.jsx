@@ -90,6 +90,13 @@ describe("DemoBanner", () => {
     expect(screen.getByText("care@x.org")).toBeTruthy();
   });
 
+  it("explains it is a demo but lists no logins on the owner's private test deployment", () => {
+    settings = { isDemo: true, demoLoginEmail: null, demoLoginPassword: null, demoGuestLogins: [] };
+    render(<DemoBanner />);
+    expect(screen.getByText(/live public demo/i)).toBeTruthy();
+    expect(screen.queryByText(/signed in as/i)).toBeNull();
+  });
+
   it("tolerates the field being absent entirely", () => {
     settings = { isDemo: true, demoLoginEmail: "admin@x.org", demoLoginPassword: "apw" };
     render(<DemoBanner />);

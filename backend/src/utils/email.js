@@ -6,7 +6,7 @@
 const { ServerClient } = require("postmark");
 const prisma = require("../prismaClient");
 const { decryptField } = require("./crypto");
-const { isGuardedDemo } = require("./demoMode");
+const { isGuardedDemoInstance } = require("./demoMode");
 
 // Admin-managed in ChurchSettings. No env-var fallback (as extraction.js's
 // client()), so a stale env var can't come back into play.
@@ -38,7 +38,7 @@ async function client() {
 async function sendEmail({ to, subject, text, html, attachments }) {
   // A public demo sends nothing real (utils/demoMode.js): what would have gone out is logged, and the
   // caller is told it worked, so the page behaves as it would for a church.
-  if (isGuardedDemo()) {
+  if (await isGuardedDemoInstance()) {
     console.log(`[demo] email not sent: "${subject}" to ${to}`);
     return { ErrorCode: 0, Message: "OK", MessageID: "demo-not-sent", To: to };
   }
@@ -62,7 +62,7 @@ async function sendEmail({ to, subject, text, html, attachments }) {
 // order, each with its own ErrorCode; callers check per entry since one bad
 // address must not affect the batch.
 async function sendEmailBatch(messages) {
-  if (isGuardedDemo()) {
+  if (await isGuardedDemoInstance()) {
     console.log(`[demo] ${messages.length} email(s) not sent`);
     return messages.map((m) => ({ ErrorCode: 0, Message: "OK", MessageID: "demo-not-sent", To: m.To }));
   }

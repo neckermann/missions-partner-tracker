@@ -401,7 +401,7 @@ router.post("/password-setup/validate", async (req, res, next) => {
   }
 });
 
-router.post("/password-setup/complete", async (req, res, next) => {
+router.post("/password-setup/complete", noPasswordChangeOnDemo, async (req, res, next) => {
   try {
     const { token, password } = req.body || {};
     const parsedPassword = passwordSchema.safeParse(password);

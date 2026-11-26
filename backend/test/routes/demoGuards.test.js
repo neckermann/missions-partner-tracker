@@ -74,6 +74,43 @@ describe("a guarded demo refuses what would lock out or cost the owner", () => {
   });
 });
 
+describe("the email settings", () => {
+  test("a guarded demo can still read them but not change them", async () => {
+    guardedDemo();
+    const before = await prisma.churchSettings.findUnique({ where: { id: "singleton" } });
+    const features = { ...(before?.enabledFeatures || {}), outboundEmail: true };
+    await prisma.churchSettings.upsert({
+      where: { id: "singleton" },
+      update: { enabledFeatures: features },
+      create: { id: "singleton", enabledFeatures: features },
+    });
+    try {
+      const read = await admin("/api/settings/email");
+      assert.equal(read.status, 200, JSON.stringify(read.body));
+      const write = await admin("/api/settings/email", { method: "PUT", body: { serverToken: "x" } });
+      assert.equal(write.status, 403);
+    } finally {
+      await prisma.churchSettings.updateMany({
+        where: { id: "singleton" },
+        data: { enabledFeatures: before?.enabledFeatures ?? undefined },
+      });
+    }
+  });
+});
+
+describe("setting a password through a setup link", () => {
+  test("is refused on a guarded demo (it would change a published login)", async () => {
+    guardedDemo();
+    const editor = await prisma.user.findUniqueOrThrow({ where: { email: TEST_USERS.editor.email } });
+    assert.equal((await admin(`/api/users/${editor.id}/setup-link`, { method: "POST" })).status, 403);
+    const complete = await anon("/api/auth/password-setup/complete", {
+      method: "POST",
+      body: { token: "x", password: "A-Brand-New-Passw0rd!" },
+    });
+    assert.equal(complete.status, 403);
+  });
+});
+
 describe("outside a guarded demo the same requests are not refused for being a demo", () => {
   test("on the owner's test deployment, an integration setting saves", async () => {
     guardedDemo();

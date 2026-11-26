@@ -95,8 +95,8 @@ it must not be able to hurt you or anyone else:
 - **Nothing leaves the app.** Email (single and batch), GroupMe posts and WhatsApp messages are logged
   (`[demo] ... not sent`) and reported as sent, but never reach Postmark, GroupMe or WhatsApp.
 - **No AI spend.** The AI request scan is refused (403).
-- **No lock-out.** Changing a password (your own or another account's) is refused, so one visitor cannot
-  sign the others out until the next reset.
+- **No lock-out.** Changing a password (your own or another account's), sending a setup link and
+  completing one are refused, so one visitor cannot sign the others out until the next reset.
 - **No tampering with integrations.** Saving the GroupMe, Postmark, WhatsApp, Joshua Project or AI-key
   settings is refused.
 - **A reset does not bring the keys back.** `reset-demo-data.js` ignores `ANTHROPIC_API_KEY`, `GROUPME_*`,
@@ -109,6 +109,10 @@ web service and none of the above applies, so you can try real sends and take sc
 chat posts. It also stops the banner publishing that site's logins, so give it its own `DEMO_ADMIN_EMAIL`
 and `DEMO_ADMIN_PASSWORD` (the published guest accounts use the admin password unless
 `DEMO_GUEST_PASSWORD` is set; if neither is set they fall back to a default that is in this repository).
+Set it on the worker service too, until the worker is gone: the worker does not see the web service's
+`DEMO_RESET_TOKEN`, so it recognises a demo by the flag the reset writes and would hold back its sends
+unless it also has `DEMO_TESTING_SITE=true`. The two remote reset scripts say which they are:
+`reset-demo-db-remote.js` is always guarded, `reset-dev-db-remote.js` is always the test deployment.
 Keep its address private anyway.
 
 ## What a demo never does (scheduled email)

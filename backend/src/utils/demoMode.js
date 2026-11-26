@@ -64,6 +64,13 @@ function isGuardedDemo() {
   return isDemoDeployment() && !isTestingSite();
 }
 
+// The same question for code that can run in the worker, which does not get DEMO_RESET_TOKEN: a demo is
+// also recognised by the `demoMode` flag the reset writes. DEMO_TESTING_SITE must be set on the worker
+// too, on the owner's test deployment, or its scheduled sends are held back as on any demo.
+async function isGuardedDemoInstance() {
+  return !isTestingSite() && (await isDemoInstance());
+}
+
 // Route middleware: refuse `what` on a guarded demo, say so plainly.
 function refuseOnGuardedDemo(what) {
   return (req, res, next) => {
@@ -82,6 +89,7 @@ module.exports = {
   isDemoDeployment,
   isTestingSite,
   isGuardedDemo,
+  isGuardedDemoInstance,
   refuseOnGuardedDemo,
   isDemoInstance,
   forgetDemoModeCache,
