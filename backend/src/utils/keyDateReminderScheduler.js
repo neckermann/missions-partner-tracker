@@ -17,11 +17,12 @@ const { loadOpenKeyDates } = require("./keyDateQueries");
 const { buildKeyDateEmail } = require("./keyDateReminderEmail");
 const { isDemoInstance } = require("./demoMode");
 const { digestComesBefore } = require("./digestSchedule");
+const { churchToday } = require("./today");
 
 const rowKey = (userId, i) => `${userId}|${i.partnerId}|${i.kind}|${i.subjectId}|${i.date}|${i.tier ?? 0}`;
 
 // `send` and `today` are injectable so the run is testable without Postmark.
-async function checkAndSendKeyDateReminders({ today = new Date(), send = sendEmail } = {}) {
+async function checkAndSendKeyDateReminders({ today = churchToday(), send = sendEmail } = {}) {
   // A public demo never sends these: its team members are fake addresses, so mail
   // would bounce and spend the email plan. The demo reset keeps keyDates off too
   // (utils/demoMode.js); this is the backstop for a visitor enabling it.
