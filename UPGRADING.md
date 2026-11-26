@@ -1,5 +1,17 @@
 # Upgrading a fork
 
+> **Before 1.0, an upgrade can require wiping the database.** Until the 1.0
+> release the project rewrites its single database migration in place each time
+> the schema changes (see [SPEC.md § 8.3](SPEC.md#83-migration-strategy-pre-10)).
+> A database that already applied the earlier version cannot be brought up to
+> date with a normal upgrade. The new version **checks this when it starts and
+> refuses to run** ("Not starting: This database was built from an earlier
+> version of migration …"); the previous version keeps serving until you fix
+> it. Fixing it means resetting the database and re-entering the data or
+> restoring a backup (download one first: see
+> [ADMIN_GUIDE.md § Database backups](ADMIN_GUIDE.md#database-backups)). Download a
+> backup before every upgrade. After 1.0, upgrades keep your data.
+
 This project is meant to be forked once per church, not run as a shared
 hosted service — so "upgrading" means pulling changes from the original
 project into your own fork, the same way you'd pull upstream changes into
@@ -40,6 +52,11 @@ know about:
   [ADMIN_GUIDE.md § Authentication setup](ADMIN_GUIDE.md#authentication-setup).
 
 ## The easy way: GitHub's "Sync fork" button
+
+**Read the box at the top first.** On Render, clicking **Sync fork** is enough on
+its own to start an upgrade (Render redeploys when your fork's branch changes),
+so before 1.0 do it knowing it may stop at the database check described above,
+and take a backup first.
 
 If you haven't directly edited application code, this is the whole
 process — no terminal, no git commands, done entirely in your browser:

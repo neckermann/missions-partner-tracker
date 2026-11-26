@@ -112,22 +112,20 @@ Applies to **either** Render service independently — fixing it on the
 demo doesn't fix dev-test, and vice versa; both need their own reset
 if both received the squashed migration.
 
-**A squashed-migration deploy reports `live`, but the schema never
-actually changed.** A worse variant of the failure above, not just a
-milder one — confirmed directly against dev-test after merging #252:
-the deploy went `live` with no error at all, yet the database was
-still missing every new table the squash was supposed to add. This
-project's squash convention reuses the *original* init migration's own
-name/timestamp (see `CONTRIBUTING.md`'s migration-squash steps), so an
-environment that already has that exact migration name recorded in its
-own `_prisma_migrations` history can have `prisma migrate deploy` treat
-it as already-applied and skip running its SQL entirely, rather than
-failing loudly — deploy status alone can't be trusted to catch this.
-After *any* squash, verify the live schema directly (e.g. list tables,
-or just check for the new model(s) the squash added) rather than
-assuming a green deploy means the schema actually moved — and when in
-doubt, just run the reset (above) regardless of whether the deploy
-reported success or failure.
+**The new version won't start: "Not starting: This database was built from an
+earlier version of migration …".** This is the start-up schema check
+(`backend/src/utils/schemaCheck.js`) doing its job. Before 1.0 the baseline
+migration is edited in place, so a database that applied the old text keeps the
+same migration name: `prisma migrate deploy` reports "No pending migrations" and
+succeeds, and without this check the deploy would go `live` against the old
+tables (a missing column on the first request). Now the server refuses to start,
+the deploy fails its health check, and Render keeps serving the previous
+version. Fix: reset that database and re-enter or restore its data
+([demo/README.md § Recovering after a migration squash](demo/README.md#recovering-after-a-migration-squash)
+for the demo and dev-test; [UPGRADING.md](UPGRADING.md) for a church's own
+install). A message saying a migration "has not been applied" means
+`prisma migrate deploy` did not run first. Only if you are sure the database
+really matches, `SKIP_SCHEMA_CHECK=true` skips the check.
 
 **A branch you expected to still exist is gone after a PR merge.** If
 the repo ever has `delete_branch_on_merge` enabled, merging a PR

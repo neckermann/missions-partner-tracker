@@ -3,6 +3,13 @@
 A web app for tracking and publicly showcasing your church's missionary and
 organization partners.
 
+> **Beta (before 1.0).** This is a 0.x release. Until 1.0, an upgrade can change
+> the database in a way that cannot be applied to an existing one, and then the
+> new version will refuse to start rather than run against the wrong tables. An
+> install made today may have to be **wiped and set up again** (or restored from
+> a backup) when you upgrade. Do not rely on it as your only copy of anything
+> until 1.0. See [UPGRADING.md](UPGRADING.md).
+
 - **Public site**: a searchable partner directory plus an interactive world
   map (Leaflet) with an auto "tour" fly-through. Partners marked
   `isRestricted` are automatically shown with initials only, no contact

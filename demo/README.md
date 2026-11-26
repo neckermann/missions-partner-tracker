@@ -134,7 +134,10 @@ own `_prisma_migrations` table has no record of, so the next deploy's
 `preDeployCommand` (`prisma migrate deploy`) fails -- expected, not a
 sign anything is broken. Render doesn't cut over on a failed pre-deploy,
 so the demo stays up on the old version the whole time this is being
-fixed.
+fixed. (If the deploy does get as far as starting, the server's own start-up
+check refuses to run on the old database -- "Not starting: This database was
+built from an earlier version of migration ..." -- and the deploy fails the
+same safe way; see RUNBOOK.md.)
 
 Fix: `cd backend && npm run demo:reset:remote` for the live public demo,
 or `npm run dev:reset:remote` for the dev-test service (both read
