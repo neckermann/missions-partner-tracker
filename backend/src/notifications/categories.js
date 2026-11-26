@@ -25,6 +25,7 @@ const {
 } = require("../utils/contactLogQueries");
 const { loadOpenKeyDatesFor } = require("../utils/keyDateQueries");
 const { careTimings } = require("../utils/careSettings");
+const { READY_SELECT, isOutboundEmailUnfinished } = require("../utils/emailReady");
 
 const SOON_DAYS = 30;
 const BACKUP_REMIND_AGAIN_AFTER_MS = 30 * 24 * 60 * 60 * 1000;
@@ -327,6 +328,17 @@ async function updatesToPassOn({ userId }) {
   };
 }
 
+// Email (Sending) is switched on but no mail account / sender address has been entered, so nothing can be
+// sent. Everything that would have emailed falls back (copy-link, "not sent") until this is finished.
+async function emailNotFinished() {
+  const settings = await prisma.churchSettings.findUnique({
+    where: { id: "singleton" },
+    select: READY_SELECT,
+  });
+  const unfinished = isOutboundEmailUnfinished(settings);
+  return { count: unfinished ? 1 : 0, latest: unfinished ? new Date() : null };
+}
+
 async function adminMfaDisabled() {
   const rows = await prisma.user.findMany({
     where: { role: "admin", active: true, mfaEnabled: false },
@@ -544,6 +556,16 @@ const CATEGORIES = [
     tripScoped: false,
     guestVisible: true,
     resolve: updatesToPassOn,
+  },
+  {
+    key: "emailNotFinished",
+    label: "Email isn't finished setting up",
+    icon: "✉️",
+    linkTo: "/admin/settings/email",
+    adminOnly: true,
+    perUser: false,
+    tripScoped: false,
+    resolve: emailNotFinished,
   },
   {
     key: "adminMfaDisabled",

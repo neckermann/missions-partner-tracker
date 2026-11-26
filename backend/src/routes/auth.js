@@ -1,4 +1,5 @@
 const express = require("express");
+const { isOutboundEmailReady, READY_SELECT } = require("../utils/emailReady");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { z } = require("zod");
@@ -12,7 +13,6 @@ const { appBaseUrl } = require("../utils/dispatchBlurbs");
 const { escapeHtml } = require("../utils/emailDispatchShell");
 const { findValidSetupToken, hashToken, RESET_COOLDOWN_MS } = require("../utils/passwordSetup");
 const { sendWelcomeEmail, sendPasswordResetEmail } = require("../utils/welcomeEmails");
-const { isFeatureEnabled } = require("../utils/features");
 const { listTripGrants, isCareTeamEnabled } = require("../utils/guestAccess");
 const { passwordSchema } = require("../utils/password");
 const { recordAuditSafe } = require("../utils/auditLog");
@@ -512,9 +512,9 @@ router.post("/password-setup/request", async (req, res) => {
   try {
     const settings = await prisma.churchSettings.findUnique({
       where: { id: "singleton" },
-      select: { enabledFeatures: true },
+      select: READY_SELECT,
     });
-    emailOn = isFeatureEnabled(settings?.enabledFeatures, "outboundEmail");
+    emailOn = isOutboundEmailReady(settings);
   } catch {
     // keep the generic reply
   }
