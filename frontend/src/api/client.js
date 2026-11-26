@@ -875,8 +875,13 @@ export async function updatePartnerFile(id, data) {
 }
 
 // Returns { prayerRequests, oneTimeNeeds }; nothing is persisted until the caller adds each.
-export async function extractFromPartnerFile(id) {
-  const { data } = await api.post(`/partner-files/${id}/extract`);
+// A restricted partner's letter is only sent once the caller confirms (confirmRestricted: true); until then
+// the server answers 409 with needsConfirmation.
+export async function extractFromPartnerFile(id, { confirmRestricted = false } = {}) {
+  const { data } = await api.post(
+    `/partner-files/${id}/extract`,
+    confirmRestricted ? { confirmRestricted: true } : {}
+  );
   return data;
 }
 
