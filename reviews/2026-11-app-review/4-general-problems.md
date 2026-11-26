@@ -1,6 +1,15 @@
 # 4. General problems: docs, comments, screenshots, recurring issues and bugs
 
-**Status: Draft, not yet verified by the lead reviewer.**
+**Status: Checked by the lead reviewer, 2026-11-26. The findings listed under "Lead check" were re-checked; the rest stand as the helper reported them.**
+
+> **Lead check**
+> - **G2 confirmed (read in the code):** `surveyUpload` is in the backup's model list (`backend/src/utils/backup.js:94`) but missing from the binary-fields list (`backup.js:148-156`). I did not re-run the restore.
+> - **G3 confirmed (read in the code):** rows are added to the "considered" set before the send (`backend/src/utils/emailDispatchDelivery.js:141`), a failure only writes an error note (`:176`), and the scheduler then stamps every considered row as sent and clears the error (`backend/src/utils/emailDispatchScheduler.js:85-89`). Nobody has run a real send.
+> - **G4 confirmed (read in the code):** `render.yaml:127-140`.
+> - **G6 confirmed in part (read in the code):** the seed gives its example accounts one fixed password (`backend/prisma/seed.js:2431`). I did not re-run the sign-in.
+> - **G7 reproduced by the lead** while setting up: the seed stops at `seed.js:2350` on a freshly created empty database. Installing the backend also failed for me with no database address set, which is what a person hits if they run the install before creating `.env`.
+> - **G1 not re-run.** It is consistent with RUNBOOK.md's own entry "A squashed-migration deploy reports `live`, but the schema never actually changed".
+> - **Not re-checked:** G5, G8 to G14, the test-suite counts, the screenshot comparison and the closed-issue reading.
 **Reviewed:** branch `dev` at e713437 (0.1.0-beta.3), 2026-11-26.
 
 ## Summary
