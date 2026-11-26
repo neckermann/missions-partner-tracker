@@ -13,7 +13,12 @@ const { makeExtResolver, uploadFilteredBy } = require("../utils/upload");
 // General/logo settings. GroupMe, WhatsApp, Email, Trips and Dispatches settings live in sibling
 // settings*.js files mounted at the same /api/settings prefix from server.js.
 const { loadChurchLists } = require("../utils/tripTemplates");
-const { KEY_DATE_LEAD_RANGE, CONTACT_STALE_RANGE } = require("../utils/careSettings");
+const {
+  KEY_DATE_LEAD_RANGE,
+  CONTACT_STALE_RANGE,
+  ADVANCE_DAYS_MAX,
+  ADVANCE_DAYS_COUNT,
+} = require("../utils/careSettings");
 const router = express.Router();
 router.use(requireAuth);
 
@@ -114,6 +119,11 @@ const settingsSchema = z.object({
   // How far ahead a key date is raised, and how long without a logged contact makes a partner
   // "quiet" (#365); see utils/careSettings.js for the bounds.
   keyDateLeadDays: z.number().int().min(KEY_DATE_LEAD_RANGE.min).max(KEY_DATE_LEAD_RANGE.max).optional(),
+  // Earlier heads-ups (days before a key date) that ride in the email digest, e.g. [90, 30].
+  keyDateAdvanceDays: z
+    .array(z.number().int().min(2).max(ADVANCE_DAYS_MAX))
+    .max(ADVANCE_DAYS_COUNT)
+    .optional(),
   contactStaleDays: z.number().int().min(CONTACT_STALE_RANGE.min).max(CONTACT_STALE_RANGE.max).optional(),
   // This church's IANA timezone (see schema.prisma). Validated against Intl.supportedValuesOf(
   // "timeZone"), as AdminSettingsAbout.jsx's <select>, since a typo'd zone would silently fall back
@@ -168,6 +178,7 @@ router.get("/", async (req, res, next) => {
           requireTwoFactor: true,
           requirePasswordless: true,
           keyDateLeadDays: true,
+          keyDateAdvanceDays: true,
           contactStaleDays: true,
           extractionModel: true,
           allowRestrictedPartnerDispatch: true,

@@ -113,6 +113,7 @@ describe("AdminSettingsPartnerCare", () => {
     renderIt();
     expect(await screen.findByText("10 days ahead")).toBeTruthy();
     expect(screen.getByText("45 days without contact")).toBeTruthy();
+    expect(screen.getByText("90 days, 30 days ahead")).toBeTruthy();
   });
 
   it("saves new timings as numbers", async () => {
@@ -120,10 +121,15 @@ describe("AdminSettingsPartnerCare", () => {
     fireEvent.click(await screen.findByRole("button", { name: /timing/i }));
     const dialog = await screen.findByRole("dialog");
     fireEvent.change(within(dialog).getByLabelText(/Raise a key date/), { target: { value: "14" } });
+    fireEvent.change(within(dialog).getByLabelText(/Earlier heads-ups/), { target: { value: "120, 45 x" } });
     fireEvent.change(within(dialog).getByLabelText(/Call a partner quiet/), { target: { value: "60" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
     await waitFor(() =>
-      expect(updateChurchSettings).toHaveBeenCalledWith({ keyDateLeadDays: 14, contactStaleDays: 60 })
+      expect(updateChurchSettings).toHaveBeenCalledWith({
+        keyDateLeadDays: 14,
+        keyDateAdvanceDays: [120, 45],
+        contactStaleDays: 60,
+      })
     );
   });
 

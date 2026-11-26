@@ -454,6 +454,7 @@ CREATE TABLE "KeyDateReminder" (
     "kind" TEXT NOT NULL,
     "subjectId" TEXT NOT NULL DEFAULT '',
     "occurrenceDate" DATE NOT NULL,
+    "tier" INTEGER NOT NULL DEFAULT 0,
     "sentAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "KeyDateReminder_pkey" PRIMARY KEY ("id")
@@ -804,6 +805,7 @@ CREATE TABLE "ChurchSettings" (
     "ownerGroupName" TEXT,
     "defaultDigestCadence" TEXT,
     "keyDateLeadDays" INTEGER NOT NULL DEFAULT 7,
+    "keyDateAdvanceDays" INTEGER[] DEFAULT ARRAY[90, 30]::INTEGER[],
     "contactStaleDays" INTEGER NOT NULL DEFAULT 90,
     "emailDispatchSubjectTemplate" TEXT,
     "emailDispatchSignature" TEXT,
@@ -1304,7 +1306,7 @@ CREATE INDEX "AuditLog_entityType_entityId_idx" ON "AuditLog"("entityType", "ent
 CREATE INDEX "KeyDateReminder_partnerId_idx" ON "KeyDateReminder"("partnerId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "KeyDateReminder_userId_partnerId_kind_subjectId_occurrenceD_key" ON "KeyDateReminder"("userId", "partnerId", "kind", "subjectId", "occurrenceDate");
+CREATE UNIQUE INDEX "KeyDateReminder_userId_partnerId_kind_subjectId_occurrenceD_key" ON "KeyDateReminder"("userId", "partnerId", "kind", "subjectId", "occurrenceDate", "tier");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "PartnerLink_partnerId_type_key" ON "PartnerLink"("partnerId", "type");
