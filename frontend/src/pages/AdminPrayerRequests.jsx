@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { HeldForReviewNote } from "../components/admin/GuestNotice.jsx";
 import PageHeader from "../components/shared/PageHeader.jsx";
 import { Link } from "react-router-dom";
 import {
@@ -279,6 +280,7 @@ export default function AdminPrayerRequests() {
           ]}
         />
       )}
+      <HeldForReviewNote />
       <PageHeader
         title="Prayer Requests"
         subtitle={`${requests.length} on file · ${answeredCount} answered so far`}
