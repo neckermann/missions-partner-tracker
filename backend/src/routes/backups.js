@@ -124,11 +124,9 @@ router.post(
       }
       if (!password) return res.status(400).json({ error: "Enter your password to restore a backup." });
       if (safetyPassphrase && String(safetyPassphrase).length < MIN_PASSPHRASE_LENGTH) {
-        return res
-          .status(400)
-          .json({
-            error: `The passphrase for the safety copy must be at least ${MIN_PASSPHRASE_LENGTH} characters.`,
-          });
+        return res.status(400).json({
+          error: `The passphrase for the safety copy must be at least ${MIN_PASSPHRASE_LENGTH} characters.`,
+        });
       }
 
       const user = await prisma.user.findUnique({ where: { id: req.user.id } });
