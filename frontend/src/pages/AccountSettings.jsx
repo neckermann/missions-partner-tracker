@@ -109,8 +109,8 @@ export default function AccountSettings() {
 
       {user?.authProvider === "local" && <MfaSection user={user} onChange={reloadUser} />}
       {user?.authProvider === "local" && <PasskeysSection onChange={reloadUser} />}
-      {/* A guest sees password and MFA only: the admin digest is church-wide content. */}
-      {user && !isGuest && enabledFeatures.outboundEmail && (
+      {/* The digest is church-wide content, so a guest gets it only for the partners they hold a seat on. */}
+      {user && enabledFeatures.outboundEmail && (!isGuest || user.careTeamSeats?.length > 0) && (
         <EmailDispatchSection user={user} onChange={reloadUser} />
       )}
       {/* Anyone who looks after partners may get the daily key-date email: a care team member (a guest
@@ -223,12 +223,20 @@ const CADENCE_LABELS = {
   quarterly: "Quarterly",
 };
 
+const SCOPE_LABELS = {
+  owned: "the partners you look after",
+  all: "all partners",
+  followed: "the partners you pick",
+};
+
 function EmailDispatchSection({ user, onChange }) {
-  const { cadenceTiersEnabled } = useSettings();
+  const { cadenceTiersEnabled, ownerGroupName } = useSettings();
   const [partners, setPartners] = useState([]);
+  // A guest's digest is always the partners they look after; they get no choice of scope.
+  const isGuest = user.role === "guest";
   const value = {
     cadence: user.cadence || "",
-    allPartners: user.allPartners !== false,
+    digestScope: isGuest ? "owned" : user.digestScope || "owned",
     partnerIds: user.followedPartnerIds || [],
   };
 
@@ -245,7 +253,7 @@ function EmailDispatchSection({ user, onChange }) {
   async function save(draft) {
     await updateNotifyByEmail({
       cadence: draft.cadence || null,
-      allPartners: draft.allPartners,
+      digestScope: draft.digestScope,
       partnerIds: draft.partnerIds,
     });
     await onChange();
@@ -260,9 +268,9 @@ function EmailDispatchSection({ user, onChange }) {
         <p style={{ color: "var(--muted)" }}>
           {CADENCE_LABELS[v.cadence]}
           {v.cadence
-            ? v.allPartners
-              ? ", all partners"
-              : `, ${v.partnerIds.length} selected partner${v.partnerIds.length === 1 ? "" : "s"}`
+            ? v.digestScope === "followed"
+              ? `, ${v.partnerIds.length} selected partner${v.partnerIds.length === 1 ? "" : "s"}`
+              : `, ${SCOPE_LABELS[v.digestScope] || SCOPE_LABELS.all}`
             : ""}
           . A summary of new prayer requests, one-time needs, and newsletters -- plus, occasionally, an urgent
           item an admin or editor marks for immediate sending, which arrives right away regardless of this
@@ -286,20 +294,38 @@ function EmailDispatchSection({ user, onChange }) {
             </select>
           </label>
 
+          {draft.cadence && !isGuest && (
+            <fieldset style={{ border: 0, padding: 0, margin: "0 0 0.5rem" }}>
+              <legend style={{ fontWeight: 600 }}>What the digest covers</legend>
+              {[
+                [
+                  "owned",
+                  `The partners I look after${user.onMissionsTeam ? ` (my care teams, and the ${ownerGroupName}'s partners)` : ""}`,
+                ],
+                ["all", "All partners"],
+                ["followed", "Only partners I pick"],
+              ].map(([scope, label]) => (
+                <label key={scope} className="checkbox-option">
+                  <input
+                    type="radio"
+                    name="digestScope"
+                    checked={draft.digestScope === scope}
+                    onChange={() => set("digestScope", scope)}
+                  />
+                  {label}
+                </label>
+              ))}
+            </fieldset>
+          )}
+          {draft.cadence && isGuest && (
+            <p style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
+              Your digest covers the partners you look after, and only them.
+            </p>
+          )}
+
           {draft.cadence && (
             <div style={{ marginBottom: "0.75rem" }}>
-              <div className="admin-checkbox-row">
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={draft.allPartners}
-                    onChange={(e) => set("allPartners", e.target.checked)}
-                  />
-                  Include all partners
-                </label>
-              </div>
-
-              {!draft.allPartners && (
+              {draft.digestScope === "followed" && !isGuest && (
                 <div
                   style={{
                     marginTop: "0.5rem",

@@ -1,7 +1,8 @@
 // The shared admin+public send loop.
 const prisma = require("../prismaClient");
 const { isDemoInstance } = require("./demoMode");
-const { DIGEST_ROLES } = require("./digestRoles");
+const { DIGEST_RECIPIENT_ROLES } = require("./digestRoles");
+const { resolveDigestScope } = require("./digestScope");
 const { isFeatureEnabled } = require("./features");
 const { sendEmailBatch } = require("./email");
 const { buildBlurb } = require("./dispatchBlurbs");
@@ -20,8 +21,9 @@ const { buildPublicEmailDispatchContent } = require("./publicEmailDispatchConten
 // independently addressed and rendered, so splitting would only add calls.
 const BATCH_CHUNK_SIZE = 250;
 
-// Same shape regardless of source table; allPartners/partnerIds mean the same for both.
-function normalizeRecipient(source, kind) {
+// Same shape regardless of source table; allPartners/partnerIds mean the same for both. An admin's scope
+// (all / followed / the partners they look after) is resolved by the caller (resolveDigestScope) and passed in.
+function normalizeRecipient(source, kind, scope) {
   return {
     id: source.id,
     email: source.email,
@@ -29,9 +31,10 @@ function normalizeRecipient(source, kind) {
     name: [source.firstName, source.lastName].filter(Boolean).join(" ") || null,
     kind, // CHANNELS.EMAIL_ADMIN | CHANNELS.EMAIL_PUBLIC
     cadence: source.cadence,
-    allPartners: source.allPartners,
-    partnerIds:
-      kind === CHANNELS.EMAIL_ADMIN
+    allPartners: scope ? scope.allPartners : source.allPartners,
+    partnerIds: scope
+      ? scope.partnerIds
+      : kind === CHANNELS.EMAIL_ADMIN
         ? source.followedPartners.map((fp) => fp.partnerId)
         : source.scopedPartners.map((sp) => sp.partnerId),
   };
@@ -147,15 +150,16 @@ async function sendDigestTier(tier, settings) {
   // The cadence-tier match happens in each query's `where`, before normalization, not in sendToRecipients.
   const [admins, publicSubscribers] = await Promise.all([
     prisma.user.findMany({
-      // Never a guest: the digest is the whole church's content, not a scoped login's.
-      where: { cadence: tier, active: true, role: { in: DIGEST_ROLES } },
+      // A guest is a recipient only through their own partners (digestScope is forced to "owned" for them).
+      where: { cadence: tier, active: true, role: { in: DIGEST_RECIPIENT_ROLES } },
       select: {
         id: true,
         email: true,
         firstName: true,
         lastName: true,
+        role: true,
         cadence: true,
-        allPartners: true,
+        digestScope: true,
         followedPartners: { select: { partnerId: true } },
       },
     }),
@@ -172,8 +176,11 @@ async function sendDigestTier(tier, settings) {
         })
       : [],
   ]);
+  const adminRecipients = await Promise.all(
+    admins.map(async (u) => normalizeRecipient(u, CHANNELS.EMAIL_ADMIN, await resolveDigestScope(u)))
+  );
   const recipients = [
-    ...admins.map((u) => normalizeRecipient(u, CHANNELS.EMAIL_ADMIN)),
+    ...adminRecipients,
     ...publicSubscribers.map((s) => normalizeRecipient(s, CHANNELS.EMAIL_PUBLIC)),
   ];
 

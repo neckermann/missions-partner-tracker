@@ -74,7 +74,7 @@ function createAdminUser(overrides) {
       email: `digest-delivery-test-${Math.random().toString(36).slice(2)}@example.test`,
       role: "editor",
       active: true,
-      allPartners: true,
+      digestScope: "all",
       ...overrides,
     },
   });
@@ -400,12 +400,12 @@ describe("sendDigestTier -- no source link for public, source link preserved for
 });
 
 describe("sendDigestTier -- allPartners / scoped-partner filtering", () => {
-  test("User.allPartners: false -- only followed partners' rows are included", async () => {
+  test('User.digestScope "followed" -- only followed partners\' rows are included', async () => {
     const followed = await createPartner({ displayName: `${FIXTURE_TAG} Followed` });
     const notFollowed = await createPartner({ displayName: `${FIXTURE_TAG} Not Followed` });
     const admin = await createAdminUser({
       cadence: "biweekly",
-      allPartners: false,
+      digestScope: "followed",
       followedPartners: { create: [{ partnerId: followed.id }] },
     });
     await createRow(followed.id, "supportNeedCreated", {
@@ -423,6 +423,77 @@ describe("sendDigestTier -- allPartners / scoped-partner filtering", () => {
       assert.ok(!postmarkMessages[0].HtmlBody.includes("NOT-FOLLOWED-NEED"));
     } finally {
       await prisma.user.delete({ where: { id: admin.id } });
+    }
+  });
+
+  test('User.digestScope "owned" -- the partners they look after: their care team seats, plus teamless partners for the missions team', async () => {
+    await prisma.churchSettings.update({
+      where: { id: "singleton" },
+      data: { enabledFeatures: { ...((await getSettings()).enabledFeatures || {}), careTeam: true } },
+    });
+    const seated = await createPartner({ displayName: `${FIXTURE_TAG} Seated` });
+    const teamless = await createPartner({ displayName: `${FIXTURE_TAG} Teamless` });
+    const other = await createPartner({ displayName: `${FIXTURE_TAG} Other Team` });
+    const teammate = await createAdminUser({ cadence: null });
+    await prisma.careTeamMember.create({ data: { partnerId: other.id, userId: teammate.id } });
+    const member = await createAdminUser({ cadence: "biweekly", digestScope: "owned" });
+    await prisma.careTeamMember.create({ data: { partnerId: seated.id, userId: member.id } });
+    const missions = await createAdminUser({
+      cadence: "biweekly",
+      digestScope: "owned",
+      onMissionsTeam: true,
+    });
+    for (const [p, text] of [
+      [seated, "SEATED-NEED"],
+      [teamless, "TEAMLESS-NEED"],
+      [other, "OTHER-TEAM-NEED"],
+    ]) {
+      await createRow(p.id, "supportNeedCreated", { partnerName: p.displayName, description: text });
+    }
+    try {
+      await sendDigestTier("biweekly", await getSettings());
+      const bodyFor = (user) => postmarkMessages.find((m) => m.To === user.email)?.HtmlBody || "";
+      const memberBody = bodyFor(member);
+      assert.ok(memberBody.includes("SEATED-NEED"), "their own partner");
+      assert.ok(
+        !memberBody.includes("TEAMLESS-NEED"),
+        "a teamless partner is the missions team's, not theirs"
+      );
+      assert.ok(!memberBody.includes("OTHER-TEAM-NEED"));
+      const missionsBody = bodyFor(missions);
+      assert.ok(missionsBody.includes("TEAMLESS-NEED"), "the missions team looks after teamless partners");
+      assert.ok(!missionsBody.includes("SEATED-NEED"), "a partner with a team isn't the missions team's");
+      assert.ok(!missionsBody.includes("OTHER-TEAM-NEED"));
+    } finally {
+      await prisma.user.deleteMany({ where: { id: { in: [teammate.id, member.id, missions.id] } } });
+    }
+  });
+
+  test("a care team guest's digest holds only their own partner, whatever scope is stored", async () => {
+    await prisma.churchSettings.update({
+      where: { id: "singleton" },
+      data: { enabledFeatures: { ...((await getSettings()).enabledFeatures || {}), careTeam: true } },
+    });
+    const mine = await createPartner({ displayName: `${FIXTURE_TAG} Guest Own` });
+    const notMine = await createPartner({ displayName: `${FIXTURE_TAG} Guest Not Own` });
+    // "all" is stored on purpose: a guest's digest is forced to their own partners at send time.
+    const guest = await createAdminUser({ role: "guest", cadence: "biweekly", digestScope: "all" });
+    await prisma.careTeamMember.create({ data: { partnerId: mine.id, userId: guest.id } });
+    await createRow(mine.id, "supportNeedCreated", {
+      partnerName: mine.displayName,
+      description: "GUEST-OWN-NEED",
+    });
+    await createRow(notMine.id, "supportNeedCreated", {
+      partnerName: notMine.displayName,
+      description: "GUEST-NOT-OWN-NEED",
+    });
+    try {
+      await sendDigestTier("biweekly", await getSettings());
+      const body = postmarkMessages.find((m) => m.To === guest.email)?.HtmlBody || "";
+      assert.ok(body.includes("GUEST-OWN-NEED"));
+      assert.ok(!body.includes("GUEST-NOT-OWN-NEED"), "a guest never gets another partner's content");
+    } finally {
+      await prisma.user.delete({ where: { id: guest.id } });
     }
   });
 

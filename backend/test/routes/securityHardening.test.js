@@ -84,10 +84,9 @@ after(async () => {
   await stopServer();
 });
 
-describe("the email digests are never a guest's (#407)", () => {
-  test("a guest can't subscribe, and a full role still can", async () => {
+describe("the email digests are never a guest's, beyond their own partners (#407)", () => {
+  test("a guest with no seat can't subscribe; with a seat they get only their own partners; a full role can pick any scope", async () => {
     const guest = await makeUser("guest", { role: "guest" });
-    // A guest needs a way in: a care team seat on a partner.
     const features = (await prisma.churchSettings.findUnique({ where: { id: "singleton" } })).enabledFeatures;
     await prisma.churchSettings.update({
       where: { id: "singleton" },
@@ -96,28 +95,41 @@ describe("the email digests are never a guest's (#407)", () => {
     const partner = await prisma.partner.create({
       data: { kind: "missionary", displayName: "[route-test] hardening", sentByOurChurch: false },
     });
-    await prisma.careTeamMember.create({ data: { partnerId: partner.id, userId: guest.id } });
     try {
       const cookie = cookieOf(await login(guest.email));
-      const res = await as(cookie)("/api/auth/dispatch-by-email", {
+      // No seat yet: nothing to subscribe to (and the session itself is refused, with no reach).
+      const none = await as(cookie)("/api/auth/dispatch-by-email", {
         method: "PUT",
-        body: { cadence: "biweekly", allPartners: true },
+        body: { cadence: "biweekly", digestScope: "owned" },
       });
-      assert.equal(res.status, 403);
+      assert.ok([401, 403].includes(none.status), `a guest with no seat is refused (got ${none.status})`);
       assert.equal((await prisma.user.findUnique({ where: { id: guest.id } })).cadence, null);
+
+      await prisma.careTeamMember.create({ data: { partnerId: partner.id, userId: guest.id } });
+      const seated = cookieOf(await login(guest.email));
+      // Asking for "all" is stored as "owned": a guest's digest can never widen.
+      const res = await as(seated)("/api/auth/dispatch-by-email", {
+        method: "PUT",
+        body: { cadence: "biweekly", digestScope: "all" },
+      });
+      assert.equal(res.status, 200);
+      assert.equal(res.body.user.digestScope, "owned");
+      const row = await prisma.user.findUnique({ where: { id: guest.id } });
+      assert.equal(row.cadence, "biweekly");
+      assert.equal(row.digestScope, "owned");
     } finally {
       await prisma.partner.delete({ where: { id: partner.id } });
       await prisma.churchSettings.update({ where: { id: "singleton" }, data: { enabledFeatures: features } });
     }
     const ok = await editor("/api/auth/dispatch-by-email", {
       method: "PUT",
-      body: { cadence: "monthly", allPartners: true },
+      body: { cadence: "monthly", digestScope: "all" },
     });
     assert.equal(ok.status, 200);
     await editor("/api/auth/dispatch-by-email", { method: "PUT", body: { cadence: null } });
   });
 
-  test("the digest's recipients are the full roles only, and a stored guest cadence isn't counted", async () => {
+  test("the church-wide subscriber count is the full roles only, and a stored guest cadence isn't counted", async () => {
     assert.deepEqual(DIGEST_ROLES, ["admin", "editor", "viewer"]);
     const before = await prisma.user.count({
       where: { cadence: { not: null }, active: true, role: { in: DIGEST_ROLES } },

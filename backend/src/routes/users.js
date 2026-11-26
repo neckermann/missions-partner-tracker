@@ -5,6 +5,7 @@ const prisma = require("../prismaClient");
 const { requireRole } = require("../middleware/requireAuth");
 const { sendWelcomeEmail } = require("../utils/welcomeEmails");
 const { isFeatureEnabled } = require("../utils/features");
+const { subscribeToDefaultDigest } = require("../utils/digestDefaults");
 const { recordAudit } = require("../utils/auditLog");
 const {
   GRANT_SELECT,
@@ -360,6 +361,8 @@ router.post("/", async (req, res, next) => {
       await addCareSeats(tx, user, careInputs, auditCtx(req));
       return user;
     });
+    // Someone created on the missions team starts on the church's default digest (if it has one).
+    if (created.onMissionsTeam) await subscribeToDefaultDigest([created.id]);
 
     // A failed send (no APP_BASE_URL, provider error) must never lose the account just created: report
     // it and let the admin resend. Outbound email being disabled entirely is not a failure: as with
@@ -595,6 +598,7 @@ router.put("/:id", async (req, res, next) => {
         "lastName",
         "phone",
         "profile",
+        "onMissionsTeam",
         "role",
         "active",
         "authProvider",
@@ -631,6 +635,8 @@ router.put("/:id", async (req, res, next) => {
       }
       return user;
     });
+    // Newly put on the missions team: start them on the church's default digest (if it has one and they have none).
+    if (updated.onMissionsTeam && !existing.onMissionsTeam) await subscribeToDefaultDigest([updated.id]);
     const fresh = await prisma.user.findUnique({ where: { id: updated.id }, include: userInclude });
     res.json(withAccess(fresh, new Date(), careEnabled));
   } catch (err) {

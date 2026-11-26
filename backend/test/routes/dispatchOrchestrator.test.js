@@ -86,7 +86,7 @@ function createAdminUser(overrides) {
       email: `dispatch-orchestrator-test-${Math.random().toString(36).slice(2)}@example.test`,
       role: "editor",
       active: true,
-      allPartners: true,
+      digestScope: "all",
       ...overrides,
     },
   });

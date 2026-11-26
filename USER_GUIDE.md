@@ -1756,8 +1756,14 @@ there's also an **Email Dispatch** section here: a cadence (no
 automatic digest by default, or one of whichever of biweekly, monthly,
 and quarterly the admin has chosen to offer — see [Dispatch
 Settings](#dispatch-settings-admin-only)) and, once a cadence is
-picked, a choice between every partner or just the ones you check from
-a list. If you'd already picked a cadence before the admin turned it
+picked, a choice of what it covers: **the partners you look after** (the
+default: your care team seats, plus, if you're on the missions team, the
+partners that have no care team of their own), **all partners**, or **only
+the ones you check** from a list. A church member added as a **Guest** on a
+care team can have the digest too, but only for the partners they hold a seat
+on, with no other choice. When an admin adds you to the missions team and the
+church has set a default digest (Settings → Partner Care), you start on it
+automatically and can change or stop it here. If you'd already picked a cadence before the admin turned it
 off, it stays selectable for you specifically — you're never silently
 switched to something else. The digest itself
 still includes prayer requests, one-time needs, and newsletters, same

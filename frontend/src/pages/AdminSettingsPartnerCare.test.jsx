@@ -20,8 +20,14 @@ vi.mock("../api/client.js", () => ({
 }));
 let features = { careTeam: true, keyDates: true, outboundEmail: true };
 let groupName = "Missions team";
+const tiers = { biweekly: false, monthly: true, quarterly: true };
 vi.mock("../context/SettingsContext.jsx", () => ({
-  useSettings: () => ({ enabledFeatures: features, ownerGroupName: groupName, refreshSettings: vi.fn() }),
+  useSettings: () => ({
+    enabledFeatures: features,
+    ownerGroupName: groupName,
+    refreshSettings: vi.fn(),
+    cadenceTiersEnabled: tiers,
+  }),
 }));
 
 const candidates = [
@@ -68,7 +74,7 @@ describe("AdminSettingsPartnerCare", () => {
 
   it("picks members and a name, then saves both", async () => {
     renderIt();
-    fireEvent.click(await screen.findByRole("button", { name: /missions team/i }));
+    fireEvent.click((await screen.findAllByRole("button", { name: /missions team/i }))[0]);
     const dialog = await screen.findByRole("dialog");
     fireEvent.click(await within(dialog).findByLabelText(/Ann Lead/));
     fireEvent.change(within(dialog).getByLabelText(/What do you call this group/), {
@@ -82,7 +88,7 @@ describe("AdminSettingsPartnerCare", () => {
   it("clearing the name goes back to the default wording", async () => {
     fetchMissionsTeam.mockResolvedValue({ members: [{ id: "u1", name: "Ann Lead" }], candidates });
     renderIt();
-    fireEvent.click(await screen.findByRole("button", { name: /missions team/i }));
+    fireEvent.click((await screen.findAllByRole("button", { name: /missions team/i }))[0]);
     const dialog = await screen.findByRole("dialog");
     fireEvent.change(await within(dialog).findByLabelText(/What do you call this group/), {
       target: { value: "" },
@@ -119,5 +125,25 @@ describe("AdminSettingsPartnerCare", () => {
     await waitFor(() =>
       expect(updateChurchSettings).toHaveBeenCalledWith({ keyDateLeadDays: 14, contactStaleDays: 60 })
     );
+  });
+
+  it("sets the digest a new missions team member starts on, from the tiers the church offers", async () => {
+    renderIt();
+    fireEvent.click(await screen.findByRole("button", { name: /email digest for new members/i }));
+    const dialog = await screen.findByRole("dialog");
+    const select = within(dialog).getByLabelText(/Start new Missions team members on/);
+    expect(within(select).queryByRole("option", { name: "Biweekly" })).toBeNull();
+    fireEvent.change(select, { target: { value: "monthly" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    await waitFor(() =>
+      expect(updateChurchSettings).toHaveBeenCalledWith({ defaultDigestCadence: "monthly" })
+    );
+  });
+
+  it("hides the digest setting while email is off", async () => {
+    features = { careTeam: true, keyDates: true, outboundEmail: false };
+    renderIt();
+    await screen.findByText(/Nobody is on the Missions team/);
+    expect(screen.queryByText("Email digest")).toBeNull();
   });
 });
