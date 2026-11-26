@@ -3,7 +3,8 @@
 // immediate, cadence-bypassing send across all four channels for one row).
 // One-way dependency on groupmeChannel.js/emailDispatchDelivery.js, never the reverse.
 const prisma = require("../prismaClient");
-const { DIGEST_ROLES } = require("./digestRoles");
+const { DIGEST_RECIPIENT_ROLES } = require("./digestRoles");
+const { resolveDigestScope, digestCovers } = require("./digestScope");
 const { isFeatureEnabled } = require("./features");
 const { CHANNELS, isEligibleForChannel, needsReview, getChurchSettings } = require("./dispatchEligibility");
 const { postToGroupMe } = require("./groupmeChannel");
@@ -42,7 +43,7 @@ async function clearDispatchRecords() {
   const [adminTierCounts, publicTierCounts] = await Promise.all([
     prisma.user.groupBy({
       by: ["cadence"],
-      where: { cadence: { not: null }, active: true, role: { in: DIGEST_ROLES } },
+      where: { cadence: { not: null }, active: true, role: { in: DIGEST_RECIPIENT_ROLES } },
       _count: true,
     }),
     prisma.publicSubscriber.groupBy({ by: ["cadence"], where: { confirmedAt: { not: null } }, _count: true }),
@@ -106,6 +107,17 @@ async function clearDispatchRecords() {
 // partner now, cadence-blind, for the urgent-send confirm dialog. Approximate on
 // purpose (scoped by partner only). Both are 0 when outboundEmail is off, matching
 // sendUrgentDispatch(), so the numbers never overstate.
+// Active logins whose digest scope covers this partner (all, followed, or looked after; a guest only for
+// partners they hold a seat on).
+async function countAdminsCovering(partnerId) {
+  const users = await prisma.user.findMany({
+    where: { active: true, role: { in: DIGEST_RECIPIENT_ROLES } },
+    select: { id: true, role: true, digestScope: true, followedPartners: { select: { partnerId: true } } },
+  });
+  const covered = await Promise.all(users.map((u) => digestCovers(u, partnerId)));
+  return covered.filter(Boolean).length;
+}
+
 async function countUrgentRecipients(partnerId) {
   const settings = await getChurchSettings();
   if (!isFeatureEnabled(settings?.enabledFeatures, "outboundEmail")) {
@@ -113,9 +125,7 @@ async function countUrgentRecipients(partnerId) {
   }
   const publicDigestOn = isFeatureEnabled(settings?.enabledFeatures, "publicPrayerDigest");
   const [adminCount, publicCount] = await Promise.all([
-    prisma.user.count({
-      where: { active: true, OR: [{ allPartners: true }, { followedPartners: { some: { partnerId } } }] },
-    }),
+    countAdminsCovering(partnerId),
     publicDigestOn
       ? prisma.publicSubscriber.count({
           where: {
@@ -217,15 +227,16 @@ async function sendUrgentDispatch(row, { id: partnerId }) {
   if (emailOn) {
     [admins, publicSubscribers] = await Promise.all([
       prisma.user.findMany({
-        // Never a guest: an urgent send is the whole church's content.
-        where: { active: true, role: { in: DIGEST_ROLES } },
+        // A guest only through the partners they hold a seat on (digestScope is forced to "owned").
+        where: { active: true, role: { in: DIGEST_RECIPIENT_ROLES } },
         select: {
           id: true,
           email: true,
           firstName: true,
           lastName: true,
+          role: true,
           cadence: true,
-          allPartners: true,
+          digestScope: true,
           followedPartners: { select: { partnerId: true } },
         },
       }),
@@ -242,8 +253,11 @@ async function sendUrgentDispatch(row, { id: partnerId }) {
           })
         : [],
     ]);
+    const adminRecipients = await Promise.all(
+      admins.map(async (u) => normalizeRecipient(u, CHANNELS.EMAIL_ADMIN, await resolveDigestScope(u)))
+    );
     const recipients = [
-      ...admins.map((u) => normalizeRecipient(u, CHANNELS.EMAIL_ADMIN)),
+      ...adminRecipients,
       ...publicSubscribers.map((s) => normalizeRecipient(s, CHANNELS.EMAIL_PUBLIC)),
     ];
     const consideredIds = await sendToRecipients([row], partnerById, recipients, settings);

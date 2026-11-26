@@ -595,35 +595,42 @@ router.post("/mfa/disable", requireAuth, async (req, res, next) => {
 });
 
 // Self-service digest cadence + scope: a plain preference, so no password
-// confirmation. allPartners: true (or cadence: null) always clears any
+// confirmation. A scope other than "followed" (or cadence: null) always clears any
 // UserFollowedPartner rows rather than leaving them unread, so stale scope
-// data can't resurface when allPartners is toggled back to false.
+// data can't resurface when the scope is switched back to "followed".
 const digestSubscriptionSchema = z.object({
   cadence: z.enum(["biweekly", "monthly", "quarterly"]).nullable(),
-  allPartners: z.boolean().optional().default(true),
+  // "owned" = the partners you look after; "all"; "followed" = the partnerIds you pick. A guest is always "owned".
+  digestScope: z.enum(["owned", "all", "followed"]).optional().default("owned"),
   partnerIds: z.array(z.string()).optional().default([]),
 });
 router.put("/dispatch-by-email", requireAuth, async (req, res, next) => {
   try {
-    // The admin digest carries every partner's prayer requests, needs and
-    // amounts, which a guest must never receive. The UI hides this; the server refuses too.
-    if (req.user.role === "guest") {
+    // The church-wide digest carries every partner's prayer requests, needs and amounts, which a guest must never
+    // receive. A care team guest may subscribe only to the partners they hold a seat on (scope forced to "owned"
+    // below and again at send time); a guest with no seat has nothing to subscribe to.
+    if (req.user.role === "guest" && !(await isCareTeamEnabled())) {
       return res.status(403).json({ error: "Insufficient permissions" });
+    }
+    if (req.user.role === "guest") {
+      const seats = await prisma.careTeamMember.count({ where: { userId: req.user.id } });
+      if (seats === 0) return res.status(403).json({ error: "Insufficient permissions" });
     }
     const parsed = digestSubscriptionSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ error: parsed.error.issues[0]?.message || "Invalid request" });
     }
-    const { cadence, allPartners, partnerIds } = parsed.data;
+    const { cadence, partnerIds } = parsed.data;
+    const digestScope = req.user.role === "guest" ? "owned" : parsed.data.digestScope;
 
     // Unlike the public subscribe route (which silently drops invalid ids so an
     // anonymous caller learns nothing), this is authenticated, so a bad id is a
     // real 400. Only archived partners are excluded, not non-public ones.
     let validPartnerIds = [];
-    if (!cadence || allPartners) {
-      // Unsubscribing or following everyone: any partnerIds sent are ignored.
+    if (!cadence || digestScope !== "followed") {
+      // Unsubscribing, or a scope that isn't a hand-picked list: any partnerIds sent are ignored.
     } else if (partnerIds.length === 0) {
-      return res.status(400).json({ error: "Pick at least one partner, or choose all partners" });
+      return res.status(400).json({ error: "Pick at least one partner, or choose another scope" });
     } else {
       const found = await prisma.partner.findMany({
         where: { id: { in: partnerIds }, archived: false },
@@ -638,7 +645,7 @@ router.put("/dispatch-by-email", requireAuth, async (req, res, next) => {
     await prisma.$transaction([
       prisma.user.update({
         where: { id: req.user.id },
-        data: { cadence, allPartners },
+        data: { cadence, digestScope },
       }),
       prisma.userFollowedPartner.deleteMany({ where: { userId: req.user.id } }),
       ...(validPartnerIds.length
@@ -783,10 +790,10 @@ router.post("/logout", (req, res) => {
 });
 
 // Followed-partner ids come from a separate query, run only when
-// allPartners is false with a real subscription.
+// the scope is hand-picked partners with a real subscription.
 async function sanitizeUser(user) {
   let partnerIds = [];
-  if (user.cadence && !user.allPartners) {
+  if (user.cadence && user.digestScope === "followed") {
     const rows = await prisma.userFollowedPartner.findMany({
       where: { userId: user.id },
       select: { partnerId: true },
@@ -861,7 +868,7 @@ async function sanitizeUser(user) {
     authenticatorApp: Boolean(user.mfaEnabled && user.mfaSecret),
     passkeyCount: await prisma.userPasskey.count({ where: { userId: user.id } }),
     cadence: user.cadence,
-    allPartners: user.allPartners,
+    digestScope: user.role === "guest" ? "owned" : user.digestScope,
     followedPartnerIds: partnerIds,
     keyDateEmailOptOut: user.keyDateEmailOptOut === true,
     guestTrips,

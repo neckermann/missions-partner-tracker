@@ -1383,6 +1383,10 @@ model ChurchSettings {
   // membership is User.onMissionsTeam, and nothing in code depends on the name.
   ownerGroupName String?
 
+  // The email-digest tier (biweekly | monthly | quarterly) a person starts on when they are added to the missions
+  // team and have none yet, covering the partners they look after. Null = nobody is subscribed automatically.
+  defaultDigestCadence String?
+
   // Days ahead a key date is raised (bell and daily email agree), and days without a logged
   // contact before a partner is "quiet".
   keyDateLeadDays  Int @default(7)
@@ -1514,8 +1518,10 @@ model User {
   // picked. Set to null by the signed unsubscribe link in every digest footer, no login
   // required.
   cadence           String? // "biweekly" | "monthly" | "quarterly" | null
-  // false: only followedPartners; true: every partner this user's role can see.
-  allPartners       Boolean               @default(true)
+  // Which partners the digest covers: "owned" = the partners this person looks after (their care team seats, and
+  // for the missions team every partner with no team: utils/ownership.js), "all" = every partner this user's
+  // role can see, "followed" = only followedPartners. A guest is always "owned" whatever is stored.
+  digestScope       String                @default("all")
   followedPartners  UserFollowedPartner[]
   careTeamSeats     CareTeamMember[]
   contactsMade      ContactLog[]          @relation("ContactLogContactedBy")
@@ -1580,7 +1586,7 @@ model NotificationSeen {
   @@id([userId, category])
 }
 
-// A user's specific-partner digest scope; only used when User.allPartners is false. Same shape
+// A user's specific-partner digest scope; only used when User.digestScope is "followed". Same shape
 // as PublicSubscriberPartner.
 model UserFollowedPartner {
   userId    String
@@ -1795,7 +1801,7 @@ model PublicSubscriber {
   // Same cadence options as User.cadence.
   cadence String @default("biweekly") // "biweekly" | "monthly" | "quarterly"
 
-  // Same all-vs-specific shape as User.allPartners above.
+  // Same all-vs-specific shape as User.digestScope above.
   allPartners    Boolean                   @default(true)
   scopedPartners PublicSubscriberPartner[]
 

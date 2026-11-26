@@ -3,6 +3,7 @@ const { z } = require("zod");
 const prisma = require("../prismaClient");
 const { requireAuth, requireRole } = require("../middleware/requireAuth");
 const { recordAudit } = require("../utils/auditLog");
+const { subscribeToDefaultDigest } = require("../utils/digestDefaults");
 
 // The missions team: the group that looks after every partner with no care team of its own (see
 // utils/ownership.js). Always available, whatever features are on: a church that never uses Care teams still
@@ -53,6 +54,9 @@ router.put("/missions-team", requireRole("admin"), async (req, res, next) => {
       prisma.user.updateMany({ where: { id: { in: userIds } }, data: { onMissionsTeam: true } }),
     ]);
     const after = await prisma.user.findMany({ where: { onMissionsTeam: true }, select });
+    // Someone newly on the team starts on the church's default digest (if it has one and they have none).
+    const wasOn = new Set(before.map((u) => u.id));
+    await subscribeToDefaultDigest(after.filter((u) => !wasOn.has(u.id)).map((u) => u.id));
     const names = (list) => list.map(personLabel).sort();
     if (JSON.stringify(names(before)) !== JSON.stringify(names(after))) {
       await recordAudit(null, {

@@ -997,8 +997,9 @@ export async function updateMyProfile({ phone, profile }) {
   const { data } = await api.put("/auth/profile", { phone, profile });
   return data.user;
 }
-export async function updateNotifyByEmail({ cadence, allPartners, partnerIds }) {
-  const { data } = await api.put("/auth/dispatch-by-email", { cadence, allPartners, partnerIds });
+// digestScope: "owned" (the partners you look after), "all", or "followed" (the partnerIds you pick).
+export async function updateNotifyByEmail({ cadence, digestScope, partnerIds }) {
+  const { data } = await api.put("/auth/dispatch-by-email", { cadence, digestScope, partnerIds });
   return data.user;
 }
 

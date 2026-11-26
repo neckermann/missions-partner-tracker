@@ -13,10 +13,12 @@ import Field from "../components/admin/Field.jsx";
 // Church-wide partner care settings: who looks after partners that have no care team of their own (the
 // "missions team", named however this church says it), and the timings the care features share. Admin only.
 export default function AdminSettingsPartnerCare() {
-  const { enabledFeatures, ownerGroupName, refreshSettings } = useSettings();
+  const { enabledFeatures, ownerGroupName, refreshSettings, cadenceTiersEnabled } = useSettings();
   const [team, setTeam] = useState(undefined); // undefined = loading; { members, candidates }
   // How far ahead a key date is raised, and how long without contact makes a partner quiet.
   const [timings, setTimings] = useState(null); // { keyDateLeadDays, contactStaleDays }
+  // The email digest tier a person starts on when added to the missions team ("" = nobody is subscribed for them).
+  const [defaultDigest, setDefaultDigest] = useState(undefined);
   const [loadError, setLoadError] = useState("");
 
   const reload = () =>
@@ -26,10 +28,14 @@ export default function AdminSettingsPartnerCare() {
 
   const reloadTimings = () =>
     fetchChurchSettings()
-      .then((s) =>
-        setTimings({ keyDateLeadDays: s?.keyDateLeadDays ?? 7, contactStaleDays: s?.contactStaleDays ?? 90 })
-      )
-      .catch(() => setTimings({ keyDateLeadDays: 7, contactStaleDays: 90 }));
+      .then((s) => {
+        setTimings({ keyDateLeadDays: s?.keyDateLeadDays ?? 7, contactStaleDays: s?.contactStaleDays ?? 90 });
+        setDefaultDigest(s?.defaultDigestCadence || "");
+      })
+      .catch(() => {
+        setTimings({ keyDateLeadDays: 7, contactStaleDays: 90 });
+        setDefaultDigest("");
+      });
 
   useEffect(() => {
     reload();
@@ -123,6 +129,54 @@ export default function AdminSettingsPartnerCare() {
           )}
         />
       </div>
+
+      {enabledFeatures.outboundEmail && (
+        <div className="admin-section-group">
+          <h2 className="admin-group-heading">Email digest</h2>
+          <EditableSection
+            title="Email digest for new members"
+            canEdit
+            value={{ cadence: defaultDigest ?? "" }}
+            onSave={(draft) => updateChurchSettings({ defaultDigestCadence: draft.cadence || null })}
+            onSaved={reloadTimings}
+            view={() => (
+              <>
+                <Field
+                  label={`When someone joins the ${ownerGroupName}`}
+                  value={
+                    defaultDigest === undefined
+                      ? "Loading…"
+                      : defaultDigest
+                        ? `Start them on the ${defaultDigest} digest`
+                        : "Don't subscribe them automatically"
+                  }
+                  showEmpty
+                />
+                <p style={{ color: "var(--muted)", marginTop: "0.5rem" }}>
+                  A new member starts on this digest, covering the partners they look after (their care teams,
+                  and the {ownerGroupName}&apos;s partners). They can change or stop it under My account.
+                  People who already have a digest are never changed.
+                </p>
+              </>
+            )}
+            edit={(d, set) => (
+              <label>
+                Start new {ownerGroupName} members on
+                <select value={d.cadence} onChange={(e) => set("cadence", e.target.value)}>
+                  <option value="">No automatic digest</option>
+                  {["biweekly", "monthly", "quarterly"]
+                    .filter((tier) => cadenceTiersEnabled?.[tier] || tier === d.cadence)
+                    .map((tier) => (
+                      <option key={tier} value={tier}>
+                        {tier[0].toUpperCase() + tier.slice(1)}
+                      </option>
+                    ))}
+                </select>
+              </label>
+            )}
+          />
+        </div>
+      )}
 
       <div className="admin-section-group">
         <h2 className="admin-group-heading">Timing</h2>
