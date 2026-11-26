@@ -34,6 +34,8 @@ test.describe("Guest access", () => {
       contactLog: true,
       trips: true,
       prayerRequests: true,
+      // A held entry is only queued while some channel is on.
+      outboundEmail: true,
     });
     const tripSettings = await (await admin.request.get("/api/settings/trips")).json();
     previousBudgeting = tripSettings.enableTripBudgeting;
