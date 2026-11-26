@@ -105,12 +105,12 @@ A6's PR is #515.
 | 11 | B1 | merged to dev | #525 |
 | 12 | B9 | merged to dev | #526 |
 | 13 | B7 | merged | #527 |
-| 14 | B8 | PR open, CI running (formatting and e2e fixes pushed) | #528 |
-| 15 | B10 | PR open, CI running (hold only; no cap/expiry, owner said never delete mail) | #529 |
-| 16 | B12 | not started | |
-| 16a | B2 | not started | |
-| 16b | B11 | not started | |
-| 16c | B15 | not started | |
+| 14 | B8 | merged | #528 |
+| 15 | B10 | merged (hold only; no cap/expiry, owner said never delete mail) | #529 |
+| 16 | B12 | PR open, CI running | #530 |
+| 16a | B2 | PR open, CI running | #531 |
+| 16b | B11 | PR open, CI running | #532 |
+| 16c | B15 | PR open, CI running | #533 |
 | 16d | B6 part 2 | not started | |
 | 16e | B5 | not started | |
 | 16f | B6 part 3 | not started | |
@@ -140,3 +140,4 @@ A6's PR is #515.
 - 2026-11-26: item 12 (B9) merged as #526 (all four checks green). #527 (B7) had a changelog and `server.js` import conflict with it, resolved by keeping both sides; CI re-running. Item 14 (B8) started.
 - 2026-11-26: item 13 (B7) merged as #527 (all four checks green). Item 14 (B8) opened as #528: no record while no channel is on; unsent rows nothing applies to are dropped after 14 days; held and digest-waiting rows kept. Five existing route test files now switch a channel on in their setup. Local: 463 unit, 1067 route.
 - 2026-11-26: #528 (B8) first run failed lint (Prettier on three test files) and e2e (guest-access spec expected a queued dispatch with no channel on): both fixed and pushed. Item 15 (B10) opened as #529 after the owner said no inbound letter may ever be deleted: every inbound message is held in Unmatched Emails for review; the cap and expiry were removed. The skip-review setting is new item 20 in the schema batch. Local: 469 unit, 1068 route.
+- 2026-11-26: #528 (B8) and #529 (B10) merged (all four checks green). Items 16 (B12, #530: seed has no repo password, works on an empty database), 16a (B2, #531: email on but not set up acts as off + one notice), 16b (B11, #532: guest wording, Guest role not offered when unusable) and 16c (B15, #533: bell items for switched-off pages hidden, Enabled Features wording, Monthly Support menu entry) opened. Each merge ahead of another causes a CHANGELOG conflict in the others: bring dev in, keep both sides, wait for CI again.
