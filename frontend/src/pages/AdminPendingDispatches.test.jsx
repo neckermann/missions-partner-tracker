@@ -24,6 +24,8 @@ vi.mock("../hooks/useConfirmDialog.jsx", () => ({
   }),
 }));
 vi.mock("../hooks/useCurrentUser.js", () => ({ default: () => ({ canWrite: true }) }));
+let channels = { outboundEmail: true, groupme: false, whatsapp: false };
+vi.mock("../context/SettingsContext.jsx", () => ({ useSettings: () => ({ enabledFeatures: channels }) }));
 
 const blurb = (over) => ({
   id: "d1",
@@ -85,5 +87,40 @@ describe("AdminPendingDispatches -- why an item is held (#289)", () => {
   it("shows no review badge once an item has been reviewed", async () => {
     await renderWith([blurb({ reviewRequired: true, needsReview: false, dispatchReviewedAt: "2026-11-24" })]);
     expect(screen.queryByText(/Awaiting review/)).not.toBeInTheDocument();
+  });
+});
+
+describe("with no way to send (the email-off option for dispatches)", () => {
+  const ready = blurb({
+    id: "d2",
+    needsReview: false,
+    summary: "New prayer request",
+    bodyText: "Pray for the clinic.",
+  });
+  const held = blurb({ id: "d3", needsReview: true, bodyText: "Held text", partnerName: "Held Partner" });
+
+  it("offers to copy what is ready, leaving out what is held for review", async () => {
+    channels = { outboundEmail: false, groupme: false, whatsapp: false };
+    fetchPendingDispatches.mockResolvedValue([ready, held]);
+    render(<AdminPendingDispatches />);
+    expect(await screen.findByText("Nothing here goes out on its own")).toBeInTheDocument();
+    expect(screen.getByText(/Copy the 1 that is ready/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Copy the updates that are ready/ })).toBeInTheDocument();
+  });
+
+  it("says nothing when any channel is on", async () => {
+    channels = { outboundEmail: false, groupme: true, whatsapp: false };
+    fetchPendingDispatches.mockResolvedValue([ready]);
+    render(<AdminPendingDispatches />);
+    await screen.findByText("Pending Dispatches");
+    expect(screen.queryByText("Nothing here goes out on its own")).toBeNull();
+  });
+
+  it("says nothing when there is nothing ready (only held items)", async () => {
+    channels = { outboundEmail: false, groupme: false, whatsapp: false };
+    fetchPendingDispatches.mockResolvedValue([held]);
+    render(<AdminPendingDispatches />);
+    await screen.findByText("Pending Dispatches");
+    expect(screen.queryByText("Nothing here goes out on its own")).toBeNull();
   });
 });

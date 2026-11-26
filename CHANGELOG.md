@@ -19,6 +19,7 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 ### Added
 
 - **Every email now has an email-off option, and a test keeps it that way (#479).** Each place that sends email is listed with what you get when Email (Sending) is off (a link or text to copy, an in-app item, a download, or a control that says why it's disabled), and a test fails if someone adds an email without saying. **Enabled Features** shows a "Without email: ..." line on the features where it matters (trips, surveys, key dates, reports, the prayer digest and the dispatched content types). The rule is in CONTRIBUTING.md.
+- **Email-off options, continued (#479).** With Email (Sending), GroupMe and WhatsApp all off, **Pending Dispatches** says nothing goes out on its own and offers **Copy the updates that are ready** (what is waiting, grouped by partner, leaving out anything held for review). When email is off and you add or approve a trip participant, you are now handed their **support-raising page** link as well as their trip access link (the welcome email carries both).
 
 - **A key-date list you can copy when email is off.** With Key-date reminders on but Email (Sending) off, **My partners** shows what the daily email would have said (who, what, how soon) with **Copy this week's list**, so a church without email can pass the list on by text or note. It uses the same masking as the email. The first of the email-off options in #479.
 
