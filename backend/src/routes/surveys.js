@@ -1,4 +1,5 @@
 const express = require("express");
+const { isOutboundEmailReady } = require("../utils/emailReady");
 const { z } = require("zod");
 const prisma = require("../prismaClient");
 const { requireAuth, requireRole } = require("../middleware/requireAuth");
@@ -381,8 +382,11 @@ router.post("/:id/send", manage, async (req, res, next) => {
     if (!survey) return res.status(404).json({ error: "Not found" });
     if (survey.status !== "open") return res.status(400).json({ error: "Open the survey before sending it" });
     const settings = await prisma.churchSettings.findUnique({ where: { id: "singleton" } });
-    if (!isFeatureEnabled(settings?.enabledFeatures, "outboundEmail")) {
-      return res.status(400).json({ error: "Turn on Email (Sending) to send survey links" });
+    if (!isOutboundEmailReady(settings)) {
+      return res.status(400).json({
+        error:
+          "Email (Sending) isn't finished setting up, so survey links can't be emailed. Finish it in Settings, or copy the links yourself.",
+      });
     }
     if (!buildSurveyUrl("probe")) {
       return res.status(400).json({ error: "APP_BASE_URL isn't set, so a link can't be built" });
