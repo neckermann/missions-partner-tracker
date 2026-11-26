@@ -1347,7 +1347,7 @@ group with new and decided needs:
 
 ### Pending Dispatches
 
-The **Pending Dispatches** page (in the main menu, alongside
+The **Pending Dispatches** page (in the main menu, alongside If Email (Sending), GroupMe and WhatsApp are all off, nothing goes out on its own: the page offers **Copy the updates that are ready** (grouped by partner, leaving out anything still held for review) so you can share them yourself, then clear them.
 Unmatched Emails) is where every prayer request, one-time need, and
 newsletter queues before going out — the shared review-and-send queue
 behind both GroupMe dispatch above and email digests below. Only

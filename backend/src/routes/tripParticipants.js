@@ -27,6 +27,7 @@ const { generateShareToken, buildTripParticipantAccessUrl } = require("../utils/
 const {
   sendParticipantEmail,
   buildTeamWelcomeContent,
+  buildSupportRaisingUrl,
   buildTripDatesIcs,
   sendLateJoinerCatchUpEmails,
 } = require("../utils/tripEmails");
@@ -167,7 +168,11 @@ router.put(
           // Outbound email off: the only place a newly-approved participant would otherwise get their access
           // link automatically. Same manualUrl shape as /participants/:id/request-access-link below, for the
           // frontend's ManualSendNotice.
-          teamWelcomeEmail = { sent: false, manualUrl: buildTripParticipantAccessUrl(updated.participant) };
+          teamWelcomeEmail = {
+            sent: false,
+            manualUrl: buildTripParticipantAccessUrl(updated.participant),
+            manualSupportRaisingUrl: buildSupportRaisingUrl(updated.participant),
+          };
         }
       }
 
@@ -241,7 +246,11 @@ router.post(
         } else {
           // Outbound email off: the welcome email is where a newly added participant gets their access
           // link, so hand the admin the link to send themselves (same shape as approving an application).
-          teamWelcomeEmail = { sent: false, manualUrl: buildTripParticipantAccessUrl(participant) };
+          teamWelcomeEmail = {
+            sent: false,
+            manualUrl: buildTripParticipantAccessUrl(participant),
+            manualSupportRaisingUrl: buildSupportRaisingUrl(participant),
+          };
         }
       }
 
