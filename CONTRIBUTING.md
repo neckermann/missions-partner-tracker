@@ -240,7 +240,7 @@ Email (Sending) is optional, and a church should be able to run the app without 
 must say what the person gets when email is off, never silently do nothing. The options:
 
 - **handOver**: show the link or text to copy and pass on (`ManualSendNotice`, `CopyButton`).
-- **inApp**: it still appears somewhere the person already looks (the bell, My partners, Pending Dispatches).
+- **inApp**: it still appears somewhere the person already looks (the bell, My partners, Updates to share).
 - **download**: a file or printable view covers it.
 - **disabled**: the control is disabled or the route refused, and the reason says what to turn on.
 - **setup**: it only exists while email is being set up, so "off" can't happen.

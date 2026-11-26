@@ -569,7 +569,7 @@ MFA only — never the admin digest subscription.
 
 Everything else in the app — the Partner directory, every other trip,
 One-Time Needs, Monthly Support (amounts), Reports, Booklet, Inbound
-Email, Pending Dispatches, Settings, Users — is a flat 403. Enforced
+Email, Updates to share, Settings, Users — is a flat 403. Enforced
 server-side by two middleware in `requireAuth.js`:
 `requireTripScope(tripIdResolver)` (a no-op for every other role; 403s a
 `guest` whose request resolves to a trip they hold no active grant for —
@@ -661,7 +661,7 @@ one-time need, and they never see monthly funding):
 | "Partnering since" date (and the $0 entry archiving a partner writes)                         | Yes              | **Yes: shown and editable on their own partner** (decided in #410; the key-date "N years of our support" reaches them)                                                                                                                                                         | Never                         |
 | Newsletters & Docs: view, upload, edit, AI scan                                               | Yes              | Yes (scan only if the feature is on)                                                                                                                                                                                                                                           | View / download               |
 | Dispatches from the above                                                                     | Sent on schedule | **Saved at once, held for staff approval**                                                                                                                                                                                                                                     | n/a                           |
-| Approve in Pending Dispatches                                                                 | Yes              | No                                                                                                                                                                                                                                                                             | No                            |
+| Approve in Updates to share                                                                 | Yes              | No                                                                                                                                                                                                                                                                             | No                            |
 | Assign the care team                                                                          | Yes              | No (can view)                                                                                                                                                                                                                                                                  | No                            |
 | Trips of the partner                                                                          | Manage all       | **View only**                                                                                                                                                                                                                                                                  | Manage their granted trips    |
 | Trip participants' personal details (contact info, notes) on those trips                      | Yes              | **No** (#409): a seat sees the trip's name, type, status, dates and who is on the team, and nothing else: no contact details, dates of birth, applications, documents, contributions, budget, flights, requirements, meetings or private-link tokens (`utils/seatTripView.js`) | Yes, on their granted trips   |
@@ -683,7 +683,7 @@ member's prayer request, answer, need or uploaded newsletter. `needsReview()`
 treats it like a restricted partner's content, but for _any_ type:
 `isEligibleForChannel`'s Rule 1 blocks it on **every** channel (admin email,
 public email, GroupMe, WhatsApp, the urgent path) until an admin/editor reviews
-it in Pending Dispatches, whether or not the partner is restricted. Staff-made
+it in Updates to share, whether or not the partner is restricted. Staff-made
 records are unaffected; a restricted partner's staff-made newsletter stays
 exempt as before. (Before #289 the review hold applied _only_ to restricted
 partners; every other record sent on schedule with no approval.)
@@ -1182,7 +1182,7 @@ reviewedText }` straight into `createDispatchRecord`, writing `dispatchReviewedA
 `dispatchReviewedById`/`dispatchReviewedText` in the same create call — letting an
 admin/editor who just typed a restricted partner's text confirm it's
 safe to send immediately, instead of always needing a separate trip to
-the Pending Dispatches queue. The other divergence is WhatsApp
+the Updates to share queue. The other divergence is WhatsApp
 itself (6.2a) — not in the original three-channel design at all, added
 later as a sibling of GroupMe rather than a redesign of anything.
 Otherwise the as-shipped system matches the design doc's model, naming,

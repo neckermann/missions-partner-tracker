@@ -61,8 +61,8 @@ const prayerRequests = {
       type: "select",
       options: [
         { value: "all", label: "All" },
-        { value: "strategic", label: "Strategic" },
-        { value: "situational", label: "Situational" },
+        { value: "strategic", label: "Ministry" },
+        { value: "situational", label: "Everyday" },
       ],
     },
     { name: "urgentOnly", label: "Urgent only", type: "checkbox" },

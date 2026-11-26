@@ -133,7 +133,7 @@ router.put("/dispatches", requireRole("admin"), async (req, res, next) => {
     if (!pickFallbackCadence(afterState)) {
       return res
         .status(400)
-        .json({ error: "At least one cadence tier (biweekly, monthly, or quarterly) must stay enabled." });
+        .json({ error: "At least one option (biweekly, monthly, or quarterly) must stay on." });
     }
 
     const updated = await prisma.churchSettings.upsert({

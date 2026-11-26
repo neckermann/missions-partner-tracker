@@ -1161,8 +1161,8 @@ export default function AdminPartnerDetail() {
                     )}
                   </label>
                   {enabledFeatures.joshuaProject && (
-                    <label title="Looks up Joshua Project's country statistics for this field/region -- nothing else uses this field. Auto-fills from the country entered below, but Joshua Project uses the older FIPS codes, not ISO -- they disagree for some countries, so correct it here if the stats below look wrong.">
-                      Country Code (FIPS/ISO)
+                    <label title="Looks up Joshua Project's country statistics for this field/region -- nothing else uses this field. Auto-fills from the country entered below, but Joshua Project uses its own country codes, which differ from the usual ones for some countries, so correct it here if the stats below look wrong.">
+                      Country Code
                       <input
                         value={d.fipsCountryCode}
                         onChange={(e) => set("fipsCountryCode", e.target.value)}
@@ -1509,7 +1509,7 @@ export default function AdminPartnerDetail() {
               title="Prayer Requests"
               count={collections.prayerRequests.length}
               items={prayerRequestsLoadMore.visible.map((r) => ({
-                text: `${truncate(r.requestText, 60)} · ${r.category === "strategic" ? "Strategic" : "Situational"}`,
+                text: `${truncate(r.requestText, 60)} · ${r.category === "strategic" ? "Ministry" : "Everyday"}`,
                 onClick: () => openPrayerDetail(r),
               }))}
               hasMore={prayerRequestsLoadMore.hasMore}
@@ -1840,7 +1840,7 @@ export default function AdminPartnerDetail() {
           <Modal title="Prayer Request" onClose={closeModal}>
             <Field
               label="Category"
-              value={prayerDetail.form.category === "strategic" ? "Strategic" : "Situational"}
+              value={prayerDetail.form.category === "strategic" ? "Ministry" : "Everyday"}
             />
             <Field label="Date Received" value={formatDateLong(prayerDetail.form.dateReceived)} />
             <Field label="Prayer Request" value={prayerDetail.form.requestText} />

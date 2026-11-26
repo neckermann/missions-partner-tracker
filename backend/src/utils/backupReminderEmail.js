@@ -24,7 +24,7 @@ const PROVIDER_MESSAGES = {
     "You're on Supabase: confirm your plan's backup retention window covers how much data loss your church would tolerate.",
   rds: "You're on Amazon RDS: confirm automated backups and your retention window are enabled (RDS console, your instance, Maintenance & backups).",
   other:
-    "This app doesn't manage database backups itself: confirm your Postgres provider's backup and retention settings.",
+    "This app doesn't back itself up. Download a safety copy now, or ask whoever hosts it to confirm backups are on.",
 };
 
 function buildBackupReminderEmail({ user, settings, provider, appUrl }) {
