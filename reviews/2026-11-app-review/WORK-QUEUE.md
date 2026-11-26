@@ -112,13 +112,13 @@ A6's PR is #515.
 | 16b | B11 | merged | #532 |
 | 16c | B15 | merged | #533 |
 | 16d | B6 part 2 | merged (Render check recorded on #501) | #534 |
-| 16e | B5 | not started | |
+| 16e | B5 | merged | #540 |
 | 16f | B6 part 3 | DRAFT PR open, NOT to be merged without the owner (14 guard tests against the real database) | #539 |
 | 16g | C12 | merged | #535 |
 | 16h | C13 | merged | #536 |
 | 16i | C14 | merged | #537 |
 | 16j | C9a | merged (decline option and optional amount; the 'someone's on it / met' state is C9b in the schema batch) | #538 |
-| 16k | B14 | not started | |
+| 16k | B14 | PR open, CI running | #541 |
 | 17 | A10 | not started | |
 | 18 | B13 | not started | |
 | 19 | C9b | not started | |
@@ -144,3 +144,4 @@ A6's PR is #515.
 - 2026-11-26: #530 (B12), #532 (B11) and #531 (B2) merged (all four checks green on their final heads). #533 (B15) and #534 (B6 part 2: password re-check and optional passphrase on the backup download, restore command opens locked files, guide drops the unlisted-file-host advice) are open, CI running. Read-only Render check recorded on #501: production Postgres has point-in-time recovery from 2026-11-22 (a few days' window) and no logical exports on file. Owner reminder: the encrypted-backup passphrase is not recoverable by design.
 - 2026-11-26: #533 (B15) and #534 (B6 part 2) merged. #536 (C13: photos need a sign-in unless the partner is public and unrestricted; digests use a real photo only for public partners) merged; #535 (C12: AI scan staff-only plus a confirmation for a restricted partner) is green and waiting on a CHANGELOG merge; #537 (C14: link fields take only http/https) opened. A known test flake (a random share link beginning with '-' failing a \\w+ pattern in tripParticipants.test.js, about one run in 64) hit #535 once and was fixed in #536; its failed job was re-run once.
 - 2026-11-26: #535 (C12), #537 (C14) and #538 (C9a: Decline choice on Record Decision, optional requested amount stored as 0 and shown as 'No amount') merged. Item 16f (B6 part 3, restore from inside the app) opened as DRAFT #539 and is not merged: owner review required. Remaining Phase 1: B5 (#500 plain words), B14 (#509 docs pass). Then Phase 2 (schema batch, stop before merging): A10 (#496), B10b (#505 skip-review setting), B13 (#508), C9b (#511).
+- 2026-11-26: #540 (B5, plain words) merged (all four checks green, including e2e on the renamed labels). Item 16k (B14, docs pass) opened as #541 (docs, two code comments and one console message; screenshots and 'Last verified' dates left for the owner on purpose). Phase 1 is complete once #541 merges; #539 (in-app restore) stays a DRAFT awaiting the owner. Phase 2 (schema batch) not started: stop before merging anything there.
