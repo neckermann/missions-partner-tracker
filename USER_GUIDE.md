@@ -1636,12 +1636,14 @@ email arrives:
 
 - If the sender's address matches **exactly one** partner — either that
   organization's own Contact Email, or any household adult's email on a
-  missionary's record — it's filed automatically as a **Newsletter** on
-  that partner (title = the email's subject, the original `.eml` as the
-  file), and notifies the same way a manually-uploaded newsletter does
+  missionary's record — it waits in **Unmatched Emails** for a quick look
+  (a sender address can be forged, so nothing is filed or announced on its
+  own). An admin or editor assigns it to that partner as a **Newsletter**
+  (title = the email's subject, the original `.eml` as the file), and it
+  then notifies the same way a manually-uploaded newsletter does
   (GroupMe/email digest, if those are on; [AI Features](#ai-features-admin-only)
-  can scan it the same as any other newsletter). Nothing to do — it just
-  shows up on that partner's record.
+  can scan it the same as any other newsletter). Nothing in the queue is ever deleted
+  automatically; only an admin can discard a message.
 - If the sender's address matches **no partner, or more than one** (two
   partners happen to share a household-adult email, for instance),
   there's no safe guess to make — it lands in the **Unmatched Emails**

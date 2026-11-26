@@ -149,9 +149,14 @@ export default function AdminInboundEmailQueue() {
       label: "Why queued",
       render: (e) =>
         e.queueReason ? (
-          <span style={{ color: "var(--warn)" }} title={e.queueReason}>
-            ⚠ Sender not verified
-          </span>
+          // routes/inboundEmail.js words the reason; "didn't confirm" marks an unverified sender.
+          e.queueReason.includes("didn't confirm") ? (
+            <span style={{ color: "var(--warn)" }} title={e.queueReason}>
+              ⚠ Sender not verified
+            </span>
+          ) : (
+            <span title={e.queueReason}>Sender verified, held for a look</span>
+          )
         ) : (
           "—"
         ),
@@ -162,7 +167,7 @@ export default function AdminInboundEmailQueue() {
     <div className="admin-shell">
       <PageHeader
         title="Unmatched Emails"
-        description="Inbound emails that couldn't be filed automatically: no partner's contact or household adult matched the sender, more than one did, or the sender couldn't be verified (SPF/DKIM). Assign each to the right partner (or a trip participant, if trips are on) and pick what kind of file it is, or discard it."
+        description="Inbound emails waiting for a quick look before anything is filed or announced (a sender address can be forged). The Why queued column says whether a partner's contact or household adult matched the sender, more than one did, or the sender couldn't be verified (SPF/DKIM). Assign each to the right partner (or a trip participant, if trips are on) and pick what kind of file it is, or discard it."
       />
 
       {error && !assigning && (
