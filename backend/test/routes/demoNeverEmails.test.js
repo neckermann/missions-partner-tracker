@@ -1,8 +1,9 @@
 // A public demo sends no email: its accounts are fake, so scheduled mail would only bounce and spend the
 // email plan, and a hand-made send would go out from the real sender at a stranger's request. The marker
-// lives in the database (ChurchSettings.demoMode, written by the demo reset) because the worker that
-// runs the schedules does not get the web service's DEMO_RESET_TOKEN. With the flag set and no variable,
-// the schedules skip and so does every send. DEMO_TESTING_SITE (the owner's own test deployment) sends.
+// lives in the database (ChurchSettings.demoMode, written by the demo reset) as well as in the
+// DEMO_RESET_TOKEN variable, so it holds for any process that reads this database. With the flag set and
+// no variable, the schedules skip and so does every send. DEMO_TESTING_SITE (the owner's own test
+// deployment) sends.
 const { test, describe, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 require("dotenv").config({ quiet: true });
@@ -33,7 +34,7 @@ after(async () => {
 });
 
 describe("a demo sends no email, scheduled or by hand", () => {
-  test("the database flag marks a demo even where the variable is missing (the worker)", async () => {
+  test("the database flag marks a demo even where the variable is missing (the flag, with no variable)", async () => {
     await prisma.churchSettings.upsert({
       where: { id: "singleton" },
       update: { demoMode: false },
@@ -48,7 +49,7 @@ describe("a demo sends no email, scheduled or by hand", () => {
 
   // Reversed deliberately (A1, November 2026 review): a demo's published logins are open to anyone, so a
   // hand-made send (a welcome email, a trip invite) would go out from the real sender at a stranger's
-  // request. The database flag is enough to know it is a demo, so this holds in the worker too.
+  // request. The database flag is enough to know it is a demo, so this holds wherever the code runs.
   test("a send a person makes is not sent on a demo either", async () => {
     const result = await sendEmail({ to: "a@example.test", subject: "s", text: "t" });
     assert.equal(result.MessageID, "demo-not-sent", "a demo sends nothing real");

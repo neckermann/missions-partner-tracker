@@ -1,5 +1,5 @@
-// The daily key-date email: its own cron in the worker, like
-// tripReminderScheduler.js. One church-local tick a day (the worker applies
+// The daily key-date email: its own cron among the scheduled jobs, like
+// tripReminderScheduler.js. One church-local tick a day (the process applies
 // ChurchSettings.timezone to TZ); mail goes out ONLY on a day something is due and
 // not yet mailed to that person.
 //

@@ -1,5 +1,5 @@
 // The partner care posts for the church's chat (GroupMe / WhatsApp): a coming key date, a partner nobody has
-// heard from, and news waiting to be passed on. A daily run (its own cron in the worker) records each as a
+// heard from, and news waiting to be passed on. A daily run (its own cron among the scheduled jobs) records each as a
 // DispatchRecord, and the chat passes post it at the shared chat hour like a prayer request or a need.
 //
 // Opt-in per type (ChurchSettings.chatDispatchKeyDates / QuietPartners / UpdatesToPass, all off by default),

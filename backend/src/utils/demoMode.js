@@ -1,15 +1,15 @@
 // What makes a deployment a public demo, and what a demo never does. DEMO_RESET_TOKEN
 // is never set on a real deployment (publicSettings.js and server.js key off it too).
 
-// True on a public demo deployment. Only the web service has the variable; use isDemoInstance()
-// anywhere that can run in the separate worker process (the schedules).
+// True on a public demo deployment (the environment variable, which the web process, and so the scheduled
+// jobs that run inside it, has). isDemoInstance() also recognises a demo by its database.
 function isDemoDeployment() {
   return Boolean(process.env.DEMO_RESET_TOKEN);
 }
 
 // True when this database is a public demo: the variable above, or the `demoMode` flag the demo
-// reset writes to the settings row. The worker runs the schedules and does not get the variable,
-// so the flag is what stops its schedules emailing a demo's fake accounts and spending the email plan.
+// reset writes to the settings row. Scheduled sends check this, so a schedule never emails a demo's fake
+// accounts or spends the email plan, even against a database the variable does not describe.
 // Only scheduled sends are skipped: an email a person adds or clicks to send goes out as anywhere else.
 // Read at most once a minute.
 let cachedDemoMode = { at: 0, value: false };
@@ -59,14 +59,14 @@ function isTestingSite() {
 
 // A public demo that anyone can sign in to: it must never send anything that leaves the app, spend the
 // owner's money, or let a visitor change the shared logins or integration settings. Read from the
-// environment at call time (the web service has it; see isDemoInstance for the worker's schedules).
+// environment at call time.
 function isGuardedDemo() {
   return isDemoDeployment() && !isTestingSite();
 }
 
-// The same question for code that can run in the worker, which does not get DEMO_RESET_TOKEN: a demo is
-// also recognised by the `demoMode` flag the reset writes. DEMO_TESTING_SITE must be set on the worker
-// too, on the owner's test deployment, or its scheduled sends are held back as on any demo.
+// The same question for the senders, which also recognises a demo by the `demoMode` flag the reset writes,
+// so it holds for any process that reads this database. DEMO_TESTING_SITE (the owner's own test
+// deployment) still turns it off.
 async function isGuardedDemoInstance() {
   return !isTestingSite() && (await isDemoInstance());
 }
