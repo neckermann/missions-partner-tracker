@@ -13,7 +13,12 @@ const { makeExtResolver, uploadFilteredBy } = require("../utils/upload");
 // General/logo settings. GroupMe, WhatsApp, Email, Trips and Dispatches settings live in sibling
 // settings*.js files mounted at the same /api/settings prefix from server.js.
 const { loadChurchLists } = require("../utils/tripTemplates");
-const { KEY_DATE_LEAD_RANGE, CONTACT_STALE_RANGE } = require("../utils/careSettings");
+const {
+  KEY_DATE_LEAD_RANGE,
+  CONTACT_STALE_RANGE,
+  ADVANCE_DAYS_MAX,
+  ADVANCE_DAYS_COUNT,
+} = require("../utils/careSettings");
 const router = express.Router();
 router.use(requireAuth);
 
@@ -89,6 +94,8 @@ const settingsSchema = z.object({
   websiteLink: z.string().optional().nullable(),
   partnerTermSingular: z.string().optional().nullable(),
   partnerTermPlural: z.string().optional().nullable(),
+  ownerGroupName: z.string().trim().max(60).optional().nullable(),
+  defaultDigestCadence: z.enum(["biweekly", "monthly", "quarterly"]).optional().nullable(),
   usePartnerTermInAdmin: z.boolean().optional(),
   publicTagline: z.string().optional().nullable(),
   aboutText: z.string().optional().nullable(),
@@ -113,6 +120,11 @@ const settingsSchema = z.object({
   // How far ahead a key date is raised, and how long without a logged contact makes a partner
   // "quiet" (#365); see utils/careSettings.js for the bounds.
   keyDateLeadDays: z.number().int().min(KEY_DATE_LEAD_RANGE.min).max(KEY_DATE_LEAD_RANGE.max).optional(),
+  // Earlier heads-ups (days before a key date) that ride in the email digest, e.g. [90, 30].
+  keyDateAdvanceDays: z
+    .array(z.number().int().min(2).max(ADVANCE_DAYS_MAX))
+    .max(ADVANCE_DAYS_COUNT)
+    .optional(),
   contactStaleDays: z.number().int().min(CONTACT_STALE_RANGE.min).max(CONTACT_STALE_RANGE.max).optional(),
   // This church's IANA timezone (see schema.prisma). Validated against Intl.supportedValuesOf(
   // "timeZone"), as AdminSettingsAbout.jsx's <select>, since a typo'd zone would silently fall back
@@ -141,6 +153,8 @@ router.get("/", async (req, res, next) => {
           publicTagline: true,
           partnerTermSingular: true,
           partnerTermPlural: true,
+          ownerGroupName: true,
+          defaultDigestCadence: true,
           usePartnerTermInAdmin: true,
           addressLine1: true,
           addressLine2: true,
@@ -166,6 +180,7 @@ router.get("/", async (req, res, next) => {
           requirePasswordless: true,
           allowPasskeySignIn: true,
           keyDateLeadDays: true,
+          keyDateAdvanceDays: true,
           contactStaleDays: true,
           extractionModel: true,
           allowRestrictedPartnerDispatch: true,
@@ -192,6 +207,9 @@ router.get("/", async (req, res, next) => {
           chatDispatchPrayerRequests: true,
           chatDispatchOneTimeNeeds: true,
           chatDispatchNewsletters: true,
+          chatDispatchKeyDates: true,
+          chatDispatchQuietPartners: true,
+          chatDispatchUpdatesToPass: true,
           createdAt: true,
           updatedAt: true,
         },
@@ -208,6 +226,9 @@ router.get("/", async (req, res, next) => {
       defaultEnabled: FEATURES[key].defaultEnabled,
       group: FEATURES[key].group,
       section: FEATURES[key].section,
+      requires: FEATURES[key].requires || [],
+      setupNeeds: FEATURES[key].setupNeeds || [],
+      withoutEmail: FEATURES[key].withoutEmail || null,
     }));
     res.json({
       ...shapeSettings(settings),

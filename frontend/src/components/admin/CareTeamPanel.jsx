@@ -1,11 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import {
-  fetchCareTeam,
-  setCareTeam,
-  fetchCareTeamCandidates,
-  fetchDefaultCareLead,
-} from "../../api/client.js";
+import { fetchCareTeam, setCareTeam, fetchCareTeamCandidates, fetchMissionsTeam } from "../../api/client.js";
 import { useSettings } from "../../context/SettingsContext.jsx";
 import QuickActionModal from "../shared/QuickActionModal.jsx";
 import { onClickUnlessSelecting } from "../../utils/clickableRow.js";
@@ -32,21 +27,29 @@ export function memberName(m) {
   return [m.firstName, m.lastName].filter(Boolean).join(" ") || m.email || "Someone";
 }
 
+// Who looks after a partner with no care team: the church's missions team (its name is church wording).
+function looksAfterNote(canEdit, members, groupName) {
+  if (!canEdit || members === null) return `The ${groupName} looks after this partner until a team is set.`;
+  return members.length > 0
+    ? `The ${groupName} (${members.map((m) => m.name).join(", ")}) looks after this partner until a team is set.`
+    : `Nobody is on the ${groupName} yet, so nobody is looking after this partner until a team is set.`;
+}
+
 export default function CareTeamPanel({ partnerId, canEdit, canInviteGuest = false, compact = false }) {
   const [team, setTeam] = useState(null);
   const [failed, setFailed] = useState(false);
   const [editing, setEditing] = useState(false);
-  // With nobody assigned, key-date reminders go to the default lead: tell staff (the endpoint is
+  // With nobody assigned, the missions team looks after the partner: tell staff who (the endpoint is
   // admin/editor only, so it is skipped for everyone else).
-  const { enabledFeatures } = useSettings();
-  const [defaultLead, setDefaultLead] = useState(null);
+  const { ownerGroupName } = useSettings();
+  const [missionsTeam, setMissionsTeam] = useState(null);
   const teamIsEmpty = !!team && !team.lead && team.members.length === 0;
   useEffect(() => {
-    if (!canEdit || !enabledFeatures?.keyDates || !teamIsEmpty) return;
-    fetchDefaultCareLead()
-      .then(setDefaultLead)
-      .catch(() => setDefaultLead(null));
-  }, [canEdit, enabledFeatures?.keyDates, teamIsEmpty]);
+    if (!canEdit || !teamIsEmpty) return;
+    fetchMissionsTeam()
+      .then((t) => setMissionsTeam(t.members))
+      .catch(() => setMissionsTeam(null));
+  }, [canEdit, teamIsEmpty]);
 
   const reload = useCallback(
     () =>
@@ -109,13 +112,9 @@ export default function CareTeamPanel({ partnerId, canEdit, canInviteGuest = fal
             )}
           </div>
         </div>
-        {team && people.length === 0 && enabledFeatures?.keyDates && (
+        {team && people.length === 0 && (
           <div style={{ fontSize: "0.85rem", color: "var(--muted)", marginTop: "0.2rem" }}>
-            {!canEdit
-              ? "Key-date reminders go to the church's default lead until a team is set."
-              : defaultLead
-                ? `Key-date reminders go to the default lead, ${defaultLead.name}, until a team is set.`
-                : "Key-date reminders have nobody to go to until a team (or a default lead) is set."}
+            {looksAfterNote(canEdit, missionsTeam, ownerGroupName)}
           </div>
         )}
         {editing && (
@@ -160,15 +159,8 @@ export default function CareTeamPanel({ partnerId, canEdit, canInviteGuest = fal
       {failed && <p style={{ color: "var(--danger)" }}>Couldn't load the care team.</p>}
       {team && !team.lead && team.members.length === 0 && (
         <p style={{ margin: "0.5rem 0 0", color: "var(--muted)" }}>
-          Nobody is assigned to keep in touch with this partner yet.
-          {canEdit && enabledFeatures?.keyDates && (
-            <>
-              {" "}
-              {defaultLead
-                ? `Key-date reminders go to the default lead, ${defaultLead.name}, until a team is set.`
-                : "Key-date reminders have nobody to go to until a team (or a default lead) is set."}
-            </>
-          )}
+          Nobody is assigned to keep in touch with this partner yet.{" "}
+          {looksAfterNote(canEdit, missionsTeam, ownerGroupName)}
         </p>
       )}
       {team && (team.lead || team.members.length > 0) && (

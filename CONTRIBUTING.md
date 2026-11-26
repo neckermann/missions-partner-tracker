@@ -234,6 +234,21 @@ check that:
 and fails on sideways scrolling or anything off the edge; add a new page to
 it when you add one.
 
+## Email paths need an email-off option
+
+Email (Sending) is optional, and a church should be able to run the app without it. Any code that sends an email
+must say what the person gets when email is off, never silently do nothing. The options:
+
+- **handOver**: show the link or text to copy and pass on (`ManualSendNotice`, `CopyButton`).
+- **inApp**: it still appears somewhere the person already looks (the bell, My partners, Pending Dispatches).
+- **download**: a file or printable view covers it.
+- **disabled**: the control is disabled or the route refused, and the reason says what to turn on.
+- **setup**: it only exists while email is being set up, so "off" can't happen.
+
+Register the file in `backend/src/utils/emailSenders.js` with its option and a one-line note. `test/emailSenders.test.js`
+fails when a file that requires `utils/email` isn't listed there. If a feature's emails matter to people, add a
+`withoutEmail` line to its entry in `backend/src/utils/features.js`; Enabled Features shows it ("Without email: ...").
+
 ## Extending the data model
 
 The Prisma schema (`backend/prisma/schema.prisma`) covers missionaries,

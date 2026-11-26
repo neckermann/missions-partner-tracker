@@ -31,6 +31,7 @@ const emptyForm = {
   lastName: "",
   phone: "",
   profile: "",
+  onMissionsTeam: false,
   role: "editor",
   authProvider: "local",
   active: true,
@@ -66,7 +67,7 @@ export default function AdminUsers() {
   const [currentUser, setCurrentUser] = useState(null);
   const [trips, setTrips] = useState([]);
   const [partners, setPartners] = useState([]);
-  const { enabledFeatures } = useSettings();
+  const { enabledFeatures, ownerGroupName } = useSettings();
   const careEnabled = !!enabledFeatures?.careTeam;
   const [error, setError] = useState("");
   const [editingUser, setEditingUser] = useState(null); // { id, form } for edit
@@ -580,6 +581,19 @@ export default function AdminUsers() {
                   onChange={(e) => updateForm("profile", e.target.value)}
                 />
               </label>
+
+              {editingUser.form.role !== "guest" && (
+                <div className="admin-checkbox-row" style={{ marginTop: "1rem" }}>
+                  <label className="checkbox-option">
+                    <input
+                      type="checkbox"
+                      checked={!!editingUser.form.onMissionsTeam}
+                      onChange={(e) => updateForm("onMissionsTeam", e.target.checked)}
+                    />
+                    On the {ownerGroupName} (looks after partners that have no care team)
+                  </label>
+                </div>
+              )}
 
               {editingUser.form.role === "guest" && (
                 <div style={{ marginTop: "1rem" }}>

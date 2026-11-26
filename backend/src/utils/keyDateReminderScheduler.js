@@ -6,7 +6,7 @@
 // Idempotent through KeyDateReminder: one row per (person, partner, kind, subject,
 // occurrence date), written after the send, so a re-run never double-mails, next
 // year's is a new row, and a failed send leaves no row so tomorrow retries while
-// the date is in the window. Needs keyDates + careTeam + outboundEmail.
+// the date is in the window. Needs keyDates + outboundEmail.
 
 const cron = require("node-cron");
 const prisma = require("../prismaClient");
@@ -16,8 +16,9 @@ const { appBaseUrl } = require("./dispatchBlurbs");
 const { loadOpenKeyDates } = require("./keyDateQueries");
 const { buildKeyDateEmail } = require("./keyDateReminderEmail");
 const { isDemoInstance } = require("./demoMode");
+const { digestComesBefore } = require("./digestSchedule");
 
-const rowKey = (userId, i) => `${userId}|${i.partnerId}|${i.kind}|${i.subjectId}|${i.date}`;
+const rowKey = (userId, i) => `${userId}|${i.partnerId}|${i.kind}|${i.subjectId}|${i.date}|${i.tier ?? 0}`;
 
 // `send` and `today` are injectable so the run is testable without Postmark.
 async function checkAndSendKeyDateReminders({ today = new Date(), send = sendEmail } = {}) {
@@ -27,11 +28,7 @@ async function checkAndSendKeyDateReminders({ today = new Date(), send = sendEma
   if (await isDemoInstance()) return { sent: 0, recipients: 0 };
   const settings = await prisma.churchSettings.findUnique({ where: { id: "singleton" } });
   const features = settings?.enabledFeatures;
-  if (
-    !isFeatureEnabled(features, "keyDates") ||
-    !isFeatureEnabled(features, "careTeam") ||
-    !isFeatureEnabled(features, "outboundEmail")
-  ) {
+  if (!isFeatureEnabled(features, "keyDates") || !isFeatureEnabled(features, "outboundEmail")) {
     return { sent: 0, recipients: 0 };
   }
 
@@ -46,14 +43,14 @@ async function checkAndSendKeyDateReminders({ today = new Date(), send = sendEma
   // so turning it back on lets what is still due go out.
   const users = await prisma.user.findMany({
     where: { id: { in: [...byUser.keys()] }, active: true, keyDateEmailOptOut: false },
-    select: { id: true, email: true, firstName: true },
+    select: { id: true, email: true, firstName: true, cadence: true },
   });
   const done = await prisma.keyDateReminder.findMany({
     where: {
       userId: { in: users.map((u) => u.id) },
       partnerId: { in: [...new Set(open.map((i) => i.partnerId))] },
     },
-    select: { userId: true, partnerId: true, kind: true, subjectId: true, occurrenceDate: true },
+    select: { userId: true, partnerId: true, kind: true, subjectId: true, occurrenceDate: true, tier: true },
   });
   const alreadySent = new Set(
     done.map((r) =>
@@ -62,13 +59,19 @@ async function checkAndSendKeyDateReminders({ today = new Date(), send = sendEma
         kind: r.kind,
         subjectId: r.subjectId,
         date: r.occurrenceDate.toISOString().slice(0, 10),
+        tier: r.tier,
       })
     )
   );
 
   let sent = 0;
   for (const user of users) {
-    const fresh = byUser.get(user.id).filter((i) => !alreadySent.has(rowKey(user.id, i)));
+    // Someone whose digest goes out on or before the date gets it there instead (one email, not two). The digest
+    // lists these final-window dates too (emailDispatchDelivery.js), so nothing is lost.
+    const fresh = byUser
+      .get(user.id)
+      .filter((i) => !alreadySent.has(rowKey(user.id, i)))
+      .filter((i) => !digestComesBefore(user.cadence, settings, i.date, today));
     if (fresh.length === 0) continue;
     try {
       const message = buildKeyDateEmail({ user, items: fresh, settings, appUrl: appBaseUrl() });
@@ -80,6 +83,7 @@ async function checkAndSendKeyDateReminders({ today = new Date(), send = sendEma
           kind: i.kind,
           subjectId: i.subjectId,
           occurrenceDate: new Date(`${i.date}T00:00:00Z`),
+          tier: 0,
         })),
         skipDuplicates: true,
       });

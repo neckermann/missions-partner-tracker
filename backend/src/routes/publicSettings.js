@@ -25,6 +25,8 @@ router.get("/", async (req, res, next) => {
       partnerTermSingular: settings?.partnerTermSingular || "Missionary",
       partnerTermPlural: settings?.partnerTermPlural || "Missionaries",
       usePartnerTermInAdmin: settings?.usePartnerTermInAdmin || false,
+      // What this church calls the group that looks after partners with no care team ("Missions team").
+      ownerGroupName: settings?.ownerGroupName || "Missions team",
       publicTagline: settings?.publicTagline || null,
       aboutText: settings?.aboutText || null,
       // The email-digest cadence tiers an admin offers (#209). Public so the logged-out Subscribe page

@@ -1,5 +1,5 @@
 // Key-date reminders: the bell category, who a reminder goes to (the whole care team, else the
-// default lead), what clears one, the feature gates, and the default-lead endpoints. The daily
+// missions team), what clears one, the feature gates, and the missions-team endpoints. The daily
 // email is keyDateEmail.test.js.
 const { test, describe, before, after } = require("node:test");
 const assert = require("node:assert/strict");
@@ -21,7 +21,7 @@ let editor;
 let viewer;
 let editorUser;
 let originalEnabledFeatures;
-let originalDefaultLead;
+let editorWasOnMissionsTeam;
 const extraUsers = [];
 
 async function setFeatures(patch) {
@@ -85,12 +85,13 @@ before(async () => {
   await removeFixturePartners();
   const settings = await prisma.churchSettings.findUnique({
     where: { id: "singleton" },
-    select: { enabledFeatures: true, defaultCareLeadUserId: true },
+    select: { enabledFeatures: true },
   });
   originalEnabledFeatures = settings?.enabledFeatures ?? {};
-  originalDefaultLead = settings?.defaultCareLeadUserId ?? null;
+  editorWasOnMissionsTeam = editorUser.onMissionsTeam;
   await setFeatures({ keyDates: true, careTeam: true, contactLog: true });
-  await prisma.churchSettings.update({ where: { id: "singleton" }, data: { defaultCareLeadUserId: null } });
+  // Nobody is on the missions team unless a test puts them there.
+  await prisma.user.updateMany({ where: { onMissionsTeam: true }, data: { onMissionsTeam: false } });
 });
 
 after(async () => {
@@ -99,7 +100,11 @@ after(async () => {
   await removeTestUsers();
   await prisma.churchSettings.update({
     where: { id: "singleton" },
-    data: { enabledFeatures: originalEnabledFeatures, defaultCareLeadUserId: originalDefaultLead },
+    data: { enabledFeatures: originalEnabledFeatures },
+  });
+  await prisma.user.updateMany({
+    where: { email: TEST_USERS.editor.email },
+    data: { onMissionsTeam: editorWasOnMissionsTeam === true },
   });
   await stopServer();
 });
@@ -126,7 +131,7 @@ describe("key dates: who is told", () => {
     assert.equal(
       (await category(viewer)).count,
       0,
-      "a login with no seat and no default-lead role sees none"
+      "a login with no seat and not on the missions team sees none"
     );
   });
 
@@ -195,40 +200,54 @@ describe("key dates: who is told", () => {
   });
 });
 
-describe("key dates: the default lead", () => {
-  test("only admins set it, admin/editor read it, and it needs an active login", async () => {
+describe("key dates: the missions team", () => {
+  test("only admins set it, admin/editor read it, and it holds only active, non-guest logins", async () => {
     assert.equal(
-      (await editor("/api/care-team/default-lead", { method: "PUT", body: { userId: editorUser.id } }))
+      (await editor("/api/partner-care/missions-team", { method: "PUT", body: { userIds: [editorUser.id] } }))
         .status,
       403
     );
-    assert.equal((await viewer("/api/care-team/default-lead")).status, 403);
-    assert.deepEqual((await editor("/api/care-team/default-lead")).body, { defaultLead: null });
+    assert.equal((await viewer("/api/partner-care/missions-team")).status, 403);
+    assert.deepEqual((await editor("/api/partner-care/missions-team")).body.members, []);
 
-    const gone = await makeGuest("inactive-lead");
+    const gone = await makeGuest("inactive-member");
     await prisma.user.update({ where: { id: gone.user.id }, data: { active: false } });
     assert.equal(
-      (await admin("/api/care-team/default-lead", { method: "PUT", body: { userId: gone.user.id } })).status,
-      400
+      (await admin("/api/partner-care/missions-team", { method: "PUT", body: { userIds: [gone.user.id] } }))
+        .status,
+      400,
+      "an inactive login (and a guest) can't be on it"
     );
 
-    const set = await admin("/api/care-team/default-lead", {
+    const set = await admin("/api/partner-care/missions-team", {
       method: "PUT",
-      body: { userId: editorUser.id },
+      body: { userIds: [editorUser.id] },
     });
     assert.equal(set.status, 200);
-    assert.equal(set.body.defaultLead.userId, editorUser.id);
-    assert.equal((await editor("/api/care-team/default-lead")).body.defaultLead.userId, editorUser.id);
+    assert.deepEqual(
+      set.body.members.map((m) => m.id),
+      [editorUser.id]
+    );
+    const read = await editor("/api/partner-care/missions-team");
+    assert.deepEqual(
+      read.body.members.map((m) => m.id),
+      [editorUser.id]
+    );
+    assert.ok(read.body.candidates.every((c) => c.role !== "guest"));
 
-    const cleared = await admin("/api/care-team/default-lead", { method: "PUT", body: { userId: null } });
-    assert.deepEqual(cleared.body, { defaultLead: null });
+    const cleared = await admin("/api/partner-care/missions-team", { method: "PUT", body: { userIds: [] } });
+    assert.deepEqual(cleared.body.members, []);
   });
 
-  test("a partner with no care team goes to the default lead; once it has one, only to the team", async () => {
+  test("a partner with no care team goes to the missions team; once it has one, only to the team", async () => {
     // Seeded partners have random birthdays, so some may be in the window and
     // team-less already: measure against a baseline, not against zero.
-    assert.equal((await category(editor)).count, 0, "nobody is on the hook until a default lead is set");
-    await admin("/api/care-team/default-lead", { method: "PUT", body: { userId: editorUser.id } });
+    assert.equal(
+      (await category(editor)).count,
+      0,
+      "nobody is on the hook until someone is on the missions team"
+    );
+    await admin("/api/partner-care/missions-team", { method: "PUT", body: { userIds: [editorUser.id] } });
     try {
       const baseline = (await category(editor)).count;
       const partner = await newPartner("fallback");
@@ -236,7 +255,7 @@ describe("key dates: the default lead", () => {
       assert.equal(
         (await category(editor)).count,
         baseline + 1,
-        "the new team-less partner is the default lead's"
+        "the new team-less partner is the missions team's"
       );
 
       const member = await makeGuest("now-covered");
@@ -244,15 +263,53 @@ describe("key dates: the default lead", () => {
       assert.equal((await category(editor)).count, baseline, "the team now has it, not the fallback");
       assert.equal((await category(await member.login())).count, 1);
     } finally {
-      await admin("/api/care-team/default-lead", { method: "PUT", body: { userId: null } });
+      await admin("/api/partner-care/missions-team", { method: "PUT", body: { userIds: [] } });
     }
   });
 
-  test("deleting the default lead's login clears the setting", async () => {
-    const lead = await makeGuest("doomed-lead");
-    await admin("/api/care-team/default-lead", { method: "PUT", body: { userId: lead.user.id } });
-    await prisma.user.delete({ where: { id: lead.user.id } });
-    assert.deepEqual((await admin("/api/care-team/default-lead")).body, { defaultLead: null });
+  test("a user's own flag works too, and a guest is never on the team", async () => {
+    const guest = await makeGuest("flagged");
+    const res = await admin(`/api/users/${guest.user.id}`, { method: "PUT", body: { onMissionsTeam: true } });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.onMissionsTeam, false, "a guest can't be on the missions team");
+    const ed = await admin(`/api/users/${editorUser.id}`, { method: "PUT", body: { onMissionsTeam: true } });
+    assert.equal(ed.body.onMissionsTeam, true);
+    await admin(`/api/users/${editorUser.id}`, { method: "PUT", body: { onMissionsTeam: false } });
+  });
+});
+
+describe("key dates: the list you can copy (the email-off option)", () => {
+  test("lists what the email would say for the partners you look after, and says whether email is on", async () => {
+    const partner = await newPartner("copylist");
+    await addAdult(partner.id, dateIn(2), "Dana");
+    const member = await makeGuest("copylist");
+    await prisma.careTeamMember.create({ data: { partnerId: partner.id, userId: member.user.id } });
+    const g = await member.login();
+    const res = await g("/api/key-dates/mine");
+    assert.equal(res.status, 200);
+    assert.equal(typeof res.body.emailOn, "boolean");
+    assert.equal(res.body.items.length, 1);
+    assert.match(res.body.items[0].when, /^In 2 days/);
+    assert.match(res.body.items[0].text, /Dana Reed's birthday/);
+    assert.equal(res.body.items[0].partnerId, partner.id);
+    // Someone who looks after nothing gets an empty list, not an error.
+    assert.deepEqual((await viewer("/api/key-dates/mine")).body.items, []);
+  });
+
+  test("reports email off, and 404s while key-date reminders are off", async () => {
+    const before = (await admin("/api/settings")).body.enabledFeatures;
+    await setFeatures({ outboundEmail: false });
+    try {
+      assert.equal((await viewer("/api/key-dates/mine")).body.emailOn, false);
+    } finally {
+      await setFeatures({ outboundEmail: before?.outboundEmail ?? false });
+    }
+    await setFeatures({ keyDates: false });
+    try {
+      assert.equal((await viewer("/api/key-dates/mine")).status, 404);
+    } finally {
+      await setFeatures({ keyDates: true });
+    }
   });
 });
 
@@ -271,11 +328,16 @@ describe("key dates: the feature gates", () => {
     } finally {
       await setFeatures({ keyDates: true });
     }
+    // Care teams off: seats are ignored and the missions team gets it instead.
     await setFeatures({ careTeam: false });
+    await prisma.user.update({ where: { id: editorUser.id }, data: { onMissionsTeam: true } });
     try {
-      assert.equal((await category(admin)).count, 0, "careTeam off: no recipients");
-      assert.equal((await admin("/api/care-team/default-lead")).status, 404);
+      // A guest whose only reach was that seat has none now, so their session is refused.
+      assert.equal((await g("/api/notifications/summary")).status, 401, "careTeam off: the seat is ignored");
+      assert.ok((await category(editor)).count >= 1, "careTeam off: the missions team gets it");
+      assert.equal((await admin("/api/care-team/" + partner.id)).status, 404);
     } finally {
+      await prisma.user.update({ where: { id: editorUser.id }, data: { onMissionsTeam: false } });
       await setFeatures({ careTeam: true });
     }
   });

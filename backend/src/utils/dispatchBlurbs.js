@@ -10,6 +10,7 @@
 // "details withheld" line and no file link. isRestricted is read fresh from the
 // partner, not the payload snapshot, because the flag can change after recording.
 const { maskedDisplayName } = require("./maskData");
+const { keyDateWhat, when: whenKeyDate } = require("./keyDateText");
 
 const RESTRICTED_NOTICE =
   "Specific details are withheld for security -- please pray for this partner's safety and ministry.";
@@ -25,6 +26,11 @@ const REVIEW_GATED_TYPES = new Set([
   "supportNeedCreated",
   "supportNeedDecided",
 ]);
+
+// The chat-only partner care posts (utils/careChatDispatch.js). They go to GroupMe/WhatsApp under their own switches
+// and one shared topic/group; the email digest has its own key-date section and the bell has the rest, so they
+// never ride in an email dispatch.
+const CARE_DISPATCH_TYPES = new Set(["keyDateComing", "quietPartner", "updateToPassOn"]);
 
 // Types eligible for the public email audience; admin (User) recipients keep every type.
 const PUBLIC_EMAIL_DISPATCH_TYPES = new Set(["prayerRequestCreated", "prayerRequestAnswered"]);
@@ -222,9 +228,84 @@ function buildBlurb(row, partner, settings) {
       };
     }
 
+    case "keyDateComing": {
+      const item = { ...payload, daysUntil: payload.daysUntil };
+      const what = keyDateWhat(item, restricted);
+      const when = whenKeyDate(item);
+      const instructions =
+        payload.specialInstructions && !restricted
+          ? " Special communication instructions apply: see their page."
+          : "";
+      return {
+        id: row.id,
+        type,
+        partnerId: row.partnerId,
+        partnerName,
+        topicKey: "groupmeCareTopicId",
+        emoji: "🎂",
+        summary: "Key date coming up",
+        bodyText: `${what}: ${when}.${instructions}`,
+        amount: null,
+        sourceFileId: null,
+        sourceLinkUrl: null,
+        groupmeText: `🎂 Coming up for ${partnerName}: ${what}, ${when}. A card or a call would mean a lot.${instructions}`,
+      };
+    }
+
+    case "quietPartner": {
+      const never = !payload.lastContactDate;
+      const days = payload.daysQuiet;
+      const bodyText = never
+        ? "Nobody has logged contact with them yet."
+        : `It has been ${days} days since we last heard from them.`;
+      return {
+        id: row.id,
+        type,
+        partnerId: row.partnerId,
+        partnerName,
+        topicKey: "groupmeCareTopicId",
+        emoji: "🤝",
+        summary: "Time to reach out",
+        bodyText,
+        amount: null,
+        sourceFileId: null,
+        sourceLinkUrl: null,
+        groupmeText: `🤝 Time to reach out to ${partnerName}. ${bodyText} Could someone get in touch?`,
+      };
+    }
+
+    case "updateToPassOn": {
+      // The need or prayer text is withheld for a restricted partner, like the prayer and need posts themselves.
+      const label = restricted || !payload.label ? "" : ` (“${payload.label}”)`;
+      const bodyText =
+        payload.kind === "need"
+          ? `The church's decision on their need${label} is ready to pass on.`
+          : `Their prayer request${label} was answered, and they would love to hear it.`;
+      return {
+        id: row.id,
+        type,
+        partnerId: row.partnerId,
+        partnerName,
+        topicKey: "groupmeCareTopicId",
+        emoji: "📣",
+        summary: "News to pass on",
+        bodyText,
+        amount: null,
+        sourceFileId: null,
+        sourceLinkUrl: null,
+        groupmeText: `📣 News to pass on to ${partnerName}: ${bodyText} Could someone let them know?`,
+      };
+    }
+
     default:
       return null;
   }
 }
 
-module.exports = { buildBlurb, appBaseUrl, REVIEW_GATED_TYPES, PUBLIC_EMAIL_DISPATCH_TYPES };
+module.exports = {
+  buildBlurb,
+  appBaseUrl,
+  REVIEW_GATED_TYPES,
+  PUBLIC_EMAIL_DISPATCH_TYPES,
+  CARE_DISPATCH_TYPES,
+};

@@ -997,8 +997,9 @@ export async function updateMyProfile({ phone, profile }) {
   const { data } = await api.put("/auth/profile", { phone, profile });
   return data.user;
 }
-export async function updateNotifyByEmail({ cadence, allPartners, partnerIds }) {
-  const { data } = await api.put("/auth/dispatch-by-email", { cadence, allPartners, partnerIds });
+// digestScope: "owned" (the partners you look after), "all", or "followed" (the partnerIds you pick).
+export async function updateNotifyByEmail({ cadence, digestScope, partnerIds }) {
+  const { data } = await api.put("/auth/dispatch-by-email", { cadence, digestScope, partnerIds });
   return data.user;
 }
 
@@ -1083,14 +1084,22 @@ export async function setCareTeam(partnerId, { leadUserId, memberUserIds }) {
   return data;
 }
 // Active logins a team can be made from (admin/editor).
-// The church's default lead: who key-date reminders go to for a partner with no care team.
-export async function fetchDefaultCareLead() {
-  const { data } = await api.get("/care-team/default-lead");
-  return data.defaultLead;
+// The key dates coming up for the partners you look after, as plain lines (what the daily email would say), so a
+// church with email off can copy them. { emailOn, items: [{ partnerId, when, text }] }
+export async function fetchMyKeyDates() {
+  const { data } = await api.get("/key-dates/mine");
+  return data;
 }
-export async function setDefaultCareLead(userId) {
-  const { data } = await api.put("/care-team/default-lead", { userId });
-  return data.defaultLead;
+// The missions team: who looks after partners with no care team of their own (admin/editor read, admin set).
+// { members: [{ id, name, email, role }], candidates: [...] }
+export async function fetchMissionsTeam() {
+  const { data } = await api.get("/partner-care/missions-team");
+  return data;
+}
+// Replaces the whole team with exactly these logins.
+export async function saveMissionsTeam(userIds) {
+  const { data } = await api.put("/partner-care/missions-team", { userIds });
+  return data.members;
 }
 export async function fetchCareTeamCandidates() {
   const { data } = await api.get("/care-team/candidates");

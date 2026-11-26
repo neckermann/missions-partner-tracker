@@ -18,6 +18,8 @@ const groupmeSettingsSelect = {
   groupmeOneTimeNeedTopicName: true,
   groupmeNewsletterTopicId: true,
   groupmeNewsletterTopicName: true,
+  groupmeCareTopicId: true,
+  groupmeCareTopicName: true,
 };
 function shapeGroupMeSettings(settings) {
   return {
@@ -30,6 +32,8 @@ function shapeGroupMeSettings(settings) {
     oneTimeNeedTopicName: settings?.groupmeOneTimeNeedTopicName || null,
     newsletterTopicId: settings?.groupmeNewsletterTopicId || null,
     newsletterTopicName: settings?.groupmeNewsletterTopicName || null,
+    careTopicId: settings?.groupmeCareTopicId || null,
+    careTopicName: settings?.groupmeCareTopicName || null,
   };
 }
 
@@ -46,6 +50,8 @@ const groupmeSchema = z.object({
   oneTimeNeedTopicName: z.string().trim().optional().nullable(),
   newsletterTopicId: z.string().trim().optional().nullable(),
   newsletterTopicName: z.string().trim().optional().nullable(),
+  careTopicId: z.string().trim().optional().nullable(),
+  careTopicName: z.string().trim().optional().nullable(),
 });
 
 // GET /api/settings/groupme (admin only -- not folded into GET /, which
@@ -76,6 +82,8 @@ router.put("/groupme", requireRole("admin"), async (req, res, next) => {
       oneTimeNeedTopicName,
       newsletterTopicId,
       newsletterTopicName,
+      careTopicId,
+      careTopicName,
     } = groupmeSchema.parse(req.body);
     const fields = {
       groupmeGroupId: groupId,
@@ -86,6 +94,8 @@ router.put("/groupme", requireRole("admin"), async (req, res, next) => {
       groupmeOneTimeNeedTopicName: oneTimeNeedTopicName,
       groupmeNewsletterTopicId: newsletterTopicId,
       groupmeNewsletterTopicName: newsletterTopicName,
+      groupmeCareTopicId: careTopicId,
+      groupmeCareTopicName: careTopicName,
     };
     if (accessToken) fields.groupmeAccessToken = encryptField(accessToken);
 

@@ -5,6 +5,7 @@ const prisma = require("../prismaClient");
 const { requireRole } = require("../middleware/requireAuth");
 const { sendWelcomeEmail } = require("../utils/welcomeEmails");
 const { isFeatureEnabled } = require("../utils/features");
+const { subscribeToDefaultDigest } = require("../utils/digestDefaults");
 const { recordAudit } = require("../utils/auditLog");
 const {
   GRANT_SELECT,
@@ -97,6 +98,8 @@ const createUserSchema = z.object({
   lastName: z.string().optional().nullable(),
   phone: z.string().trim().max(40).optional().nullable(),
   profile: z.string().trim().max(1000).optional().nullable(),
+  // On the church's missions team (looks after partners with no care team). Ignored for a guest.
+  onMissionsTeam: z.boolean().optional(),
   role: ROLE_ENUM.default("editor"),
   // A guest needs at least one trip OR one care team seat; both are ignored
   // for the full roles (any login can join a care team later, from the
@@ -127,6 +130,7 @@ const updateUserSchema = z.object({
   lastName: z.string().optional().nullable(),
   phone: z.string().trim().max(40).optional().nullable(),
   profile: z.string().trim().max(1000).optional().nullable(),
+  onMissionsTeam: z.boolean().optional(),
   role: ROLE_ENUM.optional(),
   // Only read when changing a non-guest into a guest (they need a first
   // grant); manage grants afterward via /:id/trip-access, and care team
@@ -337,6 +341,7 @@ router.post("/", async (req, res, next) => {
           lastName: data.lastName,
           phone: data.phone || null,
           profile: data.profile || null,
+          onMissionsTeam: data.role !== "guest" && data.onMissionsTeam === true,
           role: data.role,
           authProvider: data.authProvider,
           passwordHash,
@@ -356,6 +361,8 @@ router.post("/", async (req, res, next) => {
       await addCareSeats(tx, user, careInputs, auditCtx(req));
       return user;
     });
+    // Someone created on the missions team starts on the church's default digest (if it has one).
+    if (created.onMissionsTeam) await subscribeToDefaultDigest([created.id]);
 
     // A failed send (no APP_BASE_URL, provider error) must never lose the account just created: report
     // it and let the admin resend. Outbound email being disabled entirely is not a failure: as with
@@ -568,6 +575,8 @@ router.put("/:id", async (req, res, next) => {
     }
 
     const updateData = { ...data };
+    // A guest is never on the missions team.
+    if ((data.role ?? existing.role) === "guest") updateData.onMissionsTeam = false;
     if (password) {
       updateData.passwordHash = await bcrypt.hash(password, 12);
       // An admin-set password supersedes any outstanding setup link.
@@ -589,6 +598,7 @@ router.put("/:id", async (req, res, next) => {
         "lastName",
         "phone",
         "profile",
+        "onMissionsTeam",
         "role",
         "active",
         "authProvider",
@@ -625,6 +635,8 @@ router.put("/:id", async (req, res, next) => {
       }
       return user;
     });
+    // Newly put on the missions team: start them on the church's default digest (if it has one and they have none).
+    if (updated.onMissionsTeam && !existing.onMissionsTeam) await subscribeToDefaultDigest([updated.id]);
     const fresh = await prisma.user.findUnique({ where: { id: updated.id }, include: userInclude });
     res.json(withAccess(fresh, new Date(), careEnabled));
   } catch (err) {

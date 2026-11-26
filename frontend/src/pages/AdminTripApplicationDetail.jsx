@@ -159,6 +159,7 @@ export default function AdminTripApplicationDetail() {
           name: `${application.firstName} ${application.lastName}`.trim(),
           email: application.email,
           url: res.teamWelcomeEmail.manualUrl,
+          supportRaisingUrl: res.teamWelcomeEmail.manualSupportRaisingUrl || null,
           participantId: res.participant?.id,
         });
       } else {
@@ -278,7 +279,14 @@ export default function AdminTripApplicationDetail() {
             {result.kind === "approved-manual" && (
               <>
                 <p>{result.name} is on the team now. Share their trip access link with them directly:</p>
-                <ManualSendNotice recipients={result} />
+                <ManualSendNotice
+                  recipients={[
+                    result,
+                    ...(result.supportRaisingUrl
+                      ? [{ name: `${result.name} (support-raising page)`, url: result.supportRaisingUrl }]
+                      : []),
+                  ]}
+                />
               </>
             )}
             {result.kind === "approved-sent" && (

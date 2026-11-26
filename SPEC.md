@@ -763,15 +763,16 @@ reuses `reporting/definitions.js` `nextAnnual` (the _Families & key dates_
 report's date math: Feb 29 lands on Feb 28, and the age or years turning come
 with it).
 
-**Who.** The partner's whole care team (lead + members, active logins); if it
-has none, the church's **default lead** (`ChurchSettings.defaultCareLeadUserId`,
-set at `PUT /api/care-team/default-lead`, admin only, cleared if that login is
-deleted); if neither, nobody. The default lead is also the fallback for _Partners to
-reach out to_ (`loadAssignedPartners` adds partners with no care team, marked
-`viaDefaultLead`), for a staff default lead only: a guest's reach never widens. A
+**Who.** The one ownership rule, `utils/ownership.js`: the partner's care team (active
+members, only while `careTeam` is on) when it has one, else the church's **missions team**
+(`User.onMissionsTeam`, active non-guest logins; set at `PUT /api/partner-care/missions-team`,
+admin only, or per user; its display name is `ChurchSettings.ownerGroupName`, wording only);
+if neither, nobody. The same rule feeds _My partners_ and _Partners to reach out to_
+(`loadAssignedPartners` / `partnersOwnedBy`, marked `viaMissionsTeam`) and _Updates to pass on_:
+a guest is never on the missions team, so their reach never widens. A
 person can opt out of the daily email alone (`User.keyDateEmailOptOut`,
 `PUT /api/auth/key-date-email`); the bell is unaffected. `utils/keyDateQueries.js` `loadOpenKeyDates` is
-the one read model: it counts nothing while `keyDates` or `careTeam` is off,
+the one read model: it counts nothing while `keyDates` is off (it no longer needs `careTeam`),
 skips archived partners, and drops anything _handled_.
 
 **What clears one.** A contact log entry for that partner with the topic
@@ -787,14 +788,28 @@ straight to it, several to My partners).
 the web process) on a daily 07:00 church-local cron, in the shape of
 `tripReminderScheduler.js`. It sends **one grouped email per person**, only on a
 day something is due and not yet mailed to that person — never one per partner.
-`KeyDateReminder` (unique per person, partner, kind, subject and occurrence
-date) is the idempotency record, written after the send: a re-run never repeats
+`KeyDateReminder` (unique per person, partner, kind, subject, occurrence
+date and `tier`) is the idempotency record, written after the send: a re-run never repeats
 an occurrence, next year's is a new row, a corrected date re-arms, and a failed
 send leaves no row so tomorrow's tick retries it. The email leaves the app, so a
 restricted partner is named by `maskedDisplayName` and a restricted family's own
 names are omitted; a partner who isn't safe to contact gets a pointer to the
 special instructions on their page, never the instructions themselves.
 `sendEmail` has no `replyTo`, so replies go to the church's From address.
+
+**Heads-ups and the digest.** A key date is raised at tiers: `tier` 0 is the final
+window (`keyDateLeadDays`), otherwise the smallest of `ChurchSettings.keyDateAdvanceDays`
+(default `[90, 30]`, up to three, via `careTimings`/`cleanAdvanceDays`) that still covers
+it (`reminderTier` in `utils/keyDates.js`). The bell and this daily email use tier 0 only.
+The email digest (`sendDigestTier`) leads each staff recipient's message with a "Key dates
+coming up" section: every open date for the partners they look after (their digest scope
+already is "owned" for these) whose heads-up they haven't been mailed, sent even when there
+are no other updates, and recorded as `KeyDateReminder` rows only after a successful send
+(`keyDatesForDigest`, `recordKeyDatesMailed`). The daily email skips someone whose own
+digest comes on or before the date (`utils/digestSchedule.js` `digestComesBefore`, an
+approximation from the dispatch schedule and last-sent stamps), so a person gets one email,
+and a person with no digest always gets the short one. A person who turned key-date email
+off gets neither.
 
 **Never on a public demo.** A demo's care teams are fake seeded addresses, so the
 email would only bounce and spend the email plan. `utils/demoMode.js` lists the
@@ -1065,7 +1080,7 @@ channel that can never take it.
 
 | Channel          | Schedule                                                                       | Content                                                                                    | Recipients                                                                     |
 | ---------------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
-| **GroupMe**      | Shared daily chat hour (`chatDispatchHour`)                                    | All 5 event types, each content-type independently mutable                                 | One church-wide group, split across up to 3 Topics (prayer/needs/newsletters)  |
+| **GroupMe**      | Shared daily chat hour (`chatDispatchHour`)                                    | All 5 event types, each content-type independently mutable; plus 3 opt-in care types (below) | One church-wide group, split across up to 3 Topics (prayer/needs/newsletters)  |
 | **WhatsApp**     | Same shared daily chat hour, own cursor (`lastWhatsappChatDispatchSentAt`)     | Same 5 types, same mutes (shared with GroupMe — see 6.2a)                                  | One WhatsApp community, split across up to 3 groups (prayer/needs/newsletters) |
 | **Admin email**  | 3 cadence tiers: biweekly/monthly/quarterly (`emailDispatchHour` + day fields) | Every type, no content-type toggle                                                         | Each `User` with `cadence` set, scoped to `allPartners` or `followedPartners`  |
 | **Public email** | Same 3 tiers, shared schedule with admin                                       | Structurally prayer-requests-only (`prayerRequestCreated`/`Answered`), never a source link | Each confirmed `PublicSubscriber`, scoped to `allPartners` or `scopedPartners` |
@@ -1121,6 +1136,18 @@ _currently_ connected — a live-pairing check was tried and reverted: it
 treated a normal brief reconnect window on every deploy the same as a
 deliberate, permanent unlink, which isn't what a transient disconnect
 means.
+
+**Partner care posts.** Three chat-only dispatch types, `keyDateComing`, `quietPartner`
+and `updateToPassOn` (`utils/careChatDispatch.js`, a daily 05:00 church-local cron in
+the worker), share one topic/group (`groupmeCareTopicId`, `whatsappCareGroupId`) and have
+their own opt-in switches (`chatDispatchKeyDates`, `chatDispatchQuietPartners`,
+`chatDispatchUpdatesToPass`, all default off), checked in `isEligibleForChannel` Rule 2.
+They are recorded only while GroupMe or WhatsApp is on and the matching feature (keyDates,
+contactLog) is on, never on a demo, and each occurrence once (`CareChatPost`: type,
+subjectKey, occurrence date, tier). `CARE_DISPATCH_TYPES` are ineligible for both email
+audiences: the digest has its own key-dates section (§5.4) and the bell carries the rest.
+Restricted partners are masked by `buildBlurb` (no `who`, no need or prayer text), and a
+restricted partner whose dispatch is off records nothing.
 
 ### 6.3 Masking authority
 

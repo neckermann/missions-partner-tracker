@@ -58,13 +58,17 @@ export default function AdminTripTeam() {
   async function handleAddParticipant() {
     if (!newParticipant.firstName) return false;
     const added = await addTripParticipant(id, newParticipant);
+    const welcome = added?.teamWelcomeEmail;
+    const who = [newParticipant.firstName, newParticipant.lastName].filter(Boolean).join(" ");
     setManualAccess(
-      added?.teamWelcomeEmail?.manualUrl
-        ? {
-            name: [newParticipant.firstName, newParticipant.lastName].filter(Boolean).join(" "),
-            email: newParticipant.email,
-            url: added.teamWelcomeEmail.manualUrl,
-          }
+      welcome?.manualUrl
+        ? [
+            { name: who, email: newParticipant.email, url: welcome.manualUrl },
+            // The welcome email also carries their support-raising page: hand that over too.
+            ...(welcome.manualSupportRaisingUrl
+              ? [{ name: `${who} (support-raising page)`, url: welcome.manualSupportRaisingUrl }]
+              : []),
+          ]
         : null
     );
     setNewParticipant({ firstName: "", lastName: "", email: "" });

@@ -35,19 +35,18 @@ function buildSections(enabledFeatures) {
       icon: "✈️",
       description: "Question library, requirement templates, and budgeting.",
     },
-    enabledFeatures.careTeam && {
-      to: "/admin/settings/care-team",
-      title: "Care Teams",
+    (enabledFeatures.careTeam || enabledFeatures.keyDates || enabledFeatures.contactLog) && {
+      to: "/admin/settings/partner-care",
+      title: "Partner Care",
       icon: "🤝",
-      description: "The default lead for partners without a care team, and key-date reminders.",
+      description: "Who looks after partners with no care team, and when reminders and quiet alerts fire.",
     },
-    enabledFeatures.supportPreferences &&
-      enabledFeatures.careTeam && {
-        to: "/admin/settings/support-preferences",
-        title: "Support Preferences",
-        icon: "💛",
-        description: "The menu of ways your church and a partner's care team can support them.",
-      },
+    enabledFeatures.supportPreferences && {
+      to: "/admin/settings/support-preferences",
+      title: "Support Preferences",
+      icon: "💛",
+      description: "The menu of ways your church can support partners.",
+    },
     enabledFeatures.surveys && {
       to: "/admin/settings/surveys",
       title: "Surveys",

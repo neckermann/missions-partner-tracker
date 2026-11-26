@@ -1,10 +1,12 @@
 // The shared admin+public send loop.
 const prisma = require("../prismaClient");
 const { isDemoInstance } = require("./demoMode");
-const { DIGEST_ROLES } = require("./digestRoles");
+const { DIGEST_RECIPIENT_ROLES } = require("./digestRoles");
+const { resolveDigestScope } = require("./digestScope");
 const { isFeatureEnabled } = require("./features");
 const { sendEmailBatch } = require("./email");
 const { buildBlurb } = require("./dispatchBlurbs");
+const { loadOpenKeyDates } = require("./keyDateQueries");
 const { CHANNELS, isEligibleForChannel } = require("./dispatchEligibility");
 const {
   buildEmailDispatchMessage,
@@ -20,8 +22,9 @@ const { buildPublicEmailDispatchContent } = require("./publicEmailDispatchConten
 // independently addressed and rendered, so splitting would only add calls.
 const BATCH_CHUNK_SIZE = 250;
 
-// Same shape regardless of source table; allPartners/partnerIds mean the same for both.
-function normalizeRecipient(source, kind) {
+// Same shape regardless of source table; allPartners/partnerIds mean the same for both. An admin's scope
+// (all / followed / the partners they look after) is resolved by the caller (resolveDigestScope) and passed in.
+function normalizeRecipient(source, kind, scope) {
   return {
     id: source.id,
     email: source.email,
@@ -29,9 +32,10 @@ function normalizeRecipient(source, kind) {
     name: [source.firstName, source.lastName].filter(Boolean).join(" ") || null,
     kind, // CHANNELS.EMAIL_ADMIN | CHANNELS.EMAIL_PUBLIC
     cadence: source.cadence,
-    allPartners: source.allPartners,
-    partnerIds:
-      kind === CHANNELS.EMAIL_ADMIN
+    allPartners: scope ? scope.allPartners : source.allPartners,
+    partnerIds: scope
+      ? scope.partnerIds
+      : kind === CHANNELS.EMAIL_ADMIN
         ? source.followedPartners.map((fp) => fp.partnerId)
         : source.scopedPartners.map((sp) => sp.partnerId),
   };
@@ -55,11 +59,61 @@ async function fetchPartnerTileDetailsById(partnerIds) {
   return new Map(fullPartners.map((p) => [p.id, partnerTileDetails(p)]));
 }
 
+// Writes the KeyDateReminder rows for what a digest just carried (one per date and heads-up, per person).
+async function recordKeyDatesMailed(userId, keyDates) {
+  if (!keyDates?.length) return;
+  await prisma.keyDateReminder.createMany({
+    data: keyDates.map((i) => ({
+      userId,
+      partnerId: i.partnerId,
+      kind: i.kind,
+      subjectId: i.subjectId,
+      occurrenceDate: new Date(`${i.date}T00:00:00Z`),
+      tier: i.tier,
+    })),
+    skipDuplicates: true,
+  });
+}
+
+// The open key dates (final window and the earlier heads-ups) that this tier's staff haven't been mailed yet, by
+// person. Empty while keyDates is off. A person who turned key-date email off (My account) gets none.
+async function keyDatesForDigest(userIds, settings) {
+  const byUser = new Map();
+  if (!isFeatureEnabled(settings?.enabledFeatures, "keyDates") || userIds.length === 0) return byUser;
+  const open = await loadOpenKeyDates(new Date(), { withAdvance: true });
+  if (open.length === 0) return byUser;
+
+  const optedOut = new Set(
+    (
+      await prisma.user.findMany({
+        where: { id: { in: userIds }, keyDateEmailOptOut: true },
+        select: { id: true },
+      })
+    ).map((u) => u.id)
+  );
+  const done = await prisma.keyDateReminder.findMany({
+    where: { userId: { in: userIds }, partnerId: { in: [...new Set(open.map((i) => i.partnerId))] } },
+    select: { userId: true, partnerId: true, kind: true, subjectId: true, occurrenceDate: true, tier: true },
+  });
+  const key = (userId, i, date, tier) => `${userId}|${i.partnerId}|${i.kind}|${i.subjectId}|${date}|${tier}`;
+  const sent = new Set(
+    done.map((r) => key(r.userId, r, r.occurrenceDate.toISOString().slice(0, 10), r.tier))
+  );
+  for (const item of open) {
+    for (const userId of item.recipientIds) {
+      if (!userIds.includes(userId) || optedOut.has(userId)) continue;
+      if (sent.has(key(userId, item, item.date, item.tier))) continue;
+      byUser.set(userId, [...(byUser.get(userId) || []), item]);
+    }
+  }
+  return byUser;
+}
+
 // The reusable core: given rows and an assembled recipient list (tier-filtered
 // for scheduled sends, cadence-blind for urgent; see sendUrgentDispatch), builds
 // each recipient's message and sends in chunks. Returns the Set of row ids
 // included in at least one send; the caller stamps the column(s).
-async function sendToRecipients(rows, partnerById, recipients, settings) {
+async function sendToRecipients(rows, partnerById, recipients, settings, keyDatesByUser = new Map()) {
   const consideredIds = new Set();
   if (recipients.length === 0) return consideredIds;
 
@@ -81,13 +135,15 @@ async function sendToRecipients(rows, partnerById, recipients, settings) {
         recipient.allPartners || recipient.partnerIds.includes(row.partnerId)
       )
     );
-    if (eligibleRows.length === 0) continue;
+    // Key dates only go to staff recipients, and a person with nothing else still gets them.
+    const keyDates = recipient.kind === CHANNELS.EMAIL_ADMIN ? keyDatesByUser.get(recipient.id) || [] : [];
+    if (eligibleRows.length === 0 && keyDates.length === 0) continue;
     eligibleRows.forEach((row) => consideredIds.add(row.id));
 
     const blurbs = eligibleRows.map((row) => buildBlurb(row, partnerById.get(row.partnerId))).filter(Boolean);
     const content =
       recipient.kind === CHANNELS.EMAIL_ADMIN
-        ? buildAdminEmailDispatchContent(blurbs, partnerDetailsById, settings)
+        ? buildAdminEmailDispatchContent(blurbs, partnerDetailsById, settings, keyDates)
         : buildPublicEmailDispatchContent(blurbs, partnerDetailsById, settings);
 
     const unsubscribeUrl =
@@ -101,6 +157,8 @@ async function sendToRecipients(rows, partnerById, recipients, settings) {
     messages.push({
       payload: buildEmailDispatchMessage(recipient, content, settings, unsubscribeUrl),
       rowIds: eligibleRows.map((row) => row.id),
+      userId: recipient.id,
+      keyDates,
     });
   }
 
@@ -117,7 +175,10 @@ async function sendToRecipients(rows, partnerById, recipients, settings) {
           where: { id: { in: chunk[idx].rowIds } },
           data: { emailError: result.Message || "Unknown delivery failure" },
         });
+        continue;
       }
+      // Delivered: record the key-date heads-ups it carried so none repeats (a failed send records nothing and retries).
+      await recordKeyDatesMailed(chunk[idx].userId, chunk[idx].keyDates);
     }
   }
 
@@ -132,7 +193,6 @@ async function sendDigestTier(tier, settings) {
   if (await isDemoInstance()) return { consideredIds: [] };
 
   const rows = await prisma.dispatchRecord.findMany({ orderBy: { createdAt: "asc" } });
-  if (rows.length === 0) return { consideredIds: [] };
 
   const partners = await prisma.partner.findMany({
     where: { id: { in: [...new Set(rows.map((row) => row.partnerId))] } },
@@ -147,15 +207,16 @@ async function sendDigestTier(tier, settings) {
   // The cadence-tier match happens in each query's `where`, before normalization, not in sendToRecipients.
   const [admins, publicSubscribers] = await Promise.all([
     prisma.user.findMany({
-      // Never a guest: the digest is the whole church's content, not a scoped login's.
-      where: { cadence: tier, active: true, role: { in: DIGEST_ROLES } },
+      // A guest is a recipient only through their own partners (digestScope is forced to "owned" for them).
+      where: { cadence: tier, active: true, role: { in: DIGEST_RECIPIENT_ROLES } },
       select: {
         id: true,
         email: true,
         firstName: true,
         lastName: true,
+        role: true,
         cadence: true,
-        allPartners: true,
+        digestScope: true,
         followedPartners: { select: { partnerId: true } },
       },
     }),
@@ -172,12 +233,20 @@ async function sendDigestTier(tier, settings) {
         })
       : [],
   ]);
+  const keyDatesByUser = await keyDatesForDigest(
+    admins.map((u) => u.id),
+    settings
+  );
+  if (rows.length === 0 && keyDatesByUser.size === 0) return { consideredIds: [] };
+  const adminRecipients = await Promise.all(
+    admins.map(async (u) => normalizeRecipient(u, CHANNELS.EMAIL_ADMIN, await resolveDigestScope(u)))
+  );
   const recipients = [
-    ...admins.map((u) => normalizeRecipient(u, CHANNELS.EMAIL_ADMIN)),
+    ...adminRecipients,
     ...publicSubscribers.map((s) => normalizeRecipient(s, CHANNELS.EMAIL_PUBLIC)),
   ];
 
-  const consideredIds = await sendToRecipients(rows, partnerById, recipients, settings);
+  const consideredIds = await sendToRecipients(rows, partnerById, recipients, settings, keyDatesByUser);
   return { consideredIds: [...consideredIds] };
 }
 

@@ -104,6 +104,7 @@ model Partner {
   surveyProposals          SurveyProposal[]
   surveyUploads            SurveyUpload[]
   keyDateReminders         KeyDateReminder[]
+  careChatPosts            CareChatPost[]
   publicSubscriberPartners PublicSubscriberPartner[]
   adults                   Adult[]
   children                 Child[]
@@ -776,10 +777,30 @@ model KeyDateReminder {
   kind           String
   subjectId      String   @default("")
   occurrenceDate DateTime @db.Date
+  // Which heads-up this was: 0 = the final one (inside keyDateLeadDays), otherwise the advance threshold
+  // in days (90, 30, ...) it was raised at. Each (date, heads-up) is mailed to a person once.
+  tier           Int      @default(0)
   sentAt         DateTime @default(now())
 
-  @@unique([userId, partnerId, kind, subjectId, occurrenceDate])
+  @@unique([userId, partnerId, kind, subjectId, occurrenceDate, tier])
   @@index([partnerId])
+}
+
+// A care post already made to the church's chat (GroupMe/WhatsApp), so the daily run never posts the same one
+// twice. Church-wide, not per person: the chat is one group. `type` is the dispatch type; `subjectKey` and
+// `occurrenceDate` say which occurrence (a key date's own date, the day a quiet stretch began, the date of the
+// decision or answer), and `tier` is the key-date heads-up (as KeyDateReminder.tier; 0 otherwise).
+model CareChatPost {
+  id             String   @id @default(uuid())
+  partnerId      String
+  partner        Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  type           String
+  subjectKey     String   @default("")
+  occurrenceDate DateTime @db.Date
+  tier           Int      @default(0)
+  postedAt       DateTime @default(now())
+
+  @@unique([partnerId, type, subjectKey, occurrenceDate, tier])
 }
 
 // A link about this partner (website, support page, newsletter signup, social profile). `type`
@@ -1098,6 +1119,7 @@ model InboundEmailFailure {
 model DispatchRecord {
   id        String   @id @default(uuid())
   // "prayerRequestCreated" | "prayerRequestAnswered" | "supportNeedCreated" | "supportNeedDecided" | "newsletterCreated"
+  // | the chat-only care posts "keyDateComing" | "quietPartner" | "updateToPassOn" (utils/careChatDispatch.js)
   type      String
   partnerId String
   partner   Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
@@ -1244,6 +1266,8 @@ model ChurchSettings {
   groupmeOneTimeNeedTopicName String?
   groupmeNewsletterTopicId    String?
   groupmeNewsletterTopicName  String?
+  groupmeCareTopicId          String?
+  groupmeCareTopicName        String?
 
   // WhatsApp integration (utils/whatsappChannel.js, whatsappClient.js). No token here: the
   // credential is a Baileys session stored encrypted per row in WhatsAppAuthEntry. Nothing in
@@ -1272,6 +1296,8 @@ model ChurchSettings {
   whatsappOneTimeNeedGroupName  String?
   whatsappNewsletterGroupId     String?
   whatsappNewsletterGroupName   String?
+  whatsappCareGroupId           String?
+  whatsappCareGroupName         String?
 
   // Joshua Project API key (utils/joshuaProject.js). Encrypted at rest like
   // groupmeAccessToken; every route outside routes/settings.js's /joshua-project sub-routes
@@ -1371,6 +1397,12 @@ model ChurchSettings {
   chatDispatchPrayerRequests     Boolean @default(true)
   chatDispatchOneTimeNeeds       Boolean @default(true)
   chatDispatchNewsletters        Boolean @default(true)
+  // Partner care posts to the same chats, one switch each: a coming key date, a partner nobody has heard
+  // from, and news waiting to be passed on to a partner. Off by default, so nothing starts posting to a
+  // church's group until someone turns it on. They share one Partner care topic/group.
+  chatDispatchKeyDates           Boolean @default(false)
+  chatDispatchQuietPartners      Boolean @default(false)
+  chatDispatchUpdatesToPass      Boolean @default(false)
   // Applies to every channel. Off means a restricted partner's event is never recorded, for
   // any type, so a church that does not watch the review queue
   // (DispatchRecord.dispatchReviewedAt) does not accumulate an unreviewed backlog. Default off
@@ -1383,14 +1415,21 @@ model ChurchSettings {
   // fieldDisplayName, else a generic label (utils/maskData.js maskedDisplayName()).
   restrictedPartnerInitialsEnabled Boolean @default(true)
 
-  // Who key-date reminders go to for a partner with no care team. SetNull so deleting the
-  // login clears it. Set via /api/care-team/default-lead, not the generic settings route.
-  defaultCareLeadUserId String?
-  defaultCareLead       User?   @relation("ChurchDefaultCareLead", fields: [defaultCareLeadUserId], references: [id], onDelete: SetNull)
+  // What this church calls the group that looks after every partner without a care team of its own
+  // ("Missions team", "Missions committee", "Board"...). Null means the app's neutral default. Wording only:
+  // membership is User.onMissionsTeam, and nothing in code depends on the name.
+  ownerGroupName String?
+
+  // The email-digest tier (biweekly | monthly | quarterly) a person starts on when they are added to the missions
+  // team and have none yet, covering the partners they look after. Null = nobody is subscribed automatically.
+  defaultDigestCadence String?
 
   // Days ahead a key date is raised (bell and daily email agree), and days without a logged
   // contact before a partner is "quiet".
   keyDateLeadDays  Int @default(7)
+  // Earlier heads-ups for a key date, in days before it (default 90 and 30). They ride in the email digest;
+  // the final one (keyDateLeadDays) goes out on its own when the next digest would come too late.
+  keyDateAdvanceDays Int[] @default([90, 30])
   contactStaleDays Int @default(90)
 
   // Email dispatch customization; null subject/signature means the built-in default
@@ -1507,6 +1546,11 @@ model User {
   // A care team member who opts out of the daily key-date email; the bell is unaffected.
   keyDateEmailOptOut Boolean @default(false)
 
+  // On the church's missions team (the group named by ChurchSettings.ownerGroupName): looks after every
+  // partner that has no care team of its own, so key-date reminders, My partners and the reach-out alerts
+  // reach them for those partners (utils/ownership.js). A guest is never on it.
+  onMissionsTeam Boolean @default(false)
+
   passkeys         UserPasskey[]
   signInLinkTokens SignInLinkToken[]
 
@@ -1514,14 +1558,15 @@ model User {
   // picked. Set to null by the signed unsubscribe link in every digest footer, no login
   // required.
   cadence           String? // "biweekly" | "monthly" | "quarterly" | null
-  // false: only followedPartners; true: every partner this user's role can see.
-  allPartners       Boolean               @default(true)
+  // Which partners the digest covers: "owned" = the partners this person looks after (their care team seats, and
+  // for the missions team every partner with no team: utils/ownership.js), "all" = every partner this user's
+  // role can see, "followed" = only followedPartners. A guest is always "owned" whatever is stored.
+  digestScope       String                @default("all")
   followedPartners  UserFollowedPartner[]
   careTeamSeats     CareTeamMember[]
   contactsMade      ContactLog[]          @relation("ContactLogContactedBy")
   contactsEntered   ContactLog[]          @relation("ContactLogCreatedBy")
   keyDateReminders  KeyDateReminder[]
-  defaultLeadFor    ChurchSettings[]      @relation("ChurchDefaultCareLead")
   notificationsSeen NotificationSeen[]
   savedReports      SavedReport[]
 
@@ -1581,7 +1626,7 @@ model NotificationSeen {
   @@id([userId, category])
 }
 
-// A user's specific-partner digest scope; only used when User.allPartners is false. Same shape
+// A user's specific-partner digest scope; only used when User.digestScope is "followed". Same shape
 // as PublicSubscriberPartner.
 model UserFollowedPartner {
   userId    String
@@ -1796,7 +1841,7 @@ model PublicSubscriber {
   // Same cadence options as User.cadence.
   cadence String @default("biweekly") // "biweekly" | "monthly" | "quarterly"
 
-  // Same all-vs-specific shape as User.allPartners above.
+  // Same all-vs-specific shape as User.digestScope above.
   allPartners    Boolean                   @default(true)
   scopedPartners PublicSubscriberPartner[]
 

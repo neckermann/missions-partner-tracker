@@ -44,6 +44,13 @@ const GROUP_TYPES = [
     idField: "newsletterGroupId",
     nameField: "newsletterGroupName",
   },
+  {
+    number: 7,
+    key: "care",
+    title: "Partner Care Group",
+    idField: "careGroupId",
+    nameField: "careGroupName",
+  },
 ];
 
 const STATUS_TEXT = {
@@ -121,6 +128,8 @@ export default function AdminSettingsWhatsApp() {
     oneTimeNeedGroupName: null,
     newsletterGroupId: null,
     newsletterGroupName: null,
+    careGroupId: null,
+    careGroupName: null,
     connection: { status: "disconnected", health: null, error: null },
   });
   const [pairing, setPairing] = useState(false);
@@ -301,8 +310,9 @@ export default function AdminSettingsWhatsApp() {
       {confirmElement}
       <SettingsPageHeader title="WhatsApp" />
       <p style={{ color: "var(--muted)" }}>
-        Posts new prayer requests, one-time needs, and newsletters to your WhatsApp community groups, on the
-        same daily schedule as GroupMe (set under <a href="/admin/settings/dispatches">Dispatch Settings</a>).
+        Posts new prayer requests, one-time needs, and newsletters (and, when turned on, partner care posts
+        such as coming key dates) to your WhatsApp community groups, on the same daily schedule as GroupMe
+        (set under <a href="/admin/settings/dispatches">Dispatch Settings</a>).
       </p>
       <div className="field-warning">
         This links a phone number to the app the same way WhatsApp Web does. It is not an official WhatsApp

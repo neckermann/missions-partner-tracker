@@ -1,6 +1,6 @@
 // The care follow-ups. Covers the two church timing settings (their bounds, and that the
 // key-date window and the contact log's "quiet" threshold follow them), a person's own opt-out
-// of the daily key-date email (the bell stays), the default lead as the fallback for "Partners
+// of the daily key-date email (the bell stays), the missions team as the fallback for "Partners
 // to reach out to" (staff only), the read-time timeline of church visits and newsletters, and
 // the open "updates to pass on" for a partner.
 const { test, describe, before, after } = require("node:test");
@@ -86,14 +86,14 @@ before(async () => {
       enabledFeatures: true,
       keyDateLeadDays: true,
       contactStaleDays: true,
-      defaultCareLeadUserId: true,
     },
   });
   await setFeatures({ keyDates: true, careTeam: true, outboundEmail: true, contactLog: true });
   await prisma.churchSettings.update({
     where: { id: "singleton" },
-    data: { keyDateLeadDays: 7, contactStaleDays: 90, defaultCareLeadUserId: null },
+    data: { keyDateLeadDays: 7, contactStaleDays: 90 },
   });
+  await prisma.user.updateMany({ where: { onMissionsTeam: true }, data: { onMissionsTeam: false } });
 });
 
 after(async () => {
@@ -106,7 +106,6 @@ after(async () => {
       enabledFeatures: originalSettings?.enabledFeatures ?? {},
       keyDateLeadDays: originalSettings?.keyDateLeadDays ?? 7,
       contactStaleDays: originalSettings?.contactStaleDays ?? 90,
-      defaultCareLeadUserId: originalSettings?.defaultCareLeadUserId ?? null,
     },
   });
   await stopServer();
@@ -142,6 +141,22 @@ describe("the two care timings are church settings", () => {
     await prisma.churchSettings.update({
       where: { id: "singleton" },
       data: { keyDateLeadDays: 7, contactStaleDays: 90 },
+    });
+  });
+
+  test("the earlier key-date heads-ups are a church setting: up to three, whole days", async () => {
+    const put = (keyDateAdvanceDays) =>
+      admin("/api/settings", { method: "PUT", body: { keyDateAdvanceDays } });
+    assert.equal((await put([90, 60, 30, 14])).status, 400, "no more than three");
+    assert.equal((await put([1])).status, 400, "a day or two out is the final window's job");
+    assert.equal((await put([400])).status, 400, "within a year");
+    assert.equal((await put([45.5])).status, 400, "whole days");
+    assert.equal((await put([120, 45])).status, 200);
+    assert.deepEqual((await admin("/api/settings")).body.keyDateAdvanceDays, [120, 45]);
+    assert.equal((await put([])).status, 200, "none turns the earlier heads-ups off");
+    await prisma.churchSettings.update({
+      where: { id: "singleton" },
+      data: { keyDateAdvanceDays: [90, 30] },
     });
   });
 
@@ -231,44 +246,58 @@ describe("a person's own opt-out of the daily key-date email", () => {
   });
 });
 
-describe("the default lead is the fallback for 'Partners to reach out to'", () => {
-  test("a staff default lead is given partners with no care team; partners with a team stay with the team", async () => {
-    const lead = await makeUser("deflead-staff", "editor");
+describe("the missions team is the fallback for 'Partners to reach out to'", () => {
+  const setMissionsTeam = (userId, on) =>
+    prisma.user.update({ where: { id: userId }, data: { onMissionsTeam: on } });
+
+  test("a staff missions-team member is given partners with no care team; partners with a team stay with the team", async () => {
+    const lead = await makeUser("mteam-staff", "editor");
     const bare = await newPartner("no-team");
     const covered = await newPartner("has-team");
-    const member = await makeUser("deflead-member");
+    const member = await makeUser("mteam-member");
     await prisma.careTeamMember.create({ data: { partnerId: covered.id, userId: member.user.id } });
     const ids = async () =>
       (await (await lead.login())("/api/contact-log/assigned")).body.map((r) => r.partnerId);
 
-    assert.ok(!(await ids()).includes(bare.id), "nothing before they are the default lead");
-    await prisma.churchSettings.update({
-      where: { id: "singleton" },
-      data: { defaultCareLeadUserId: lead.user.id },
-    });
+    assert.ok(!(await ids()).includes(bare.id), "nothing before they are on the missions team");
+    await setMissionsTeam(lead.user.id, true);
     try {
       const rows = (await (await lead.login())("/api/contact-log/assigned")).body;
       const bareRow = rows.find((r) => r.partnerId === bare.id);
-      assert.ok(bareRow, "a partner with no care team comes to the default lead");
-      assert.equal(bareRow.viaDefaultLead, true);
+      assert.ok(bareRow, "a partner with no care team comes to the missions team");
+      assert.equal(bareRow.viaMissionsTeam, true);
       assert.ok(!rows.some((r) => r.partnerId === covered.id), "a partner with a team doesn't");
     } finally {
-      await prisma.churchSettings.update({
-        where: { id: "singleton" },
-        data: { defaultCareLeadUserId: null },
-      });
+      await setMissionsTeam(lead.user.id, false);
     }
   });
 
-  test("a guest default lead is not given partners it has no grant on", async () => {
-    const guest = await makeUser("deflead-guest");
+  test("with Care teams off, the missions team looks after every partner", async () => {
+    const lead = await makeUser("mteam-allpartners", "editor");
+    const covered = await newPartner("covered-but-off");
+    const member = await makeUser("mteam-off-member");
+    await prisma.careTeamMember.create({ data: { partnerId: covered.id, userId: member.user.id } });
+    await setMissionsTeam(lead.user.id, true);
+    await setFeatures({ careTeam: false });
+    try {
+      const rows = (await (await lead.login())("/api/contact-log/assigned")).body;
+      assert.ok(
+        rows.some((r) => r.partnerId === covered.id && r.viaMissionsTeam),
+        "seats are ignored while Care teams is off, so the missions team has it"
+      );
+    } finally {
+      await setFeatures({ careTeam: true });
+      await setMissionsTeam(lead.user.id, false);
+    }
+  });
+
+  test("a guest is never given partners through the missions team", async () => {
+    const guest = await makeUser("mteam-guest");
     const bare = await newPartner("no-team-guest");
     const theirs = await newPartner("guest-own");
     await prisma.careTeamMember.create({ data: { partnerId: theirs.id, userId: guest.user.id } });
-    await prisma.churchSettings.update({
-      where: { id: "singleton" },
-      data: { defaultCareLeadUserId: guest.user.id },
-    });
+    // Even with the flag forced on in the database, a guest is excluded.
+    await setMissionsTeam(guest.user.id, true);
     try {
       const rows = (await (await guest.login())("/api/contact-log/assigned")).body;
       assert.ok(
@@ -277,10 +306,7 @@ describe("the default lead is the fallback for 'Partners to reach out to'", () =
       );
       assert.ok(!rows.some((r) => r.partnerId === bare.id), "the fallback never widens a guest's reach");
     } finally {
-      await prisma.churchSettings.update({
-        where: { id: "singleton" },
-        data: { defaultCareLeadUserId: null },
-      });
+      await setMissionsTeam(guest.user.id, false);
     }
   });
 });

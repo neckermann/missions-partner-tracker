@@ -964,7 +964,7 @@ The **Last heard from** report counts a logged contact, a newsletter, a prayer r
 
 ### Key-date reminders
 
-With **Key-date reminders** turned on (it needs [Care teams](#care-teams)), the people on a partner's care team are reminded about a coming **birthday** (including the children's), **wedding anniversary**, or **partnering-since milestone** (the first year, then every fifth), or the anniversary of when they were **commissioned** (record both on the partner's page under **Our History With Them**; they can differ, since someone may have been commissioned long before we knew them), a week ahead.
+With **Key-date reminders** turned on, whoever looks after a partner (its [care team](#care-teams), or your missions team) is reminded about a coming **birthday** (including the children's), **wedding anniversary**, or **partnering-since milestone** (the first year, then every fifth), or the anniversary of when they were **commissioned** (record both on the partner's page under **Our History With Them**; they can differ, since someone may have been commissioned long before we knew them), a week ahead.
 
 - **On the bell and the Home page** as "Key dates coming up". Open it to find the partner. The **My partners** tab also flags a key date inside the window. A key date is raised **7 days ahead** by default; an admin can change that (1 to 60 days) under Settings → Care Teams → Timing.
 
@@ -972,13 +972,14 @@ With **Key-date reminders** turned on (it needs [Care teams](#care-teams)), the 
 
 - **Send a greeting.** On the **My partners** tab, a key date inside the window has a **Send greeting** button where we may email them (not for a restricted partner, one marked not to be contacted directly, or one whose allowed ways exclude email, and not when there is no address). It opens a prefilled draft in your own mail program, so you read and send it yourself; the app never sends it. Afterwards it asks whether to log it, and saying yes records an email with the **Key date** topic, which clears the reminder.
 
-- **By email**, one message a day, only on a day something is due, listing everything coming up for your partners (not one email per partner). It needs Email (Sending) turned on, and it's sent at 7am church time. **You can turn the email off for yourself** under **My account → Key-date email** (a Guest on a care team can too); the alert on the bell stays either way.
+- **In your email digest**, if you have one (My account → Email Dispatch). A **Key dates coming up** section leads the digest, listing dates **90 and 30 days out**, each once, so a monthly or quarterly digest still gives you time to plan. The earlier heads-ups are a church setting (Settings → Partner Care → Timing).
+- **By a short email of its own** for the last stretch (the final **7 days** by default), sent at 7am church time on a day something is due, listing everything coming up for your partners (not one email per partner). If your next digest would reach you on or before the date, you get it there instead, so you aren't emailed twice. Someone with no digest always gets the short email. It needs Email (Sending) turned on, and it's sent at 7am church time. **You can turn the email off for yourself** under **My account → Key-date email** (a Guest on a care team can too); the alert on the bell stays either way.
 
 ![The grouped key-date email](docs/assets/screenshots/key-date-email.png)
 
-- **Who gets it:** the whole care team, lead and members. A partner with no care team goes to the **default lead** an admin picks under Settings → Care Teams; with neither, nobody hears about it. A staff default lead also sees those partners under **Partners to reach out to** (on My partners they are marked **Default lead**). A Guest default lead only gets the key-date reminders: it never widens which partners a guest can see.
+- **Who gets it:** the partner's whole care team, lead and members, when it has one. A partner with no care team goes to your **missions team** (an admin picks who is on it under Settings → Partner Care, and can call the group whatever your church says); with nobody on it, nobody hears about it. People on the missions team also see those partners under **Partners to reach out to** (on My partners they are marked with the group's name). A Guest is never on it: a guest only sees the partners they have been given.
 
-![Settings → Care Teams, where an admin picks the default lead](docs/assets/screenshots/care-teams-settings.png)
+![Settings → Partner Care, where an admin picks who is on the missions team](docs/assets/screenshots/care-teams-settings.png)
 
 - **To clear a reminder**, send the card or make the call and **log it as a contact with the topic "Key date"**. That stops the reminders for that occasion, and it counts as being in touch.
 - The app never sends the card for you, and a restricted partner appears in the email by initials only. A partner you are asked to be careful with (Use caution, or Don't contact directly) is marked in the email so a reminder to "send a card" isn't read as "call them".
@@ -994,7 +995,7 @@ The app never contacts a partner on its own — a person always does. If you're 
 
 ### Support preferences
 
-With **Support preferences** turned on in [Enabled Features](ADMIN_GUIDE.md#feature-toggles) (it needs [Care teams](#care-teams)), each partner's page gets a **Support preferences** card, in the **Care & Follow-up** section (jump bar: **Care**): the ways your church and their care team can support them, and which of them this partner has asked for. The card stays compact (how many are recorded, and which groups); click that line to open everything, with their notes.
+With **Support preferences** turned on in [Enabled Features](ADMIN_GUIDE.md#feature-toggles) (it works with or without [Care teams](#care-teams)), each partner's page gets a **Support preferences** card, in the **Care & Follow-up** section (jump bar: **Care**): the ways your church can support them, and which of them this partner has asked for. The card stays compact (how many are recorded, and which groups); click that line to open everything, with their notes.
 
 - **The menu is your church's.** An admin edits it under **Settings → Support Preferences**: options are put in groups (rename a group any time), and each is something you **offer** (tick it if wanted), a **pick one** or **pick any** question (with an optional "something else" box), or a **free-text** question. From an empty menu, **Import a menu…** takes an example [template pack](#template-packs) (housing, transportation, speaking about the partner, prayer, care packages, how to send gifts and so on) to edit or delete. **Retire** an option to stop offering it while keeping the answers already given, or **Delete** it to remove it and those answers. **Print menu** (top right of that page) opens a clean copy with the church's name and logo, boxes to tick and lines to write on, for a conversation with a partner; retired options are left out, and it stores nothing.
 - **Record a partner's choices** with **+ Record** (or **Edit**) on their page, after a conversation: tick what they want, pick their answers, add a note. One set per partner, so a couple or family shares it. Admins, editors and a guest on that partner's care team can record it; a viewer can read it. A trip leader never sees it.
@@ -1300,7 +1301,11 @@ unofficial connection and you'll want a dedicated phone number for it.
 WhatsApp sends once a day, at an admin-set hour, and has its own three
 content-type mutes (Prayer Requests / One-Time Needs / Newsletters) —
 both set on the [Dispatch Settings](#dispatch-settings-admin-only)
-page. GroupMe shares that same daily-hour field and the same three
+page. Beside those three, **partner care posts** (a coming key date, a
+partner nobody has heard from, and news to pass on to a partner) have
+their own switches, **off until you turn them on**, and share one
+Partner Care topic or group; a restricted partner is named by initials
+only. GroupMe shares that same daily-hour field and the same three
 mutes, because both are chat-style, near-real-time channels — not
 because WhatsApp depends on or borrows GroupMe's settings — but
 WhatsApp's own on/off state, community/group configuration, and
@@ -1347,7 +1352,7 @@ group with new and decided needs:
 
 ### Pending Dispatches
 
-The **Pending Dispatches** page (in the main menu, alongside
+The **Pending Dispatches** page (in the main menu, alongside If Email (Sending), GroupMe and WhatsApp are all off, nothing goes out on its own: the page offers **Copy the updates that are ready** (grouped by partner, leaving out anything still held for review) so you can share them yourself, then clear them.
 Unmatched Emails) is where every prayer request, one-time need, and
 newsletter queues before going out — the shared review-and-send queue
 behind both GroupMe dispatch above and email digests below. Only
@@ -1756,8 +1761,14 @@ there's also an **Email Dispatch** section here: a cadence (no
 automatic digest by default, or one of whichever of biweekly, monthly,
 and quarterly the admin has chosen to offer — see [Dispatch
 Settings](#dispatch-settings-admin-only)) and, once a cadence is
-picked, a choice between every partner or just the ones you check from
-a list. If you'd already picked a cadence before the admin turned it
+picked, a choice of what it covers: **the partners you look after** (the
+default: your care team seats, plus, if you're on the missions team, the
+partners that have no care team of their own), **all partners**, or **only
+the ones you check** from a list. A church member added as a **Guest** on a
+care team can have the digest too, but only for the partners they hold a seat
+on, with no other choice. When an admin adds you to the missions team and the
+church has set a default digest (Settings → Partner Care), you start on it
+automatically and can change or stop it here. If you'd already picked a cadence before the admin turned it
 off, it stays selectable for you specifically — you're never silently
 switched to something else. The digest itself
 still includes prayer requests, one-time needs, and newsletters, same

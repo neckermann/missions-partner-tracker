@@ -15,6 +15,7 @@ const initialValues = {
   lastName: "",
   phone: "",
   profile: "",
+  onMissionsTeam: false,
   role: "editor",
   authProvider: "local",
   password: "",
@@ -35,7 +36,7 @@ export default function AdminUserForm() {
   const presetTripId = searchParams.get("tripId");
   // ...and a partner's Care team panel links here with ?partnerId=.
   const presetPartnerId = searchParams.get("partnerId");
-  const { enabledFeatures } = useSettings();
+  const { enabledFeatures, ownerGroupName } = useSettings();
   const careEnabled = !!enabledFeatures.careTeam;
   const startingValues = presetTripId
     ? { ...initialValues, role: "guest", tripAccess: [{ tripId: presetTripId, expiresAt: null }] }
@@ -65,6 +66,8 @@ export default function AdminUserForm() {
       const payload = { ...values };
       // Only a guest takes trip access.
       if (values.role !== "guest") delete payload.tripAccess;
+      // A guest can't be on the missions team.
+      if (values.role === "guest") delete payload.onMissionsTeam;
       if (!careEnabled || values.role !== "guest" || values.careTeam.length === 0) delete payload.careTeam;
       if (!payload.password) delete payload.password;
 
@@ -145,6 +148,19 @@ export default function AdminUserForm() {
               onChange={(e) => setValue("profile", e.target.value)}
             />
           </label>
+
+          {values.role !== "guest" && (
+            <div className="admin-checkbox-row" style={{ marginTop: "1rem" }}>
+              <label className="checkbox-option">
+                <input
+                  type="checkbox"
+                  checked={values.onMissionsTeam}
+                  onChange={(e) => setValue("onMissionsTeam", e.target.checked)}
+                />
+                On the {ownerGroupName} (looks after partners that have no care team)
+              </label>
+            </div>
+          )}
 
           {values.role === "guest" && (
             <div style={{ marginTop: "1rem" }}>

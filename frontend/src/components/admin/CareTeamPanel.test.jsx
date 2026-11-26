@@ -3,12 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import CareTeamPanel from "./CareTeamPanel.jsx";
-import {
-  fetchCareTeam,
-  setCareTeam,
-  fetchCareTeamCandidates,
-  fetchDefaultCareLead,
-} from "../../api/client.js";
+import { fetchCareTeam, setCareTeam, fetchCareTeamCandidates, fetchMissionsTeam } from "../../api/client.js";
 
 // One Lead plus Members per partner. Everyone who can see the partner sees the team; only
 // admin/editor can change it.
@@ -16,11 +11,10 @@ vi.mock("../../api/client.js", () => ({
   fetchCareTeam: vi.fn(),
   setCareTeam: vi.fn(),
   fetchCareTeamCandidates: vi.fn(),
-  fetchDefaultCareLead: vi.fn(),
+  fetchMissionsTeam: vi.fn(),
 }));
-let keyDatesOn = false;
 vi.mock("../../context/SettingsContext.jsx", () => ({
-  useSettings: () => ({ enabledFeatures: { keyDates: keyDatesOn } }),
+  useSettings: () => ({ enabledFeatures: {}, ownerGroupName: "Missions team" }),
 }));
 
 const ann = { userId: "u1", firstName: "Ann", lastName: "Lead", role: "editor", email: "ann@example.test" };
@@ -42,8 +36,7 @@ function renderPanel(props = {}) {
 beforeEach(() => {
   vi.clearAllMocks();
   fetchCareTeamCandidates.mockResolvedValue(candidates);
-  fetchDefaultCareLead.mockResolvedValue(null);
-  keyDatesOn = false;
+  fetchMissionsTeam.mockResolvedValue({ members: [], candidates: [] });
 });
 
 describe("CareTeamPanel, compact (the line on the contact card)", () => {
@@ -142,41 +135,33 @@ describe("CareTeamPanel", () => {
   });
 });
 
-// With nobody assigned, key-date reminders fall back to the default lead.
-describe("CareTeamPanel: key-date fallback (#291)", () => {
+// With nobody assigned, the missions team looks after the partner (its name is church wording).
+describe("CareTeamPanel: the missions team looks after a partner with no team", () => {
   beforeEach(() => fetchCareTeam.mockResolvedValue({ lead: null, members: [] }));
 
-  it("tells staff who the reminders fall back to", async () => {
-    keyDatesOn = true;
-    fetchDefaultCareLead.mockResolvedValue({ userId: "u1", name: "Ann Lead" });
+  it("tells staff who looks after the partner until a team is set", async () => {
+    fetchMissionsTeam.mockResolvedValue({ members: [{ id: "u1", name: "Ann Lead" }], candidates: [] });
     renderPanel();
-    expect(await screen.findByText(/go to the default lead, Ann Lead/)).toBeTruthy();
+    expect(await screen.findByText(/Missions team \(Ann Lead\) looks after this partner/)).toBeTruthy();
   });
 
-  it("warns staff when there is no default lead either", async () => {
-    keyDatesOn = true;
+  it("warns staff when nobody is on the missions team either", async () => {
     renderPanel();
-    expect(await screen.findByText(/have nobody to go to/)).toBeTruthy();
+    expect(await screen.findByText(/Nobody is on the Missions team yet/)).toBeTruthy();
   });
 
-  it("says nothing about reminders when the feature is off, or to someone who can't edit", async () => {
-    renderPanel();
-    await screen.findByText(/Nobody is assigned/);
-    expect(screen.queryByText(/Key-date reminders/)).toBeNull();
-    expect(fetchDefaultCareLead).not.toHaveBeenCalled();
-
-    keyDatesOn = true;
+  it("names the group without listing people to someone who can't edit, and doesn't ask the server", async () => {
     renderPanel({ canEdit: false });
-    await waitFor(() => expect(screen.getAllByText(/Nobody is assigned/).length).toBe(2));
-    expect(screen.queryByText(/Key-date reminders/)).toBeNull();
-    expect(fetchDefaultCareLead).not.toHaveBeenCalled();
+    expect(
+      await screen.findByText(/The Missions team looks after this partner until a team is set/)
+    ).toBeTruthy();
+    expect(fetchMissionsTeam).not.toHaveBeenCalled();
   });
 
   it("doesn't mention the fallback once a team exists", async () => {
-    keyDatesOn = true;
     fetchCareTeam.mockResolvedValue({ lead: ann, members: [] });
     renderPanel();
     await screen.findByText("Ann Lead");
-    expect(screen.queryByText(/Key-date reminders/)).toBeNull();
+    expect(screen.queryByText(/looks after this partner/)).toBeNull();
   });
 });

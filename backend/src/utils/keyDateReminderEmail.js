@@ -10,34 +10,12 @@
 
 const { renderEmail, blocks } = require("./emailTemplate");
 const { maskedDisplayName } = require("./maskData");
-
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
-function when(item) {
-  const d = new Date(`${item.date}T00:00:00Z`);
-  const date = `${WEEKDAYS[d.getUTCDay()]} ${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}`;
-  if (item.daysUntil === 0) return `Today · ${date}`;
-  if (item.daysUntil === 1) return `Tomorrow · ${date}`;
-  return `In ${item.daysUntil} days · ${date}`;
-}
+const { keyDateWhat, when } = require("./keyDateText");
 
 function describe(item, settings) {
   const partner = item.partner;
   const name = maskedDisplayName(partner, settings) || "A partner";
-  const restricted = !!partner.isRestricted;
-  let what;
-  if (item.kind === "anniversary") {
-    what = `wedding anniversary${item.turning ? ` (${item.turning} years)` : ""}`;
-  } else if (item.kind === "commissioned") {
-    what = `${item.turning} ${item.turning === 1 ? "year" : "years"} since they were commissioned`;
-  } else if (item.kind === "supportingSince") {
-    what = `${item.turning} ${item.turning === 1 ? "year" : "years"} of our support`;
-  } else {
-    // Birthdays: a restricted family's own names stay out of the email.
-    const who = restricted || !item.who ? "a birthday" : `${item.who}'s birthday`;
-    what = item.turning ? `${who} (turning ${item.turning})` : who;
-  }
+  const what = keyDateWhat(item, !!partner.isRestricted);
   const care =
     partner.contactLevel && partner.contactLevel !== "normal"
       ? " — special communication instructions apply, see their page"
@@ -67,8 +45,8 @@ function buildKeyDateEmail({ user, items, settings, appUrl }) {
       ),
     ],
     footerNote:
-      "You get this because you're on these partners' care teams (or the default lead for partners without one).",
+      "You get this because you look after these partners (on their care team, or on the team that looks after partners without one).",
   });
 }
 
-module.exports = { buildKeyDateEmail, describe, when };
+module.exports = { buildKeyDateEmail, describe, when, keyDateWhat };

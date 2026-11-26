@@ -454,9 +454,23 @@ CREATE TABLE "KeyDateReminder" (
     "kind" TEXT NOT NULL,
     "subjectId" TEXT NOT NULL DEFAULT '',
     "occurrenceDate" DATE NOT NULL,
+    "tier" INTEGER NOT NULL DEFAULT 0,
     "sentAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "KeyDateReminder_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "CareChatPost" (
+    "id" TEXT NOT NULL,
+    "partnerId" TEXT NOT NULL,
+    "type" TEXT NOT NULL,
+    "subjectKey" TEXT NOT NULL DEFAULT '',
+    "occurrenceDate" DATE NOT NULL,
+    "tier" INTEGER NOT NULL DEFAULT 0,
+    "postedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "CareChatPost_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -759,6 +773,8 @@ CREATE TABLE "ChurchSettings" (
     "groupmeOneTimeNeedTopicName" TEXT,
     "groupmeNewsletterTopicId" TEXT,
     "groupmeNewsletterTopicName" TEXT,
+    "groupmeCareTopicId" TEXT,
+    "groupmeCareTopicName" TEXT,
     "whatsappPhoneNumber" TEXT,
     "whatsappPairedAt" TIMESTAMP(3),
     "whatsappLastError" TEXT,
@@ -773,6 +789,8 @@ CREATE TABLE "ChurchSettings" (
     "whatsappOneTimeNeedGroupName" TEXT,
     "whatsappNewsletterGroupId" TEXT,
     "whatsappNewsletterGroupName" TEXT,
+    "whatsappCareGroupId" TEXT,
+    "whatsappCareGroupName" TEXT,
     "joshuaProjectApiKey" TEXT,
     "anthropicApiKey" TEXT,
     "extractionModel" TEXT,
@@ -800,10 +818,15 @@ CREATE TABLE "ChurchSettings" (
     "chatDispatchPrayerRequests" BOOLEAN NOT NULL DEFAULT true,
     "chatDispatchOneTimeNeeds" BOOLEAN NOT NULL DEFAULT true,
     "chatDispatchNewsletters" BOOLEAN NOT NULL DEFAULT true,
+    "chatDispatchKeyDates" BOOLEAN NOT NULL DEFAULT false,
+    "chatDispatchQuietPartners" BOOLEAN NOT NULL DEFAULT false,
+    "chatDispatchUpdatesToPass" BOOLEAN NOT NULL DEFAULT false,
     "allowRestrictedPartnerDispatch" BOOLEAN NOT NULL DEFAULT false,
     "restrictedPartnerInitialsEnabled" BOOLEAN NOT NULL DEFAULT true,
-    "defaultCareLeadUserId" TEXT,
+    "ownerGroupName" TEXT,
+    "defaultDigestCadence" TEXT,
     "keyDateLeadDays" INTEGER NOT NULL DEFAULT 7,
+    "keyDateAdvanceDays" INTEGER[] DEFAULT ARRAY[90, 30]::INTEGER[],
     "contactStaleDays" INTEGER NOT NULL DEFAULT 90,
     "emailDispatchSubjectTemplate" TEXT,
     "emailDispatchSignature" TEXT,
@@ -858,8 +881,9 @@ CREATE TABLE "User" (
     "mfaLastTimeStep" INTEGER,
     "mfaSetupRequired" BOOLEAN NOT NULL DEFAULT false,
     "keyDateEmailOptOut" BOOLEAN NOT NULL DEFAULT false,
+    "onMissionsTeam" BOOLEAN NOT NULL DEFAULT false,
     "cadence" TEXT,
-    "allPartners" BOOLEAN NOT NULL DEFAULT true,
+    "digestScope" TEXT NOT NULL DEFAULT 'all',
     "lastEditedById" TEXT,
     "lastEditedByName" TEXT,
     "lastEditedAt" TIMESTAMP(3),
@@ -1303,7 +1327,10 @@ CREATE INDEX "AuditLog_entityType_entityId_idx" ON "AuditLog"("entityType", "ent
 CREATE INDEX "KeyDateReminder_partnerId_idx" ON "KeyDateReminder"("partnerId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "KeyDateReminder_userId_partnerId_kind_subjectId_occurrenceD_key" ON "KeyDateReminder"("userId", "partnerId", "kind", "subjectId", "occurrenceDate");
+CREATE UNIQUE INDEX "KeyDateReminder_userId_partnerId_kind_subjectId_occurrenceD_key" ON "KeyDateReminder"("userId", "partnerId", "kind", "subjectId", "occurrenceDate", "tier");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "CareChatPost_partnerId_type_subjectKey_occurrenceDate_tier_key" ON "CareChatPost"("partnerId", "type", "subjectKey", "occurrenceDate", "tier");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "PartnerLink_partnerId_type_key" ON "PartnerLink"("partnerId", "type");
@@ -1558,6 +1585,9 @@ ALTER TABLE "KeyDateReminder" ADD CONSTRAINT "KeyDateReminder_userId_fkey" FOREI
 ALTER TABLE "KeyDateReminder" ADD CONSTRAINT "KeyDateReminder_partnerId_fkey" FOREIGN KEY ("partnerId") REFERENCES "Partner"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "CareChatPost" ADD CONSTRAINT "CareChatPost_partnerId_fkey" FOREIGN KEY ("partnerId") REFERENCES "Partner"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "PartnerLink" ADD CONSTRAINT "PartnerLink_partnerId_fkey" FOREIGN KEY ("partnerId") REFERENCES "Partner"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -1607,9 +1637,6 @@ ALTER TABLE "Photo" ADD CONSTRAINT "Photo_partnerId_fkey" FOREIGN KEY ("partnerI
 
 -- AddForeignKey
 ALTER TABLE "PhotoBytes" ADD CONSTRAINT "PhotoBytes_id_fkey" FOREIGN KEY ("id") REFERENCES "Photo"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "ChurchSettings" ADD CONSTRAINT "ChurchSettings_defaultCareLeadUserId_fkey" FOREIGN KEY ("defaultCareLeadUserId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "ChurchSettingsLogo" ADD CONSTRAINT "ChurchSettingsLogo_id_fkey" FOREIGN KEY ("id") REFERENCES "ChurchSettings"("id") ON DELETE CASCADE ON UPDATE CASCADE;

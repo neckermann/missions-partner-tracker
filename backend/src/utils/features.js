@@ -3,6 +3,12 @@
 // label and description travel to the frontend with the settings payload, so
 // adding a feature is adding an entry here.
 //
+// `requires` (optional): keys of features this one cannot work without; see isFeatureEnabled below.
+// `withoutEmail` (optional): one line on what you get when Email (Sending) is off, for features whose emails
+// matter; shown on Enabled Features. The rule behind it lives in utils/emailSenders.js.
+// `setupNeeds` (optional): keys the settings page asks you to turn on before this one, that are NOT required
+// for it to keep working once it is on (e.g. sending needs email; confirming an existing subscription doesn't).
+//
 // `group` is "public" for a toggle a logged-out visitor can notice ("/", "/map",
 // or Trip Opportunities) and "admin" otherwise; it drives the split in
 // pages/AdminSettingsFeatures.jsx. Admin order mirrors the nav: core content,
@@ -27,6 +33,7 @@ const FEATURES = {
     label: "Newsletters & Docs",
     description:
       "Newsletters and documents (survey responses, signed policies, etc.) on missionary/organization pages and their own admin section.",
+    withoutEmail: "New newsletters wait on Pending Dispatches, where you can copy what is ready to share.",
     defaultEnabled: true,
     group: "admin",
   },
@@ -34,6 +41,7 @@ const FEATURES = {
     label: "Prayer requests",
     description:
       "The Prayer Requests admin section, and the prayer request list on missionary/organization pages.",
+    withoutEmail: "New requests wait on Pending Dispatches, where you can copy what is ready to share.",
     defaultEnabled: true,
     group: "admin",
   },
@@ -41,6 +49,7 @@ const FEATURES = {
     label: "One-time needs",
     description:
       "The One-Time Needs admin section, and the one-time needs list on missionary/organization pages.",
+    withoutEmail: "New needs wait on Pending Dispatches, where you can copy what is ready to share.",
     defaultEnabled: true,
     group: "admin",
   },
@@ -57,6 +66,8 @@ const FEATURES = {
     label: "Mission trips",
     description:
       "Trip tracking, recruiting, teams, meetings, documents, and support raising. The Trips and Plan a Trip admin pages.",
+    withoutEmail:
+      "You are handed each link and its wording to copy and pass on (invites, access links, meetings, requirements).",
     defaultEnabled: false,
     group: "admin",
   },
@@ -67,6 +78,7 @@ const FEATURES = {
     label: "Public trip discovery",
     description:
       "The public Trip Opportunities page and plain trip-application links. Also requires Mission trips to be on. A trip's own private application/support-raising links work regardless of this flag.",
+    requires: ["trips"],
     defaultEnabled: false,
     group: "public",
   },
@@ -80,6 +92,7 @@ const FEATURES = {
     label: "Reports",
     description:
       "Read-only reports over existing data — committed support, prayer requests, one-time needs, data completeness, trip fundraising and readiness, mailing list — with CSV download and a print view.",
+    withoutEmail: "Scheduled report emails aren't sent; run and download a report from Reports any time.",
     defaultEnabled: true,
     group: "admin",
   },
@@ -122,6 +135,11 @@ const FEATURES = {
     label: "Public prayer digest",
     description:
       "Lets anyone subscribe (no login) to email digests of prayer-request updates, for all partners or specific ones they follow -- unlike the admin digest above, this is prayer requests only, never one-time needs or newsletters. Also requires Public directory and Email (Sending) to be on.",
+    requires: ["publicDirectory"],
+    // Needed to switch it on (the settings page makes you enable email first), not to keep working: an
+    // existing subscriber can still confirm and unsubscribe while email is off.
+    setupNeeds: ["outboundEmail"],
+    withoutEmail: "Can't be turned on: it needs working email to send confirmations and digests.",
     defaultEnabled: false,
     group: "admin",
     section: "communications",
@@ -138,27 +156,29 @@ const FEATURES = {
     group: "admin",
   },
   // A bell alert and grouped daily email for a care team when a birthday,
-  // anniversary or supported-since milestone is coming. Needs care teams; the email needs email sending.
+  // anniversary or supported-since milestone is coming. Goes to whoever looks after the partner (its care
+  // team, else the missions team); the email needs email sending.
   keyDates: {
     label: "Key-date reminders",
     description:
-      "Remind each partner's care team about coming birthdays (including children), anniversaries and supported-since milestones: on the bell, and in one grouped email a day that is sent only on days something is due. Needs Care teams; the email also needs Email (Sending).",
+      "Remind whoever looks after each partner (its care team if it has one, otherwise your missions team) about coming birthdays (including children), anniversaries and supported-since milestones: on the bell, and in one grouped email a day that is sent only on days something is due. The email needs Email (Sending).",
+    withoutEmail: "My partners shows what the daily email would have said, with Copy this week's list.",
     defaultEnabled: false,
     group: "admin",
   },
   careTeam: {
     label: "Care teams",
     description:
-      "Give each partner a care team: one lead plus members from your logins who keep in touch with them. Guests can be given a partner this way. Also adds a coverage report of partners with no care team.",
+      "Give each partner its own care team: one lead plus members from your logins who keep in touch with them. Church members can be added as Guests and see only their partners. Partners without a team are looked after by your missions team. Also adds a coverage report of partners with no care team.",
     defaultEnabled: false,
     group: "admin",
   },
   // A church-owned menu of ways to support a partner (edited in Settings, never
-  // code) and each partner's choices from it. Needs Care teams. Off by default.
+  // code) and each partner's choices from it. Off by default.
   supportPreferences: {
     label: "Support preferences",
     description:
-      "Let each partner choose how the church and their care team can support them (a menu you edit under Settings, such as housing while home, airport pick-up, prayer, care packages), shown as a card on the partner's page and recorded by staff or the care team. Needs Care teams. Never shown publicly, in the booklet or in dispatches.",
+      "Let each partner choose how the church can support them (a menu you edit under Settings, such as housing while home, airport pick-up, prayer, care packages), shown as a card on the partner's page and recorded by staff or the people who look after them. Never shown publicly, in the booklet or in dispatches.",
     defaultEnabled: false,
     group: "admin",
   },
@@ -168,6 +188,7 @@ const FEATURES = {
     label: "Partner surveys",
     description:
       "Build short surveys (a check-in, an annual update, a poll) and send each partner a personal link to answer, or fill one in for them after a conversation. Answers show on the partner's page for staff (and their care team, when Care teams is on) only, never publicly, in the booklet or in dispatches. A person starts every send; the app never emails a partner on its own. Sending the links needs Email (Sending).",
+    withoutEmail: "Sending a survey gives you each partner's link to copy (Get link).",
     defaultEnabled: false,
     group: "admin",
   },
@@ -182,6 +203,7 @@ const FEATURES = {
     label: "AI Features",
     description:
       "Scan uploaded newsletters and email documents for prayer requests and one-time needs using Claude.",
+    requires: ["partnerFiles"],
     defaultEnabled: false,
     group: "admin",
     section: "integrations",
@@ -203,12 +225,24 @@ const FEATURE_KEYS = Object.keys(FEATURES);
 // A key with no entry in enabledFeatures falls back to its registry default:
 // existing deployments keep current features on, and a new feature like
 // aiExtraction stays off until enabled.
-function isFeatureEnabled(enabledFeatures, key) {
+//
+// `requires` (in the registry above) lists the features this one genuinely cannot work without, and it
+// is the ONLY place a dependency is declared: a feature is on only when it is switched on AND everything
+// it requires is on (recursively). Routes, the UI and the descriptions never re-check a requirement by
+// hand, so a dependency can't appear by accident. Declare one only for a real data dependency.
+function isFeatureEnabled(enabledFeatures, key, seen = new Set()) {
   const feature = FEATURES[key];
-  if (!feature) return false;
+  if (!feature || seen.has(key)) return false;
   const stored = enabledFeatures?.[key];
   const on = typeof stored === "boolean" ? stored : feature.defaultEnabled;
-  return on;
+  if (!on) return false;
+  const next = new Set(seen).add(key);
+  return (feature.requires || []).every((req) => isFeatureEnabled(enabledFeatures, req, next));
+}
+
+// The features `key` requires that are currently off, so a screen can say what to turn on first.
+function unmetRequirements(enabledFeatures, key) {
+  return (FEATURES[key]?.requires || []).filter((req) => !isFeatureEnabled(enabledFeatures, req));
 }
 
 // The public data routes back both the directory and map (and the detail page
@@ -217,4 +251,4 @@ function isAnyFeatureEnabled(enabledFeatures, keys) {
   return keys.some((key) => isFeatureEnabled(enabledFeatures, key));
 }
 
-module.exports = { FEATURES, FEATURE_KEYS, isFeatureEnabled, isAnyFeatureEnabled };
+module.exports = { FEATURES, FEATURE_KEYS, isFeatureEnabled, isAnyFeatureEnabled, unmetRequirements };

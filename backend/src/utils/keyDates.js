@@ -12,6 +12,14 @@ const KEY_DATE_LEAD_DAYS = 7;
 // start dates are stored as Jan 1, so yearly would always say "Jan 1").
 const isSupportMilestone = (years) => years >= 1 && (years === 1 || years % 5 === 0);
 
+// Which heads-up a key date is at: 0 inside the final window (leadDays), else the smallest advance threshold
+// that still covers it (90 for 45 days out, 30 for 20), or null while it is further out than every threshold.
+function reminderTier(daysUntil, leadDays, advanceDays = []) {
+  if (daysUntil <= leadDays) return 0;
+  const covering = advanceDays.filter((d) => d >= daysUntil).sort((a, b) => a - b);
+  return covering.length ? covering[0] : null;
+}
+
 const ymd = (d) => d.toISOString().slice(0, 10);
 const fullName = (p) => [p.firstName, p.lastName].filter(Boolean).join(" ");
 
@@ -69,4 +77,4 @@ function isHandled(item, logs, leadDays = KEY_DATE_LEAD_DAYS) {
   );
 }
 
-module.exports = { KEY_DATE_LEAD_DAYS, upcomingKeyDates, isHandled, isSupportMilestone };
+module.exports = { KEY_DATE_LEAD_DAYS, reminderTier, upcomingKeyDates, isHandled, isSupportMilestone };

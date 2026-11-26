@@ -116,6 +116,8 @@ describe("GET/PUT /api/settings/groupme -- admin gate", () => {
       oneTimeNeedTopicName: null,
       newsletterTopicId: null,
       newsletterTopicName: null,
+      careTopicId: null,
+      careTopicName: null,
     });
     assert.ok(!("accessToken" in res.body) && !("groupmeAccessToken" in res.body));
   });

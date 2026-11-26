@@ -84,12 +84,11 @@ export default function AdminPartners() {
   const navigate = useNavigate();
   const { partnerTermPlural, usePartnerTermInAdmin, enabledFeatures } = useSettings();
   const sectionTitle = usePartnerTermInAdmin ? partnerTermPlural : "Partners";
-  const { canWrite, isAdmin, isGuest, careTeamSeats } = useCurrentUser();
-  // "My partners": only for someone who holds a care team seat, and only while both features
-  // are on. The notification's link lands here with ?assigned=1.
+  const { canWrite, isAdmin, isGuest, careTeamSeats, onMissionsTeam } = useCurrentUser();
+  // "My partners": for someone who looks after partners (holds a care team seat, or is on the missions team)
+  // while the contact log is on. The notification's link lands here with ?assigned=1.
   const [searchParams, setSearchParams] = useSearchParams();
-  const hasAssignedTab =
-    !!enabledFeatures.contactLog && !!enabledFeatures.careTeam && careTeamSeats.length > 0;
+  const hasAssignedTab = !!enabledFeatures.contactLog && (careTeamSeats.length > 0 || onMissionsTeam);
   // Staff land on All; a guest gets one plain list, no tabs (see utils/partnersTabs.js).
   const { showAssigned, showTabs } = partnersTabState({
     hasAssignedTab,

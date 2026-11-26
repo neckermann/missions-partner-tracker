@@ -120,6 +120,9 @@ describe("GET/PUT /api/settings/dispatches -- admin gate and defaults", () => {
         chatDispatchPrayerRequests: true,
         chatDispatchOneTimeNeeds: true,
         chatDispatchNewsletters: true,
+        chatDispatchKeyDates: false,
+        chatDispatchQuietPartners: false,
+        chatDispatchUpdatesToPass: false,
         allowRestrictedPartnerDispatch: true,
         // Pin every field explicitly, as in the rest of this block: the deepEqual below checks the
         // response's entire shape.
@@ -144,6 +147,9 @@ describe("GET/PUT /api/settings/dispatches -- admin gate and defaults", () => {
       chatDispatchPrayerRequests: true,
       chatDispatchOneTimeNeeds: true,
       chatDispatchNewsletters: true,
+      chatDispatchKeyDates: false,
+      chatDispatchQuietPartners: false,
+      chatDispatchUpdatesToPass: false,
       allowRestrictedPartnerDispatch: true,
       restrictedPartnerInitialsEnabled: true,
       emailDispatchSubjectTemplate: null,
@@ -674,7 +680,7 @@ describe("unsubscribe", () => {
   test("GET /api/auth/unsubscribe with a valid token renders a confirm page, without clearing cadence yet", async () => {
     await admin("/api/auth/dispatch-by-email", {
       method: "PUT",
-      body: { cadence: "biweekly", allPartners: true },
+      body: { cadence: "biweekly", digestScope: "all" },
     });
     const me = await admin("/api/auth/me");
     assert.equal(me.body.user.cadence, "biweekly");
@@ -692,7 +698,7 @@ describe("unsubscribe", () => {
   test("POST /api/auth/unsubscribe with a valid token actually clears cadence", async () => {
     await admin("/api/auth/dispatch-by-email", {
       method: "PUT",
-      body: { cadence: "biweekly", allPartners: true },
+      body: { cadence: "biweekly", digestScope: "all" },
     });
     const me = await admin("/api/auth/me");
 
@@ -737,18 +743,21 @@ describe("PUT /api/auth/dispatch-by-email -- cadence + scope", () => {
   });
 
   after(async () => {
-    await admin("/api/auth/dispatch-by-email", { method: "PUT", body: { cadence: null, allPartners: true } });
+    await admin("/api/auth/dispatch-by-email", {
+      method: "PUT",
+      body: { cadence: null, digestScope: "all" },
+    });
     await removeFixturePartners();
   });
 
   test("cadence + specific partners persists and GET /me reflects it", async () => {
     const res = await admin("/api/auth/dispatch-by-email", {
       method: "PUT",
-      body: { cadence: "biweekly", allPartners: false, partnerIds: [partnerA, partnerB] },
+      body: { cadence: "biweekly", digestScope: "followed", partnerIds: [partnerA, partnerB] },
     });
     assert.equal(res.status, 200);
     assert.equal(res.body.user.cadence, "biweekly");
-    assert.equal(res.body.user.allPartners, false);
+    assert.equal(res.body.user.digestScope, "followed");
     assert.deepEqual(res.body.user.followedPartnerIds.sort(), [partnerA, partnerB].sort());
 
     const me = await admin("/api/auth/me");
@@ -759,7 +768,7 @@ describe("PUT /api/auth/dispatch-by-email -- cadence + scope", () => {
   test("cadence: null clears the subscription and any followed partners", async () => {
     await admin("/api/auth/dispatch-by-email", {
       method: "PUT",
-      body: { cadence: "monthly", allPartners: false, partnerIds: [partnerA] },
+      body: { cadence: "monthly", digestScope: "followed", partnerIds: [partnerA] },
     });
     const res = await admin("/api/auth/dispatch-by-email", { method: "PUT", body: { cadence: null } });
     assert.equal(res.status, 200);
@@ -770,22 +779,22 @@ describe("PUT /api/auth/dispatch-by-email -- cadence + scope", () => {
     assert.deepEqual(me.body.user.followedPartnerIds, []);
   });
 
-  test("switching to allPartners: true clears previously followed partners, not just ignores them", async () => {
+  test("switching to the all scope clears previously followed partners, not just ignores them", async () => {
     await admin("/api/auth/dispatch-by-email", {
       method: "PUT",
-      body: { cadence: "monthly", allPartners: false, partnerIds: [partnerA, partnerB] },
+      body: { cadence: "monthly", digestScope: "followed", partnerIds: [partnerA, partnerB] },
     });
     const res = await admin("/api/auth/dispatch-by-email", {
       method: "PUT",
-      body: { cadence: "monthly", allPartners: true },
+      body: { cadence: "monthly", digestScope: "all" },
     });
     assert.equal(res.status, 200);
-    assert.equal(res.body.user.allPartners, true);
+    assert.equal(res.body.user.digestScope, "all");
     assert.deepEqual(res.body.user.followedPartnerIds, []);
 
     const rescoped = await admin("/api/auth/dispatch-by-email", {
       method: "PUT",
-      body: { cadence: "monthly", allPartners: false, partnerIds: [partnerA] },
+      body: { cadence: "monthly", digestScope: "followed", partnerIds: [partnerA] },
     });
     assert.deepEqual(rescoped.body.user.followedPartnerIds, [partnerA]);
   });
@@ -799,21 +808,21 @@ describe("PUT /api/auth/dispatch-by-email -- cadence + scope", () => {
 
     const bogus = await admin("/api/auth/dispatch-by-email", {
       method: "PUT",
-      body: { cadence: "monthly", allPartners: false, partnerIds: ["not-a-real-id"] },
+      body: { cadence: "monthly", digestScope: "followed", partnerIds: ["not-a-real-id"] },
     });
     assert.equal(bogus.status, 400);
 
     const archivedRes = await admin("/api/auth/dispatch-by-email", {
       method: "PUT",
-      body: { cadence: "monthly", allPartners: false, partnerIds: [archived.body.id] },
+      body: { cadence: "monthly", digestScope: "followed", partnerIds: [archived.body.id] },
     });
     assert.equal(archivedRes.status, 400);
   });
 
-  test("allPartners: false with an empty partnerIds list is rejected", async () => {
+  test("the followed scope with an empty partnerIds list is rejected", async () => {
     const res = await admin("/api/auth/dispatch-by-email", {
       method: "PUT",
-      body: { cadence: "monthly", allPartners: false, partnerIds: [] },
+      body: { cadence: "monthly", digestScope: "followed", partnerIds: [] },
     });
     assert.equal(res.status, 400);
   });
@@ -827,7 +836,7 @@ describe("PUT /api/auth/dispatch-by-email -- cadence + scope", () => {
     const editorClient = await client("editor");
     const res = await editorClient("/api/auth/dispatch-by-email", {
       method: "PUT",
-      body: { cadence: "quarterly", allPartners: true },
+      body: { cadence: "quarterly", digestScope: "all" },
     });
     assert.equal(res.status, 200);
     assert.equal(res.body.user.cadence, "quarterly");
