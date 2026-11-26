@@ -18,7 +18,7 @@ test.describe("Prayer requests", () => {
     const uniqueText = `E2E prayer request ${Date.now()}`;
     await card.locator("button", { hasText: "+ Add" }).click();
     await page.selectOption(".modal-panel select", {
-      label: "Strategic (ministry vision/calling — can be shared publicly)",
+      label: "Ministry (their work and calling — can be shared publicly)",
     });
     await page.fill(".modal-panel textarea", uniqueText);
     await page.locator('.modal-panel input[type="checkbox"]').first().check(); // "Show on public profile"

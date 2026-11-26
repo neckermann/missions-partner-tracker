@@ -65,7 +65,7 @@ describe("AdminSidebar -- guest tier", () => {
     for (const name of ["Partners", "Newsletters & Docs", "Prayer Requests", "One-Time Needs", "Trips"]) {
       expect(screen.getByRole("link", { name: new RegExp(name, "i") })).toBeInTheDocument();
     }
-    for (const name of ["Home", "Print Booklet", "Reports", "Pending Dispatches", "Settings"]) {
+    for (const name of ["Home", "Print Booklet", "Reports", "Updates to share", "Settings"]) {
       expect(screen.queryByRole("link", { name: new RegExp(name, "i") })).not.toBeInTheDocument();
     }
   });

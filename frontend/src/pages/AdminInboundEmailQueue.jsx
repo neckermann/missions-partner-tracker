@@ -35,7 +35,7 @@ export default function AdminInboundEmailQueue() {
   function reload() {
     return fetchPendingInboundEmails()
       .then(setEmails)
-      .catch((err) => setError(err.response?.data?.error || "Couldn't load the unmatched emails queue."));
+      .catch((err) => setError(err.response?.data?.error || "Couldn't load the emails to sort."));
   }
 
   useEffect(() => {
@@ -166,7 +166,7 @@ export default function AdminInboundEmailQueue() {
   return (
     <div className="admin-shell">
       <PageHeader
-        title="Unmatched Emails"
+        title="Emails to sort"
         description="Inbound emails waiting for a quick look before anything is filed or announced (a sender address can be forged). The Why queued column says whether a partner's contact or household adult matched the sender, more than one did, or the sender couldn't be verified (SPF/DKIM). Assign each to the right partner (or a trip participant, if trips are on) and pick what kind of file it is, or discard it."
       />
 

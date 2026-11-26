@@ -155,7 +155,7 @@ export default function AdminPendingDispatches() {
 
   useEffect(() => {
     reloadPending()
-      .catch((err) => setError(err.response?.data?.error || "Couldn't load pending dispatches."))
+      .catch((err) => setError(err.response?.data?.error || "Couldn't load the updates to share."))
       .finally(() => setLoading(false));
   }, []);
 
@@ -169,7 +169,7 @@ export default function AdminPendingDispatches() {
       await deletePendingDispatch(id);
       await reloadPending();
     } catch (err) {
-      setError(err.response?.data?.error || "Couldn't clear that dispatch.");
+      setError(err.response?.data?.error || "Couldn't clear that update.");
     } finally {
       setClearingId(null);
     }
@@ -203,7 +203,7 @@ export default function AdminPendingDispatches() {
       const updated = await updatePendingDispatch(blurb.id, blurb.bodyText);
       setPending((list) => list.map((item) => (item.id === updated.id ? { ...item, ...updated } : item)));
     } catch (err) {
-      setError(err.response?.data?.error || "Couldn't approve that dispatch.");
+      setError(err.response?.data?.error || "Couldn't approve that update.");
     } finally {
       setApprovingId(null);
     }
@@ -221,8 +221,8 @@ export default function AdminPendingDispatches() {
   return (
     <div className="admin-shell">
       <PageHeader
-        title="Pending Dispatches"
-        description="New prayer requests, one-time needs, and newsletters wait here instead of posting immediately. Each clears once every channel it applies to (GroupMe, WhatsApp, the admin email, the public email) has handled it, on its own schedule. Schedules, chat mutes and email appearance are under Settings → Dispatch Settings."
+        title="Updates to share"
+        description="New prayer requests, one-time needs, and newsletters wait here instead of posting immediately. Each clears once every channel it applies to (GroupMe, WhatsApp, the admin email, the public email) has handled it, on its own schedule. Schedules, what gets posted to chat and how the email looks are under Settings → Sending updates."
       />
 
       {noChannelOn && readyCount > 0 && (

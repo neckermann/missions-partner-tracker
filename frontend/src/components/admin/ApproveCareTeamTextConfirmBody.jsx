@@ -7,8 +7,8 @@ export default function ApproveCareTeamTextConfirmBody({ text }) {
   return (
     <div>
       <p style={{ marginTop: 0 }}>
-        A care team member entered this. Approving marks it reviewed and eligible to send to any enabled
-        dispatch channel, with exactly the wording below.
+        A care team member entered this. Approving lets it be sent to your team by email and chat, with
+        exactly the wording below.
       </p>
       <p>Read it over first: it goes to the whole congregation, not just the team.</p>
       <blockquote

@@ -179,8 +179,8 @@ export default function ExtractionReviewModal({
                 onChange={(e) => updatePrayerRequest(i, "category", e.target.value)}
                 style={{ marginBottom: "0.5rem" }}
               >
-                <option value="strategic">Strategic</option>
-                <option value="situational">Situational</option>
+                <option value="strategic">Ministry</option>
+                <option value="situational">Everyday</option>
               </select>
               <textarea
                 value={r.requestText}

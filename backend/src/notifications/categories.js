@@ -387,7 +387,7 @@ const CATEGORIES = [
   {
     key: "dispatchesNeedingApproval",
     requiresAny: ["groupme", "whatsapp", "outboundEmail"],
-    label: "Dispatches needing approval",
+    label: "Updates waiting for your OK",
     icon: "📨",
     linkTo: "/admin/pending-dispatches",
     adminOnly: false,
@@ -398,7 +398,7 @@ const CATEGORIES = [
   {
     key: "unmatchedEmails",
     requiresAny: ["inboundEmail"],
-    label: "Unmatched emails",
+    label: "Emails to sort",
     icon: "✉️",
     linkTo: "/admin/inbound-email",
     adminOnly: false,
@@ -603,7 +603,7 @@ const CATEGORIES = [
   {
     key: "dispatchSendFailures",
     requiresAny: ["groupme", "whatsapp", "outboundEmail"],
-    label: "Dispatch send failures",
+    label: "Updates that didn't send",
     icon: "🚫",
     linkTo: "/admin/pending-dispatches",
     adminOnly: true,

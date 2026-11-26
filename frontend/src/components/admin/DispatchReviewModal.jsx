@@ -25,7 +25,7 @@ export default function DispatchReviewModal({ blurb, onSaved, onClose }) {
         setStatus("ready");
       })
       .catch((err) => {
-        setError(err.response?.data?.error || "Failed to load this dispatch's text");
+        setError(err.response?.data?.error || "Failed to load the text of this update");
         setStatus("error");
       });
   }, [blurb.id]);
@@ -55,7 +55,7 @@ export default function DispatchReviewModal({ blurb, onSaved, onClose }) {
   }
 
   return (
-    <Modal title="Edit dispatch" onClose={onClose}>
+    <Modal title="Edit update" onClose={onClose}>
       {status === "loading" && <p style={{ color: "var(--muted)" }}>Loading...</p>}
       {status === "error" && (
         <p style={{ color: "var(--danger)" }} role="alert">

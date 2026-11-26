@@ -261,7 +261,7 @@ function EmailDispatchSection({ user, onChange }) {
 
   return (
     <EditableSection
-      title="Email Dispatch"
+      title="Email updates"
       value={value}
       onSave={save}
       view={(v) => (
@@ -280,7 +280,7 @@ function EmailDispatchSection({ user, onChange }) {
       edit={(draft, set) => (
         <>
           <label style={{ display: "block", marginBottom: "0.75rem" }}>
-            Digest cadence
+            How often
             <select
               value={draft.cadence}
               onChange={(e) => set("cadence", e.target.value)}

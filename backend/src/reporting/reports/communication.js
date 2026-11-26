@@ -7,16 +7,16 @@ const { hoursBetween, average, daysBetween } = require("../definitions");
 const dispatchHealth = {
   id: "dispatch-health",
   group: "communication",
-  label: "Dispatch health",
+  label: "Update sending health",
   question: "Are our GroupMe, WhatsApp and email sends going out, and how fast are they reviewed?",
   params: z.object({ from: optionalDay, to: optionalDay }),
   fields: [
     { name: "from", label: "From", type: "date" },
     { name: "to", label: "To", type: "date" },
   ],
-  chart: { kind: "bar", label: "type", value: "total", title: "Dispatches by type", limit: 10 },
+  chart: { kind: "bar", label: "type", value: "total", title: "Updates by type", limit: 10 },
   columns: [
-    { key: "type", label: "Dispatch type" },
+    { key: "type", label: "Update type" },
     { key: "total", label: "Created", type: "number" },
     { key: "reviewed", label: "Reviewed", type: "number" },
     { key: "avgReviewHours", label: "Avg hours to review", type: "number" },
@@ -73,11 +73,11 @@ const dispatchHealth = {
     return {
       rows,
       summary: [
-        { label: "Dispatches", value: records.length },
+        { label: "Updates", value: records.length },
         { label: "Awaiting review", value: records.filter((r) => !r.dispatchReviewedAt).length },
         { label: "Send errors", value: errors },
       ],
-      notes: ["Counts every dispatch record, including ones that never needed review."],
+      notes: ["Counts every update recorded, including ones that never needed review."],
     };
   },
 };

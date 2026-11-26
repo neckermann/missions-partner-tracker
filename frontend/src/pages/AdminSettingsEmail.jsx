@@ -220,10 +220,11 @@ export default function AdminSettingsEmail() {
                 </label>
               </div>
               <p style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
-                Lets partners email updates straight into this app — a match against a partner's own email (or
-                any of their household adults') files it as a Newsletter automatically; anything else lands in
-                the <strong>Unmatched Emails</strong> queue. On your Postmark server's Inbound stream Settings
-                tab, check <strong>Include raw email content in JSON payload</strong>, then set the{" "}
+                Lets partners email updates straight into this app — every message waits in the{" "}
+                <strong>Emails to sort</strong> list until an admin or editor files it (a match against a
+                partner's own email, or any of their household adults', is noted there). On your Postmark
+                server's Inbound stream Settings tab, check{" "}
+                <strong>Include raw email content in JSON payload</strong>, then set the{" "}
                 <strong>Inbound webhook</strong> URL to the address shown below, using the username/password
                 you choose here -- Postmark sends them as HTTP Basic Auth on every request. Pick any dedicated
                 subdomain for partners to send to (never the church's own real inbox).

@@ -162,13 +162,13 @@ function buildNavItems(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures
       key: "pendingDispatches",
       to: "/admin/pending-dispatches",
       icon: "📨",
-      label: "Pending Dispatches",
+      label: "Updates to share",
     },
     enabledFeatures.inboundEmail && {
       key: "inboundEmail",
       to: "/admin/inbound-email",
       icon: "📥",
-      label: "Unmatched Email",
+      label: "Emails to sort",
     },
     enabledFeatures.surveys && {
       key: "surveyUpdates",
@@ -215,7 +215,7 @@ function buildSiteAdminLinks(enabledFeatures) {
     enabledFeatures.whatsapp && { to: "/admin/settings/whatsapp", label: "WhatsApp", icon: "📱" },
     (enabledFeatures.groupme || enabledFeatures.whatsapp || enabledFeatures.outboundEmail) && {
       to: "/admin/settings/dispatches",
-      label: "Dispatches",
+      label: "Sending updates",
       icon: "🗓️",
     },
     (enabledFeatures.aiExtraction || enabledFeatures.joshuaProject) && {
