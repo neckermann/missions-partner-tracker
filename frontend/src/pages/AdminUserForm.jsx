@@ -38,6 +38,20 @@ export default function AdminUserForm() {
   const presetPartnerId = searchParams.get("partnerId");
   const { enabledFeatures, ownerGroupName } = useSettings();
   const careEnabled = !!enabledFeatures.careTeam;
+  // A guest reaches the app only through a trip or a care team seat, so with neither feature on the role
+  // would be a login that can see nothing: don't offer it (unless the form was opened already set to it).
+  const guestUsable = !!enabledFeatures.trips || careEnabled;
+  const guestGives = [enabledFeatures.trips && "the trips", careEnabled && "the partners"]
+    .filter(Boolean)
+    .join(" and ");
+  const guestExplainer = `A guest can see only what you give them: ${[
+    enabledFeatures.trips && "the trips you choose (and those trips' partners)",
+    careEnabled && "the partners whose care team they join (what they add waits for staff approval)",
+  ]
+    .filter(Boolean)
+    .join(
+      ", and "
+    )}. Nothing else in the app is shown to them. They sign in with a password and two-factor authentication.`;
   const startingValues = presetTripId
     ? { ...initialValues, role: "guest", tripAccess: [{ tripId: presetTripId, expiresAt: null }] }
     : presetPartnerId && careEnabled
@@ -133,7 +147,9 @@ export default function AdminUserForm() {
                 <option value="admin">Admin</option>
                 <option value="editor">Editor</option>
                 <option value="viewer">Viewer</option>
-                <option value="guest">Guest (only the trips you choose)</option>
+                {(guestUsable || values.role === "guest") && (
+                  <option value="guest">{`Guest (only ${guestGives} you choose)`}</option>
+                )}
               </select>
             </label>
           </div>
@@ -170,8 +186,7 @@ export default function AdminUserForm() {
                 onChange={(next) => setValue("tripAccess", next)}
               />
               <p style={{ fontSize: "0.85rem", color: "var(--muted)", marginTop: "0.5rem" }}>
-                A guest can work on the trips you choose and see those trips' partners, nothing else in the
-                app. They sign in with a password and two-factor authentication.
+                {guestExplainer}
               </p>
             </div>
           )}
