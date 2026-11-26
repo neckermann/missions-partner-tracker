@@ -24,7 +24,11 @@ router.use(requireFeature("oneTimeNeeds"));
 const supportNeedSchema = z.object({
   partnerId: z.string(),
   description: z.string().min(1),
-  requestedAmount: z.coerce.number().int().nonnegative(),
+  // Optional: a need can be raised with no dollar figure (blank, or null, is stored as 0 = "no amount").
+  // On an update an omitted key leaves what is stored.
+  requestedAmount: z
+    .preprocess((v) => (v === null || v === "" ? 0 : v), z.coerce.number().int().nonnegative())
+    .optional(),
   requestDate: z.coerce.date(),
   approvedAmount: z.coerce.number().int().nonnegative().optional().nullable(),
   approvedDate: z.coerce.date().optional().nullable(),
@@ -145,7 +149,10 @@ router.post("/", requireRole("admin", "editor", "viewer", "guest"), async (req, 
       const problem = await sourceFileProblem(data.sourceFileId, data.partnerId);
       if (problem) return res.status(400).json({ error: problem });
     }
-    const created = await prisma.supportNeed.create({ data, include: supportNeedInclude });
+    const created = await prisma.supportNeed.create({
+      data: { ...data, requestedAmount: data.requestedAmount ?? 0 },
+      include: supportNeedInclude,
+    });
 
     // Best-effort: notifySupportNeedCreated (utils/dispatchRecording.js) never throws. A care team
     // member's is held for staff review and can never be urgent or pre-approved.

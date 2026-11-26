@@ -107,12 +107,6 @@ export default function ExtractionReviewModal({
 
   async function addNeed(i) {
     const n = oneTimeNeeds[i];
-    if (!n.requestedAmount) {
-      setOneTimeNeeds((list) =>
-        list.map((x, idx) => (idx === i ? { ...x, cardError: "Enter a dollar amount before adding" } : x))
-      );
-      return;
-    }
     setOneTimeNeeds((list) =>
       list.map((x, idx) => (idx === i ? { ...x, state: "saving", cardError: "" } : x))
     );
@@ -120,7 +114,8 @@ export default function ExtractionReviewModal({
       await createSupportNeed({
         partnerId,
         description: n.description,
-        requestedAmount: n.requestedAmount,
+        // A letter that names no figure adds a need with no amount (saved as 0, shown as "No amount").
+        requestedAmount: n.requestedAmount ?? 0,
         requestDate: defaultDate,
         sourceFileId,
       });
@@ -231,7 +226,7 @@ export default function ExtractionReviewModal({
                 style={{ width: "100%" }}
               />
               <label style={{ display: "block", marginTop: "0.5rem", fontWeight: "normal" }}>
-                Amount ($)
+                Amount ($, optional)
                 <input
                   type="number"
                   min="1"

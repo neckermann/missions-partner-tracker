@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import NeedDecisionFields from "../components/admin/NeedDecisionFields.jsx";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   fetchPartner,
@@ -83,6 +84,7 @@ import {
   formatDateLong,
   formatDate,
   formatCurrency,
+  formatRequestedAmount,
   toDateInputValue,
   todayInputValue,
 } from "../utils/format.js";
@@ -1614,7 +1616,7 @@ export default function AdminPartnerDetail() {
                 title="One-Time Needs"
                 count={collections.needRequests.length}
                 items={needRequestsLoadMore.visible.map((n) => ({
-                  text: `${truncate(n.description, 60)} · ${formatCurrency(n.requestedAmount)} · ${
+                  text: `${truncate(n.description, 60)} · ${formatRequestedAmount(n.requestedAmount)} · ${
                     supportNeedStatus(n).label
                   }`,
                   onClick: () => openNeedDetail(n),
@@ -1873,35 +1875,13 @@ export default function AdminPartnerDetail() {
       )}
 
       {activeModal === "decide-need" && (
-        <QuickActionModal title="Record Decision" onClose={closeModal} onSubmit={submitRecordDecision}>
-          <div className="form-grid">
-            <label>
-              Approved Amount ($)
-              <input
-                type="number"
-                min="0"
-                value={needDecisionForm.approvedAmount}
-                onChange={(e) => setNeedDecisionForm((f) => ({ ...f, approvedAmount: e.target.value }))}
-                required
-              />
-            </label>
-            <label>
-              Approved Date
-              <input
-                type="date"
-                value={needDecisionForm.approvedDate}
-                onChange={(e) => setNeedDecisionForm((f) => ({ ...f, approvedDate: e.target.value }))}
-                required
-              />
-            </label>
-            <label style={{ gridColumn: "1 / -1" }}>
-              Decision Note
-              <input
-                value={needDecisionForm.decisionNote}
-                onChange={(e) => setNeedDecisionForm((f) => ({ ...f, decisionNote: e.target.value }))}
-              />
-            </label>
-          </div>
+        <QuickActionModal
+          title="Record Decision"
+          onClose={closeModal}
+          onSubmit={submitRecordDecision}
+          submitDisabled={needDecisionForm.approvedAmount === "" || !needDecisionForm.approvedDate}
+        >
+          <NeedDecisionFields decision={needDecisionForm} setDecision={setNeedDecisionForm} />
         </QuickActionModal>
       )}
 
@@ -1934,7 +1914,7 @@ export default function AdminPartnerDetail() {
         ) : (
           <Modal title="One-Time Need" onClose={closeModal}>
             <Field label="Description" value={needDetail.form.description} />
-            <Field label="Requested Amount" value={formatCurrency(needDetail.form.requestedAmount)} />
+            <Field label="Requested Amount" value={formatRequestedAmount(needDetail.form.requestedAmount)} />
             <Field label="Request Date" value={formatDateLong(needDetail.form.requestDate)} />
             <Field label="Notes" value={needDetail.form.notes} />
             <Field
