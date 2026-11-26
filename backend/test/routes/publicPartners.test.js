@@ -1,6 +1,7 @@
 const { test, describe, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 require("dotenv").config({ quiet: true });
+const prisma = require("../../src/prismaClient");
 const {
   client,
   stopServer,
@@ -19,14 +20,32 @@ const {
 
 let admin;
 let anon;
+let originalFeatures;
 
 before(async () => {
+  // The public directory and map are off by default (a new install publishes nothing), so these tests
+  // that exercise the public routes turn them on and put things back afterwards.
+  const current = await prisma.churchSettings.findUnique({
+    where: { id: "singleton" },
+    select: { enabledFeatures: true },
+  });
+  originalFeatures = current?.enabledFeatures ?? {};
+  const features = { ...originalFeatures, publicDirectory: true, publicMap: true };
+  await prisma.churchSettings.upsert({
+    where: { id: "singleton" },
+    update: { enabledFeatures: features },
+    create: { id: "singleton", enabledFeatures: features },
+  });
   await ensureTestUsers();
   [admin, anon] = await Promise.all([client("admin"), client(null)]);
   await removeFixturePartners();
 });
 
 after(async () => {
+  await prisma.churchSettings.updateMany({
+    where: { id: "singleton" },
+    data: { enabledFeatures: originalFeatures },
+  });
   await removeFixturePartners();
   await removeTestUsers();
   await stopServer();

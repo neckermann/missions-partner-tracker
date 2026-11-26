@@ -349,7 +349,7 @@ describe("GET /api/dispatches/urgent-recipient-count", () => {
   test("returns real counts, cadence-blind, when outboundEmail and publicPrayerDigest are both on", async () => {
     await prisma.churchSettings.update({
       where: { id: "singleton" },
-      data: { enabledFeatures: { outboundEmail: true, publicPrayerDigest: true } },
+      data: { enabledFeatures: { outboundEmail: true, publicDirectory: true, publicPrayerDigest: true } },
     });
     const sub = await prisma.publicSubscriber.create({
       data: { email: "urgent-count-test@example.test", confirmedAt: new Date(), allPartners: true },

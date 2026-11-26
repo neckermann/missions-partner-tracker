@@ -40,6 +40,7 @@ const AccountSettings = lazy(() => import("./pages/AccountSettings.jsx"));
 const AdminSettingsHome = lazy(() => import("./pages/AdminSettingsHome.jsx"));
 const AdminSettingsAbout = lazy(() => import("./pages/AdminSettingsAbout.jsx"));
 const AdminSettingsPrivacy = lazy(() => import("./pages/AdminSettingsPrivacy.jsx"));
+const AdminPublicSiteChoice = lazy(() => import("./pages/AdminPublicSiteChoice.jsx"));
 const AdminSettingsFeatures = lazy(() => import("./pages/AdminSettingsFeatures.jsx"));
 const AdminSettingsGroupMe = lazy(() => import("./pages/AdminSettingsGroupMe.jsx"));
 const AdminSettingsWhatsApp = lazy(() => import("./pages/AdminSettingsWhatsApp.jsx"));
@@ -156,6 +157,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                 }
               >
                 <Route index element={<AdminHome />} />
+                <Route path="public-site" element={<AdminPublicSiteChoice />} />
                 <Route path="partners" element={<AdminPartners />} />
                 <Route path="partners/new" element={<AdminPartnerForm />} />
                 <Route path="partners/:id" element={<AdminPartnerDetail />} />
