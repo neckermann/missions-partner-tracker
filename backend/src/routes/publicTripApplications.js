@@ -8,6 +8,7 @@ const { requireFeature } = require("../middleware/requireFeature");
 const { isFeatureEnabled } = require("../utils/features");
 const { getSettings } = require("../utils/publicTripShared");
 const { isMinorForTrip } = require("../utils/tripParticipantSchema");
+const { notifyTripTeamOfApplication } = require("../utils/tripApplicationNotice");
 
 const { loadApplicantQuestions, answerRows } = require("../utils/tripTemplates");
 
@@ -99,7 +100,7 @@ async function createApplication(trip, settings, body, res) {
         .json({ error: "Parent/guardian information is required for an applicant under 18." });
     }
   }
-  await prisma.tripApplication.create({
+  const application = await prisma.tripApplication.create({
     data: {
       tripId: trip.id,
       firstName: data.firstName,
@@ -126,6 +127,8 @@ async function createApplication(trip, settings, body, res) {
       answers: { create: answerRows(await loadApplicantQuestions(trip.id), data.responses) },
     },
   });
+  // Tell the trip's team when email is on (best-effort; never fails the submission).
+  await notifyTripTeamOfApplication(trip.id, application);
   res.status(201).json({ submitted: true });
 }
 

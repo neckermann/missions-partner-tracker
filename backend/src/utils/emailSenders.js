@@ -22,6 +22,10 @@ const EMAIL_SENDERS = {
     whenOff: "handOver",
     note: "Sending a survey returns each partner's personal link to copy (Get link).",
   },
+  "utils/backupReminderEmail.js": {
+    whenOff: "inApp",
+    note: "The backup reminder stays as the banner and the bell's Time to check your backups.",
+  },
   "utils/emailDispatchDelivery.js": {
     whenOff: "handOver",
     note: "Queued updates stay on Pending Dispatches, which offers Copy the updates that are ready.",
@@ -45,6 +49,10 @@ const EMAIL_SENDERS = {
   "utils/tripAccessToken.js": {
     whenOff: "handOver",
     note: "A participant's lost-link request is refused; an admin copies their link from the participant page.",
+  },
+  "utils/tripApplicationNotice.js": {
+    whenOff: "inApp",
+    note: "A new application stays as the bell's Trip applications pending review and a row on the trip's Team page.",
   },
   "utils/tripEmails.js": {
     whenOff: "handOver",
