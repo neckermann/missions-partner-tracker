@@ -90,9 +90,12 @@ provision) in one step:
 4. Apply the blueprint. Render builds, runs `prisma migrate deploy` as a
    pre-deploy step, and starts the app — no separate migration step to
    remember.
-5. Visit your new site and go to `/setup` (or just `/login` — a fresh
-   instance redirects there automatically) to create your first admin
-   account, right in the browser. No shell access, no
+5. Visit your new site and go to `/setup` (or just open the site's front page —
+   a fresh instance sends you there automatically) to create your first admin
+   account, right in the browser. **Do this as soon as the deploy finishes:**
+   until the first account exists, whoever reaches `/setup` first creates it.
+   If setup says it has "already been completed" and you did not create that
+   account, redeploy to start again (a new install has no data to lose). No shell access, no
    `DATABASE_URL`/`createAdmin.js` needed — the point of a one-click
    deploy is defeated if the very first login still requires a terminal.
    A new install **requires two-factor from the start** (see

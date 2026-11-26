@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
-import { fetchPublicPartners } from "../api/client.js";
+import { Link, useNavigate } from "react-router-dom";
+import { fetchPublicPartners, fetchSetupStatus } from "../api/client.js";
 import { useSettings } from "../context/SettingsContext.jsx";
 import DemoBanner from "../components/DemoBanner.jsx";
 import PublicSiteHeader from "../components/PublicSiteHeader.jsx";
@@ -15,11 +15,26 @@ export default function PublicDirectory() {
   const [continentFilter, setContinentFilter] = useState("all");
   const [countryFilter, setCountryFilter] = useState("all");
   const [search, setSearch] = useState("");
-  const { partnerTermPlural, publicTagline, aboutText } = useSettings();
+  // False until the list has come back, so "nothing to show" is never mistaken for "still loading".
+  const [loaded, setLoaded] = useState(false);
+  const { partnerTermPlural, publicTagline, aboutText, churchName } = useSettings();
+  const navigate = useNavigate();
 
   useEffect(() => {
-    fetchPublicPartners().then(setRecords).catch(console.error);
-  }, []);
+    fetchPublicPartners()
+      .then((list) => {
+        setRecords(list);
+        // A brand-new install has no accounts and no partners: its front page is no use to anyone,
+        // so send the person who just deployed it to create the first admin.
+        if (list.length === 0) {
+          fetchSetupStatus()
+            .then((status) => status.needed && navigate("/setup", { replace: true }))
+            .catch(() => {});
+        }
+      })
+      .catch(console.error)
+      .finally(() => setLoaded(true));
+  }, [navigate]);
 
   // The public API returns both kinds from one endpoint, distinguished by `kind`; reshaped for display.
   const partners = useMemo(
@@ -46,8 +61,6 @@ export default function PublicDirectory() {
         .sort((a, b) => a.name.localeCompare(b.name)),
     [records]
   );
-
-  const loaded = records.length > 0;
 
   // Options come from the data actually present, not the full world list; countries narrow to the selected continent.
   const availableContinents = useMemo(
@@ -163,7 +176,13 @@ export default function PublicDirectory() {
             </div>
           </Link>
         ))}
-        {loaded && filtered.length === 0 && (
+        {loaded && records.length === 0 && (
+          <p style={{ padding: "1.5rem" }}>
+            {churchName || "This church"} has no {partnerTermPlural.toLowerCase()} to show here yet. If you
+            run this site, <Link to="/login">sign in</Link> to add some.
+          </p>
+        )}
+        {loaded && records.length > 0 && filtered.length === 0 && (
           <p style={{ padding: "1.5rem" }}>No partners match your search.</p>
         )}
         {!loaded && <p style={{ padding: "1.5rem" }}>Loading...</p>}

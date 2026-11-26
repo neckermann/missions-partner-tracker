@@ -113,15 +113,16 @@ router.get("/setup-status", async (req, res, next) => {
   }
 });
 
-// Only ever succeeds once: re-checks the user count here rather than trusting
-// an earlier GET, so a second admin can never be created this way.
+// Fixed key for the Postgres advisory lock that makes first-run setup a single step (see below).
+const SETUP_LOCK_KEY = 7204117102;
+
+// Only ever succeeds once. Checking that no account exists and creating the first one are done as ONE
+// step: a transaction that first takes a lock only setup uses, so two requests arriving at the same
+// moment cannot both pass the check (before this, three at once all became admins, and a second
+// request landing while the first was still hashing its password left a second, unseen admin).
+// The password is hashed before the lock so the lock is held only for the check and the writes.
 router.post("/setup", async (req, res, next) => {
   try {
-    const count = await prisma.user.count();
-    if (count > 0) {
-      return res.status(409).json({ error: "Setup has already been completed for this instance." });
-    }
-
     const { email, password } = req.body;
     if (!email || !password) {
       return res.status(400).json({ error: "Email and password are required" });
@@ -132,23 +133,37 @@ router.post("/setup", async (req, res, next) => {
     }
 
     const passwordHash = await bcrypt.hash(password, 12);
-    await prisma.user.create({
-      data: {
-        email: email.toLowerCase().trim(),
-        passwordHash,
-        role: "admin",
-        authProvider: "local",
-      },
+    const created = await prisma.$transaction(async (tx) => {
+      // Waits here until any other setup request has finished; released when this transaction ends.
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(${SETUP_LOCK_KEY}::bigint)::text`;
+      if ((await tx.user.count()) > 0) return false;
+
+      await tx.user.create({
+        data: {
+          email: email.toLowerCase().trim(),
+          passwordHash,
+          role: "admin",
+          authProvider: "local",
+        },
+      });
+
+      // A fresh install starts with the church-wide two-factor requirement ON;
+      // the first admin can turn it off. Upsert, not create: only zero prior
+      // Users is guaranteed, not zero prior ChurchSettings.
+      await tx.churchSettings.upsert({
+        where: { id: "singleton" },
+        update: { requireTwoFactor: true },
+        create: { id: "singleton", requireTwoFactor: true },
+      });
+      return true;
     });
 
-    // A fresh install starts with the church-wide two-factor requirement ON;
-    // the first admin can turn it off. Upsert, not create: only zero prior
-    // Users is guaranteed, not zero prior ChurchSettings.
-    await prisma.churchSettings.upsert({
-      where: { id: "singleton" },
-      update: { requireTwoFactor: true },
-      create: { id: "singleton", requireTwoFactor: true },
-    });
+    if (!created) {
+      return res.status(409).json({
+        error:
+          "Setup has already been completed for this instance. If you did not create that account, redeploy to start again.",
+      });
+    }
     // No session yet: with the requirement on, an unenrolled account can't use
     // one. The first admin signs in (POST /login) and is taken through enrolment.
     res.status(201).json({ ok: true, mfaSetupRequired: true });
