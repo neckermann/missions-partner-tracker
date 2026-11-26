@@ -16,6 +16,10 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ## [Unreleased]
 
+### Changed
+
+- **Feature requirements are declared once.** Each feature in the registry can list what it needs (`requires`), and one check decides whether it is on, so a dependency can no longer appear by accident in a route or screen. The Enabled Features page now indents a feature under what it needs, greys it out with the reason until that is on, and saves it off if you turn the requirement off. Behavior is unchanged: the same combinations that needed each other still do.
+
 ## [0.1.0-beta.3] - 2026-11-26
 
 ### Changed

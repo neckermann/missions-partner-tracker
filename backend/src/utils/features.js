@@ -3,6 +3,10 @@
 // label and description travel to the frontend with the settings payload, so
 // adding a feature is adding an entry here.
 //
+// `requires` (optional): keys of features this one cannot work without; see isFeatureEnabled below.
+// `setupNeeds` (optional): keys the settings page asks you to turn on before this one, that are NOT required
+// for it to keep working once it is on (e.g. sending needs email; confirming an existing subscription doesn't).
+//
 // `group` is "public" for a toggle a logged-out visitor can notice ("/", "/map",
 // or Trip Opportunities) and "admin" otherwise; it drives the split in
 // pages/AdminSettingsFeatures.jsx. Admin order mirrors the nav: core content,
@@ -67,6 +71,7 @@ const FEATURES = {
     label: "Public trip discovery",
     description:
       "The public Trip Opportunities page and plain trip-application links. Also requires Mission trips to be on. A trip's own private application/support-raising links work regardless of this flag.",
+    requires: ["trips"],
     defaultEnabled: false,
     group: "public",
   },
@@ -122,6 +127,10 @@ const FEATURES = {
     label: "Public prayer digest",
     description:
       "Lets anyone subscribe (no login) to email digests of prayer-request updates, for all partners or specific ones they follow -- unlike the admin digest above, this is prayer requests only, never one-time needs or newsletters. Also requires Public directory and Email (Sending) to be on.",
+    requires: ["publicDirectory"],
+    // Needed to switch it on (the settings page makes you enable email first), not to keep working: an
+    // existing subscriber can still confirm and unsubscribe while email is off.
+    setupNeeds: ["outboundEmail"],
     defaultEnabled: false,
     group: "admin",
     section: "communications",
@@ -143,6 +152,7 @@ const FEATURES = {
     label: "Key-date reminders",
     description:
       "Remind each partner's care team about coming birthdays (including children), anniversaries and supported-since milestones: on the bell, and in one grouped email a day that is sent only on days something is due. Needs Care teams; the email also needs Email (Sending).",
+    requires: ["careTeam"],
     defaultEnabled: false,
     group: "admin",
   },
@@ -159,6 +169,7 @@ const FEATURES = {
     label: "Support preferences",
     description:
       "Let each partner choose how the church and their care team can support them (a menu you edit under Settings, such as housing while home, airport pick-up, prayer, care packages), shown as a card on the partner's page and recorded by staff or the care team. Needs Care teams. Never shown publicly, in the booklet or in dispatches.",
+    requires: ["careTeam"],
     defaultEnabled: false,
     group: "admin",
   },
@@ -182,6 +193,7 @@ const FEATURES = {
     label: "AI Features",
     description:
       "Scan uploaded newsletters and email documents for prayer requests and one-time needs using Claude.",
+    requires: ["partnerFiles"],
     defaultEnabled: false,
     group: "admin",
     section: "integrations",
@@ -203,12 +215,24 @@ const FEATURE_KEYS = Object.keys(FEATURES);
 // A key with no entry in enabledFeatures falls back to its registry default:
 // existing deployments keep current features on, and a new feature like
 // aiExtraction stays off until enabled.
-function isFeatureEnabled(enabledFeatures, key) {
+//
+// `requires` (in the registry above) lists the features this one genuinely cannot work without, and it
+// is the ONLY place a dependency is declared: a feature is on only when it is switched on AND everything
+// it requires is on (recursively). Routes, the UI and the descriptions never re-check a requirement by
+// hand, so a dependency can't appear by accident. Declare one only for a real data dependency.
+function isFeatureEnabled(enabledFeatures, key, seen = new Set()) {
   const feature = FEATURES[key];
-  if (!feature) return false;
+  if (!feature || seen.has(key)) return false;
   const stored = enabledFeatures?.[key];
   const on = typeof stored === "boolean" ? stored : feature.defaultEnabled;
-  return on;
+  if (!on) return false;
+  const next = new Set(seen).add(key);
+  return (feature.requires || []).every((req) => isFeatureEnabled(enabledFeatures, req, next));
+}
+
+// The features `key` requires that are currently off, so a screen can say what to turn on first.
+function unmetRequirements(enabledFeatures, key) {
+  return (FEATURES[key]?.requires || []).filter((req) => !isFeatureEnabled(enabledFeatures, req));
 }
 
 // The public data routes back both the directory and map (and the detail page
@@ -217,4 +241,4 @@ function isAnyFeatureEnabled(enabledFeatures, keys) {
   return keys.some((key) => isFeatureEnabled(enabledFeatures, key));
 }
 
-module.exports = { FEATURES, FEATURE_KEYS, isFeatureEnabled, isAnyFeatureEnabled };
+module.exports = { FEATURES, FEATURE_KEYS, isFeatureEnabled, isAnyFeatureEnabled, unmetRequirements };
