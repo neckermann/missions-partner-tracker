@@ -4,6 +4,7 @@ require("dotenv").config({ quiet: true });
 const prisma = require("../../src/prismaClient");
 const { encryptField } = require("../../src/utils/crypto");
 const { sendDigestTier } = require("../../src/utils/emailDispatchDelivery");
+const { runEmailDispatchTier } = require("../../src/utils/emailDispatchScheduler");
 
 // Same mock-the-whole-domain technique as dispatches.test.js and publicSubscribe.test.js for
 // Postmark; no real email ever sends. No Express server is started: sendDigestTier() only
@@ -13,8 +14,11 @@ const { sendDigestTier } = require("../../src/utils/emailDispatchDelivery");
 // assertions can reason per recipient.
 const realFetch = global.fetch;
 let postmarkMessages = [];
+// Addresses the fake Postmark rejects (an inactive recipient, a bad address): only these fail.
+let rejectedAddresses = new Set();
 function mockPostmark() {
   postmarkMessages = [];
+  rejectedAddresses = new Set();
 }
 global.fetch = (url, options) => {
   const s = String(url);
@@ -22,13 +26,17 @@ global.fetch = (url, options) => {
     const sent = options?.body ? JSON.parse(options.body) : [];
     const messages = Array.isArray(sent) ? sent : [sent];
     postmarkMessages.push(...messages);
-    const responseBody = messages.map((m) => ({
-      ErrorCode: 0,
-      Message: "OK",
-      MessageID: "fake-id",
-      SubmittedAt: "2026-01-01T00:00:00Z",
-      To: m.To,
-    }));
+    const responseBody = messages.map((m) =>
+      rejectedAddresses.has(m.To)
+        ? { ErrorCode: 406, Message: "Inactive recipient", To: m.To }
+        : {
+            ErrorCode: 0,
+            Message: "OK",
+            MessageID: "fake-id",
+            SubmittedAt: "2026-01-01T00:00:00Z",
+            To: m.To,
+          }
+    );
     return Promise.resolve({
       ok: true,
       status: 200,
@@ -153,6 +161,84 @@ after(async () => {
   });
 });
 
+// B1 of the November 2026 app review: a digest that failed to send used to be stamped as sent anyway
+// (and its error note cleared), so a church whose email was misconfigured lost those updates silently.
+describe("a digest whose send failed is not marked as sent", () => {
+  async function setup({ failFor = [] } = {}) {
+    const partner = await createPartner({});
+    const a = await createAdminUser({ cadence: "biweekly" });
+    const b = await createAdminUser({ cadence: "biweekly" });
+    const row = await createRow(partner.id, "prayerRequestCreated", {
+      partnerName: partner.displayName,
+      requestText: "pray",
+    });
+    rejectedAddresses = new Set(failFor.map((u) => ({ a, b })[u].email));
+    return { row, a, b };
+  }
+  const now = new Date("2026-06-01T09:00:00Z");
+
+  test("sendDigestTier: a row every send failed for is not delivered, and says it failed", async () => {
+    const { row } = await setup({ failFor: ["a", "b"] });
+    const result = await sendDigestTier("biweekly", await getSettings());
+    assert.deepEqual(result.deliveredIds, []);
+    assert.deepEqual(result.failedIds, [row.id]);
+    assert.equal(
+      (await prisma.dispatchRecord.findUnique({ where: { id: row.id } })).emailError,
+      "Inactive recipient"
+    );
+  });
+
+  test("sendDigestTier: a row that reached one recipient is delivered, and still notes the other's failure", async () => {
+    const { row } = await setup({ failFor: ["b"] });
+    const result = await sendDigestTier("biweekly", await getSettings());
+    assert.deepEqual(result.deliveredIds, [row.id]);
+    assert.deepEqual(result.failedIds, [row.id]);
+  });
+
+  test("the scheduled pass leaves a row unstamped when every send failed, and keeps its error", async () => {
+    const { row } = await setup({ failFor: ["a", "b"] });
+    await runEmailDispatchTier(
+      "biweekly",
+      "biweeklyEmailDispatchSentAt",
+      "lastBiweeklyEmailDispatchSentAt",
+      await getSettings(),
+      now
+    );
+    const after = await prisma.dispatchRecord.findUnique({ where: { id: row.id } });
+    assert.equal(after.biweeklyEmailDispatchSentAt, null, "not stamped, so the next pass tries again");
+    assert.equal(after.emailError, "Inactive recipient", "the failure stays visible to admins");
+  });
+
+  test("the scheduled pass stamps a row that reached someone, and keeps the error for the one that failed", async () => {
+    const { row } = await setup({ failFor: ["b"] });
+    await runEmailDispatchTier(
+      "biweekly",
+      "biweeklyEmailDispatchSentAt",
+      "lastBiweeklyEmailDispatchSentAt",
+      await getSettings(),
+      now
+    );
+    const after = await prisma.dispatchRecord.findUnique({ where: { id: row.id } });
+    assert.ok(after.biweeklyEmailDispatchSentAt, "delivered to at least one person");
+    assert.equal(after.emailError, "Inactive recipient");
+  });
+
+  test("a clean send stamps the row and clears an old error", async () => {
+    const { row } = await setup();
+    await prisma.dispatchRecord.update({ where: { id: row.id }, data: { emailError: "an earlier failure" } });
+    await runEmailDispatchTier(
+      "biweekly",
+      "biweeklyEmailDispatchSentAt",
+      "lastBiweeklyEmailDispatchSentAt",
+      await getSettings(),
+      now
+    );
+    const after = await prisma.dispatchRecord.findUnique({ where: { id: row.id } });
+    assert.ok(after.biweeklyEmailDispatchSentAt);
+    assert.equal(after.emailError, null);
+  });
+});
+
 // RFC 8058 one-click unsubscribe: a mail client that supports it shows a native "Unsubscribe"
 // button that POSTs straight to the unsubscribe URL, no page shown. Requires both headers
 // together (some clients won't trust List-Unsubscribe alone).
@@ -209,7 +295,7 @@ describe("sendDigestTier -- basic gating", () => {
       ...settings,
       enabledFeatures: { outboundEmail: false },
     });
-    assert.deepEqual(result.consideredIds, []);
+    assert.deepEqual(result.deliveredIds, []);
     assert.equal(postmarkMessages.length, 0);
   });
 
@@ -217,7 +303,7 @@ describe("sendDigestTier -- basic gating", () => {
     const admin = await createAdminUser({ cadence: "biweekly" });
     try {
       const result = await sendDigestTier("biweekly", await getSettings());
-      assert.deepEqual(result.consideredIds, []);
+      assert.deepEqual(result.deliveredIds, []);
       assert.equal(postmarkMessages.length, 0);
     } finally {
       await prisma.user.delete({ where: { id: admin.id } });
@@ -231,7 +317,7 @@ describe("sendDigestTier -- basic gating", () => {
       requestText: "pray",
     });
     const result = await sendDigestTier("biweekly", await getSettings());
-    assert.deepEqual(result.consideredIds, []);
+    assert.deepEqual(result.deliveredIds, []);
     assert.equal(postmarkMessages.length, 0);
   });
 
@@ -249,7 +335,7 @@ describe("sendDigestTier -- basic gating", () => {
         ...settings,
         enabledFeatures: { outboundEmail: true, publicPrayerDigest: false },
       });
-      assert.ok(result.consideredIds.includes(row.id), "admin digest should still stamp this row");
+      assert.ok(result.deliveredIds.includes(row.id), "admin digest should still stamp this row");
       assert.equal(postmarkMessages.length, 1, "only the admin should have been emailed");
       assert.equal(postmarkMessages[0].To, admin.email);
     } finally {
@@ -270,10 +356,7 @@ describe("sendDigestTier -- restricted-partner review gate (#187)", () => {
     });
     try {
       const result = await sendDigestTier("biweekly", await getSettings());
-      assert.ok(
-        !result.consideredIds.includes(row.id),
-        "an unreviewed restricted row must not be considered"
-      );
+      assert.ok(!result.deliveredIds.includes(row.id), "an unreviewed restricted row must not be considered");
       assert.equal(postmarkMessages.length, 0, "neither audience should have been emailed");
     } finally {
       await prisma.user.delete({ where: { id: admin.id } });
@@ -303,7 +386,7 @@ describe("sendDigestTier -- restricted-partner review gate (#187)", () => {
     });
     try {
       const result = await sendDigestTier("biweekly", await getSettings());
-      assert.ok(result.consideredIds.includes(row.id));
+      assert.ok(result.deliveredIds.includes(row.id));
       assert.equal(postmarkMessages.length, 2, "one email to the admin, one to the public subscriber");
       const bodies = postmarkMessages.map((m) => m.HtmlBody).join("\n");
       assert.ok(bodies.includes("Reviewed, safe wording."), "reviewed text should appear");
@@ -354,11 +437,7 @@ describe("sendDigestTier -- content scope: admin vs. public audience", () => {
     });
     try {
       const result = await sendDigestTier("biweekly", await getSettings());
-      assert.deepEqual(
-        result.consideredIds,
-        [],
-        "nobody eligible -- non-public partner, no admin subscriber"
-      );
+      assert.deepEqual(result.deliveredIds, [], "nobody eligible -- non-public partner, no admin subscriber");
       assert.equal(postmarkMessages.length, 0);
     } finally {
       await prisma.publicSubscriber.delete({ where: { id: subscriber.id } });
@@ -532,7 +611,7 @@ describe("sendDigestTier -- allPartners / scoped-partner filtering", () => {
     });
     try {
       const result = await sendDigestTier("biweekly", await getSettings());
-      assert.deepEqual(result.consideredIds, []);
+      assert.deepEqual(result.deliveredIds, []);
       assert.equal(postmarkMessages.length, 0);
     } finally {
       await prisma.publicSubscriber.delete({ where: { id: subscriber.id } });
