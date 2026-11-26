@@ -9,6 +9,8 @@ import StatusPill from "../components/admin/StatusPill.jsx";
 import Table from "../components/shared/Table.jsx";
 import { truncate } from "../utils/truncate.js";
 import useCurrentUser from "../hooks/useCurrentUser.js";
+import { useSettings } from "../context/SettingsContext.jsx";
+import CopyButton from "../components/shared/CopyButton.jsx";
 
 // Groups blurbs by partner, nesting a request/need under the newsletter blurb it came from,
 // same structure as adminEmailDispatchContent.js so the preview matches what goes out.
@@ -122,8 +124,22 @@ function AwaitingReviewBadge({ byCareTeam = false }) {
 // Schedule and appearance live on Dispatch Settings (AdminDispatchSettings.jsx).
 // A row opens DispatchReviewModal when canWrite. A viewer gets no popup: the modal's
 // text-reveal fetch is admin/editor-only server-side, and a viewer already sees all they may.
+// The email-off option for dispatches: with Email (Sending), GroupMe and WhatsApp all off, nothing goes out on its
+// own and queued items just wait, so this is the plain text of what is ready (not held for review) to copy and
+// share yourself, grouped by partner.
+function waitingText(blurbs) {
+  const lines = ["Updates ready to share"];
+  for (const group of groupByPartner(blurbs.filter((b) => !b.needsReview))) {
+    lines.push("", group.partnerName);
+    const all = [...group.newsletters.flatMap((n) => [n.blurb, ...n.children]), ...group.standalone];
+    for (const b of all) lines.push(`- ${b.emoji} ${b.summary}: ${b.bodyText}`);
+  }
+  return lines.join("\n");
+}
+
 export default function AdminPendingDispatches() {
   const { canWrite } = useCurrentUser();
+  const { enabledFeatures } = useSettings();
   const [pending, setPending] = useState([]);
   const [loading, setLoading] = useState(true);
   const [clearingId, setClearingId] = useState(null);
@@ -198,6 +214,9 @@ export default function AdminPendingDispatches() {
   const groups = groupByPartner(pending);
   const rows = flattenRows(groups);
   const heldCount = pending.filter((p) => p.needsReview).length;
+  const noChannelOn =
+    !enabledFeatures?.outboundEmail && !enabledFeatures?.groupme && !enabledFeatures?.whatsapp;
+  const readyCount = pending.length - heldCount;
 
   return (
     <div className="admin-shell">
@@ -205,6 +224,19 @@ export default function AdminPendingDispatches() {
         title="Pending Dispatches"
         description="New prayer requests, one-time needs, and newsletters wait here instead of posting immediately. Each clears once every channel it applies to (GroupMe, WhatsApp, the admin email, the public email) has handled it, on its own schedule. Schedules, chat mutes and email appearance are under Settings → Dispatch Settings."
       />
+
+      {noChannelOn && readyCount > 0 && (
+        <div className="admin-section" style={{ background: "var(--warn-soft)", borderColor: "var(--warn)" }}>
+          <p style={{ marginTop: 0, fontWeight: 600 }}>Nothing here goes out on its own</p>
+          <p style={{ color: "var(--muted)" }}>
+            Email (Sending), GroupMe and WhatsApp are all off, so these updates just wait. Copy the{" "}
+            {readyCount} that {readyCount === 1 ? "is" : "are"} ready and share{" "}
+            {readyCount === 1 ? "it" : "them"} however you like, then clear {readyCount === 1 ? "it" : "them"}{" "}
+            from the list below.
+          </p>
+          <CopyButton text={waitingText(pending)} label="Copy the updates that are ready" showText />
+        </div>
+      )}
 
       {heldCount > 0 && (
         <p style={{ color: "var(--warn)", fontSize: "0.9rem" }}>
