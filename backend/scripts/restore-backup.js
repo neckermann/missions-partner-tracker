@@ -5,6 +5,9 @@
 //   npm run backup:restore -- <path-to-backup-file.ndjson.gz>
 //   npm run backup:restore -- <path> --force   (bypasses the two checks below)
 //
+// A file locked with a passphrase (the .locked kind) asks for it: set BACKUP_PASSPHRASE in the environment, or
+// you are asked at the prompt. A wrong passphrase stops before anything is written.
+//
 // Safety checks:
 //   1. The backup's recorded migration doesn't match this code's current migration: restoring
 // into a schema the backup wasn't made for corrupts the database.
@@ -17,9 +20,21 @@ const zlib = require("zlib");
 const { PrismaClient } = require("@prisma/client");
 const { PrismaPg } = require("@prisma/adapter-pg");
 const { parseBackup, restoreRows, latestMigrationName } = require("../src/utils/backup");
+const { isEncryptedBackup, decryptBackup } = require("../src/utils/backupCrypto");
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
+
+function askPassphrase() {
+  const readline = require("readline");
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  return new Promise((resolve) => {
+    rl.question("This backup is locked with a passphrase. Passphrase: ", (answer) => {
+      rl.close();
+      resolve(answer);
+    });
+  });
+}
 
 async function main() {
   const args = process.argv.slice(2);
@@ -36,7 +51,16 @@ async function main() {
   }
 
   console.log(`Reading ${filePath}...`);
-  const gzipped = fs.readFileSync(filePath);
+  let gzipped = fs.readFileSync(filePath);
+  if (isEncryptedBackup(gzipped)) {
+    const passphrase = process.env.BACKUP_PASSPHRASE || (await askPassphrase());
+    try {
+      gzipped = decryptBackup(gzipped, passphrase);
+    } catch (err) {
+      console.error(`${err.message}. Nothing was changed.`);
+      process.exit(1);
+    }
+  }
   const text = zlib.gunzipSync(gzipped).toString("utf8");
 
   // parseBackup verifies the checksum and throws on a mismatch; never skippable.

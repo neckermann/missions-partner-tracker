@@ -6,7 +6,14 @@ const prisma = require("../../src/prismaClient");
 const { buildBackup, parseBackup, restoreRows, BYTES_FIELDS } = require("../../src/utils/backup");
 const fs = require("fs");
 const path = require("path");
-const { client, stopServer, ensureTestUsers, removeTestUsers, FIXTURE_TAG } = require("./helpers");
+const {
+  client,
+  stopServer,
+  ensureTestUsers,
+  removeTestUsers,
+  FIXTURE_TAG,
+  TEST_PASSWORD,
+} = require("./helpers");
 
 let admin;
 let editor;
@@ -50,25 +57,64 @@ after(async () => {
   await stopServer();
 });
 
-describe("GET /api/backups/download", () => {
-  test("admin gets a gzip attachment", async () => {
-    const res = await admin("/api/backups/download");
+describe("POST /api/backups/download", () => {
+  const post = (who, body) => who("/api/backups/download", { method: "POST", body });
+
+  test("admin with the right password gets a gzip attachment", async () => {
+    const res = await post(admin, { password: TEST_PASSWORD });
     assert.equal(res.status, 200);
     assert.equal(res.headers.get("content-type"), "application/gzip");
     assert.match(res.headers.get("content-disposition"), /^attachment; filename="backup-.*\.ndjson\.gz"$/);
   });
 
+  test("a wrong or missing password is refused", async () => {
+    const wrong = await post(admin, { password: "not-the-password" });
+    assert.equal(wrong.status, 401);
+    assert.equal((await post(admin, {})).status, 400);
+    assert.equal((await post(admin, { password: "" })).status, 400);
+  });
+
+  test("the old GET link no longer downloads anything", async () => {
+    const res = await admin("/api/backups/download");
+    assert.ok([404, 405].includes(res.status), `GET gave ${res.status}`);
+  });
+
+  test("with a passphrase the file is locked: a different type and name, and not a gzip", async () => {
+    const res = await post(admin, { password: TEST_PASSWORD, passphrase: "correct horse battery" });
+    assert.equal(res.status, 200);
+    assert.equal(res.headers.get("content-type"), "application/octet-stream");
+    assert.match(res.headers.get("content-disposition"), /\.ndjson\.gz\.locked"$/);
+    assert.ok(String(res.body).startsWith("MPTBAK1"), "it is the locked format, not plain gzip");
+  });
+
+  test("a passphrase that is too short is refused", async () => {
+    const res = await post(admin, { password: TEST_PASSWORD, passphrase: "short" });
+    assert.equal(res.status, 400);
+    assert.match(res.body.error, /at least 8/);
+  });
+
   test("editor and viewer are refused -- this is a site-wide admin action, not per-record data", async () => {
-    assert.equal((await editor("/api/backups/download")).status, 403);
-    assert.equal((await viewer("/api/backups/download")).status, 403);
+    assert.equal((await post(editor, { password: TEST_PASSWORD })).status, 403);
+    assert.equal((await post(viewer, { password: TEST_PASSWORD })).status, 403);
   });
 
   test("unauthenticated is refused", async () => {
-    assert.equal((await unauthenticated("/api/backups/download")).status, 401);
+    assert.equal((await post(unauthenticated, { password: TEST_PASSWORD })).status, 401);
   });
 });
 
 describe("backup/restore round trip", () => {
+  test("a passphrase-locked backup unlocks to exactly the same checksummed file", async () => {
+    const { encryptBackup, decryptBackup } = require("../../src/utils/backupCrypto");
+    const { buffer, manifest } = await buildBackup(prisma);
+    const locked = encryptBackup(buffer, "correct horse battery");
+    const parsed = parseBackup(
+      zlib.gunzipSync(decryptBackup(locked, "correct horse battery")).toString("utf8")
+    );
+    assert.equal(parsed.manifest.checksum, manifest.checksum);
+    assert.throws(() => decryptBackup(locked, "wrong passphrase!"), /Wrong passphrase/);
+  });
+
   test("buildBackup's checksum is exactly what parseBackup verifies, with matching row counts", async () => {
     const { buffer, manifest } = await buildBackup(prisma);
     const text = zlib.gunzipSync(buffer).toString("utf8");

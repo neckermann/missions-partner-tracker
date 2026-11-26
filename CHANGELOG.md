@@ -18,6 +18,7 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ### Added
 
+- **Downloading a backup asks for your password again, and can be locked with a passphrase (#501).** The backup is the most sensitive file the app makes (every partner, restricted ones unmasked, and every password hash), yet it came down on a bare link. Now the download is a button that asks for the signed-in admin's password (a wrong one is refused and logged), and optionally locks the file with a passphrase of your own: a locked file has a `.locked` ending and cannot be opened without it. The app says plainly that a lost passphrase cannot be recovered, because it is never stored. Unlocked downloads still work. The restore command asks for the passphrase of a locked file. The restore guide no longer suggests a "temporary, unlisted file host" and now says how to move a file safely. Restoring from inside the app is a separate, later change.
 - **Trip applications and backup reminders can come by email (#423).** When Email (Sending) is on, a new trip application emails the admins (only admins) with the applicant's name and a link to review it, never their contact details. Admins also get a backup reminder email about once a month, held back for 30 days after they dismiss the in-app one, and off once the reminder is turned off for good. With email off nothing changes: the application is still a bell badge and a row on the trip's Team page, and the backup reminder is still the banner and the bell. Neither is ever sent from a public demo.
 
 ### Fixed

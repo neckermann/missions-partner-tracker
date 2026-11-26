@@ -181,7 +181,11 @@ app.use("/api/public", rateLimit({ windowMs: 60 * 1000, max: 120 }));
 
 // The backup file is the heaviest request and the most sensitive output (see
 // routes/backups.js); this stops a compromised admin session pulling it in a loop.
-app.use("/api/backups", rateLimit({ windowMs: 15 * 60 * 1000, max: 5 }));
+// Wrong passwords count too. Relaxed under test, like the sign-in limiter.
+app.use(
+  "/api/backups",
+  rateLimit({ windowMs: 15 * 60 * 1000, max: process.env.NODE_ENV === "test" ? 1000 : 5 })
+);
 
 // Each call is a billable Anthropic API request (utils/extraction.js). Scoped to
 // the path so normal document CRUD is unaffected.
