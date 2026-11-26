@@ -1,6 +1,7 @@
 const express = require("express");
 const prisma = require("../prismaClient");
 const { demoGuestLogins } = require("../utils/demoLogins");
+const { isGuardedDemo } = require("../utils/demoMode");
 const { FEATURE_KEYS, isFeatureEnabled } = require("../utils/features");
 
 const router = express.Router();
@@ -42,10 +43,11 @@ router.get("/", async (req, res, next) => {
       // signal. The logins are published on purpose so visitors can try the admin dashboard; never set
       // on a real deployment, since DEMO_RESET_TOKEN never is.
       isDemo: Boolean(process.env.DEMO_RESET_TOKEN),
-      demoLoginEmail: process.env.DEMO_RESET_TOKEN ? process.env.DEMO_ADMIN_EMAIL || null : null,
-      demoLoginPassword: process.env.DEMO_RESET_TOKEN ? process.env.DEMO_ADMIN_PASSWORD || null : null,
+      // Not on the owner's own test deployment (DEMO_TESTING_SITE=true): its logins stay private.
+      demoLoginEmail: isGuardedDemo() ? process.env.DEMO_ADMIN_EMAIL || null : null,
+      demoLoginPassword: isGuardedDemo() ? process.env.DEMO_ADMIN_PASSWORD || null : null,
       // The other published demo logins (utils/demoLogins.js). Same demo-only gate; [] elsewhere.
-      demoGuestLogins: process.env.DEMO_RESET_TOKEN ? demoGuestLogins() : [],
+      demoGuestLogins: isGuardedDemo() ? demoGuestLogins() : [],
       // Resolved (not raw) per-feature booleans, reflecting the registry default. Not sensitive, and
       // this is the one settings endpoint the frontend always has access to (SettingsContext.jsx).
       enabledFeatures: Object.fromEntries(

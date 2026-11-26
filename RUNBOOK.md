@@ -36,7 +36,7 @@ Grouped by where they're read, verified directly against
 `RENDER_EXTERNAL_URL` (falls back to/aliases `APP_BASE_URL`)
 
 **Demo mode (only meaningful on the production demo deployment):**
-`DEMO_RESET_TOKEN`, `DEMO_ADMIN_EMAIL`, `DEMO_ADMIN_PASSWORD`, `DEMO_ALLOW_PASSWORDLESS` (private test demo only),
+`DEMO_RESET_TOKEN`, `DEMO_ADMIN_EMAIL`, `DEMO_ADMIN_PASSWORD`, `DEMO_TESTING_SITE` (private test demo only: real sends, no published logins), `DEMO_ALLOW_PASSWORDLESS` (older, passwordless only),
 `SEED_MISSIONARY_COUNT`, `SEED_ORGANIZATION_COUNT`
 
 **Integrations (set per-instance, restored into `ChurchSettings` on a demo reset):**

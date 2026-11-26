@@ -75,7 +75,7 @@ works. Because the logins are shared, a demo never asks anyone for a second fact
 when one has been added, and adding or removing one doesn't end the sessions other visitors have
 open. My account says so. The next reset removes whatever was added.
 
-The one exception is the owner's own test deployment (the dev demo): set `DEMO_ALLOW_PASSWORDLESS=true` on its web service and an admin can switch it on there to try it (it needs an account with a passkey and working email, and the next reset turns it off again). **Never set it on a demo the public can reach**: it would end password sign-in for the shared logins.
+The one exception is the owner's own test deployment (the dev demo): set `DEMO_TESTING_SITE=true` (or the older, narrower `DEMO_ALLOW_PASSWORDLESS=true`) on its web service and an admin can switch it on there to try it (it needs an account with a passkey and working email, and the next reset turns it off again). **Never set it on a demo the public can reach**: it would end password sign-in for the shared logins.
 
 The church-wide **Passwordless sign-in** switch is still refused and ignored on a demo (it also
 needs working email, which a demo never has). It is shown in the documentation screenshots,
@@ -87,7 +87,35 @@ wizard can be walked end to end; the older completed trips carry debriefs; partn
 preferences; the care team's contact timeline, updates to pass on and key-date alerts are
 populated; and the trip applications carry answers to the church-wide and trip questions.
 
-## What a demo never does
+## What a guarded demo never does
+
+A public demo (`DEMO_RESET_TOKEN` set) is **guarded**. Anyone can sign in with its published logins, so
+it must not be able to hurt you or anyone else:
+
+- **Nothing leaves the app.** Email (single and batch), GroupMe posts and WhatsApp messages are logged
+  (`[demo] ... not sent`) and reported as sent, but never reach Postmark, GroupMe or WhatsApp.
+- **No AI spend.** The AI request scan is refused (403).
+- **No lock-out.** Changing a password (your own or another account's), sending a setup link and
+  completing one are refused, so one visitor cannot sign the others out until the next reset.
+- **No tampering with integrations.** Saving the GroupMe, Postmark, WhatsApp, Joshua Project or AI-key
+  settings is refused.
+- **A reset does not bring the keys back.** `reset-demo-data.js` ignores `ANTHROPIC_API_KEY`, `GROUPME_*`,
+  `POSTMARK_API_KEY`, `FROM_EMAIL_ADDRESS` and the webhook values on a guarded demo (so those features stay
+  off there) and unlinks any paired WhatsApp number. You can leave those variables set on the service; the
+  guarded demo will not use them. Remove them anyway if you do not need them.
+
+**The owner's own test deployment** (the dev demo) is the exception: set `DEMO_TESTING_SITE=true` on its
+web service and none of the above applies, so you can try real sends and take screenshots of emails and
+chat posts. It also stops the banner publishing that site's logins, so give it its own `DEMO_ADMIN_EMAIL`
+and `DEMO_ADMIN_PASSWORD` (the published guest accounts use the admin password unless
+`DEMO_GUEST_PASSWORD` is set; if neither is set they fall back to a default that is in this repository).
+Set it on the worker service too, until the worker is gone: the worker does not see the web service's
+`DEMO_RESET_TOKEN`, so it recognises a demo by the flag the reset writes and would hold back its sends
+unless it also has `DEMO_TESTING_SITE=true`. The two remote reset scripts say which they are:
+`reset-demo-db-remote.js` is always guarded, `reset-dev-db-remote.js` is always the test deployment.
+Keep its address private anyway.
+
+## What a demo never does (scheduled email)
 
 A demo must not send email to its seeded accounts (they are fake addresses, so
 the mail only bounces and spends the email plan). Two things guarantee that. The

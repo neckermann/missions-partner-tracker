@@ -50,6 +50,35 @@ const DEMO_DISABLED_FEATURES = [];
 // { feature: false } for each, to spread over a feature object.
 const demoDisabledFeatureFlags = () => Object.fromEntries(DEMO_DISABLED_FEATURES.map((k) => [k, false]));
 
+// The owner's own test deployment (the dev demo): a demo that is deliberately NOT guarded. It keeps its real
+// integration keys so the owner can try sends and take screenshots of what can't be seen otherwise, and it
+// publishes no logins. Set DEMO_TESTING_SITE=true only there; never on a demo the public can reach.
+function isTestingSite() {
+  return process.env.DEMO_TESTING_SITE === "true";
+}
+
+// A public demo that anyone can sign in to: it must never send anything that leaves the app, spend the
+// owner's money, or let a visitor change the shared logins or integration settings. Read from the
+// environment at call time (the web service has it; see isDemoInstance for the worker's schedules).
+function isGuardedDemo() {
+  return isDemoDeployment() && !isTestingSite();
+}
+
+// The same question for code that can run in the worker, which does not get DEMO_RESET_TOKEN: a demo is
+// also recognised by the `demoMode` flag the reset writes. DEMO_TESTING_SITE must be set on the worker
+// too, on the owner's test deployment, or its scheduled sends are held back as on any demo.
+async function isGuardedDemoInstance() {
+  return !isTestingSite() && (await isDemoInstance());
+}
+
+// Route middleware: refuse `what` on a guarded demo, say so plainly.
+function refuseOnGuardedDemo(what) {
+  return (req, res, next) => {
+    if (isGuardedDemo()) return res.status(403).json({ error: `${what} isn't available on the public demo` });
+    next();
+  };
+}
+
 // Adding or removing a sign-in factor normally ends the account's other sessions. On a demo the
 // logins are shared, so that would sign every other visitor out: leave the sessions alone there.
 function endOtherSessions() {
@@ -58,6 +87,10 @@ function endOtherSessions() {
 
 module.exports = {
   isDemoDeployment,
+  isTestingSite,
+  isGuardedDemo,
+  isGuardedDemoInstance,
+  refuseOnGuardedDemo,
   isDemoInstance,
   forgetDemoModeCache,
   endOtherSessions,

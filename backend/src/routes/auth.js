@@ -17,7 +17,9 @@ const { listTripGrants, isCareTeamEnabled } = require("../utils/guestAccess");
 const { passwordSchema } = require("../utils/password");
 const { recordAuditSafe } = require("../utils/auditLog");
 const { isTwoFactorRequired } = require("../utils/twoFactor");
-const { isDemoDeployment, endOtherSessions } = require("../utils/demoMode");
+const { isDemoDeployment, endOtherSessions, refuseOnGuardedDemo } = require("../utils/demoMode");
+
+const noPasswordChangeOnDemo = refuseOnGuardedDemo("Changing the password");
 const {
   isPasswordlessOn,
   isPasskeySignInOn,
@@ -338,7 +340,7 @@ router.get("/me", requireAuth, async (req, res, next) => {
 
 // Self-service password change; requires the current password, unlike the
 // admin-only reset in routes/users.js. Open to every role, guests included.
-router.post("/change-password", requireAuth, async (req, res, next) => {
+router.post("/change-password", requireAuth, noPasswordChangeOnDemo, async (req, res, next) => {
   try {
     const { currentPassword, newPassword } = req.body;
     if (!currentPassword || !newPassword) {
@@ -399,7 +401,7 @@ router.post("/password-setup/validate", async (req, res, next) => {
   }
 });
 
-router.post("/password-setup/complete", async (req, res, next) => {
+router.post("/password-setup/complete", noPasswordChangeOnDemo, async (req, res, next) => {
   try {
     const { token, password } = req.body || {};
     const parsedPassword = passwordSchema.safeParse(password);

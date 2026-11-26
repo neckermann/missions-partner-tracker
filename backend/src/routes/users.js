@@ -17,6 +17,7 @@ const {
 } = require("../utils/guestAccess");
 const { passwordSchema } = require("../utils/password");
 const { isTwoFactorRequired } = require("../utils/twoFactor");
+const { isGuardedDemo, refuseOnGuardedDemo } = require("../utils/demoMode");
 
 // Narrow select: this route only needs to know whether outbound email is on.
 async function getSettings() {
@@ -405,7 +406,7 @@ router.post("/", async (req, res, next) => {
 // Refuses accounts that already have a password -- those use the normal
 // sign-in or an admin password reset, not a setup link. Same
 // email-off/manual-link handling as POST / above.
-router.post("/:id/setup-link", async (req, res, next) => {
+router.post("/:id/setup-link", refuseOnGuardedDemo("Sending a setup link"), async (req, res, next) => {
   try {
     const user = await prisma.user.findUnique({ where: { id: req.params.id } });
     if (!user) return res.status(404).json({ error: "Not found" });
@@ -540,6 +541,11 @@ router.delete("/:id/trip-access/:tripId", async (req, res, next) => {
 router.put("/:id", async (req, res, next) => {
   try {
     const { password, tripAccess, careTeam: careInputs = [], ...data } = updateUserSchema.parse(req.body);
+
+    // The demo's logins are shared and published: a visitor changing one would lock everyone else out.
+    if (password && isGuardedDemo()) {
+      return res.status(403).json({ error: "Changing a password isn't available on the public demo" });
+    }
 
     const becomingNonAdminOrInactive =
       (data.role !== undefined && data.role !== "admin") || data.active === false;
