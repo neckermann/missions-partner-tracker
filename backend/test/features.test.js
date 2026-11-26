@@ -90,4 +90,22 @@ describe("isFeatureEnabled", () => {
       assert.deepEqual(FEATURES.contactLog.requires || [], []);
     });
   });
+
+  describe("withoutEmail (what you get when Email (Sending) is off)", () => {
+    const { FEATURES } = require("../src/utils/features");
+
+    test("a note is one real sentence, and a feature that needs email to be switched on has one", () => {
+      for (const [key, f] of Object.entries(FEATURES)) {
+        if (f.withoutEmail !== undefined) {
+          assert.ok(
+            typeof f.withoutEmail === "string" && f.withoutEmail.trim().length > 20,
+            `${key}: say what you get`
+          );
+        }
+        if ((f.setupNeeds || []).includes("outboundEmail") || (f.requires || []).includes("outboundEmail")) {
+          assert.ok(f.withoutEmail, `${key} depends on email, so it must say what happens without it`);
+        }
+      }
+    });
+  });
 });

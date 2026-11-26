@@ -58,6 +58,11 @@ function FeatureToggleRow({ feature, checked, onToggle, disabled = false, nested
       <div>
         <strong>{feature.label}</strong>
         <div style={{ fontSize: "0.85rem", color: "var(--muted)" }}>{feature.description}</div>
+        {feature.withoutEmail && (
+          <div style={{ fontSize: "0.85rem", color: "var(--muted)", marginTop: "0.2rem" }}>
+            <em>Without email:</em> {feature.withoutEmail}
+          </div>
+        )}
         {disabled && disabledNote && (
           <div style={{ fontSize: "0.8rem", color: "var(--warn)", marginTop: "0.2rem" }}>{disabledNote}</div>
         )}
@@ -80,6 +85,11 @@ function GroupFeatureList({ features, resolver }) {
             <span>
               <strong>{f.label}</strong>
               <span className="feature-state-desc">{f.description}</span>
+              {f.withoutEmail && (
+                <span className="feature-state-desc">
+                  <em>Without email:</em> {f.withoutEmail}
+                </span>
+              )}
               {unmet.length > 0 && (
                 <span className="feature-state-desc">
                   Needs {unmet.map(resolver.label).join(" and ")} turned on.
