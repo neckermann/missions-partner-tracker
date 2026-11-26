@@ -38,7 +38,12 @@ before(async () => {
 
   originalSettings = await prisma.churchSettings.findUnique({
     where: { id: "singleton" },
-    select: { allowRestrictedPartnerDispatch: true },
+    select: { allowRestrictedPartnerDispatch: true, enabledFeatures: true },
+  });
+  // Records are only queued while some channel is on.
+  await prisma.churchSettings.update({
+    where: { id: "singleton" },
+    data: { enabledFeatures: { ...(originalSettings?.enabledFeatures || {}), outboundEmail: true } },
   });
 
   await removeFixturePartners();

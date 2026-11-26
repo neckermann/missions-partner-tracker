@@ -1,8 +1,8 @@
 import { test, expect } from "@playwright/test";
 import { login, setFeatures, restoreFeatures } from "./helpers.js";
 
-// Every prayer request/one-time need/newsletter creation records a DispatchRecord, whether or
-// not a channel is enabled (see dispatchRecording.js), so creating one here is a deterministic
+// Every prayer request/one-time need/newsletter creation records a DispatchRecord while some
+// channel is enabled (see dispatchRecording.js), so creating one here is a deterministic
 // way to get a real row onto this page without seeding or mocking.
 let previousFeatures;
 
@@ -21,7 +21,7 @@ test.describe("Pending Dispatches", () => {
     await login(page);
 
     // The page (RequireAdminFeature in main.jsx) needs at least one of
-    // groupme/whatsapp/outboundEmail on, even though recording never depends on a channel.
+    // groupme/whatsapp/outboundEmail on, and recording needs one too.
     // setFeatures (helpers.js) merges into the stored flags.
     previousFeatures = await setFeatures(page.request, { outboundEmail: true });
 

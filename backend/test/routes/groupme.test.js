@@ -71,6 +71,8 @@ before(async () => {
       groupmeOneTimeNeedTopicName: null,
       groupmeNewsletterTopicId: null,
       groupmeNewsletterTopicName: null,
+      // Records are only queued while some channel is on.
+      enabledFeatures: { ...(originalSettings?.enabledFeatures || {}), outboundEmail: true },
     },
     create: { id: "singleton" },
   });
