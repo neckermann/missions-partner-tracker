@@ -8,6 +8,7 @@ const { encryptField } = require("../utils/crypto");
 const { isTwoFactorRequired } = require("../utils/twoFactor");
 const { isPasswordlessOn, passwordlessBlocker } = require("../utils/passwordless");
 const { isDemoDeployment, refuseOnGuardedDemo } = require("../utils/demoMode");
+const { applyChurchTimezone } = require("../utils/timezone");
 
 const noIntegrationChangesOnDemo = refuseOnGuardedDemo("Changing integration settings");
 const { makeExtResolver, uploadFilteredBy } = require("../utils/upload");
@@ -299,6 +300,8 @@ router.put("/", requireRole("admin"), async (req, res, next) => {
         inboundEmailWebhookPassword: true,
       },
     });
+    // A changed time zone applies to the scheduled jobs and every "today" at once; it used to wait for a restart.
+    if (data.timezone !== undefined) applyChurchTimezone(updated.timezone);
     res.json(shapeSettings(updated));
   } catch (err) {
     next(err);
