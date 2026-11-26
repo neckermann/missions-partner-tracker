@@ -27,10 +27,7 @@ async function checkAndSendKeyDateReminders({ today = new Date(), send = sendEma
   if (await isDemoInstance()) return { sent: 0, recipients: 0 };
   const settings = await prisma.churchSettings.findUnique({ where: { id: "singleton" } });
   const features = settings?.enabledFeatures;
-  if (
-    !isFeatureEnabled(features, "keyDates") ||
-    !isFeatureEnabled(features, "outboundEmail")
-  ) {
+  if (!isFeatureEnabled(features, "keyDates") || !isFeatureEnabled(features, "outboundEmail")) {
     return { sent: 0, recipients: 0 };
   }
 
