@@ -267,15 +267,31 @@ from an async handler here automatically.
 
 ### 2.5 External integrations
 
-| Integration                  | Used for                                                   | Key storage                                      | Feature flag    |
-| ---------------------------- | ---------------------------------------------------------- | ------------------------------------------------ | --------------- |
-| Postmark (outbound)          | Admin/public digest email, test-email                      | `ChurchSettings.postmarkServerToken` (encrypted) | `outboundEmail` |
-| Postmark (inbound)           | Auto-filing incoming newsletters/documents                 | same token; webhook creds separate               | `inboundEmail`  |
-| GroupMe                      | Posting prayer requests/needs/newsletters to church Topics | `ChurchSettings.groupmeAccessToken` (encrypted)  | `groupme`       |
-| Joshua Project               | Country-level unreached-people-group stats                 | `ChurchSettings.joshuaProjectApiKey` (encrypted) | `joshuaProject` |
-| Anthropic (Claude)           | AI extraction of requests/needs from uploaded documents    | `ChurchSettings.anthropicApiKey` (encrypted)     | `aiExtraction`  |
-| OpenStreetMap Nominatim      | Forward geocoding on address save                          | none (free, no key)                              | always on       |
-| OpenStreetMap / ArcGIS tiles | Public map basemap                                         | none                                             | `publicMap`     |
+| Integration                  | Used for                                                   | Key | Label | Default | Group | Depends on |
+| --- | --- | --- | --- | --- |
+| `publicDirectory` | Public directory | **off** | public | — |
+| `publicMap` | Public map | **off** | public | — |
+| `partnerFiles` | Newsletters & Docs | on | admin | — |
+| `prayerRequests` | Prayer requests | on | admin | — |
+| `oneTimeNeeds` | One-time needs | on | admin | — |
+| `monthlySupport` | Monthly support | on | admin | — |
+| `trips` | Mission trips | **off** | admin | — |
+| `publicTripDiscovery` | Public trip discovery | **off** | public | `trips` |
+| `booklet` | Print booklet | on | admin | — |
+| `reports` | Reports | on | admin | — |
+| `outboundEmail` | Email (Sending) | **off** | admin/communications | — |
+| `inboundEmail` | Email (Receiving) | **off** | admin/communications | — |
+| `groupme` | Post updates to GroupMe | **off** | admin/communications | — |
+| `whatsapp` | Post updates to WhatsApp | **off** | admin/communications | — |
+| `publicPrayerDigest` | Public prayer digest | **off** | admin/communications | `publicDirectory` + `outboundEmail` |
+| `contactLog` | Contact log | on | admin | — |
+| `keyDates` | Key-date reminders | on | admin | — |
+| `careTeam` | Care teams | **off** | admin | — |
+| `supportPreferences` | Support preferences | **off** | admin | — |
+| `surveys` | Partner surveys | **off** | admin | — |
+| `auditTrail` | Audit log | on | admin | — |
+| `aiExtraction` | AI Features | **off** | admin/integrations | `partnerFiles` |
+| `joshuaProject` | Joshua Project stats | **off** | admin/integrations | — |
 
 Every encrypted `ChurchSettings` secret is explicitly `omit`ted from every
 query outside its own dedicated settings sub-route — enforced by
@@ -945,6 +961,21 @@ booklet or in a dispatch. Both tables are in `backup.js`'s `MODELS`; the _Suppor
 report (`reporting/reports/partners.js`) lists responses per partner and option, or the
 partners with none recorded, masking a restricted partner's answers like its other sensitive fields.
 
+### 5.8 Wrapping up a trip (#358)
+
+`POST /api/trips/:id/wrap-up` (admin, editor, or a guest for a trip they hold a grant on:
+`requireTripScope`, the same reach as editing the trip) finishes a trip in one step: it sets
+`status` to `completed`, records `wrappedUpAt` (kept on a later run, so editing the debrief doesn't
+move it), may correct `startDate`/`endDate` and the album link, and stores the debrief in four plain
+text columns (`debriefWhatWeDid`, `debriefWentWell`, `debriefWasHard`, `debriefPartnerNeeds`, all
+optional, an empty answer stored as null). With `followUp.logContact`, the contact log on, a partner
+on the trip, and a caller who may use the log for that partner (`readableNeedPartnerIds`: staff, or a
+guest on its care team; never a trip leader with only a trip grant), it also adds a `ContactLog` entry
+(visit, outbound, topic `trip`) with the optional follow-up date; the response says whether it did.
+Nothing is emailed. Ending leader access stays with the existing grant routes (the wizard links to the
+Team tab). Two bell categories read it: `tripsReadyToWrapUp` (trip-scoped: end date passed, not
+completed) and `tripsWrappedUp` (the partner's care team, for 14 days).
+
 ### 5.9 Partner surveys (#419)
 
 Behind the `surveys` feature (off by default; sending links also needs outbound
@@ -1007,21 +1038,6 @@ Examples live in `examples/template-packs/` (see its README) and are the only co
 seed imports them through `utils/packFiles.js`, and a test asserts every file validates and carries no church's
 name. A new install starts with every one of these areas empty and a prompt to import; existing installs keep
 their data.
-
-### 5.8 Wrapping up a trip (#358)
-
-`POST /api/trips/:id/wrap-up` (admin, editor, or a guest for a trip they hold a grant on:
-`requireTripScope`, the same reach as editing the trip) finishes a trip in one step: it sets
-`status` to `completed`, records `wrappedUpAt` (kept on a later run, so editing the debrief doesn't
-move it), may correct `startDate`/`endDate` and the album link, and stores the debrief in four plain
-text columns (`debriefWhatWeDid`, `debriefWentWell`, `debriefWasHard`, `debriefPartnerNeeds`, all
-optional, an empty answer stored as null). With `followUp.logContact`, the contact log on, a partner
-on the trip, and a caller who may use the log for that partner (`readableNeedPartnerIds`: staff, or a
-guest on its care team; never a trip leader with only a trip grant), it also adds a `ContactLog` entry
-(visit, outbound, topic `trip`) with the optional follow-up date; the response says whether it did.
-Nothing is emailed. Ending leader access stays with the existing grant routes (the wizard links to the
-Team tab). Two bell categories read it: `tripsReadyToWrapUp` (trip-scoped: end date passed, not
-completed) and `tripsWrappedUp` (the partner's care team, for 14 days).
 
 ## 6. The dispatch system (#202 redesign + WhatsApp)
 
@@ -1280,9 +1296,13 @@ Generated automatically by Render on first deploy: `DATABASE_URL`,
 `MFA_ISSUER`, `NOMINATIM_CONTACT`. Also read by the app but not declared
 in `render.yaml` (either Render-provided automatically, or only relevant
 to specific deployment modes): `RENDER_EXTERNAL_URL`/`APP_BASE_URL`
-(digest/unsubscribe link base), `DEMO_RESET_TOKEN` (only present on the
-demo deployment; its absence is what makes `/api/demo` not exist at all
-elsewhere), `DEMO_ADMIN_EMAIL`/`DEMO_ADMIN_PASSWORD` (demo reset script).
+(the base of every link the app puts in a message; see ADMIN_GUIDE),
+`RENDER_SERVICE_NAME`/`RENDER_GIT_COMMIT` (Render-provided; shown on About App),
+`DEMO_RESET_TOKEN` (only present on the demo deployment; its absence is what
+makes `/api/demo` not exist at all elsewhere), `DEMO_ADMIN_EMAIL`/`DEMO_ADMIN_PASSWORD`
+and `DEMO_GUEST_PASSWORD` (the published demo logins), `DEMO_DATABASE_URL`/
+`DEV_DEMO_DATABASE_URL` (the remote demo reset scripts' targets, never the app's own
+database), `BACKUP_PASSPHRASE` (the command-line restore of a locked backup).
 
 ## 9. Known rough edges
 
@@ -1297,15 +1317,15 @@ these are bugs severe enough to block current operation.
    filter/scan on every pass. Harmless at this app's actual scale (one
    church's queue, cleared regularly), but worth knowing if event volume
    or send frequency ever grows.
-2. **Two independent per-minute cron registrations** (`emailDispatchScheduler.js`,
-   `groupmeChannel.js`'s own trigger) with no coordination beyond both
-   calling the same `clearDispatchRecords()` afterward. Explicitly
-   justified in-code as fine at one-instance scale, with a named fix
-   (`node-cron`'s `distributed: true`) if the app is ever scaled
-   horizontally — flagged here only so a rewrite doesn't have to
-   rediscover that this was a conscious tradeoff, not an oversight.
-   Related: nothing in the code enforces single-instance today — a
-   second instance would double-send with no warning.
+2. **Scheduled jobs run in the web process, one instance at a time.** The email
+   digests, GroupMe and WhatsApp posts, reminders, reports and the audit clean-up are
+   `node-cron` registrations started from `server.js` through `utils/backgroundJobs.js`,
+   which takes a Postgres advisory lock first, so a second instance (for example during a
+   deploy) waits and does not double-send. The consequence worth knowing: the jobs stop
+   when the web service is down or asleep, and a free-tier host that sleeps would miss
+   them. Two of the registrations (the email digests and the GroupMe/WhatsApp daily
+   flush) both live in `emailDispatchScheduler.js` and both end by calling the same
+   `clearDispatchRecords()`.
 3. **`SendingParty`, `Address`, and `ChurchSettings.address` all re-declare
    the same address-field shape** (`addressLine1`/`addressLine2`/`city`/
    `stateProvinceRegion`/`postalCode`/`country`) three times — twice as

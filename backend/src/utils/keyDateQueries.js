@@ -22,7 +22,7 @@ async function keyDatesSettings() {
   return { enabled, keyDateLeadDays, keyDateAdvanceDays };
 }
 
-// Every open key date in the window, each with its recipients. `today` is a UTC-day Date. Returns [] while the features are off.
+// Every open key date in the window, each with its recipients. `today` is the current moment (churchToday() reads it in the church's own time zone). Returns [] while the features are off.
 //   item: { partnerId, partner:{...}, kind, subjectId, who, occasion, date,
 //           daysUntil, turning, recipientIds:[userId], tier }
 // `tier` is 0 inside the final window (what the bell and the daily email use); with { withAdvance: true }

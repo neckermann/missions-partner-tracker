@@ -28,15 +28,23 @@ Grouped by where they're read, verified directly against
 **Core (required to boot):**
 `DATABASE_URL`, `SESSION_SECRET`
 
-**Core (optional, app degrades gracefully without):**
-`PORT`, `NODE_ENV`, `APP_BASE_URL`, `FIELD_ENCRYPTION_KEY`,
-`NOMINATIM_CONTACT`, `MFA_ISSUER`
+**Needed in practice (the app boots without them, but not usefully):**
+`FIELD_ENCRYPTION_KEY` (two-factor is required from the first sign-in and its secrets
+are encrypted with this key, so without it the first admin cannot finish signing in),
+`APP_BASE_URL` (the base of every emailed or shared link; on Render it is picked up
+from `RENDER_EXTERNAL_URL`, but set it yourself for a custom domain, since passkeys are
+tied to the address)
+
+**Core (optional):**
+`PORT`, `NODE_ENV`, `NOMINATIM_CONTACT`, `MFA_ISSUER`, `TRUST_PROXY` (how many proxies
+sit in front of the app; default 1), `BACKGROUND_JOBS`, `SKIP_SCHEMA_CHECK`
 
 **Render-provided automatically:**
-`RENDER_EXTERNAL_URL` (falls back to/aliases `APP_BASE_URL`)
+`RENDER_EXTERNAL_URL` (falls back to/aliases `APP_BASE_URL`), `RENDER_SERVICE_NAME`,
+`RENDER_GIT_COMMIT` (shown on About App)
 
 **Demo mode (only meaningful on the production demo deployment):**
-`DEMO_RESET_TOKEN`, `DEMO_ADMIN_EMAIL`, `DEMO_ADMIN_PASSWORD`, `DEMO_TESTING_SITE` (private test demo only: real sends, no published logins), `DEMO_ALLOW_PASSWORDLESS` (older, passwordless only),
+`DEMO_RESET_TOKEN`, `DEMO_ADMIN_EMAIL`, `DEMO_ADMIN_PASSWORD`, `DEMO_GUEST_PASSWORD`, `DEMO_DATABASE_URL`, `DEV_DEMO_DATABASE_URL` (the remote reset scripts), `DEMO_TESTING_SITE` (private test demo only: real sends, no published logins), `DEMO_ALLOW_PASSWORDLESS` (older, passwordless only),
 `SEED_MISSIONARY_COUNT`, `SEED_ORGANIZATION_COUNT`
 
 **Integrations (set per-instance, restored into `ChurchSettings` on a demo reset):**
