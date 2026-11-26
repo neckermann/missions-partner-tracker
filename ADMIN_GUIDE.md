@@ -199,6 +199,12 @@ nav), **Communications** (GroupMe and both halves of email, plus Public
 prayer digest nested under Email (Sending) since it depends on it), and
 **Integrations** (AI Features, Joshua Project).
 
+**Without email.** Email (Sending) is optional. Where an email would have gone out, the app hands you what you need
+instead: trip invites, setup links and survey links appear with a copy button; queued updates wait on Pending
+Dispatches with **Copy the updates that are ready**; key dates show a copyable list on My partners; scheduled report
+emails are replaced by the Reports page and its download. A few things need real email and say so (passwordless
+sign-in, the public prayer digest). Enabled Features shows a "Without email" line on each feature where it matters.
+
 ![The Enabled Features page, with Public prayer digest nested under Email (Sending) in the Communications section](docs/assets/screenshots/enabled-features.png)
 
 | Feature | Default | Notes |

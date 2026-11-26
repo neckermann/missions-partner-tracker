@@ -18,6 +18,8 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ### Added
 
+- **Every email now has an email-off option, and a test keeps it that way (#479).** Each place that sends email is listed with what you get when Email (Sending) is off (a link or text to copy, an in-app item, a download, or a control that says why it's disabled), and a test fails if someone adds an email without saying. **Enabled Features** shows a "Without email: ..." line on the features where it matters (trips, surveys, key dates, reports, the prayer digest and the dispatched content types). The rule is in CONTRIBUTING.md.
+
 - **A key-date list you can copy when email is off.** With Key-date reminders on but Email (Sending) off, **My partners** shows what the daily email would have said (who, what, how soon) with **Copy this week's list**, so a church without email can pass the list on by text or note. It uses the same masking as the email. The first of the email-off options in #479.
 
 - **A missions team looks after partners that have no care team.** One rule now decides who looks after a partner: its care team when it has one, otherwise your missions team (people marked "On the missions team" on a user, or picked under **Settings → Partner Care**). Key-date reminders, **My partners**, **Partners to reach out to** and **Updates to pass on** all use it, so they work with Care teams switched off: a missions team that owns every relationship gets everything without turning Care teams on. The group's name is yours to change ("Missions committee", "Board"...) under Partner Care. A Guest is never on it.

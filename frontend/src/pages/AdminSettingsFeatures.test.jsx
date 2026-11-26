@@ -51,6 +51,7 @@ const registry = [
     defaultEnabled: false,
     group: "admin",
     requires: [],
+    withoutEmail: "Sending a survey gives you each partner's link to copy.",
   },
 ];
 let stored;
@@ -86,6 +87,16 @@ describe("Enabled Features (requirements come from the registry)", () => {
     const row = screen.getByText("Prayer digest").closest("li");
     expect(within(row).getByText("On")).toBeInTheDocument();
     expect(within(row).getByText(/Needs Email \(Sending\) turned on/)).toBeInTheDocument();
+  });
+
+  test("says what you get without email, for the features where email matters", () => {
+    stored = { surveys: true };
+    renderPage();
+    const row = screen.getByText("Partner surveys").closest("li");
+    expect(within(row).getByText("Without email:")).toBeInTheDocument();
+    expect(within(row).getByText(/gives you each partner's link to copy/)).toBeInTheDocument();
+    const care = screen.getByText("Care teams").closest("li");
+    expect(within(care).queryByText("Without email:")).toBeNull();
   });
 
   test("a feature with no requirements is switchable on its own", () => {
