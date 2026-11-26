@@ -102,7 +102,7 @@ A6's PR is #515.
 | 9 | A5 | merged to dev | #523 |
 | 10 | A8 | merged to dev | #524 |
 | 11 | B1 | merged to dev | #525 |
-| 12 | B9 | in progress | |
+| 12 | B9 | PR open, CI running | #526 |
 | 13 | B7 | not started | |
 | 14 | B8 | not started | |
 | 15 | B10 | not started | |
@@ -133,3 +133,4 @@ A6's PR is #515.
 - 2026-11-26: item 11 (B1) opened as #525. #524 (A8) had one e2e failure in the route tests that run inside that job (1052 of 1055 passed, 2 skipped, 1 failed; the diff is docs only and no test reads them; B1's full local run is 1060/1060): failed jobs re-run once. Also noted: in CI the two first-admin tests are skipped by their own safety check (the e2e admin is created before the route tests run), so they only run locally.
 - 2026-11-26: item 10 (A8) merged as #524 after its failed e2e job passed on the one allowed re-run (all four checks green). The single route-test failure on the first run was not reproduced and its test was not identified (the PR is docs only, and B1's full local route suite is 1060/1060): treat it as an unexplained one-off, and look at the first-attempt log of job 140141282660 if it recurs.
 - 2026-11-26: item 11 (B1) merged as #525 (all four checks green). Item 12 (B9) started.
+- 2026-11-26: item 12 (B9) opened as #526. At the owner's request the dev-test worker service on Render was deleted (it followed `dev`, which no longer has `worker.js`). The production worker was left running on purpose: it follows `main`, which still has the old code until the first release; delete it after `dev` is merged into `main`.
