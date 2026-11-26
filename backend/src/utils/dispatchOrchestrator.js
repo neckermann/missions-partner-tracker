@@ -260,9 +260,11 @@ async function sendUrgentDispatch(row, { id: partnerId }) {
       ...adminRecipients,
       ...publicSubscribers.map((s) => normalizeRecipient(s, CHANNELS.EMAIL_PUBLIC)),
     ];
-    const consideredIds = await sendToRecipients([row], partnerById, recipients, settings);
-    emailSent = consideredIds.has(row.id);
+    const { deliveredIds, failedIds } = await sendToRecipients([row], partnerById, recipients, settings);
+    emailSent = deliveredIds.has(row.id);
 
+    // Only a row that reached someone is stamped as sent (a failed send leaves it for the next scheduled
+    // digest), and its error note is kept if any recipient's send failed.
     if (emailSent) {
       await prisma.dispatchRecord.update({
         where: { id: row.id },
@@ -270,7 +272,7 @@ async function sendUrgentDispatch(row, { id: partnerId }) {
           biweeklyEmailDispatchSentAt: now,
           monthlyEmailDispatchSentAt: now,
           quarterlyEmailDispatchSentAt: now,
-          emailError: null,
+          ...(failedIds.has(row.id) ? {} : { emailError: null }),
         },
       });
     }

@@ -111,11 +111,14 @@ async function keyDatesForDigest(userIds, settings) {
 
 // The reusable core: given rows and an assembled recipient list (tier-filtered
 // for scheduled sends, cadence-blind for urgent; see sendUrgentDispatch), builds
-// each recipient's message and sends in chunks. Returns the Set of row ids
-// included in at least one send; the caller stamps the column(s).
+// each recipient's message and sends in chunks. Returns { deliveredIds, failedIds }:
+// the row ids that reached at least one recipient (the caller stamps those, and only those:
+// a row whose every send failed must stay unstamped so it goes out in a later pass), and the
+// row ids a failed send would have carried (their error note must not be cleared).
 async function sendToRecipients(rows, partnerById, recipients, settings, keyDatesByUser = new Map()) {
-  const consideredIds = new Set();
-  if (recipients.length === 0) return consideredIds;
+  const deliveredIds = new Set();
+  const failedIds = new Set();
+  if (recipients.length === 0) return { deliveredIds, failedIds };
 
   const needsTiles = settings?.emailDispatchLayout === "snapshot";
   const partnerDetailsById = needsTiles
@@ -138,7 +141,6 @@ async function sendToRecipients(rows, partnerById, recipients, settings, keyDate
     // Key dates only go to staff recipients, and a person with nothing else still gets them.
     const keyDates = recipient.kind === CHANNELS.EMAIL_ADMIN ? keyDatesByUser.get(recipient.id) || [] : [];
     if (eligibleRows.length === 0 && keyDates.length === 0) continue;
-    eligibleRows.forEach((row) => consideredIds.add(row.id));
 
     const blurbs = eligibleRows.map((row) => buildBlurb(row, partnerById.get(row.partnerId))).filter(Boolean);
     const content =
@@ -171,26 +173,30 @@ async function sendToRecipients(rows, partnerById, recipients, settings, keyDate
     for (const [idx, result] of results.entries()) {
       if (result.ErrorCode !== 0) {
         console.error(`Email dispatch to ${chunk[idx].payload.To} failed:`, result.Message);
+        chunk[idx].rowIds.forEach((id) => failedIds.add(id));
         await prisma.dispatchRecord.updateMany({
           where: { id: { in: chunk[idx].rowIds } },
           data: { emailError: result.Message || "Unknown delivery failure" },
         });
         continue;
       }
-      // Delivered: record the key-date heads-ups it carried so none repeats (a failed send records nothing and retries).
+      // Delivered: this message's rows reached someone, and the key-date heads-ups it carried are recorded so
+      // none repeats (a failed send records nothing and retries).
+      chunk[idx].rowIds.forEach((id) => deliveredIds.add(id));
       await recordKeyDatesMailed(chunk[idx].userId, chunk[idx].keyDates);
     }
   }
 
-  return consideredIds;
+  return { deliveredIds, failedIds };
 }
 
 // The scheduled send pass for one cadence tier ("biweekly"|"monthly"|"quarterly").
-// Returns { consideredIds } for emailDispatchScheduler.js to stamp with this
+// Returns { deliveredIds, failedIds } (arrays) for emailDispatchScheduler.js to stamp with this
 // tier's column; empty, touching nothing, if outboundEmail is off or nothing to send.
 async function sendDigestTier(tier, settings) {
-  if (!isFeatureEnabled(settings?.enabledFeatures, "outboundEmail")) return { consideredIds: [] };
-  if (await isDemoInstance()) return { consideredIds: [] };
+  if (!isFeatureEnabled(settings?.enabledFeatures, "outboundEmail"))
+    return { deliveredIds: [], failedIds: [] };
+  if (await isDemoInstance()) return { deliveredIds: [], failedIds: [] };
 
   const rows = await prisma.dispatchRecord.findMany({ orderBy: { createdAt: "asc" } });
 
@@ -237,7 +243,7 @@ async function sendDigestTier(tier, settings) {
     admins.map((u) => u.id),
     settings
   );
-  if (rows.length === 0 && keyDatesByUser.size === 0) return { consideredIds: [] };
+  if (rows.length === 0 && keyDatesByUser.size === 0) return { deliveredIds: [], failedIds: [] };
   const adminRecipients = await Promise.all(
     admins.map(async (u) => normalizeRecipient(u, CHANNELS.EMAIL_ADMIN, await resolveDigestScope(u)))
   );
@@ -246,8 +252,14 @@ async function sendDigestTier(tier, settings) {
     ...publicSubscribers.map((s) => normalizeRecipient(s, CHANNELS.EMAIL_PUBLIC)),
   ];
 
-  const consideredIds = await sendToRecipients(rows, partnerById, recipients, settings, keyDatesByUser);
-  return { consideredIds: [...consideredIds] };
+  const { deliveredIds, failedIds } = await sendToRecipients(
+    rows,
+    partnerById,
+    recipients,
+    settings,
+    keyDatesByUser
+  );
+  return { deliveredIds: [...deliveredIds], failedIds: [...failedIds] };
 }
 
 module.exports = {

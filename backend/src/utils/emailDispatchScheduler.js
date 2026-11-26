@@ -78,15 +78,23 @@ function shouldFlushQuarterlyEmailDispatch(settings, now) {
   return sinceLast >= MIN_GAP_MS.quarterly;
 }
 
-// Stamps `column` on every row in `ids`, then the matching ChurchSettings
-// last-sent cursor; shared by the three tier blocks.
+// Stamps `column` on every row that reached at least one recipient, then the matching
+// ChurchSettings last-sent cursor; shared by the three tier blocks. A row whose every send
+// failed is NOT stamped (it goes out in the next scheduled pass for this tier, not silently
+// lost) and keeps its error note, which the "Dispatch send failures" alert reads; a row that
+// reached some recipients but failed for another is stamped and keeps its error too.
 async function runEmailDispatchTier(tier, column, cursorField, settings, now) {
-  const { consideredIds } = await sendDigestTier(tier, settings);
-  if (consideredIds.length > 0) {
+  const { deliveredIds, failedIds } = await sendDigestTier(tier, settings);
+  if (deliveredIds.length > 0) {
     await prisma.dispatchRecord.updateMany({
-      where: { id: { in: consideredIds } },
-      data: { [column]: now, emailError: null },
+      where: { id: { in: deliveredIds } },
+      data: { [column]: now },
     });
+    const failed = new Set(failedIds);
+    const clean = deliveredIds.filter((id) => !failed.has(id));
+    if (clean.length > 0) {
+      await prisma.dispatchRecord.updateMany({ where: { id: { in: clean } }, data: { emailError: null } });
+    }
   }
   await prisma.churchSettings.update({ where: { id: "singleton" }, data: { [cursorField]: now } });
 }
@@ -183,6 +191,7 @@ module.exports = {
   startEmailDispatchScheduler,
   startGroupMeScheduler,
   checkAndMaybeFlushEmailDispatch,
+  runEmailDispatchTier,
   checkAndMaybeFlushGroupMe,
   shouldFlushBiweeklyEmailDispatch,
   shouldFlushMonthlyEmailDispatch,
