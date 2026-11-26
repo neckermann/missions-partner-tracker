@@ -1,9 +1,10 @@
 import SuggestInput from "../components/SuggestInput.jsx";
 import { CONTACT_LEVELS } from "../utils/contactMethods.js";
 import React, { useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { createPartner } from "../api/client.js";
 import { useSettings } from "../context/SettingsContext.jsx";
+import useCurrentUser from "../hooks/useCurrentUser.js";
 import { getFipsCode } from "../utils/countryFipsCodes.js";
 import { COUNTRY_CONTINENTS } from "../utils/countryContinents.js";
 import Wizard from "../components/shared/Wizard.jsx";
@@ -21,6 +22,7 @@ export default function AdminPartnerForm() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { churchName } = useSettings();
+  const { isAdmin } = useCurrentUser();
 
   const initialValues = {
     kind: searchParams.get("kind") === "organization" ? "organization" : "missionary",
@@ -194,6 +196,12 @@ export default function AdminPartnerForm() {
             <p style={{ color: "var(--muted)", fontSize: "0.9rem", margin: "0 0 0.5rem" }}>
               For partners where being named publicly could be unsafe. On the public site the name is replaced
               by initials and the map pin is moved to the middle of the country.
+              {isAdmin && (
+                <>
+                  {" "}
+                  <Link to="/admin/settings/privacy">Change what restricted partners show</Link>.
+                </>
+              )}
             </p>
             {!isOrg && (
               <label title="Fills in the Sending Church section on this partner's page from this church's own info, overwriting anything typed there later. Set up Sending Church details afterward on their page.">

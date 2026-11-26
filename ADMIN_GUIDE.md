@@ -696,6 +696,12 @@ suspect it's actually leaked; otherwise leave it alone indefinitely.
 
 ### Restricted-country masking policy
 
+**Settings → Privacy and safety** (always in the menu, whatever features are on) holds the choices that
+go with it: whether the public directory and map are on, whether a restricted partner's public name is
+their initials or a generic label, and whether updates about restricted partners are recorded for
+sending. Only staff can change whether a partner is shown publicly or restricted; a care-team Guest
+can edit the rest of their partner's page but not those two switches.
+
 Every missionary/organization record has an `isRestricted` flag —
 enabling it masks the name (missionaries only), precise GPS, and overview
 on the public site. Review `backend/src/utils/maskData.js` as a team
@@ -914,7 +920,7 @@ Every event a partner generates — a prayer request created or
 answered, a one-time need created or decided, a newsletter arriving —
 is recorded once, in a shared `DispatchRecord` table, with exactly one
 exception: a restricted partner's event is only recorded at all if
-**Restricted partners** (below) is on. Everything else about how it
+**Record updates about restricted partners** (Settings → Privacy and safety; see below) is on. Everything else about how it
 actually reaches someone is a question of *delivery*, answered
 identically by one shared rule regardless of channel: GroupMe, the
 admin digest, and the public digest each independently decide, at the
@@ -1151,8 +1157,8 @@ as any other recorded event. Editing again later overwrites the
 previously reviewed text.
 
 A church that would rather not run a review step at all — fully
-automated, nobody checking a queue — can leave **Restricted partners**
-off on the Dispatch Settings page (the default). With it off, a restricted
+automated, nobody checking a queue — can leave **Record updates about
+restricted partners** off on **Settings → Privacy and safety** (the default). With it off, a restricted
 partner's events are never recorded in the first place, for any type;
 there's nothing to hold and nothing to review, since there's nothing
 recorded. Turning it on takes on the review responsibility above in

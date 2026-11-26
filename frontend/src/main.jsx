@@ -39,6 +39,7 @@ const AdminUserForm = lazy(() => import("./pages/AdminUserForm.jsx"));
 const AccountSettings = lazy(() => import("./pages/AccountSettings.jsx"));
 const AdminSettingsHome = lazy(() => import("./pages/AdminSettingsHome.jsx"));
 const AdminSettingsAbout = lazy(() => import("./pages/AdminSettingsAbout.jsx"));
+const AdminSettingsPrivacy = lazy(() => import("./pages/AdminSettingsPrivacy.jsx"));
 const AdminSettingsFeatures = lazy(() => import("./pages/AdminSettingsFeatures.jsx"));
 const AdminSettingsGroupMe = lazy(() => import("./pages/AdminSettingsGroupMe.jsx"));
 const AdminSettingsWhatsApp = lazy(() => import("./pages/AdminSettingsWhatsApp.jsx"));
@@ -316,6 +317,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                 >
                   <Route index element={<AdminSettingsHome />} />
                   <Route path="about" element={<AdminSettingsAbout />} />
+                  <Route path="privacy" element={<AdminSettingsPrivacy />} />
                   <Route path="features" element={<AdminSettingsFeatures />} />
                   <Route path="groupme" element={<AdminSettingsGroupMe />} />
                   <Route

@@ -12,6 +12,13 @@ function buildSections(enabledFeatures) {
         "Church info, contact details, public-site tagline, colors, font, logo, and partner terminology.",
     },
     {
+      to: "/admin/settings/privacy",
+      title: "Privacy and safety",
+      icon: "🔒",
+      description:
+        "What the public can see, and extra care for partners in sensitive places: initials, and whether updates about them are recorded.",
+    },
+    {
       to: "/admin/settings/users",
       title: "Manage Users",
       icon: "👥",
