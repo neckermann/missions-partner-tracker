@@ -31,4 +31,46 @@ describe("isFeatureEnabled", () => {
       assert.equal(isFeatureEnabled({ aiExtraction: true }, "aiExtraction"), true);
     });
   });
+
+  describe("requires (a dependency is declared once, in the registry)", () => {
+    const { FEATURES, FEATURE_KEYS, unmetRequirements } = require("../src/utils/features");
+
+    test("every requirement is a real feature, and there are no cycles", () => {
+      for (const key of FEATURE_KEYS) {
+        for (const req of FEATURES[key].requires || []) {
+          assert.ok(FEATURES[req], `${key} requires unknown feature ${req}`);
+        }
+        const seen = new Set();
+        const walk = (k) => {
+          assert.ok(!seen.has(k), `cycle through ${k}`);
+          seen.add(k);
+          (FEATURES[k].requires || []).forEach(walk);
+          seen.delete(k);
+        };
+        walk(key);
+      }
+    });
+
+    test("a feature is on only while it and everything it requires are on", () => {
+      assert.equal(isFeatureEnabled({ keyDates: true, careTeam: true }, "keyDates"), true);
+      assert.equal(isFeatureEnabled({ keyDates: true, careTeam: false }, "keyDates"), false);
+      assert.equal(isFeatureEnabled({ keyDates: false, careTeam: true }, "keyDates"), false);
+      // Needing email to be switched on is a setup step, not a runtime requirement.
+      const digestOn = { publicPrayerDigest: true, outboundEmail: false, publicDirectory: true };
+      assert.equal(isFeatureEnabled(digestOn, "publicPrayerDigest"), true);
+      assert.equal(isFeatureEnabled({ ...digestOn, publicDirectory: false }, "publicPrayerDigest"), false);
+    });
+
+    test("a requirement's default counts, and unmetRequirements names what is off", () => {
+      // careTeam defaults off, so keyDates is off even when switched on.
+      assert.equal(isFeatureEnabled({ keyDates: true }, "keyDates"), false);
+      assert.deepEqual(unmetRequirements({ keyDates: true }, "keyDates"), ["careTeam"]);
+      assert.deepEqual(unmetRequirements({ keyDates: true, careTeam: true }, "keyDates"), []);
+    });
+
+    test("partner surveys and the other standalone features require nothing", () => {
+      assert.deepEqual(FEATURES.surveys.requires || [], []);
+      assert.deepEqual(FEATURES.contactLog.requires || [], []);
+    });
+  });
 });

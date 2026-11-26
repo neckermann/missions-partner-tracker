@@ -206,6 +206,8 @@ router.get("/", async (req, res, next) => {
       defaultEnabled: FEATURES[key].defaultEnabled,
       group: FEATURES[key].group,
       section: FEATURES[key].section,
+      requires: FEATURES[key].requires || [],
+      setupNeeds: FEATURES[key].setupNeeds || [],
     }));
     res.json({
       ...shapeSettings(settings),
