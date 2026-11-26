@@ -2898,11 +2898,9 @@ async function seedKeyDatesDemo() {
     await prisma.adult.update({ where: { id: teamless.adults[0].id }, data: { birthday: inDays(5, 36) } });
   }
 
+  // The missions team looks after the partners with no care team of their own.
   if (editor) {
-    await prisma.churchSettings.update({
-      where: { id: "singleton" },
-      data: { defaultCareLeadUserId: editor.id },
-    });
+    await prisma.user.update({ where: { id: editor.id }, data: { onMissionsTeam: true } });
   }
 }
 

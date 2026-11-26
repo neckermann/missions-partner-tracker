@@ -53,6 +53,8 @@ export default function useCurrentUser() {
     guestReadTripIds,
     canAccessTrip,
     careTeamSeats,
+    // On the church's missions team: looks after every partner with no care team of its own.
+    onMissionsTeam: user?.onMissionsTeam === true,
     isOnCareTeamFor,
     canSubmitFor,
   };

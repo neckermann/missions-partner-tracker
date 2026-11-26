@@ -21,7 +21,7 @@ const ADMIN_ROUTES = [
   "/admin/reports",
   "/admin/settings/about",
   "/admin/settings/audit",
-  "/admin/settings/care-team",
+  "/admin/settings/partner-care",
   "/admin/settings/features",
   "/admin/settings/groupme",
   "/admin/settings/whatsapp",

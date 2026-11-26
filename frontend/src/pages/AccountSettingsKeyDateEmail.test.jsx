@@ -70,7 +70,14 @@ describe("My account: the key-date email (#365)", () => {
     await waitFor(() => expect(setKeyDateEmailOptOut).toHaveBeenCalledWith(true));
   });
 
-  it("is hidden when you are on no care team, or the feature or email is off", async () => {
+  it("shows for someone on the missions team with Care teams off (no seat needed)", async () => {
+    features = { careTeam: false, keyDates: true, outboundEmail: true };
+    fetchCurrentUser.mockResolvedValue(user({ careTeamSeats: [], onMissionsTeam: true }));
+    render(<AccountSettings />);
+    expect(await screen.findByText("Key-date email")).toBeInTheDocument();
+  });
+
+  it("is hidden when you look after no partners, or the feature or email is off", async () => {
     for (const [u, f] of [
       [user({ careTeamSeats: [] }), features],
       [user(), { careTeam: true, keyDates: false, outboundEmail: true }],

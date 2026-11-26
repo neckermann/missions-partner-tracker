@@ -8,7 +8,7 @@ import { formatDateLong } from "../../utils/format.js";
 import { buildGreeting, greetingHref } from "../../utils/greeting.js";
 import useConfirmDialog from "../../hooks/useConfirmDialog.jsx";
 
-// "My partners": the partners this login holds a care team seat on, longest-quiet first. The server
+// "My partners": the partners this login looks after (a care team seat, or the missions team for a partner with no team), longest-quiet first. The server
 // computes everything (GET /api/contact-log/assigned), the same read model the "Partners to reach
 // out to" notification counts, so the two never disagree about who is overdue.
 
@@ -20,7 +20,7 @@ const sinceLabel = (days) =>
 
 export default function AssignedPartnersTable() {
   const navigate = useNavigate();
-  const { enabledFeatures, churchName } = useSettings();
+  const { enabledFeatures, churchName, ownerGroupName } = useSettings();
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
   const [rows, setRows] = useState(null);
   const [message, setMessage] = useState("");
@@ -40,9 +40,9 @@ export default function AssignedPartnersTable() {
       render: (r) =>
         r.isLead ? (
           <StatusPill label="Lead" color="#2a5d3c" />
-        ) : r.viaDefaultLead ? (
-          // No care team on this partner: it came to the church's default lead.
-          <StatusPill label="Default lead" color="#6b6f76" />
+        ) : r.viaMissionsTeam ? (
+          // No care team on this partner: it came to the church's missions team.
+          <StatusPill label={ownerGroupName} color="#6b6f76" />
         ) : (
           "Member"
         ),

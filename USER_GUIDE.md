@@ -964,7 +964,7 @@ The **Last heard from** report counts a logged contact, a newsletter, a prayer r
 
 ### Key-date reminders
 
-With **Key-date reminders** turned on (it needs [Care teams](#care-teams)), the people on a partner's care team are reminded about a coming **birthday** (including the children's), **wedding anniversary**, or **partnering-since milestone** (the first year, then every fifth), or the anniversary of when they were **commissioned** (record both on the partner's page under **Our History With Them**; they can differ, since someone may have been commissioned long before we knew them), a week ahead.
+With **Key-date reminders** turned on, whoever looks after a partner (its [care team](#care-teams), or your missions team) is reminded about a coming **birthday** (including the children's), **wedding anniversary**, or **partnering-since milestone** (the first year, then every fifth), or the anniversary of when they were **commissioned** (record both on the partner's page under **Our History With Them**; they can differ, since someone may have been commissioned long before we knew them), a week ahead.
 
 - **On the bell and the Home page** as "Key dates coming up". Open it to find the partner. The **My partners** tab also flags a key date inside the window. A key date is raised **7 days ahead** by default; an admin can change that (1 to 60 days) under Settings → Care Teams → Timing.
 
@@ -976,9 +976,9 @@ With **Key-date reminders** turned on (it needs [Care teams](#care-teams)), the 
 
 ![The grouped key-date email](docs/assets/screenshots/key-date-email.png)
 
-- **Who gets it:** the whole care team, lead and members. A partner with no care team goes to the **default lead** an admin picks under Settings → Care Teams; with neither, nobody hears about it. A staff default lead also sees those partners under **Partners to reach out to** (on My partners they are marked **Default lead**). A Guest default lead only gets the key-date reminders: it never widens which partners a guest can see.
+- **Who gets it:** the partner's whole care team, lead and members, when it has one. A partner with no care team goes to your **missions team** (an admin picks who is on it under Settings → Partner Care, and can call the group whatever your church says); with nobody on it, nobody hears about it. People on the missions team also see those partners under **Partners to reach out to** (on My partners they are marked with the group's name). A Guest is never on it: a guest only sees the partners they have been given.
 
-![Settings → Care Teams, where an admin picks the default lead](docs/assets/screenshots/care-teams-settings.png)
+![Settings → Partner Care, where an admin picks who is on the missions team](docs/assets/screenshots/care-teams-settings.png)
 
 - **To clear a reminder**, send the card or make the call and **log it as a contact with the topic "Key date"**. That stops the reminders for that occasion, and it counts as being in touch.
 - The app never sends the card for you, and a restricted partner appears in the email by initials only. A partner you are asked to be careful with (Use caution, or Don't contact directly) is marked in the email so a reminder to "send a card" isn't read as "call them".
@@ -994,7 +994,7 @@ The app never contacts a partner on its own — a person always does. If you're 
 
 ### Support preferences
 
-With **Support preferences** turned on in [Enabled Features](ADMIN_GUIDE.md#feature-toggles) (it needs [Care teams](#care-teams)), each partner's page gets a **Support preferences** card, in the **Care & Follow-up** section (jump bar: **Care**): the ways your church and their care team can support them, and which of them this partner has asked for. The card stays compact (how many are recorded, and which groups); click that line to open everything, with their notes.
+With **Support preferences** turned on in [Enabled Features](ADMIN_GUIDE.md#feature-toggles) (it works with or without [Care teams](#care-teams)), each partner's page gets a **Support preferences** card, in the **Care & Follow-up** section (jump bar: **Care**): the ways your church can support them, and which of them this partner has asked for. The card stays compact (how many are recorded, and which groups); click that line to open everything, with their notes.
 
 - **The menu is your church's.** An admin edits it under **Settings → Support Preferences**: options are put in groups (rename a group any time), and each is something you **offer** (tick it if wanted), a **pick one** or **pick any** question (with an optional "something else" box), or a **free-text** question. From an empty menu, **Import a menu…** takes an example [template pack](#template-packs) (housing, transportation, speaking about the partner, prayer, care packages, how to send gifts and so on) to edit or delete. **Retire** an option to stop offering it while keeping the answers already given, or **Delete** it to remove it and those answers. **Print menu** (top right of that page) opens a clean copy with the church's name and logo, boxes to tick and lines to write on, for a conversation with a partner; retired options are left out, and it stores nothing.
 - **Record a partner's choices** with **+ Record** (or **Edit**) on their page, after a conversation: tick what they want, pick their answers, add a note. One set per partner, so a couple or family shares it. Admins, editors and a guest on that partner's care team can record it; a viewer can read it. A trip leader never sees it.

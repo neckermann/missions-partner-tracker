@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from "react";
 import {
-  fetchDefaultCareLead,
-  setDefaultCareLead,
-  fetchCareTeamCandidates,
+  fetchMissionsTeam,
+  saveMissionsTeam,
   fetchChurchSettings,
   updateChurchSettings,
 } from "../api/client.js";
@@ -11,20 +10,19 @@ import SettingsPageHeader from "../components/admin/SettingsPageHeader.jsx";
 import EditableSection from "../components/admin/EditableSection.jsx";
 import Field from "../components/admin/Field.jsx";
 
-// Church-wide care team settings. The default lead is who key-date reminders go to for a
-// partner with no care team; with none set, such a partner gets no reminder. Admin only.
-export default function AdminSettingsCareTeam() {
-  const { enabledFeatures } = useSettings();
-  const [lead, setLead] = useState(undefined); // undefined = loading, null = none
-  const [candidates, setCandidates] = useState([]);
+// Church-wide partner care settings: who looks after partners that have no care team of their own (the
+// "missions team", named however this church says it), and the timings the care features share. Admin only.
+export default function AdminSettingsPartnerCare() {
+  const { enabledFeatures, ownerGroupName, refreshSettings } = useSettings();
+  const [team, setTeam] = useState(undefined); // undefined = loading; { members, candidates }
   // How far ahead a key date is raised, and how long without contact makes a partner quiet.
   const [timings, setTimings] = useState(null); // { keyDateLeadDays, contactStaleDays }
   const [loadError, setLoadError] = useState("");
 
   const reload = () =>
-    fetchDefaultCareLead()
-      .then(setLead)
-      .catch(() => setLoadError("Couldn't load the care team settings."));
+    fetchMissionsTeam()
+      .then(setTeam)
+      .catch(() => setLoadError("Couldn't load the partner care settings."));
 
   const reloadTimings = () =>
     fetchChurchSettings()
@@ -36,15 +34,12 @@ export default function AdminSettingsCareTeam() {
   useEffect(() => {
     reload();
     reloadTimings();
-    fetchCareTeamCandidates().then(setCandidates).catch(console.error);
   }, []);
-
-  const label = (u) => [u.firstName, u.lastName].filter(Boolean).join(" ") || u.email;
 
   if (loadError) {
     return (
       <div className="admin-shell">
-        <SettingsPageHeader title="Care Team Settings" />
+        <SettingsPageHeader title="Partner Care" />
         <p className="form-error" role="alert">
           {loadError}
         </p>
@@ -52,51 +47,79 @@ export default function AdminSettingsCareTeam() {
     );
   }
 
+  const members = team?.members ?? [];
+
   return (
     <div className="admin-shell">
-      <SettingsPageHeader title="Care Team Settings" />
+      <SettingsPageHeader title="Partner Care" />
 
       <div className="admin-section-group">
-        <h2 className="admin-group-heading">Default lead</h2>
+        <h2 className="admin-group-heading">Who looks after partners</h2>
         <EditableSection
-          title="Default lead"
+          title={ownerGroupName}
           canEdit
-          value={{ userId: lead?.userId || "" }}
-          onSave={(draft) => setDefaultCareLead(draft.userId || null)}
-          onSaved={reload}
+          value={{ name: ownerGroupName, userIds: members.map((m) => m.id) }}
+          onSave={async (draft) => {
+            await saveMissionsTeam(draft.userIds);
+            await updateChurchSettings({ ownerGroupName: draft.name.trim() || null });
+          }}
+          onSaved={() => {
+            reload();
+            refreshSettings?.();
+          }}
           view={() => (
             <>
-              {lead === null && (
+              {team !== undefined && members.length === 0 && (
                 <p className="field-warning" role="note">
-                  No default lead is set, so reminders for partners without a care team go to nobody. Pick
-                  someone below.
+                  Nobody is on the {ownerGroupName}, so partners without a care team have no one looking after
+                  them: no reminders, and nothing on My partners. Pick at least one person.
                 </p>
               )}
               <Field
-                label="Default lead"
-                value={lead === undefined ? "Loading…" : lead ? lead.name : "None"}
+                label={`On the ${ownerGroupName}`}
+                value={team === undefined ? "Loading…" : members.map((m) => m.name).join(", ")}
                 showEmpty
               />
               <p style={{ color: "var(--muted)", marginTop: "0.5rem" }}>
-                When a partner has no care team, their reminders and their &ldquo;Partners to reach out
-                to&rdquo; go to the default lead instead of nobody. Once a partner has a care team, the
-                default lead is no longer told about them. (A Guest default lead only gets the key-date
-                reminders: it never widens which partners a guest can see.)
+                The {ownerGroupName} looks after every partner that doesn&apos;t have a care team of its own:
+                they get those partners&apos; key-date reminders and &ldquo;Partners to reach out to&rdquo;,
+                and see them on My partners.
+                {enabledFeatures.careTeam
+                  ? " A partner with a care team is looked after by that team instead."
+                  : " Turn on Care teams under Enabled Features to give individual partners their own team."}
               </p>
             </>
           )}
           edit={(d, set) => (
-            <label>
-              Default lead
-              <select value={d.userId} onChange={(e) => set("userId", e.target.value)}>
-                <option value="">None</option>
-                {candidates.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {label(u)} ({u.email})
-                  </option>
+            <>
+              <label>
+                What do you call this group?
+                <input
+                  value={d.name}
+                  maxLength={60}
+                  placeholder="Missions team"
+                  onChange={(e) => set("name", e.target.value)}
+                />
+              </label>
+              <fieldset style={{ border: 0, padding: 0, margin: "0.75rem 0 0" }}>
+                <legend style={{ fontWeight: 600 }}>Who is on it</legend>
+                {(team?.candidates ?? []).map((u) => (
+                  <label key={u.id} className="checkbox-option">
+                    <input
+                      type="checkbox"
+                      checked={d.userIds.includes(u.id)}
+                      onChange={(e) =>
+                        set(
+                          "userIds",
+                          e.target.checked ? [...d.userIds, u.id] : d.userIds.filter((id) => id !== u.id)
+                        )
+                      }
+                    />
+                    {u.name} ({u.email})
+                  </label>
                 ))}
-              </select>
-            </label>
+              </fieldset>
+            </>
           )}
         />
       </div>
@@ -169,7 +192,7 @@ export default function AdminSettingsCareTeam() {
         <div className="admin-section">
           {enabledFeatures.keyDates ? (
             <p style={{ margin: 0 }}>
-              <strong>On.</strong> Each partner&apos;s care team is reminded about coming birthdays,
+              <strong>On.</strong> Whoever looks after each partner is reminded about coming birthdays,
               anniversaries and supported-since milestones on the bell
               {enabledFeatures.outboundEmail
                 ? ", and in one grouped email a day that is sent only on days something is due."
@@ -177,8 +200,8 @@ export default function AdminSettingsCareTeam() {
             </p>
           ) : (
             <p style={{ margin: 0 }}>
-              <strong>Off.</strong> Turn on <em>Key-date reminders</em> under Enabled Features to remind care
-              teams about birthdays, anniversaries and supported-since milestones.
+              <strong>Off.</strong> Turn on <em>Key-date reminders</em> under Enabled Features to remind
+              people about birthdays, anniversaries and supported-since milestones.
             </p>
           )}
         </div>

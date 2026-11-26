@@ -854,6 +854,7 @@ async function sanitizeUser(user) {
     lastName: user.lastName,
     phone: user.phone,
     profile: user.profile,
+    onMissionsTeam: user.onMissionsTeam === true,
     role: user.role,
     authProvider: user.authProvider,
     mfaEnabled: user.mfaEnabled,

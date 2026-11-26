@@ -52,20 +52,37 @@ describe("isFeatureEnabled", () => {
     });
 
     test("a feature is on only while it and everything it requires are on", () => {
-      assert.equal(isFeatureEnabled({ keyDates: true, careTeam: true }, "keyDates"), true);
-      assert.equal(isFeatureEnabled({ keyDates: true, careTeam: false }, "keyDates"), false);
-      assert.equal(isFeatureEnabled({ keyDates: false, careTeam: true }, "keyDates"), false);
-      // Needing email to be switched on is a setup step, not a runtime requirement.
+      assert.equal(isFeatureEnabled({ publicTripDiscovery: true, trips: true }, "publicTripDiscovery"), true);
+      assert.equal(
+        isFeatureEnabled({ publicTripDiscovery: true, trips: false }, "publicTripDiscovery"),
+        false
+      );
+      assert.equal(
+        isFeatureEnabled({ publicTripDiscovery: false, trips: true }, "publicTripDiscovery"),
+        false
+      );
+      // The digest needs the public directory to run; needing email to be switched on is a setup step only.
       const digestOn = { publicPrayerDigest: true, outboundEmail: false, publicDirectory: true };
       assert.equal(isFeatureEnabled(digestOn, "publicPrayerDigest"), true);
       assert.equal(isFeatureEnabled({ ...digestOn, publicDirectory: false }, "publicPrayerDigest"), false);
     });
 
     test("a requirement's default counts, and unmetRequirements names what is off", () => {
-      // careTeam defaults off, so keyDates is off even when switched on.
-      assert.equal(isFeatureEnabled({ keyDates: true }, "keyDates"), false);
-      assert.deepEqual(unmetRequirements({ keyDates: true }, "keyDates"), ["careTeam"]);
-      assert.deepEqual(unmetRequirements({ keyDates: true, careTeam: true }, "keyDates"), []);
+      // partnerFiles defaults on, so AI extraction needs only its own switch...
+      assert.equal(isFeatureEnabled({ aiExtraction: true }, "aiExtraction"), true);
+      // ...and is off while its requirement is switched off.
+      assert.equal(isFeatureEnabled({ aiExtraction: true, partnerFiles: false }, "aiExtraction"), false);
+      assert.deepEqual(unmetRequirements({ aiExtraction: true, partnerFiles: false }, "aiExtraction"), [
+        "partnerFiles",
+      ]);
+      assert.deepEqual(unmetRequirements({ aiExtraction: true }, "aiExtraction"), []);
+    });
+
+    test("the care features no longer need Care teams: anyone can look after partners via the missions team", () => {
+      for (const key of ["keyDates", "supportPreferences", "surveys", "contactLog"]) {
+        assert.ok(!(FEATURES[key].requires || []).includes("careTeam"), `${key} must not require careTeam`);
+      }
+      assert.equal(isFeatureEnabled({ keyDates: true, careTeam: false }, "keyDates"), true);
     });
 
     test("partner surveys and the other standalone features require nothing", () => {

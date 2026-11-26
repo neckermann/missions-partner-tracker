@@ -14,6 +14,8 @@ const DEFAULTS = {
   partnerTermSingular: "Missionary",
   partnerTermPlural: "Missionaries",
   usePartnerTermInAdmin: false,
+  // What this church calls the group that looks after partners with no care team (routes/publicSettings.js).
+  ownerGroupName: "Missions team",
   publicTagline: null,
   aboutText: null,
   // Demo banner fields (routes/publicSettings.js). null/false, not omitted, so DemoBanner is correct

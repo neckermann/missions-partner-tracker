@@ -28,6 +28,7 @@ const partnerLanguageRoutes = require("./routes/partnerLanguages");
 const tripTypeRoutes = require("./routes/tripTypes");
 const tripRoutes = require("./routes/trips");
 const careTeamRoutes = require("./routes/careTeams");
+const partnerCareRoutes = require("./routes/partnerCare");
 const auditRoutes = require("./routes/audit");
 const supportPreferencesRoutes = require("./routes/supportPreferences");
 const surveyRoutes = require("./routes/surveys");
@@ -202,6 +203,7 @@ app.use("/api/partner-links", partnerLinkRoutes); // protected (admin) — sessi
 app.use("/api/partner-languages", partnerLanguageRoutes); // protected (admin) — session required
 app.use("/api/trip-types", tripTypeRoutes); // protected (admin) — session required
 app.use("/api/trips", tripRoutes); // protected (admin) — session required
+app.use("/api/partner-care", partnerCareRoutes); // protected; the missions team (always on)
 app.use("/api/care-team", careTeamRoutes); // protected; flag-gated (careTeam) -- see that file's own comment
 app.use("/api/audit", auditRoutes); // protected (admin); flag-gated (auditTrail)
 app.use("/api/contact-log", contactLogRoutes); // protected; flag-gated (contactLog) -- see that file's own comment

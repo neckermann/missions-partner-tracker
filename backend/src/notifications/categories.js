@@ -16,6 +16,7 @@
 const prisma = require("../prismaClient");
 const { needsReview } = require("../utils/dispatchEligibility");
 const { isCareTeamEnabled } = require("../utils/guestAccess");
+const { partnersOwnedBy } = require("../utils/ownership");
 const { isFeatureEnabled } = require("../utils/features");
 const {
   isContactLogEnabled,
@@ -44,12 +45,12 @@ async function getSeenAt(userId, category) {
   return row?.seenAt ?? null;
 }
 
-// Partners on this login's care team nobody has contacted within the church's
-// quiet threshold (default 90 days), or whose follow-up date has come. Same read
-// model as the My partners tab. Counts nothing while either feature is off.
+// Partners this login looks after (its care team, or the missions team for partners without one) that nobody
+// has contacted within the church's quiet threshold (default 90 days), or whose follow-up date has come. Same
+// read model as the My partners tab. Counts nothing while the contact log is off.
 // `latest` is when the most recent partner became overdue, so the bell lights up only for NEW ones.
 async function partnersNeedingContact({ userId }) {
-  if (!userId || !(await isContactLogEnabled()) || !(await isCareTeamEnabled())) {
+  if (!userId || !(await isContactLogEnabled())) {
     return { count: 0, latest: null };
   }
   const due = (await loadAssignedPartners(userId)).filter((r) => r.quiet || r.followUpDue);
@@ -302,22 +303,18 @@ async function newOneTimeNeeds({ userId }, _scopeTripIds, scopePartnerIds) {
 
 // What the church decided or heard that a care team member should pass on (the
 // app never contacts a partner itself). Within UPDATE_WINDOW_DAYS, on a partner
-// this login has a seat on:
+// this login looks after (a care team seat, or the missions team for a partner with no team):
 //   - a one-time need that was DECIDED (approvedDate): relay the outcome and note;
 //   - a prayer request that was ANSWERED: send thanks or encouragement.
 // An item is done once someone logs an OUTBOUND contact for that partner on or
 // after it (topic "need" for a decision, "encouragement" or "prayer" for an
 // answer). A care team member's own answered-prayer entry is inbound, so it
-// doesn't clear its own prompt. Counts nothing while contactLog or careTeam is off.
+// doesn't clear its own prompt. Counts nothing while the contact log is off.
 async function updatesToPassOn({ userId }) {
-  if (!userId || !(await isContactLogEnabled()) || !(await isCareTeamEnabled())) {
+  if (!userId || !(await isContactLogEnabled())) {
     return { count: 0, latest: null };
   }
-  const seats = await prisma.careTeamMember.findMany({
-    where: { userId, partner: { archived: false } },
-    select: { partnerId: true },
-  });
-  const partnerIds = seats.map((s) => s.partnerId);
+  const partnerIds = (await partnersOwnedBy(userId)).map((o) => o.partnerId);
   if (partnerIds.length === 0) return { count: 0, latest: null };
 
   const open = await loadUpdatesToPassOn(partnerIds);

@@ -6,7 +6,7 @@
 // Idempotent through KeyDateReminder: one row per (person, partner, kind, subject,
 // occurrence date), written after the send, so a re-run never double-mails, next
 // year's is a new row, and a failed send leaves no row so tomorrow retries while
-// the date is in the window. Needs keyDates + careTeam + outboundEmail.
+// the date is in the window. Needs keyDates + outboundEmail.
 
 const cron = require("node-cron");
 const prisma = require("../prismaClient");
@@ -27,11 +27,7 @@ async function checkAndSendKeyDateReminders({ today = new Date(), send = sendEma
   if (await isDemoInstance()) return { sent: 0, recipients: 0 };
   const settings = await prisma.churchSettings.findUnique({ where: { id: "singleton" } });
   const features = settings?.enabledFeatures;
-  if (
-    !isFeatureEnabled(features, "keyDates") ||
-    !isFeatureEnabled(features, "careTeam") ||
-    !isFeatureEnabled(features, "outboundEmail")
-  ) {
+  if (!isFeatureEnabled(features, "keyDates") || !isFeatureEnabled(features, "outboundEmail")) {
     return { sent: 0, recipients: 0 };
   }
 

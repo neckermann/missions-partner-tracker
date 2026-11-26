@@ -188,13 +188,16 @@ function buildSiteAdminLinks(enabledFeatures) {
     enabledFeatures.auditTrail && { to: "/admin/settings/audit", label: "Audit log", icon: "📜" },
     { to: "/admin/settings/features", label: "Enabled Features", icon: "🧩" },
     enabledFeatures.trips && { to: "/admin/settings/trips", label: "Trips", icon: "✈️" },
-    enabledFeatures.careTeam && { to: "/admin/settings/care-team", label: "Care Teams", icon: "🤝" },
-    enabledFeatures.supportPreferences &&
-      enabledFeatures.careTeam && {
-        to: "/admin/settings/support-preferences",
-        label: "Support Preferences",
-        icon: "💛",
-      },
+    (enabledFeatures.careTeam || enabledFeatures.keyDates || enabledFeatures.contactLog) && {
+      to: "/admin/settings/partner-care",
+      label: "Partner Care",
+      icon: "🤝",
+    },
+    enabledFeatures.supportPreferences && {
+      to: "/admin/settings/support-preferences",
+      label: "Support Preferences",
+      icon: "💛",
+    },
     enabledFeatures.surveys && { to: "/admin/settings/surveys", label: "Surveys", icon: "📝" },
     (enabledFeatures.outboundEmail || enabledFeatures.inboundEmail) && {
       to: "/admin/settings/email",
