@@ -84,6 +84,7 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ### Fixed
 
+- **A new partner no longer starts public (#490).** The New Partner form opened with "Show on public site" ticked, so clicking through it published a family's name, photo and place on the map. It now starts unticked, and the step says in plain words what ticking it shows to anyone on the internet and what "restricted" changes. The public directory and map switches on a new install are a separate change.
 - **The Contact card is two zones.** The contact details on top open Edit contact; the care team below a divider opens its own editor (Edit team or + Assign team). Clicking one never opens the other.
 - **Linking a survey question to a part of the record from the builder now saves.** Saving a survey's questions kept the link only for questions that already had one (an imported pack), so a link chosen in the builder was dropped.
 - **A demo no longer emails its seeded accounts on a schedule.** The daily key-date email (and the other scheduled emails) was still going out from the demo, because the worker that runs the schedules never had the variable that marks a demo, so it bounced and spent the email plan. The demo reset now records that it is a demo in the database, and every process reads it. Only the schedules are skipped (key-date reminders, trip reminders, scheduled reports and digests): an email a person adds or clicks to send, such as a survey link, a welcome email or a trip invite, goes out on a demo like anywhere else.

@@ -60,6 +60,16 @@ describe("public partners: visibility", () => {
     assert.equal((await anon(`/api/public/partners/${p.id}`)).status, 404);
   });
 
+  // A2 of the November 2026 app review: a partner created by accepting every default must
+  // not be published. The database default is private; this keeps the API honest about it.
+  test("a partner created without saying anything about visibility is private", async () => {
+    const p = await createPartner({});
+    assert.equal(p.isPublic, false);
+    const list = await anon("/api/public/partners");
+    assert.ok(!list.body.some((r) => r.id === p.id), "a default partner must not be listed");
+    assert.equal((await anon(`/api/public/partners/${p.id}`)).status, 404);
+  });
+
   test("an archived partner is absent even if it was public", async () => {
     const p = await createPartner({ isPublic: true });
     await admin(`/api/partners/${p.id}/archive`, { method: "POST" });
