@@ -904,13 +904,13 @@ The team shows as one line on the partner's **Contact** card ("Care team: Pat (l
 
 ![The Care team dialog, choosing a Lead and ticking Members](docs/assets/screenshots/assign-care-team.png)
 
-A care team member uses the same app as everyone, and for **their own partner** they can do what an editor can: edit the partner's profile, family, contact details, links and photos; add and edit prayer requests (and record answers) and one-time needs; and upload, edit and scan newsletters and documents. They can also see that partner's trips, read-only. Three things are different:
+A care team member uses the same app as everyone, and for **their own partner** they can do what an editor can: edit the partner's profile, family, contact details, links and photos; add and edit prayer requests (and record answers) and one-time needs; and upload and edit newsletters and documents. They can also see that partner's trips, read-only. Three things are different:
 
 - **What they enter is saved immediately, but isn't sent to the church** by email, GroupMe or WhatsApp **until an admin or editor approves it** in [Pending Dispatches](#pending-dispatches). They can't mark anything urgent or use "approve now".
 - **They can't approve or decline a one-time need** or record a decision on it. That stays with the committee or board.
 - **They never see monthly support** — its amount, how long it has run, or its history.
 
-They also can't create or delete partners, or delete records. If you're an admin or editor yourself, being on a team doesn't limit you or hold your entries; it just adds the care-team features.
+They also can't create or delete partners, or delete records, and they can't use the AI scan of a newsletter (it sends the letter to an outside service, so it is for admins and editors only). If you're an admin or editor yourself, being on a team doesn't limit you or hold your entries; it just adds the care-team features.
 
 ![Pending Dispatches, where an entry from a care team member is held for staff to approve](docs/assets/screenshots/pending-dispatches-care-team.png)
 

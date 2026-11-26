@@ -191,8 +191,13 @@ router.put("/:id", requirePartnerWriter({ model: "partnerFile" }), async (req, r
 // Gated on "aiExtraction" separately from this router's feature gate. Nothing is persisted: the
 // caller adds each suggestion via the normal create routes. extractRequestsFromFile 400s for
 // content types Claude cannot read (anything but PDF/JPEG/PNG).
+//
+// Staff only: a care team guest can write to their partner's files but must not be able to send a letter to
+// an outside service. And a restricted partner's letter is only sent after the caller confirms they know
+// it leaves the app (confirmRestricted: true); without it the answer is 409 before anything is sent.
 router.post(
   "/:id/extract",
+  requireRole("admin", "editor"),
   requirePartnerWriter({ model: "partnerFile" }),
   requireFeature("aiExtraction"),
   async (req, res, next) => {
@@ -201,9 +206,16 @@ router.post(
       // buildFileBlock throws.
       const record = await prisma.partnerFile.findUnique({
         where: { id: req.params.id },
-        include: { bytesRow: { select: { bytes: true } } },
+        include: { bytesRow: { select: { bytes: true } }, partner: { select: { isRestricted: true } } },
       });
       if (!record?.bytesRow) return res.status(404).json({ error: "Not found" });
+      if (record.partner?.isRestricted && req.body?.confirmRestricted !== true) {
+        return res.status(409).json({
+          needsConfirmation: true,
+          error:
+            "This partner is restricted. Scanning sends the whole letter to an outside AI service (Anthropic), outside this app. Confirm to continue.",
+        });
+      }
 
       // Non-blocking warning when this file already produced saved records on an earlier scan;
       // runs alongside the extraction.
