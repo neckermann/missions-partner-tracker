@@ -178,6 +178,7 @@ full file with inline comments):
 | `NOMINATIM_CONTACT` | Recommended | Your contact email, sent with geocoding requests per [Nominatim's usage policy](https://operations.osmfoundation.org/policies/nominatim/) |
 | `MFA_ISSUER` | No | Name shown in a user's authenticator app when they enroll in MFA; defaults to "Missions Partner Tracker Admin" |
 | `APP_BASE_URL` | No | This app's own public URL, no trailing slash — needed for every link the app puts in a message or builds for you: setup, password-reset and sign-in links, survey and trip links, passkeys, the email digest's unsubscribe link, and the dispatch queue's own links: the GroupMe newsletter dispatch's link and the email digest's "read the source" / "read the full newsletter" links (see [GroupMe dispatch](USER_GUIDE.md#groupme-dispatch-admin-only) and [Pending Dispatches](USER_GUIDE.md#pending-dispatches)). On Render this is picked up automatically from `RENDER_EXTERNAL_URL`, so you need not set it; set it yourself if you use your own domain or host elsewhere. Leave it unset elsewhere and those links just don't appear (and a setup or sign-in link can't be built). |
+| `TRUST_PROXY` | No | How many reverse proxies sit in front of the app, from `0` to `10`; the default `1` is right for Render and for a single nginx or load balancer. Sets where the sign-in rate limits read the visitor's address (see [Rate limiting](#rate-limiting)). `0` if the app is reached directly; `2` for two proxies (Cloudflare in front of Render). |
 | `BACKGROUND_JOBS` | No | `on` or `off` to force the scheduled jobs and the WhatsApp connection on or off. Left unset they run when `NODE_ENV=production` and not otherwise, so a laptop pointed at a database with real email settings never sends anything on its own. |
 
 There's nothing to configure for the frontend separately — it's served by
@@ -389,7 +390,27 @@ design:
 | `/api/auth/mfa/verify-setup`, `/api/auth/mfa/disable`, `/api/auth/change-password` | 10 requests / 15 min — these sit behind a session, but a session isn't a guess limiter, and each one checks a short code or the current password |
 | `/api/public/*` (directory, map, country stats, public settings) | 120 requests / min |
 
-These aren't env-configurable — if your instance needs different limits
+**Per account, as well as per address.** An address can be dodged, so sign-in is
+also limited by *account*: after 10 failed password sign-ins for the same email
+within 15 minutes (and, separately, 10 wrong two-factor codes), that account's
+sign-in is refused with a "try again in N minutes" message from any address,
+even for the right password, until the oldest failures age out. A successful
+sign-in clears the count. Someone who knows an email can therefore make that
+account wait by failing on purpose; it lasts at most 15 minutes. It is held in
+memory (a restart clears it), and is off on a public demo, whose logins are
+shared.
+
+**Behind a proxy, set `TRUST_PROXY` correctly.** The per-address limits read the
+visitor's address from the `X-Forwarded-For` header, so the app has to know how
+many proxies sit in front of it. It assumes **one** (Render, or nginx or a load
+balancer in front), which is right for the Render install. Set `TRUST_PROXY=0`
+if the app is reached directly with nothing in front of it (otherwise a visitor
+can write their own address into that header and never hit a limit), or
+`TRUST_PROXY=2` if there are two (for example Cloudflare in front of Render;
+otherwise every visitor shares the proxy's address and one limit). The app logs
+what it assumed when it starts in production.
+
+The per-address limits aren't env-configurable — if your instance needs different limits
 (e.g. a very high-traffic public site), edit the `rateLimit(...)` calls in
 `server.js` directly. A legitimate user hitting one during normal use gets
 a `429` response; that's a sign the limit needs raising for your traffic,

@@ -17,7 +17,13 @@ const { listTripGrants, isCareTeamEnabled } = require("../utils/guestAccess");
 const { passwordSchema } = require("../utils/password");
 const { recordAuditSafe } = require("../utils/auditLog");
 const { isTwoFactorRequired } = require("../utils/twoFactor");
-const { isDemoDeployment, endOtherSessions, refuseOnGuardedDemo } = require("../utils/demoMode");
+const {
+  isDemoDeployment,
+  isGuardedDemo,
+  endOtherSessions,
+  refuseOnGuardedDemo,
+} = require("../utils/demoMode");
+const accountLoginLimiter = require("../utils/accountLoginLimiter");
 
 const noPasswordChangeOnDemo = refuseOnGuardedDemo("Changing the password");
 const {
@@ -191,6 +197,20 @@ router.post("/login", async (req, res, next) => {
       return res.status(400).json({ error: "Email and password required" });
     }
 
+    // Too many failed sign-ins for this ACCOUNT, from anywhere (the per-address limits in server.js
+    // can be dodged by changing address). Refused before the password is even checked, so a guesser
+    // learns nothing from the answer. Not on a public demo, whose logins are shared and published.
+    const limitDemo = isGuardedDemo();
+    if (!limitDemo) {
+      const wait = accountLoginLimiter.retryAfterSeconds("login", email);
+      if (wait > 0) {
+        res.set("Retry-After", String(wait));
+        return res.status(429).json({
+          error: `Too many failed sign-ins for this account. Try again in ${Math.ceil(wait / 60)} minute${wait > 60 ? "s" : ""}.`,
+        });
+      }
+    }
+
     const user = await prisma.user.findUnique({
       where: { email: email.toLowerCase().trim() },
     });
@@ -212,6 +232,7 @@ router.post("/login", async (req, res, next) => {
           : user.authProvider !== "local" || !user.passwordHash
             ? "not_a_password_account"
             : "wrong_password";
+      if (!limitDemo) accountLoginLimiter.recordFailure("login", email);
       await recordAuditSafe(null, {
         action: "auth.login_failed",
         target: user || { email: email.toLowerCase().trim() },
@@ -221,6 +242,7 @@ router.post("/login", async (req, res, next) => {
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
+    accountLoginLimiter.clearFailures("login", email);
     res.json(await afterFirstFactor(res, user, req));
   } catch (err) {
     next(err);
@@ -298,6 +320,19 @@ router.post("/mfa/login-verify", async (req, res, next) => {
       return res.status(401).json({ error: "Invalid MFA session" });
     }
 
+    // Wrong two-factor codes are limited per account too, separately from passwords: someone who has
+    // the password can still only try so many codes, wherever they come from.
+    const limitMfa = isGuardedDemo();
+    if (!limitMfa) {
+      const wait = accountLoginLimiter.retryAfterSeconds("mfa", user.email);
+      if (wait > 0) {
+        res.set("Retry-After", String(wait));
+        return res.status(429).json({
+          error: `Too many wrong codes for this account. Try again in ${Math.ceil(wait / 60)} minute${wait > 60 ? "s" : ""}.`,
+        });
+      }
+    }
+
     const { valid, timeStep } = await verifyOtp({
       secret: decryptField(user.mfaSecret),
       token: String(token),
@@ -306,6 +341,7 @@ router.post("/mfa/login-verify", async (req, res, next) => {
       afterTimeStep: user.mfaLastTimeStep ?? undefined,
     });
     if (!valid) {
+      if (!limitMfa) accountLoginLimiter.recordFailure("mfa", user.email);
       await recordAuditSafe(null, {
         action: "auth.login_failed",
         target: user,
@@ -315,6 +351,7 @@ router.post("/mfa/login-verify", async (req, res, next) => {
       return res.status(401).json({ error: "Invalid code" });
     }
 
+    accountLoginLimiter.clearFailures("mfa", user.email);
     await prisma.user.update({ where: { id: user.id }, data: { mfaLastTimeStep: timeStep } });
 
     res.json(await completeLogin(res, user, req));
