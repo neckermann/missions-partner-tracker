@@ -763,15 +763,16 @@ reuses `reporting/definitions.js` `nextAnnual` (the _Families & key dates_
 report's date math: Feb 29 lands on Feb 28, and the age or years turning come
 with it).
 
-**Who.** The partner's whole care team (lead + members, active logins); if it
-has none, the church's **default lead** (`ChurchSettings.defaultCareLeadUserId`,
-set at `PUT /api/care-team/default-lead`, admin only, cleared if that login is
-deleted); if neither, nobody. The default lead is also the fallback for _Partners to
-reach out to_ (`loadAssignedPartners` adds partners with no care team, marked
-`viaDefaultLead`), for a staff default lead only: a guest's reach never widens. A
+**Who.** The one ownership rule, `utils/ownership.js`: the partner's care team (active
+members, only while `careTeam` is on) when it has one, else the church's **missions team**
+(`User.onMissionsTeam`, active non-guest logins; set at `PUT /api/partner-care/missions-team`,
+admin only, or per user; its display name is `ChurchSettings.ownerGroupName`, wording only);
+if neither, nobody. The same rule feeds _My partners_ and _Partners to reach out to_
+(`loadAssignedPartners` / `partnersOwnedBy`, marked `viaMissionsTeam`) and _Updates to pass on_:
+a guest is never on the missions team, so their reach never widens. A
 person can opt out of the daily email alone (`User.keyDateEmailOptOut`,
 `PUT /api/auth/key-date-email`); the bell is unaffected. `utils/keyDateQueries.js` `loadOpenKeyDates` is
-the one read model: it counts nothing while `keyDates` or `careTeam` is off,
+the one read model: it counts nothing while `keyDates` is off (it no longer needs `careTeam`),
 skips archived partners, and drops anything _handled_.
 
 **What clears one.** A contact log entry for that partner with the topic

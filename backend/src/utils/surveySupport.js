@@ -104,10 +104,7 @@ async function applySupportAnswer(tx, partnerId, value) {
     select: { enabledFeatures: true },
   });
   const { isFeatureEnabled } = require("./features");
-  if (
-    !isFeatureEnabled(settings?.enabledFeatures, "supportPreferences") ||
-    !isFeatureEnabled(settings?.enabledFeatures, "careTeam")
-  ) {
+  if (!isFeatureEnabled(settings?.enabledFeatures, "supportPreferences")) {
     return { error: "Support preferences is turned off" };
   }
   let parsed;

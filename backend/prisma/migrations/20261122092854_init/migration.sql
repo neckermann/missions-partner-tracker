@@ -801,7 +801,7 @@ CREATE TABLE "ChurchSettings" (
     "chatDispatchNewsletters" BOOLEAN NOT NULL DEFAULT true,
     "allowRestrictedPartnerDispatch" BOOLEAN NOT NULL DEFAULT false,
     "restrictedPartnerInitialsEnabled" BOOLEAN NOT NULL DEFAULT true,
-    "defaultCareLeadUserId" TEXT,
+    "ownerGroupName" TEXT,
     "keyDateLeadDays" INTEGER NOT NULL DEFAULT 7,
     "contactStaleDays" INTEGER NOT NULL DEFAULT 90,
     "emailDispatchSubjectTemplate" TEXT,
@@ -857,6 +857,7 @@ CREATE TABLE "User" (
     "mfaLastTimeStep" INTEGER,
     "mfaSetupRequired" BOOLEAN NOT NULL DEFAULT false,
     "keyDateEmailOptOut" BOOLEAN NOT NULL DEFAULT false,
+    "onMissionsTeam" BOOLEAN NOT NULL DEFAULT false,
     "cadence" TEXT,
     "allPartners" BOOLEAN NOT NULL DEFAULT true,
     "lastEditedById" TEXT,
@@ -1606,9 +1607,6 @@ ALTER TABLE "Photo" ADD CONSTRAINT "Photo_partnerId_fkey" FOREIGN KEY ("partnerI
 
 -- AddForeignKey
 ALTER TABLE "PhotoBytes" ADD CONSTRAINT "PhotoBytes_id_fkey" FOREIGN KEY ("id") REFERENCES "Photo"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "ChurchSettings" ADD CONSTRAINT "ChurchSettings_defaultCareLeadUserId_fkey" FOREIGN KEY ("defaultCareLeadUserId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "ChurchSettingsLogo" ADD CONSTRAINT "ChurchSettingsLogo_id_fkey" FOREIGN KEY ("id") REFERENCES "ChurchSettings"("id") ON DELETE CASCADE ON UPDATE CASCADE;

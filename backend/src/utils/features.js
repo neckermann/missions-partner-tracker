@@ -147,29 +147,28 @@ const FEATURES = {
     group: "admin",
   },
   // A bell alert and grouped daily email for a care team when a birthday,
-  // anniversary or supported-since milestone is coming. Needs care teams; the email needs email sending.
+  // anniversary or supported-since milestone is coming. Goes to whoever looks after the partner (its care
+  // team, else the missions team); the email needs email sending.
   keyDates: {
     label: "Key-date reminders",
     description:
-      "Remind each partner's care team about coming birthdays (including children), anniversaries and supported-since milestones: on the bell, and in one grouped email a day that is sent only on days something is due. Needs Care teams; the email also needs Email (Sending).",
-    requires: ["careTeam"],
+      "Remind whoever looks after each partner (its care team if it has one, otherwise your missions team) about coming birthdays (including children), anniversaries and supported-since milestones: on the bell, and in one grouped email a day that is sent only on days something is due. The email needs Email (Sending).",
     defaultEnabled: false,
     group: "admin",
   },
   careTeam: {
     label: "Care teams",
     description:
-      "Give each partner a care team: one lead plus members from your logins who keep in touch with them. Guests can be given a partner this way. Also adds a coverage report of partners with no care team.",
+      "Give each partner its own care team: one lead plus members from your logins who keep in touch with them. Church members can be added as Guests and see only their partners. Partners without a team are looked after by your missions team. Also adds a coverage report of partners with no care team.",
     defaultEnabled: false,
     group: "admin",
   },
   // A church-owned menu of ways to support a partner (edited in Settings, never
-  // code) and each partner's choices from it. Needs Care teams. Off by default.
+  // code) and each partner's choices from it. Off by default.
   supportPreferences: {
     label: "Support preferences",
     description:
-      "Let each partner choose how the church and their care team can support them (a menu you edit under Settings, such as housing while home, airport pick-up, prayer, care packages), shown as a card on the partner's page and recorded by staff or the care team. Needs Care teams. Never shown publicly, in the booklet or in dispatches.",
-    requires: ["careTeam"],
+      "Let each partner choose how the church can support them (a menu you edit under Settings, such as housing while home, airport pick-up, prayer, care packages), shown as a card on the partner's page and recorded by staff or the people who look after them. Never shown publicly, in the booklet or in dispatches.",
     defaultEnabled: false,
     group: "admin",
   },

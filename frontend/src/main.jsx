@@ -62,7 +62,7 @@ const AdminTripFlights = lazy(() => import("./pages/AdminTripFlights.jsx"));
 const AdminTripParticipantDetail = lazy(() => import("./pages/AdminTripParticipantDetail.jsx"));
 const AdminTripApplicationDetail = lazy(() => import("./pages/AdminTripApplicationDetail.jsx"));
 const AdminSettingsTrips = lazy(() => import("./pages/AdminSettingsTrips.jsx"));
-const AdminSettingsCareTeam = lazy(() => import("./pages/AdminSettingsCareTeam.jsx"));
+const AdminSettingsPartnerCare = lazy(() => import("./pages/AdminSettingsPartnerCare.jsx"));
 const AdminTripWrapUp = lazy(() => import("./pages/AdminTripWrapUp.jsx"));
 const AdminSettingsSupportPreferences = lazy(() => import("./pages/AdminSettingsSupportPreferences.jsx"));
 const AdminSettingsSupportPreferencesPrint = lazy(
@@ -337,10 +337,10 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                     }
                   />
                   <Route
-                    path="care-team"
+                    path="partner-care"
                     element={
-                      <RequireAdminFeature feature="careTeam">
-                        <AdminSettingsCareTeam />
+                      <RequireAdminFeature feature={["careTeam", "keyDates", "contactLog"]}>
+                        <AdminSettingsPartnerCare />
                       </RequireAdminFeature>
                     }
                   />

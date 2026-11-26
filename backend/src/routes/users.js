@@ -97,6 +97,8 @@ const createUserSchema = z.object({
   lastName: z.string().optional().nullable(),
   phone: z.string().trim().max(40).optional().nullable(),
   profile: z.string().trim().max(1000).optional().nullable(),
+  // On the church's missions team (looks after partners with no care team). Ignored for a guest.
+  onMissionsTeam: z.boolean().optional(),
   role: ROLE_ENUM.default("editor"),
   // A guest needs at least one trip OR one care team seat; both are ignored
   // for the full roles (any login can join a care team later, from the
@@ -127,6 +129,7 @@ const updateUserSchema = z.object({
   lastName: z.string().optional().nullable(),
   phone: z.string().trim().max(40).optional().nullable(),
   profile: z.string().trim().max(1000).optional().nullable(),
+  onMissionsTeam: z.boolean().optional(),
   role: ROLE_ENUM.optional(),
   // Only read when changing a non-guest into a guest (they need a first
   // grant); manage grants afterward via /:id/trip-access, and care team
@@ -337,6 +340,7 @@ router.post("/", async (req, res, next) => {
           lastName: data.lastName,
           phone: data.phone || null,
           profile: data.profile || null,
+          onMissionsTeam: data.role !== "guest" && data.onMissionsTeam === true,
           role: data.role,
           authProvider: data.authProvider,
           passwordHash,
@@ -568,6 +572,8 @@ router.put("/:id", async (req, res, next) => {
     }
 
     const updateData = { ...data };
+    // A guest is never on the missions team.
+    if ((data.role ?? existing.role) === "guest") updateData.onMissionsTeam = false;
     if (password) {
       updateData.passwordHash = await bcrypt.hash(password, 12);
       // An admin-set password supersedes any outstanding setup link.

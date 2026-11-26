@@ -67,7 +67,7 @@ function buildKeyDateEmail({ user, items, settings, appUrl }) {
       ),
     ],
     footerNote:
-      "You get this because you're on these partners' care teams (or the default lead for partners without one).",
+      "You get this because you look after these partners (on their care team, or on the team that looks after partners without one).",
   });
 }
 

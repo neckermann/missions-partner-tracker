@@ -139,18 +139,24 @@ after(async () => {
 });
 
 describe("support preferences: the feature gate", () => {
-  test("404s every route while off (or Care teams is off), and keeps the data", async () => {
+  test("404s every route while off, keeps the data, and does not depend on Care teams", async () => {
     const made = await save(admin, partnerA.id, [{ optionId: optionIds.offer, selected: true }]);
     assert.equal(made.status, 200, JSON.stringify(made.body));
-    for (const off of [{ supportPreferences: false }, { careTeam: false }]) {
-      await setFeatures(off);
-      try {
-        assert.equal((await read(admin, partnerA.id)).status, 404);
-        assert.equal((await admin("/api/support-preferences/options")).status, 404);
-        assert.equal((await save(admin, partnerA.id, [])).status, 404);
-      } finally {
-        await setFeatures({ supportPreferences: true, careTeam: true });
-      }
+    await setFeatures({ supportPreferences: false });
+    try {
+      assert.equal((await read(admin, partnerA.id)).status, 404);
+      assert.equal((await admin("/api/support-preferences/options")).status, 404);
+      assert.equal((await save(admin, partnerA.id, [])).status, 404);
+    } finally {
+      await setFeatures({ supportPreferences: true, careTeam: true });
+    }
+    // Care teams off makes no difference: Support preferences needs nothing else.
+    await setFeatures({ careTeam: false });
+    try {
+      assert.equal((await read(admin, partnerA.id)).status, 200);
+      assert.equal((await admin("/api/support-preferences/options")).status, 200);
+    } finally {
+      await setFeatures({ supportPreferences: true, careTeam: true });
     }
     const back = await read(admin, partnerA.id);
     assert.ok(

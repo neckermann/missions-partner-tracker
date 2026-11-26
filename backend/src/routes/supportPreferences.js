@@ -25,7 +25,6 @@ const {
 const router = express.Router();
 router.use(requireAuth);
 router.use(requireFeature("supportPreferences"));
-router.use(requireFeature("careTeam"));
 router.use(requireRole("admin", "editor", "viewer", "guest"));
 
 function canUse(user, partnerId) {

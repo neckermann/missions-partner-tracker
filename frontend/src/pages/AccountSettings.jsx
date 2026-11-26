@@ -113,12 +113,14 @@ export default function AccountSettings() {
       {user && !isGuest && enabledFeatures.outboundEmail && (
         <EmailDispatchSection user={user} onChange={reloadUser} />
       )}
-      {/* Everyone on a care team may get the daily key-date email, a guest included. */}
+      {/* Anyone who looks after partners may get the daily key-date email: a care team member (a guest
+          included) or someone on the missions team. */}
       {user &&
-        enabledFeatures.careTeam &&
         enabledFeatures.keyDates &&
         enabledFeatures.outboundEmail &&
-        user.careTeamSeats?.length > 0 && <KeyDateEmailSection user={user} onChange={reloadUser} />}
+        (user.careTeamSeats?.length > 0 || user.onMissionsTeam) && (
+          <KeyDateEmailSection user={user} onChange={reloadUser} />
+        )}
 
       <div className="admin-section">
         <h3>Appearance</h3>

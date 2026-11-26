@@ -7,6 +7,7 @@ const { isFeatureEnabled } = require("./features");
 const { autoLogForPrayerRequest } = require("./contactLog");
 const { emailBlockReason, surveyEmailFor } = require("./contactReach");
 const { careTimings } = require("./careSettings");
+const { partnersOwnedBy } = require("./ownership");
 
 // Latest contact date per partner, from the log alone. Any entry counts: "has anyone been in touch".
 async function lastContactByPartner(partnerIds) {
@@ -29,7 +30,7 @@ function openFollowUp(logs) {
   return open.reduce((min, l) => (!min || l.followUpDate < min ? l.followUpDate : min), null);
 }
 
-// Every partner this login holds a care team seat on (not archived), with the tab's columns. `today` is a UTC-day Date so tests can pin it.
+// Every partner this login looks after (not archived), with the tab's columns. `today` is a UTC-day Date so tests can pin it.
 async function loadAssignedPartners(userId, today = new Date()) {
   const { contactStaleDays } = await careTimings();
   const partnerSelect = {
@@ -49,39 +50,26 @@ async function loadAssignedPartners(userId, today = new Date()) {
     prayerRequests: { where: { status: "ongoing" }, select: { id: true } },
     needRequests: { where: { approvedAmount: null }, select: { id: true } },
   };
-  const seats = await prisma.careTeamMember.findMany({
-    where: { userId, partner: { archived: false } },
-    select: { isLead: true, createdAt: true, partner: { select: partnerSelect } },
-  });
-
-  // The church's default lead is the fallback for a partner with no care team,
-  // as key-date reminders use. Staff only: a guest's reach is exactly their
-  // grants and a fallback must not widen it.
-  let fallback = [];
-  const settings = await prisma.churchSettings.findUnique({
-    where: { id: "singleton" },
-    select: { defaultCareLeadUserId: true },
-  });
-  if (settings?.defaultCareLeadUserId && settings.defaultCareLeadUserId === userId) {
-    const lead = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { role: true, active: true },
-    });
-    if (lead?.active && lead.role !== "guest") {
-      const partners = await prisma.partner.findMany({
-        where: { archived: false, careTeam: { none: {} } },
+  // The partners this login looks after (utils/ownership.js): its care team seats, plus, on the missions
+  // team, every partner with no team of its own.
+  const owned = await partnersOwnedBy(userId);
+  const partners = owned.length
+    ? await prisma.partner.findMany({
+        where: { id: { in: owned.map((o) => o.partnerId) }, archived: false },
         select: partnerSelect,
-      });
-      fallback = partners.map((partner) => ({
-        isLead: false,
-        createdAt: partner.createdAt,
-        partner,
-        viaDefaultLead: true,
-      }));
-    }
-  }
+      })
+    : [];
+  const byId = new Map(partners.map((p) => [p.id, p]));
+  const seats = owned
+    .filter((o) => byId.has(o.partnerId))
+    .map((o) => ({
+      isLead: o.seat.isLead,
+      createdAt: o.seat.createdAt,
+      partner: byId.get(o.partnerId),
+      viaMissionsTeam: o.via === "missionsTeam",
+    }));
 
-  const rows = [...seats, ...fallback].map(({ isLead, createdAt: seatSince, partner: p, viaDefaultLead }) => {
+  const rows = seats.map(({ isLead, createdAt: seatSince, partner: p, viaMissionsTeam }) => {
     const last = p.contactLogs.reduce((m, l) => (!m || l.contactDate > m ? l.contactDate : m), null);
     const daysSinceContact = last ? daysBetween(today, last) : null;
     const followUp = openFollowUp(p.contactLogs);
@@ -116,7 +104,7 @@ async function loadAssignedPartners(userId, today = new Date()) {
       displayName: p.displayName,
       isRestricted: p.isRestricted,
       isLead,
-      viaDefaultLead: viaDefaultLead === true,
+      viaMissionsTeam: viaMissionsTeam === true,
       lastContact: last ? toUtcDay(last).toISOString().slice(0, 10) : null,
       daysSinceContact,
       quiet: daysSinceContact === null || daysSinceContact >= contactStaleDays,

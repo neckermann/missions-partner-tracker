@@ -16,7 +16,13 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ## [Unreleased]
 
+### Added
+
+- **A missions team looks after partners that have no care team.** One rule now decides who looks after a partner: its care team when it has one, otherwise your missions team (people marked "On the missions team" on a user, or picked under **Settings → Partner Care**). Key-date reminders, **My partners**, **Partners to reach out to** and **Updates to pass on** all use it, so they work with Care teams switched off: a missions team that owns every relationship gets everything without turning Care teams on. The group's name is yours to change ("Missions committee", "Board"...) under Partner Care. A Guest is never on it.
+
 ### Changed
+
+- **Key-date reminders and Support preferences no longer need Care teams** (Partner surveys already didn't). **Settings → Care Teams** becomes **Settings → Partner Care** and is shown whenever Care teams, Key-date reminders or the Contact log is on. The single "default lead" is replaced by the missions team (a church's one default lead is now a one-person team). Migration: new `User.onMissionsTeam` and `ChurchSettings.ownerGroupName`, and `ChurchSettings.defaultCareLeadUserId` is gone (baseline squashed).
 
 - **Feature requirements are declared once.** Each feature in the registry can list what it needs (`requires`), and one check decides whether it is on, so a dependency can no longer appear by accident in a route or screen. The Enabled Features page now indents a feature under what it needs, greys it out with the reason until that is on, and saves it off if you turn the requirement off. Behavior is unchanged: the same combinations that needed each other still do.
 

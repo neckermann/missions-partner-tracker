@@ -3,7 +3,7 @@ const { z } = require("zod");
 const prisma = require("../prismaClient");
 const { requireAuth, requireRole } = require("../middleware/requireAuth");
 const { requireFeature } = require("../middleware/requireFeature");
-const { readableNeedPartnerIds, isCareTeamEnabled } = require("../utils/guestAccess");
+const { readableNeedPartnerIds } = require("../utils/guestAccess");
 const {
   CONTACT_TYPES,
   DIRECTIONS,
@@ -114,12 +114,10 @@ router.get("/options", async (req, res, next) => {
   }
 });
 
-// GET /api/contact-log/assigned -- the partners this login holds a care team
-// seat on, with care columns. Needs the careTeam feature too: a seat is the
-// thing it lists.
+// GET /api/contact-log/assigned -- the partners this login looks after (a care team seat, or the missions
+// team for a partner with no team), with care columns. Empty for someone who looks after none.
 router.get("/assigned", async (req, res, next) => {
   try {
-    if (!(await isCareTeamEnabled())) return res.status(404).json({ error: "Not found" });
     res.json(await loadAssignedPartners(req.user.id, today()));
   } catch (err) {
     next(err);

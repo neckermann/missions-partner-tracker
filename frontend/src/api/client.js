@@ -1083,14 +1083,16 @@ export async function setCareTeam(partnerId, { leadUserId, memberUserIds }) {
   return data;
 }
 // Active logins a team can be made from (admin/editor).
-// The church's default lead: who key-date reminders go to for a partner with no care team.
-export async function fetchDefaultCareLead() {
-  const { data } = await api.get("/care-team/default-lead");
-  return data.defaultLead;
+// The missions team: who looks after partners with no care team of their own (admin/editor read, admin set).
+// { members: [{ id, name, email, role }], candidates: [...] }
+export async function fetchMissionsTeam() {
+  const { data } = await api.get("/partner-care/missions-team");
+  return data;
 }
-export async function setDefaultCareLead(userId) {
-  const { data } = await api.put("/care-team/default-lead", { userId });
-  return data.defaultLead;
+// Replaces the whole team with exactly these logins.
+export async function saveMissionsTeam(userIds) {
+  const { data } = await api.put("/partner-care/missions-team", { userIds });
+  return data.members;
 }
 export async function fetchCareTeamCandidates() {
   const { data } = await api.get("/care-team/candidates");

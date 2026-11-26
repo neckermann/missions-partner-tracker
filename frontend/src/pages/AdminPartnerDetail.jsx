@@ -1412,7 +1412,7 @@ export default function AdminPartnerDetail() {
         <div className="admin-section-group" id="section-care">
           <h2 className="admin-group-heading">Care &amp; Follow-up</h2>
 
-          {enabledFeatures.supportPreferences && enabledFeatures.careTeam && (
+          {enabledFeatures.supportPreferences && (
             <SupportPreferencesCard partnerId={p.id} isAdmin={isAdmin} />
           )}
 

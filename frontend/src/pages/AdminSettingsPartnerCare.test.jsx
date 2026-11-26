@@ -2,81 +2,93 @@ import React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, within, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import AdminSettingsCareTeam from "./AdminSettingsCareTeam.jsx";
+import AdminSettingsPartnerCare from "./AdminSettingsPartnerCare.jsx";
 import {
-  fetchDefaultCareLead,
-  setDefaultCareLead,
-  fetchCareTeamCandidates,
+  fetchMissionsTeam,
+  saveMissionsTeam,
   fetchChurchSettings,
   updateChurchSettings,
 } from "../api/client.js";
 
-// The default lead: who key-date reminders go to for a partner with no care team. Admin only
-// (the route is admin-gated).
+// The missions team: who looks after partners with no care team of their own, named however the church says
+// it. Admin only (the route is admin-gated).
 vi.mock("../api/client.js", () => ({
-  fetchDefaultCareLead: vi.fn(),
-  setDefaultCareLead: vi.fn(),
-  fetchCareTeamCandidates: vi.fn(),
+  fetchMissionsTeam: vi.fn(),
+  saveMissionsTeam: vi.fn(),
   fetchChurchSettings: vi.fn(),
   updateChurchSettings: vi.fn(),
 }));
 let features = { careTeam: true, keyDates: true, outboundEmail: true };
+let groupName = "Missions team";
 vi.mock("../context/SettingsContext.jsx", () => ({
-  useSettings: () => ({ enabledFeatures: features }),
+  useSettings: () => ({ enabledFeatures: features, ownerGroupName: groupName, refreshSettings: vi.fn() }),
 }));
 
 const candidates = [
-  { id: "u1", email: "ann@example.test", firstName: "Ann", lastName: "Lead", role: "editor" },
-  { id: "u2", email: "bob@example.test", firstName: "Bob", lastName: "Member", role: "guest" },
+  { id: "u1", name: "Ann Lead", email: "ann@example.test", role: "editor" },
+  { id: "u2", name: "Bob Member", email: "bob@example.test", role: "viewer" },
 ];
 
 const renderIt = () =>
   render(
     <MemoryRouter>
-      <AdminSettingsCareTeam />
+      <AdminSettingsPartnerCare />
     </MemoryRouter>
   );
 
 beforeEach(() => {
   vi.clearAllMocks();
   features = { careTeam: true, keyDates: true, outboundEmail: true };
-  fetchDefaultCareLead.mockResolvedValue(null);
-  setDefaultCareLead.mockResolvedValue({ userId: "u1", name: "Ann Lead" });
-  fetchCareTeamCandidates.mockResolvedValue(candidates);
+  fetchMissionsTeam.mockResolvedValue({ members: [], candidates });
+  saveMissionsTeam.mockResolvedValue([]);
   fetchChurchSettings.mockResolvedValue({ keyDateLeadDays: 7, contactStaleDays: 90 });
   updateChurchSettings.mockResolvedValue({});
 });
 
-describe("AdminSettingsCareTeam (#291)", () => {
-  it("shows no default lead yet, and explains what one is for", async () => {
+describe("AdminSettingsPartnerCare", () => {
+  it("warns when nobody is on the missions team, and explains what it does", async () => {
     renderIt();
-    expect(await screen.findByText("None")).toBeTruthy();
-    expect(screen.getByText(/go to the default lead instead of nobody/)).toBeTruthy();
+    expect(await screen.findByText(/Nobody is on the Missions team/)).toBeTruthy();
+    expect(screen.getByText(/looks after every partner that doesn.t have a care team/)).toBeTruthy();
   });
 
-  it("shows the current default lead", async () => {
-    fetchDefaultCareLead.mockResolvedValue({ userId: "u1", name: "Ann Lead" });
+  it("shows who is on it", async () => {
+    fetchMissionsTeam.mockResolvedValue({ members: [{ id: "u1", name: "Ann Lead" }], candidates });
     renderIt();
     expect(await screen.findByText("Ann Lead")).toBeTruthy();
+    expect(screen.queryByText(/Nobody is on the Missions team/)).toBeNull();
   });
 
-  it("picks a default lead from the logins and saves it", async () => {
+  it("uses the church's own name for the group", async () => {
+    groupName = "Missions committee";
     renderIt();
-    fireEvent.click(await screen.findByRole("button", { name: /default lead/i }));
-    const dialog = await screen.findByRole("dialog");
-    fireEvent.change(await within(dialog).findByLabelText("Default lead"), { target: { value: "u1" } });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
-    await waitFor(() => expect(setDefaultCareLead).toHaveBeenCalledWith("u1"));
+    expect(await screen.findByText(/Nobody is on the Missions committee/)).toBeTruthy();
+    groupName = "Missions team";
   });
 
-  it("clearing it sends null", async () => {
-    fetchDefaultCareLead.mockResolvedValue({ userId: "u1", name: "Ann Lead" });
+  it("picks members and a name, then saves both", async () => {
     renderIt();
-    fireEvent.click(await screen.findByRole("button", { name: /default lead/i }));
+    fireEvent.click(await screen.findByRole("button", { name: /missions team/i }));
     const dialog = await screen.findByRole("dialog");
-    fireEvent.change(await within(dialog).findByLabelText("Default lead"), { target: { value: "" } });
+    fireEvent.click(await within(dialog).findByLabelText(/Ann Lead/));
+    fireEvent.change(within(dialog).getByLabelText(/What do you call this group/), {
+      target: { value: "Missions committee" },
+    });
     fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
-    await waitFor(() => expect(setDefaultCareLead).toHaveBeenCalledWith(null));
+    await waitFor(() => expect(saveMissionsTeam).toHaveBeenCalledWith(["u1"]));
+    expect(updateChurchSettings).toHaveBeenCalledWith({ ownerGroupName: "Missions committee" });
+  });
+
+  it("clearing the name goes back to the default wording", async () => {
+    fetchMissionsTeam.mockResolvedValue({ members: [{ id: "u1", name: "Ann Lead" }], candidates });
+    renderIt();
+    fireEvent.click(await screen.findByRole("button", { name: /missions team/i }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.change(await within(dialog).findByLabelText(/What do you call this group/), {
+      target: { value: "" },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(updateChurchSettings).toHaveBeenCalledWith({ ownerGroupName: null }));
   });
 
   it("reports the state of key-date reminders", async () => {

@@ -1378,10 +1378,10 @@ model ChurchSettings {
   // fieldDisplayName, else a generic label (utils/maskData.js maskedDisplayName()).
   restrictedPartnerInitialsEnabled Boolean @default(true)
 
-  // Who key-date reminders go to for a partner with no care team. SetNull so deleting the
-  // login clears it. Set via /api/care-team/default-lead, not the generic settings route.
-  defaultCareLeadUserId String?
-  defaultCareLead       User?   @relation("ChurchDefaultCareLead", fields: [defaultCareLeadUserId], references: [id], onDelete: SetNull)
+  // What this church calls the group that looks after every partner without a care team of its own
+  // ("Missions team", "Missions committee", "Board"...). Null means the app's neutral default. Wording only:
+  // membership is User.onMissionsTeam, and nothing in code depends on the name.
+  ownerGroupName String?
 
   // Days ahead a key date is raised (bell and daily email agree), and days without a logged
   // contact before a partner is "quiet".
@@ -1502,6 +1502,11 @@ model User {
   // A care team member who opts out of the daily key-date email; the bell is unaffected.
   keyDateEmailOptOut Boolean @default(false)
 
+  // On the church's missions team (the group named by ChurchSettings.ownerGroupName): looks after every
+  // partner that has no care team of its own, so key-date reminders, My partners and the reach-out alerts
+  // reach them for those partners (utils/ownership.js). A guest is never on it.
+  onMissionsTeam Boolean @default(false)
+
   passkeys         UserPasskey[]
   signInLinkTokens SignInLinkToken[]
 
@@ -1516,7 +1521,6 @@ model User {
   contactsMade      ContactLog[]          @relation("ContactLogContactedBy")
   contactsEntered   ContactLog[]          @relation("ContactLogCreatedBy")
   keyDateReminders  KeyDateReminder[]
-  defaultLeadFor    ChurchSettings[]      @relation("ChurchDefaultCareLead")
   notificationsSeen NotificationSeen[]
   savedReports      SavedReport[]
 
