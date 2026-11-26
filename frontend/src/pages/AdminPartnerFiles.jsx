@@ -237,6 +237,32 @@ export default function AdminPartnerFiles() {
     [visibleFiles]
   );
 
+  // A restricted partner's letter would leave this app for an outside AI service, so the server asks for a
+  // confirmation first (409). Say it plainly, and only send once the admin agrees.
+  async function scanWithConfirmation(file) {
+    try {
+      return await extractFromPartnerFile(file.id);
+    } catch (err) {
+      if (err.response?.status !== 409 || !err.response?.data?.needsConfirmation) throw err;
+      const ok = await confirmDialog({
+        title: "Send this letter to an outside service?",
+        body: (
+          <ConfirmMessageBody>
+            {file.partner?.displayName || "This partner"} is restricted. Scanning sends the whole letter to an
+            outside AI service (Anthropic), which is outside this app and its privacy settings. Only continue
+            if you are sure that is acceptable.
+          </ConfirmMessageBody>
+        ),
+        confirmLabel: "Send for scanning",
+      });
+      if (!ok) {
+        setScanning(null);
+        return new Promise(() => {}); // the modal is already closed; nothing more to show
+      }
+      return extractFromPartnerFile(file.id, { confirmRestricted: true });
+    }
+  }
+
   return (
     <div className="admin-shell">
       {filterPartnerId && (
@@ -422,7 +448,7 @@ export default function AdminPartnerFiles() {
 
       {scanning && (
         <ExtractionReviewModal
-          scan={() => extractFromPartnerFile(scanning.id)}
+          scan={() => scanWithConfirmation(scanning)}
           partnerId={scanning.partner?.id}
           defaultDate={scanning.receivedDate}
           sourceFileId={scanning.id}
