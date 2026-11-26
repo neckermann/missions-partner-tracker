@@ -7,7 +7,7 @@
 Decided by the owner (D17 to D20):
 
 1. **One item, one branch, one PR into `dev`.** Branch off `origin/dev` (named `fix/<short-name>` or `feat/<short-name>`), never off the review branch. CI runs on the PR (`ci.yml`).
-2. **Merge to `dev` myself when CI is green.** Never merge `dev` into `main`, and never open that PR: a merge into `main` is a release that every church's install follows (`release.yml`; #495).
+2. **Merge to `dev` myself when CI is green**, except the in-app restore (16f), which waits for the owner. Never merge `dev` into `main`, and never open that PR: a merge into `main` is a release that every church's install follows (`release.yml`; #495).
 3. **Schema changes go last, in one batch.** Do every no-migration item first. For the schema batch, make the change with `prisma migrate dev` (never hand-written, squashed into the baseline per `CLAUDE.md`), open the PR, and **stop for the owner before merging**, because dev-test's database then needs a reset that only the owner can approve.
 4. **When stuck, skip it, note it, continue.** Leave a short comment on the item's issue (what was tried, what failed, what is needed), mark it `blocked` below, and move to the next independent item. Do not retry endlessly and do not stop the whole queue.
 5. **Never, unattended:** touch Render (services, env vars, deploys, the demo reset), reset or migrate any remote database, read or print `demo/.env` or any `.env`, force a notification schedule to fire, or push to `main`.
@@ -46,7 +46,8 @@ Order is: safety first, then the install path, then the small bugs, then everyth
 | 16a | **B2** email "on but not ready" is treated as off everywhere (use the existing copy-link fallbacks) and one "Email isn't finished setting up" notice is shown. Does not tackle the Postmark-is-hard question | (new) | Covers Add User dead end and the Subscribe page's false "check your email" |
 | 16b | **B11** guest wording: one line at each place a care-team guest is told what they are, what is hidden, and that their entries wait for approval; the Add User form stops offering Guest when it cannot be used and no longer calls it trips-only | (new) | |
 | 16c | **B15** dead ends: no bell item or link leads to a switched-off or hidden page; Enabled Features no longer says updates "wait on Pending Dispatches" when that page is blocked; Monthly Support gets a menu entry | (new) | |
-| 16d | **B6 part 2 only** ask for the password again before a backup download; replace the restore guide's "temporary, unlisted file host" advice with safe handling; separately, read-only: record in the issue what Render's Postgres plan already backs up (no change to Render) | (new) | Scheduled backups and an in-app restore are deferred (D25) |
+| 16d | **B6 part 2** ask for the admin's password again before a backup download; replace the restore guide's "temporary, unlisted file host" advice with safe handling; read-only: record in the issue what Render's Postgres plan already backs up (no change to Render). **File encryption: pending decision** | (new) | Scheduled backups deferred (D25) |
+| 16f | **B6 part 3** restore from inside the app, for a church that cannot run `npm run backup:restore`. Requires: admin re-enters password; upload the file; typed confirmation; checksum and migration-version check (as the CLI does); an automatic backup of the current data first; the site refuses other writes while it runs; the whole restore is one transaction (as `restoreRows` already is); an audit entry. Replaces the guide's "CLI-only" reasoning | (new) | Largest, riskiest item: a bug here wipes a church's data. Tests against a real database for every guard; cannot be tried on dev-test unattended. Put after 16e. Opens the PR but is **not** merged to `dev` without the owner (rule 2 exception) |
 | 16e | **B5** plain words, using report 1's jargon table (exact string, file, replacement), including the ticket number printed at `AdminDispatchSettings.jsx:313`; update tests | (new) | Last in Phase 1: touches many files, so run it after the others to avoid conflicts |
 
 The B items have no issue yet. File one per item from the draft text in `README.md` (section B) before starting each, and link it in the PR.
@@ -62,7 +63,7 @@ One PR for the batch is fine. Open it, then stop and report. The owner approves 
 
 ### Not in the queue
 
-- **B3, B4, B14, scheduled backups and in-app restore (B6 parts 1 and 3)** and the whole C group: larger, or decisions first. B3 and B4 belong to #477. B14's docs fixes are partly picked up by A8 and A5; the rest waits.
+- **B3, B4, B14, scheduled backups (B6 part 1)** and the whole C group: larger, or decisions first. B3 and B4 belong to #477. B14's docs fixes are partly picked up by A8 and A5; the rest waits.
 - **The Viewer role, WhatsApp removal, the "Trips departing soon" alert, what to do with trips (C1 to C3):** owner decisions, undecided. WhatsApp stays (D12).
 
 ## Owner tasks (not mine)
@@ -101,6 +102,7 @@ Update this table as items land.
 | 16c | B15 | not started | |
 | 16d | B6 part 2 | not started | |
 | 16e | B5 | not started | |
+| 16f | B6 part 3 | not started | |
 | 17 | A10 | not started | |
 | 18 | B13 | not started | |
 

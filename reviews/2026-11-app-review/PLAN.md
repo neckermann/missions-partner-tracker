@@ -59,7 +59,7 @@ Not re-run: A1 (needs the live demo, which is off limits and not mine to touch),
 | D22 | B10: auto-filed inbound mail held for quick review by default | WORK-QUEUE item 15 |
 | D23 | B8: skip recording when no channel is on, and expire unsent rows after 14 days; held rows kept | WORK-QUEUE item 14 |
 | D24 | Unattended work runs in this session | |
-| D25 | B6: only part 2 (password re-check, safe-handling note) plus a read-only check of Render's backups; scheduled backups and in-app restore deferred | WORK-QUEUE item 16d |
+| D25 | B6: password re-check and safe-handling note (part 2) and an in-app restore (part 3) are in the queue; scheduled backups (part 1) deferred | WORK-QUEUE items 16d and 16f. 16f is not merged without the owner |
 | D26 | B2, B11, B15 and B5 added to the queue | WORK-QUEUE items 16a to 16c, 16e |
 | D5 | Blueprint default names | A8: drop the `name-instance` step, add a Deploy to Render button, list true requirements and cost |
 | D7 | No church has real data yet | Confirmed; wipe-on-upgrade is acceptable for now |
