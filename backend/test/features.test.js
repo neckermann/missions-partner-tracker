@@ -8,6 +8,16 @@ describe("isFeatureEnabled", () => {
     assert.equal(isFeatureEnabled(null, "partnerFiles"), true);
   });
 
+  // A new install should be useful straight away: these two are the core of keeping in touch with partners,
+  // and a church can still switch either off (an explicit false wins).
+  test("the contact log and key-date reminders are on for a church that has never chosen", () => {
+    for (const key of ["contactLog", "keyDates"]) {
+      assert.equal(isFeatureEnabled({}, key), true, key);
+      assert.equal(isFeatureEnabled(null, key), true, key);
+      assert.equal(isFeatureEnabled({ [key]: false }, key), false, `${key} can be turned off`);
+    }
+  });
+
   test("an explicit false overrides the default-enabled state", () => {
     assert.equal(isFeatureEnabled({ partnerFiles: false }, "partnerFiles"), false);
   });

@@ -147,12 +147,12 @@ const FEATURES = {
   // A lead plus members per partner who keep in touch with it. Terms are fixed
   // defaults, not ChurchSettings fields. Off by default.
   // A log of every touchpoint with a partner, a contact card, a "My partners" view
-  // and a "needs reaching out" alert. Off by default.
+  // and a "needs reaching out" alert. On by default (the core of keeping in touch).
   contactLog: {
     label: "Contact log",
     description:
       "Record every call, text, email, visit or card with a partner, show a contact card on each partner page, flag partners nobody has been in touch with lately, and add an My partners view for care team members.",
-    defaultEnabled: false,
+    defaultEnabled: true,
     group: "admin",
   },
   // A bell alert and grouped daily email for a care team when a birthday,
@@ -163,7 +163,7 @@ const FEATURES = {
     description:
       "Remind whoever looks after each partner (its care team if it has one, otherwise your missions team) about coming birthdays (including children), anniversaries and supported-since milestones: on the bell, and in one grouped email a day that is sent only on days something is due. The email needs Email (Sending).",
     withoutEmail: "My partners shows what the daily email would have said, with Copy this week's list.",
-    defaultEnabled: false,
+    defaultEnabled: true,
     group: "admin",
   },
   careTeam: {
