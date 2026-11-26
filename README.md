@@ -141,7 +141,7 @@ cd backend
 cp .env.example .env       # fill in DATABASE_URL, SESSION_SECRET, etc.
 npm install
 npm run prisma:migrate
-npm run seed                 # optional: ~35 fake partners for demoing
+npm run seed                 # optional: ~35 fake partners (and sample users with unknown passwords) for demoing
 node prisma/createAdmin.js you@yourchurch.org "SomeStrongPassword!"
 npm run dev                  # http://localhost:4000
 
