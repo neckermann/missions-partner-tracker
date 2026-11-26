@@ -100,7 +100,7 @@ A6's PR is #515.
 | 7 | A2b | merged to dev | #521 |
 | 8 | A7 | merged to dev | #522 |
 | 9 | A5 | merged to dev | #523 |
-| 10 | A8 | PR open, CI running | #524 |
+| 10 | A8 | merged to dev | #524 |
 | 11 | B1 | PR open, CI running | #525 |
 | 12 | B9 | not started | |
 | 13 | B7 | not started | |
@@ -131,3 +131,4 @@ A6's PR is #515.
 - 2026-11-26: items 7 (A2b, #521) and 9 (A5, #523) merged to `dev` after all four checks passed on their final heads. Item 10 (A8) started.
 - 2026-11-26: item 10 (A8) opened as #524 (docs and Blueprint comments only). Checked the review's claim that `APP_BASE_URL` is missing from the Blueprint: wrong, every link already falls back to Render's `RENDER_EXTERNAL_URL`, so no Blueprint change; the guide now says so. Not verifiable from here: whether the default service name is accepted when taken, and the exact address a fresh install gets (needs one real test deploy).
 - 2026-11-26: item 11 (B1) opened as #525. #524 (A8) had one e2e failure in the route tests that run inside that job (1052 of 1055 passed, 2 skipped, 1 failed; the diff is docs only and no test reads them; B1's full local run is 1060/1060): failed jobs re-run once. Also noted: in CI the two first-admin tests are skipped by their own safety check (the e2e admin is created before the route tests run), so they only run locally.
+- 2026-11-26: item 10 (A8) merged as #524 after its failed e2e job passed on the one allowed re-run (all four checks green). The single route-test failure on the first run was not reproduced and its test was not identified (the PR is docs only, and B1's full local route suite is 1060/1060): treat it as an unexplained one-off, and look at the first-attempt log of job 140141282660 if it recurs.
