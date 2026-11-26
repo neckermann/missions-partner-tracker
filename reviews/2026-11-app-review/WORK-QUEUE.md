@@ -96,8 +96,8 @@ A6's PR is #515.
 | 3 | A1 | merged to dev | #517 |
 | 4 | A3 | merged to dev | #518 |
 | 5 | A9 small piece | merged to dev | #519 |
-| 6 | A4 | PR open, CI running | #520 |
-| 7 | A2b | not started | |
+| 6 | A4 | merged to dev | #520 |
+| 7 | A2b | in progress | |
 | 8 | A7 | not started | |
 | 9 | A5 | not started | |
 | 10 | A8 | not started | |
@@ -124,4 +124,4 @@ A6's PR is #515.
 
 ## Log
 
-- 2026-11-26: item 1 (A6) merged to `dev` as #515 after all four checks (backend-tests, lint, frontend-build, e2e) passed. Item 2 (A2a) merged as #516 (all four checks green). #490 stays open for A2b. Item 3 (A1) opened as #517; a code review of the first version found four real problems (email settings guard on the wrong method, remote reset scripts, the worker, setup links), all fixed before merge. #517 merged after all four checks passed. Owner follow-ups from #517: set `DEMO_TESTING_SITE=true` on dev-test's web service AND worker, give it its own `DEMO_ADMIN_EMAIL`/`DEMO_ADMIN_PASSWORD`; clean the production demo's keys. Item 4 (A3) merged as #518 (all four checks green; CI's e2e job also runs the whole route suite, which passed on a clean database). Item 5 merged as #519 (all four checks green). Item 6 (A4) opened as #520: new Privacy and safety page, guests can no longer change the public/restricted flags (an existing care-team test that asserted the old behaviour was rewritten). Lesson: a route test that changes shared settings (setup turns two-factor on) must restore them, or later test files cannot sign in; and a route-suite run must not be killed mid-way (use a background run), or it leaves fixture users behind that fail later runs.
+- 2026-11-26: item 1 (A6) merged to `dev` as #515 after all four checks (backend-tests, lint, frontend-build, e2e) passed. Item 2 (A2a) merged as #516 (all four checks green). #490 stays open for A2b. Item 3 (A1) opened as #517; a code review of the first version found four real problems (email settings guard on the wrong method, remote reset scripts, the worker, setup links), all fixed before merge. #517 merged after all four checks passed. Owner follow-ups from #517: set `DEMO_TESTING_SITE=true` on dev-test's web service AND worker, give it its own `DEMO_ADMIN_EMAIL`/`DEMO_ADMIN_PASSWORD`; clean the production demo's keys. Item 4 (A3) merged as #518 (all four checks green; CI's e2e job also runs the whole route suite, which passed on a clean database). Item 5 merged as #519 (all four checks green). Item 6 (A4) merged as #520 (all four checks green): new Privacy and safety page, guests can no longer change the public/restricted flags (an existing care-team test that asserted the old behaviour was rewritten). Item 7 (A2b) started. Lesson: a route test that changes shared settings (setup turns two-factor on) must restore them, or later test files cannot sign in; and a route-suite run must not be killed mid-way (use a background run), or it leaves fixture users behind that fail later runs.
