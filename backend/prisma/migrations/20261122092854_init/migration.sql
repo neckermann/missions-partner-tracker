@@ -461,6 +461,19 @@ CREATE TABLE "KeyDateReminder" (
 );
 
 -- CreateTable
+CREATE TABLE "CareChatPost" (
+    "id" TEXT NOT NULL,
+    "partnerId" TEXT NOT NULL,
+    "type" TEXT NOT NULL,
+    "subjectKey" TEXT NOT NULL DEFAULT '',
+    "occurrenceDate" DATE NOT NULL,
+    "tier" INTEGER NOT NULL DEFAULT 0,
+    "postedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "CareChatPost_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "PartnerLink" (
     "id" TEXT NOT NULL,
     "partnerId" TEXT NOT NULL,
@@ -760,6 +773,8 @@ CREATE TABLE "ChurchSettings" (
     "groupmeOneTimeNeedTopicName" TEXT,
     "groupmeNewsletterTopicId" TEXT,
     "groupmeNewsletterTopicName" TEXT,
+    "groupmeCareTopicId" TEXT,
+    "groupmeCareTopicName" TEXT,
     "whatsappPhoneNumber" TEXT,
     "whatsappPairedAt" TIMESTAMP(3),
     "whatsappLastError" TEXT,
@@ -774,6 +789,8 @@ CREATE TABLE "ChurchSettings" (
     "whatsappOneTimeNeedGroupName" TEXT,
     "whatsappNewsletterGroupId" TEXT,
     "whatsappNewsletterGroupName" TEXT,
+    "whatsappCareGroupId" TEXT,
+    "whatsappCareGroupName" TEXT,
     "joshuaProjectApiKey" TEXT,
     "anthropicApiKey" TEXT,
     "extractionModel" TEXT,
@@ -800,6 +817,9 @@ CREATE TABLE "ChurchSettings" (
     "chatDispatchPrayerRequests" BOOLEAN NOT NULL DEFAULT true,
     "chatDispatchOneTimeNeeds" BOOLEAN NOT NULL DEFAULT true,
     "chatDispatchNewsletters" BOOLEAN NOT NULL DEFAULT true,
+    "chatDispatchKeyDates" BOOLEAN NOT NULL DEFAULT false,
+    "chatDispatchQuietPartners" BOOLEAN NOT NULL DEFAULT false,
+    "chatDispatchUpdatesToPass" BOOLEAN NOT NULL DEFAULT false,
     "allowRestrictedPartnerDispatch" BOOLEAN NOT NULL DEFAULT false,
     "restrictedPartnerInitialsEnabled" BOOLEAN NOT NULL DEFAULT true,
     "ownerGroupName" TEXT,
@@ -1309,6 +1329,9 @@ CREATE INDEX "KeyDateReminder_partnerId_idx" ON "KeyDateReminder"("partnerId");
 CREATE UNIQUE INDEX "KeyDateReminder_userId_partnerId_kind_subjectId_occurrenceD_key" ON "KeyDateReminder"("userId", "partnerId", "kind", "subjectId", "occurrenceDate", "tier");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "CareChatPost_partnerId_type_subjectKey_occurrenceDate_tier_key" ON "CareChatPost"("partnerId", "type", "subjectKey", "occurrenceDate", "tier");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "PartnerLink_partnerId_type_key" ON "PartnerLink"("partnerId", "type");
 
 -- CreateIndex
@@ -1559,6 +1582,9 @@ ALTER TABLE "KeyDateReminder" ADD CONSTRAINT "KeyDateReminder_userId_fkey" FOREI
 
 -- AddForeignKey
 ALTER TABLE "KeyDateReminder" ADD CONSTRAINT "KeyDateReminder_partnerId_fkey" FOREIGN KEY ("partnerId") REFERENCES "Partner"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "CareChatPost" ADD CONSTRAINT "CareChatPost_partnerId_fkey" FOREIGN KEY ("partnerId") REFERENCES "Partner"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "PartnerLink" ADD CONSTRAINT "PartnerLink_partnerId_fkey" FOREIGN KEY ("partnerId") REFERENCES "Partner"("id") ON DELETE CASCADE ON UPDATE CASCADE;

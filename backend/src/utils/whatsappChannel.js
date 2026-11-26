@@ -42,6 +42,11 @@ const GROUP_MAPPINGS = [
     topicKey: "groupmeNewsletterTopicId",
     eventTypes: ["newsletterCreated"],
   },
+  {
+    whatsappField: "whatsappCareGroupId",
+    topicKey: "groupmeCareTopicId",
+    eventTypes: ["keyDateComing", "quietPartner", "updateToPassOn"],
+  },
 ];
 const GROUP_FIELD_BY_EVENT_TYPE = Object.fromEntries(
   GROUP_MAPPINGS.flatMap((m) => m.eventTypes.map((type) => [type, m.whatsappField]))

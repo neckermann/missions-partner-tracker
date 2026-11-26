@@ -157,6 +157,7 @@ async function notifyNewsletterCreated(newsletter, { requireReview = false } = {
 }
 
 module.exports = {
+  createDispatchRecord,
   notifyPrayerRequestCreated,
   notifyPrayerRequestAnswered,
   notifySupportNeedCreated,

@@ -1080,7 +1080,7 @@ channel that can never take it.
 
 | Channel          | Schedule                                                                       | Content                                                                                    | Recipients                                                                     |
 | ---------------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
-| **GroupMe**      | Shared daily chat hour (`chatDispatchHour`)                                    | All 5 event types, each content-type independently mutable                                 | One church-wide group, split across up to 3 Topics (prayer/needs/newsletters)  |
+| **GroupMe**      | Shared daily chat hour (`chatDispatchHour`)                                    | All 5 event types, each content-type independently mutable; plus 3 opt-in care types (below) | One church-wide group, split across up to 3 Topics (prayer/needs/newsletters)  |
 | **WhatsApp**     | Same shared daily chat hour, own cursor (`lastWhatsappChatDispatchSentAt`)     | Same 5 types, same mutes (shared with GroupMe — see 6.2a)                                  | One WhatsApp community, split across up to 3 groups (prayer/needs/newsletters) |
 | **Admin email**  | 3 cadence tiers: biweekly/monthly/quarterly (`emailDispatchHour` + day fields) | Every type, no content-type toggle                                                         | Each `User` with `cadence` set, scoped to `allPartners` or `followedPartners`  |
 | **Public email** | Same 3 tiers, shared schedule with admin                                       | Structurally prayer-requests-only (`prayerRequestCreated`/`Answered`), never a source link | Each confirmed `PublicSubscriber`, scoped to `allPartners` or `scopedPartners` |
@@ -1136,6 +1136,18 @@ _currently_ connected — a live-pairing check was tried and reverted: it
 treated a normal brief reconnect window on every deploy the same as a
 deliberate, permanent unlink, which isn't what a transient disconnect
 means.
+
+**Partner care posts.** Three chat-only dispatch types, `keyDateComing`, `quietPartner`
+and `updateToPassOn` (`utils/careChatDispatch.js`, a daily 05:00 church-local cron in
+the worker), share one topic/group (`groupmeCareTopicId`, `whatsappCareGroupId`) and have
+their own opt-in switches (`chatDispatchKeyDates`, `chatDispatchQuietPartners`,
+`chatDispatchUpdatesToPass`, all default off), checked in `isEligibleForChannel` Rule 2.
+They are recorded only while GroupMe or WhatsApp is on and the matching feature (keyDates,
+contactLog) is on, never on a demo, and each occurrence once (`CareChatPost`: type,
+subjectKey, occurrence date, tier). `CARE_DISPATCH_TYPES` are ineligible for both email
+audiences: the digest has its own key-dates section (§5.4) and the bell carries the rest.
+Restricted partners are masked by `buildBlurb` (no `who`, no need or prayer text), and a
+restricted partner whose dispatch is off records nothing.
 
 ### 6.3 Masking authority
 

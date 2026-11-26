@@ -932,6 +932,12 @@ backlog).
   One-Time Needs / Newsletters), also shared with WhatsApp, let a
   church turn off any one type for both chat channels at once without
   affecting the admin or public digest at all.
+  Three more switches, **off by default**, add **partner care posts**
+  (Key dates coming up, Partners nobody has heard from, News to pass
+  on), which share one Partner Care topic (GroupMe) or group (WhatsApp).
+  They are recorded once a day at 5:00 church time, only while a chat
+  channel and the matching feature (Key-date reminders, Contact log)
+  are on, never on a public demo, and never go in an email dispatch.
 - **WhatsApp** — the same three item types, posted to their own group
   inside one WhatsApp community (or the community's Announcements
   group, for a type with no group mapped). GroupMe and WhatsApp share
