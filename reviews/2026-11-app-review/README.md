@@ -384,4 +384,17 @@ PR #488 merged to `dev` while the review was running. The lead read its backend 
 
 ## Issues filed
 
-None yet. The "fix before" group goes to the owner for approval first; approved items will be linked here.
+Filed 2026-11-26 after the owner's approval, with the owner's decisions folded in (see PLAN.md):
+
+| Item | Issue |
+|---|---|
+| A1 | neckermann/missions-partner-tracker#489 |
+| A2 | neckermann/missions-partner-tracker#490 |
+| A3 | **Held**: the owner wants to discuss the setup-code requirement first |
+| A4 | neckermann/missions-partner-tracker#491 |
+| A5 | neckermann/missions-partner-tracker#492 |
+| A6 | neckermann/missions-partner-tracker#493 |
+| A7 | neckermann/missions-partner-tracker#494 |
+| A8 | neckermann/missions-partner-tracker#495 |
+| A9 | Notes added as a comment on neckermann/missions-partner-tracker#477 |
+| A10 | neckermann/missions-partner-tracker#496 |

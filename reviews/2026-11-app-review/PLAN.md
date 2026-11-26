@@ -49,7 +49,12 @@ Not re-run: A1 (needs the live demo, which is off limits and not mine to touch),
 | D5 | Blueprint default names | A8: drop the `name-instance` step, add a Deploy to Render button, list true requirements and cost |
 | D7 | No church has real data yet | Confirmed; wipe-on-upgrade is acceptable for now |
 
-Still open: D6 (WhatsApp, Viewer role, "Trips departing soon" alert), not blocking.
+| D8 | First admin joins the missions team; contact log and key-date reminders on by default | Part of A9; commented on #477 |
+| D9 | `FIELD_ENCRYPTION_KEY` required at start-up | A10 (#496) |
+| D10 | Setup code for first-run | **Open, to discuss** (A3 issue held) |
+| D11 | File A1-A8 and A10 | Done: #489 to #496, plus a comment on #477 |
+
+Still open: D10 and D6 (WhatsApp, Viewer role, "Trips departing soon" alert), not blocking.
 
 ## 3. Waves
 
