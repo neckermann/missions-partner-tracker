@@ -1,6 +1,6 @@
 # App review, November 2026: what to do first
 
-**Reviewed:** branch `dev` at `e713437` (0.1.0-beta.3), 2026-11-26. `main` held the same code at that commit, so everything here applies to the live demo's code too. `dev` has since gained PR #488 (trip-application emails and a monthly backup reminder), which this review did not look at.
+**Reviewed:** branch `dev` at `e713437` (0.1.0-beta.3), 2026-11-26. `main` held the same code at that commit, so everything here applies to the live demo's code too. `dev` has since gained PR #488 (trip-application emails and a monthly backup reminder); the lead read its diff afterwards and it changes none of the findings (see "PR #488" near the end).
 
 **The app is not ready to invite more churches, if those churches are the ones this review was asked to judge for: a non-technical volunteer running missions alone.** It is close to ready for a church that has a technical helper on call and accepts that its data may be wiped during the beta. The permission system, the handling of uploads and secrets, and the care features themselves are in good shape; what blocks adoption is everything around them. The three things I would do first:
 
@@ -369,7 +369,18 @@ Draft notes only. Several are decisions for the owner rather than work.
 - **The AI scan at runtime.** No API key was available, so prompt injection from a hostile document was not tried.
 - **Everything the lead did not re-check.** Each report's "Lead check" box says which findings were re-checked. The rest rest on one helper's work.
 - **The fresh-eyes sketch.** The first sketch was written by a helper that had not opened the repo but had the project's CLAUDE.md summary in its context. It was redone in a separate session with no repository attached; that one is Appendix A of report 0 and the first is Appendix B.
-- **Not looked at:** PR #488 (merged to `dev` during the review), passkeys with a real device, the trip admin pages in depth, screen-reader and keyboard-only use, most of the 99 documentation screenshots.
+- **Not looked at:** passkeys with a real device, the trip admin pages in depth, screen-reader and keyboard-only use, most of the 99 documentation screenshots.
+
+## PR #488, read after the review
+
+PR #488 merged to `dev` while the review was running. The lead read its backend diff (not run). It adds two emails: one to every admin when someone applies for a trip, and one to each admin about once a month saying backups need checking.
+
+- **It does not close or change any finding.** The reminder tells an admin to check backups; it does not make one, so A6 and B6 stand.
+- **It does not make the demo finding (A1) worse.** Both new emails check for a demo and send nothing there.
+- **It depends on the same weak points.** The backup reminder runs in the worker and needs email set up, so on an install hit by A7 it never arrives, and the church that most needs the reminder is the one least likely to get it. Its link needs `APP_BASE_URL` (B14).
+- **It moves two counts in report 1:** scheduled timers go from 8 to 9, and kinds of email from 19 to 21.
+- **Two small wording points:** the reminder email still says "your Postgres provider" (B5), and the trip email tells every admin "You get this because you help run trips".
+- **Checked and fine:** the public application form already has its own rate limit and a honeypot, the applicant's name is escaped in the email, and the email leaves out their contact details.
 
 ## Issues filed
 
