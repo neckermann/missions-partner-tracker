@@ -16,6 +16,8 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ## [Unreleased]
 
+## [0.1.0-beta.3] - 2026-11-26
+
 ### Changed
 
 - **Check-all-that-apply questions line up.** On a trip application (and two trip requirement checkboxes) each switch now sits beside its text, left-aligned, instead of stacked and centered in the middle of the form.
@@ -80,7 +82,7 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ### Upgrading
 
-- **A database that ran `0.1.0-beta.2` must be reset again (pre-1.0).** The single baseline migration (`20261122092854_init`) gained a `createdAt` column on `Address`, `SendingParty`, `TripBudgetLine`, `TripFlightSegment` and `ApplicationQuestion`, and the contact changes: `Partner.contactSafe` and `Partner.preferredContactMethod` are gone, replaced by `Partner.contactLevel`, `contactChannels`, `contactViaName`/`Role`/`Phone`/`Email` and (for an organization) `contactMethod`/`contactMethodNote`, with `contactMethod`/`contactMethodNote` on each `Adult`. It has also gained the Contact Log, care teams, key dates, support preferences, partner surveys (with their invites, responses, uploads and proposals), the audit log, trip wrap-up and the `Partner.commissionedAt` key date, and a `ChurchSettings.demoMode` flag the demo reset writes. There is nothing to carry across before 1.0, and `npx prisma migrate deploy` against a database that already ran the baseline will not apply it. Reset the database (`npx prisma migrate reset`), or reset a demo through its reset job.
+- **A database that ran `0.1.0-beta.2` must be reset again (pre-1.0).** The single baseline migration (`20261122092854_init`) gained a `createdAt` column on `Address`, `SendingParty`, `TripBudgetLine`, `TripFlightSegment` and `ApplicationQuestion`, and the contact changes: `Partner.contactSafe` and `Partner.preferredContactMethod` are gone, replaced by `Partner.contactLevel`, `contactChannels`, `contactViaName`/`Role`/`Phone`/`Email` and (for an organization) `contactMethod`/`contactMethodNote`, with `contactMethod`/`contactMethodNote` on each `Adult`. It has also gained the Contact Log, care teams, key dates, support preferences, partner surveys (with their invites, responses, uploads and proposals), the audit log, trip wrap-up and the `Partner.commissionedAt` key date, `User.phone` and `User.profile`, and a `ChurchSettings.demoMode` flag the demo reset writes. There is nothing to carry across before 1.0, and `npx prisma migrate deploy` against a database that already ran the baseline will not apply it. Reset the database (`npx prisma migrate reset`), or reset a demo through its reset job.
 
 ## [0.1.0-beta.2] - 2026-11-25
 
