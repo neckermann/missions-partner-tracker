@@ -122,52 +122,22 @@ instead? See [Deploying to production](#deploying-to-production) further
 down — same app, same steps in spirit, just without Render's one-click
 Blueprint doing the provisioning for you.
 
-### Skipping the worker service
+### The scheduled jobs
 
-If your church has no plans to use **any** of GroupMe, WhatsApp, the
-email prayer/admin digest, or automated trip reminders, you don't need
-`missions-partner-tracker-worker` at all — it's the one Blueprint
-service whose only job is running those four schedules (see
-`backend/src/worker.js`'s own header comment). Everything else —
-creating/editing partners, prayer requests, one-time needs, trip
-applications, and every admin-triggered send (a welcome email, a
-meeting invite, an application-approval notice) — runs inline in the
-main web service and needs nothing from the worker.
+The email digests, GroupMe and WhatsApp posts, trip and key-date reminders,
+scheduled reports and the nightly audit clean-up all run inside the same web
+service as the site itself (`backend/src/utils/backgroundJobs.js`). There is
+no separate worker service to deploy, pay for, or forget about, and nothing
+extra to configure: they start by themselves in production, and take a
+database lock first so that only one copy ever runs them (during a deploy
+Render briefly runs the old and new versions together).
 
-**Render's Blueprint spec has no "optional" or "conditional" service
-field** — confirmed by checking the
-[official Blueprint YAML reference](https://render.com/docs/blueprint-spec),
-which documents every service field this app's `render.yaml` uses but
-nothing that skips a service conditionally. So there's no one-click
-toggle; the realistic path is:
-
-1. Apply the Blueprint as normal (step 4 above) — both services get
-   created.
-2. Render Dashboard → the worker service (`missions-partner-tracker-
-   worker`) → Settings → delete it. Deleting it does not touch the web
-   service, the database, or any data.
-
-**Adding it back later**, if you change your mind: Render's own docs
-don't clearly say whether re-running a Blueprint sync recreates a
-service you deleted by hand while it's still listed in `render.yaml` —
-so don't rely on that. The confirmed-safe path is Dashboard → **New →
-Background Worker** → same repo/branch as your web service → same
-build command
-(`cd frontend && npm install --include=dev && npm run build && cd
-../backend && npm install --include=dev`) and start command (`cd
-backend && node src/worker.js`) `render.yaml` already defines for it →
-set `DATABASE_URL` (same database as the web service),
-`FIELD_ENCRYPTION_KEY` (copied by hand from the web service's
-Environment tab — see `render.yaml`'s own comment on why this must
-match exactly, never generated fresh), and `NODE_ENV=production`.
-
-**One real gap to know about**: nothing in the admin UI currently
-checks whether the worker is actually running. If you delete it, every
-setting that only takes effect through it (GroupMe/WhatsApp pairing
-and schedule, the email digest schedule, trip reminder lead times)
-still saves normally with no warning that it'll never actually fire —
-the admin Dispatch Settings page shows a static reminder of this, but
-nothing dynamic (no live "worker is/isn't running" check exists yet).
+**If you deployed from an earlier version of this Blueprint** it also made a
+`missions-partner-tracker-worker` service. It is no longer needed (two copies
+would be harmless, since the lock lets only one run the jobs, but you would be
+paying for nothing): in the Render Dashboard open that service → Settings →
+delete it. Deleting it does not touch the web service, the database, or any
+data.
 
 ## Environment variables
 
@@ -184,6 +154,7 @@ full file with inline comments):
 | `NOMINATIM_CONTACT` | Recommended | Your contact email, sent with geocoding requests per [Nominatim's usage policy](https://operations.osmfoundation.org/policies/nominatim/) |
 | `MFA_ISSUER` | No | Name shown in a user's authenticator app when they enroll in MFA; defaults to "Missions Partner Tracker Admin" |
 | `APP_BASE_URL` | No | This app's own public URL, no trailing slash — needed for the dispatch queue's own links: the GroupMe newsletter dispatch's link, the email digest's "read the source" / "read the full newsletter" links, and the digest's own unsubscribe link (see [GroupMe dispatch](USER_GUIDE.md#groupme-dispatch-admin-only) and [Pending Dispatches](USER_GUIDE.md#pending-dispatches)). On Render this is picked up automatically from `RENDER_EXTERNAL_URL`; set it explicitly elsewhere. Leave unset and those links just don't appear. |
+| `BACKGROUND_JOBS` | No | `on` or `off` to force the scheduled jobs and the WhatsApp connection on or off. Left unset they run when `NODE_ENV=production` and not otherwise, so a laptop pointed at a database with real email settings never sends anything on its own. |
 
 There's nothing to configure for the frontend separately — it's served by
 the backend and always calls `/api` on its own origin.
@@ -225,10 +196,10 @@ sign-in, the public prayer digest). Enabled Features shows a "Without email" lin
 | GroupMe dispatch | **Off** | Queues new prayer requests, one-time needs, and newsletters — plus a prayer request's recorded answer and a one-time need's funding decision — for GroupMe, sent out to their own configured Topics on the schedule configured at Settings → Dispatch Settings, or via manual send from Pending Dispatches. Configured entirely in the UI (Settings → GroupMe) with the admin's own personal access token, not a bot — GroupMe's Bots API has no awareness of Topics. Off by default since it's the one feature here that posts to a third-party service on its own, not just on request. See [USER_GUIDE.md § GroupMe dispatch](USER_GUIDE.md#groupme-dispatch-admin-only). |
 | WhatsApp dispatch | **Off** | The same three dispatch types as GroupMe, posted to their own groups inside one WhatsApp community, on the same daily schedule and content-type mutes as GroupMe (a church can run either or both). Configured entirely in the UI (Settings → WhatsApp): link a **dedicated** phone number by scanning a QR code, pick the community, then a group per dispatch type. Off by default because it's an **unofficial** connection — see [Dispatch: WhatsApp](#dispatch-whatsapp) below before turning it on. See [USER_GUIDE.md § WhatsApp dispatch](USER_GUIDE.md#whatsapp-dispatch-admin-only). |
 | Care teams | **Off** | Give each partner a care team: one Lead plus Members, all logins, who keep in touch with them. A care team member can do what an editor can for their own partner, except that **what they enter is held in Pending Dispatches for you to approve before it's sent anywhere**, they can't record a decision on a one-time need, and they never see monthly support. A Guest can be given a partner this way instead of a trip. See [USER_GUIDE.md § Care teams](USER_GUIDE.md#care-teams). Turning it off hides all of it and ignores the seats for access; nothing is deleted. Adds a *Care team coverage* report. |
-| Key-date reminders | **On** | Reminds whoever looks after each partner (its care team, else your **missions team**) about coming birthdays (including children), wedding anniversaries and supported-since milestones (the first year, then every fifth), a week ahead by default (Settings → Partner Care → Timing sets 1 to 60 days, and how many days without contact make a partner "quiet", 7 to 365): on the bell, in each person's **email digest** (dates 90 and 30 days out, each once; Settings → Partner Care → Timing sets the earlier heads-ups, up to three), and in **one short email** for the final stretch, sent at 7am church time only on days something is due and only to someone whose digest wouldn't reach them before the date. It doesn't need Care teams; the email needs **Email (Sending)** and is sent by the worker. A partner with no care team goes to your **missions team** (the people marked "On the missions team" under Settings → Partner Care or on a user; you can rename the group there), who also see those partners on My partners and under "Partners to reach out to" (staff only: a Guest is never on it). Anyone can turn off their own daily email under My account → Key-date email; the bell alert stays. With Email (Sending) off, **My partners** shows the list the email would have sent, with **Copy this week's list**. A public demo keeps this on for the bell but never sends the email; logging a contact with the topic "Key date" clears a reminder. Restricted partners are named by initials only. |
+| Key-date reminders | **On** | Reminds whoever looks after each partner (its care team, else your **missions team**) about coming birthdays (including children), wedding anniversaries and supported-since milestones (the first year, then every fifth), a week ahead by default (Settings → Partner Care → Timing sets 1 to 60 days, and how many days without contact make a partner "quiet", 7 to 365): on the bell, in each person's **email digest** (dates 90 and 30 days out, each once; Settings → Partner Care → Timing sets the earlier heads-ups, up to three), and in **one short email** for the final stretch, sent at 7am church time only on days something is due and only to someone whose digest wouldn't reach them before the date. It doesn't need Care teams; the email needs **Email (Sending)** and is sent by the scheduled jobs. A partner with no care team goes to your **missions team** (the people marked "On the missions team" under Settings → Partner Care or on a user; you can rename the group there), who also see those partners on My partners and under "Partners to reach out to" (staff only: a Guest is never on it). Anyone can turn off their own daily email under My account → Key-date email; the bell alert stays. With Email (Sending) off, **My partners** shows the list the email would have sent, with **Copy this week's list**. A public demo keeps this on for the bell but never sends the email; logging a contact with the topic "Key date" clears a reminder. Restricted partners are named by initials only. |
 | Support preferences | **Off** | A menu of ways your church can support partners (housing while they are home, airport pick-up, prayer, care packages and so on), which you edit under Settings → Support Preferences, and each partner's choices from it, shown as a card on their page and recorded by staff or the people who look after them. Doesn't need Care teams. Never shown publicly, in the booklet or in dispatches; a trip leader doesn't see it. Adds a "Support preferences" report. |
 | Partner surveys | **Off** | Build short surveys (a check-in, an annual update, a poll) under Settings → Surveys and send each partner a personal link to answer, or fill one in for them from their page. Answers show on the partner's page for staff (and their care team, when Care teams is on) only. A person starts every send; nothing is emailed automatically, and the app never emails a restricted partner or one marked not to be contacted directly. Doesn't need Care teams; sending the links needs Email (Sending) and `APP_BASE_URL` (without email you copy each link instead). Adds a "Survey responses" report. Questions can be linked to a part of the partner's record (phone, email, preferred contact method, emergency contact, photo): a differing answer waits on **Survey Updates** for an admin or editor to approve, edit or reject, and is never applied automatically. Starter templates are built in. |
-| Audit log | **On** | Records who did what and when for sensitive actions (sign-ins and failed sign-ins, role and access changes, settings changes, deletes, backups, restricted-partner changes and views) and adds an admin-only **Settings → Audit log** page with filters and CSV export. Entries are kept for 30, 60 or 90 days (default 90) and pruned nightly by the worker, even if the feature is later turned off. Secrets are never stored. It is on by default because it records nothing before it is on; sign-in entries include the IP address (personal data), so a church that doesn't want that can turn it off here. See [USER_GUIDE.md § Audit log](USER_GUIDE.md#audit-log-admin-only). |
+| Audit log | **On** | Records who did what and when for sensitive actions (sign-ins and failed sign-ins, role and access changes, settings changes, deletes, backups, restricted-partner changes and views) and adds an admin-only **Settings → Audit log** page with filters and CSV export. Entries are kept for 30, 60 or 90 days (default 90) and pruned nightly by the scheduled jobs, even if the feature is later turned off. Secrets are never stored. It is on by default because it records nothing before it is on; sign-in entries include the IP address (personal data), so a church that doesn't want that can turn it off here. See [USER_GUIDE.md § Audit log](USER_GUIDE.md#audit-log-admin-only). |
 | Contact log | **On** | Record every call, text, email, visit or card with a partner, show a contact card (primary contact, preferred method, one-tap call/text/email/WhatsApp) on each partner page, and flag partners nobody has been in touch with for 90 days. Adds an **My partners** tab for care team members, a "Partners to reach out to" alert, and feeds the Last heard from report. A partner marked not safe to contact shows staff's special instructions instead of the buttons, and is left out of the printed booklet's contact details. Entries are internal only. |
 | Joshua Project stats | **Off** | Shows country-level unreached-people-group statistics on a partner's page (public and admin). Requires an API key, set at Settings → Integrations, under Joshua Project ([free key](https://joshuaproject.net/api/request)). The Country Code (FIPS) field on Serving Location only appears once this is on — turning it on after partners already exist means going back into each one's Serving Location to enter the code manually or re-trigger the auto-lookup (see [USER_GUIDE.md § Editing a partner](USER_GUIDE.md#editing-a-partner)). |
 | AI Features | **Off** | Adds a "Scan for requests" button on each newsletter/document that's PDF, JPEG, PNG, or `.eml` (Word/Excel aren't supported). Sends that one file to Claude (Anthropic's API) to look for prayer requests and one-time financial needs, then shows them for review — nothing is added until you explicitly accept a suggestion. Requires an API key, set at Settings → Integrations, under AI Features ([get one at console.anthropic.com](https://console.anthropic.com/settings/keys), pay-per-scan, a few cents/month at typical volume). Off by default even once the key is configured, since it's the one feature here that sends data to a third party. |
@@ -484,16 +455,13 @@ well for a small church team:
 | Database | [Neon](https://neon.tech), [Supabase](https://supabase.com), [Railway](https://railway.app), or any managed/self-hosted Postgres |
 | App | [Railway](https://railway.app), [Fly.io](https://fly.io), a plain VPS running `npm run start` behind nginx + `pm2` — anything that can run a long-lived Node process. There's no Dockerfile in this repo, so a platform that builds straight from a Node buildpack needs the least setup. Whatever you use needs to run the frontend build (`cd frontend && npm run build`) *before* starting the backend, so `backend/public` is populated. |
 
-This is two long-lived processes now, not one (#271 Phase B): `npm run
-start` (`src/server.js`) answers web requests, and `npm run start:worker`
-(`src/worker.js`) runs the email/GroupMe/trip-reminder schedulers and the
-WhatsApp connection. Both need to stay running continuously -- `pm2` (or
-your platform's equivalent) should manage both as separate long-lived
-processes, not one restarting the other. Run exactly one copy of the
-worker regardless of how many copies of the web process you run: every
-scheduled digest, reminder, and WhatsApp/GroupMe post only ever needs to
-fire once per schedule, and running two worker copies would fire
-everything twice.
+It is one long-lived process: `npm run start` (`src/server.js`) answers web
+requests **and** runs the scheduled jobs and the WhatsApp connection, so it
+needs to stay running continuously (`pm2` or your platform's equivalent
+should restart it if it exits). The jobs start only in production
+(`NODE_ENV=production`); set `BACKGROUND_JOBS=on` or `off` to force them either
+way. You may run more than one copy: a database lock makes sure only one runs
+the jobs, so every scheduled digest, reminder and post still fires once.
 
 Wherever you land, the deployment steps are the same shape regardless of
 provider:
@@ -503,14 +471,12 @@ provider:
 2. Build the frontend (`cd frontend && npm run build`) — this writes into
    `backend/public`, so do this *before* the next step.
 3. Deploy the backend (including the now-populated `backend/public`),
-   starting both `npm run start` and `npm run start:worker` as separate
-   processes, with every variable from the
+   starting it with `npm run start`, with every variable from the
    [Environment variables table](#environment-variables) set as that
-   platform's environment/config vars on *both* processes — never commit
-   `.env`. `FIELD_ENCRYPTION_KEY` specifically must be the exact same
-   value on both; the worker decrypts tokens the web process encrypted; a
-   different key on either side breaks decryption for whichever
-   credentials were written under the other one.
+   platform's environment/config vars — never commit `.env`. If you run
+   more than one copy, `FIELD_ENCRYPTION_KEY` must be the exact same
+   value on all of them; a different key on one breaks decryption of
+   credentials written under another.
 4. Visit your new site and go to `/setup` to create your first admin
    account right in the browser — or, if you'd rather do it from a
    shell with `DATABASE_URL` set, `node prisma/createAdmin.js

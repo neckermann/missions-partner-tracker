@@ -1,6 +1,6 @@
 // Who is making the current request, for code with no `req` (the Prisma extension
 // in prismaClient.js that stamps "last edited by"). requireAuth runs the request
-// inside `actorStore.run(...)`. Outside a request (seed, worker, scripts) there is
+// inside `actorStore.run(...)`. Outside a request (seed, scheduled jobs, scripts) there is
 // no actor and nothing is stamped.
 const { AsyncLocalStorage } = require("node:async_hooks");
 

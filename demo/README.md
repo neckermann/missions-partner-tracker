@@ -14,12 +14,11 @@ reset-demo-db-remote.js` needs to recover the live demo database
   `ChurchSettings` on every reset. Never commit this file -- `.gitignore`
   already excludes every `.env`/`.env.*` anywhere in the repo.
 - **`render.yaml`** -- the demo's own Render Blueprint: the production
-  web service, the background worker (#271 Phase B -- schedulers and the
-  WhatsApp connection, split out of the web service), plus the nightly
-  reset cron job, including the four demo-only env vars
+  web service (which also runs the scheduled jobs and the WhatsApp
+  connection; there is no separate worker), plus the nightly reset cron job, including the four demo-only env vars
   (`DEMO_RESET_TOKEN`, `DEMO_ADMIN_EMAIL/PASSWORD`, `PEXELS_API_KEY`) that
   must never appear on a real church's instance -- all four stay on the
-  web service only, the worker needs none of them. Record-keeping only
+  web service only. Record-keeping only
   right now -- Render isn't actively syncing from this file; it's what to
   restore from if the demo's services were ever deleted and had to be
   rebuilt.
@@ -109,9 +108,8 @@ web service and none of the above applies, so you can try real sends and take sc
 chat posts. It also stops the banner publishing that site's logins, so give it its own `DEMO_ADMIN_EMAIL`
 and `DEMO_ADMIN_PASSWORD` (the published guest accounts use the admin password unless
 `DEMO_GUEST_PASSWORD` is set; if neither is set they fall back to a default that is in this repository).
-Set it on the worker service too, until the worker is gone: the worker does not see the web service's
-`DEMO_RESET_TOKEN`, so it recognises a demo by the flag the reset writes and would hold back its sends
-unless it also has `DEMO_TESTING_SITE=true`. The two remote reset scripts say which they are:
+Set it on the web service only: there is no separate worker any more, so the scheduled jobs see the same
+setting. The two remote reset scripts say which they are:
 `reset-demo-db-remote.js` is always guarded, `reset-dev-db-remote.js` is always the test deployment.
 Keep its address private anyway.
 
@@ -122,8 +120,7 @@ the mail only bounces and spends the email plan). Two things guarantee that. The
 reset script and the seed turn every feature on **except** the list in
 `backend/src/utils/demoMode.js`, which is where a scheduled-email feature would
 be kept off (today the list is empty). And the daily key-date job returns early
-on a demo (`DEMO_RESET_TOKEN`, or the `demoMode` flag the reset writes, which is what the worker
-process sees), as do the other scheduled emails, so no schedule can email a demo's team members
+on a demo (`DEMO_RESET_TOKEN`, or the `demoMode` flag the reset writes, which the scheduled jobs also read), as do the other scheduled emails, so no schedule can email a demo's team members
 even though **Key-date reminders are on**: a visitor sees the "Key dates coming
 up" alert on the bell and Home page, but nothing is ever sent. To keep another
 scheduled-email feature off a demo, add its key to that list.

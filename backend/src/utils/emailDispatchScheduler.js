@@ -1,7 +1,6 @@
 // In-process scheduler for both triggers: the email dispatch's three cadence
-// tiers and GroupMe/WhatsApp's daily-hour chat schedule. Runs in the worker's
-// single instance (no cron service); if ever scaled to 2+ instances, node-cron's
-// `distributed: true` is the fix.
+// tiers and GroupMe/WhatsApp's daily-hour chat schedule. Runs in the web process
+// (no cron service); the database lock in backgroundJobs.js keeps it to one running instance.
 //
 // The two registrations tick every minute but check different schedule fields,
 // so they stay independent. Both call clearDispatchRecords() at the end of their

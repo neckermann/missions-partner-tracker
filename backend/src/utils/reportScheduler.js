@@ -1,4 +1,4 @@
-// Emails saved report views on a cadence (ReportSchedule); runs in the worker.
+// Emails saved report views on a cadence (ReportSchedule); runs among the scheduled jobs.
 // Rendered for the "shared" audience (restricted partners masked) because an email
 // can be forwarded; a report the owner's role can't open is skipped.
 const cron = require("node-cron");

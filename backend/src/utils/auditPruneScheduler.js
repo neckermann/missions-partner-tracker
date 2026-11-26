@@ -1,4 +1,4 @@
-// Daily audit-trail prune: its own worker cron, like keyDateReminderScheduler.js.
+// Daily audit-trail prune: its own cron among the scheduled jobs, like keyDateReminderScheduler.js.
 // 03:30 church-local. Idempotent.
 const cron = require("node-cron");
 const { pruneAuditLog } = require("./auditLog");

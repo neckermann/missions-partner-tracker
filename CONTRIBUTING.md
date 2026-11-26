@@ -597,7 +597,6 @@ Current links, by anchor:
 |---|---|
 | `admin-guide.html#database-backups` | `frontend/src/components/admin/BackupReminder.jsx`, `frontend/src/pages/AdminSystemInfo.jsx` |
 | `admin-guide.html#email-postmark` | `frontend/src/pages/AdminSettingsEmail.jsx` |
-| `admin-guide.html#skipping-the-worker-service` | `frontend/src/pages/AdminDispatchSettings.jsx` |
 | `user-guide.html` (no anchor) | `backend/src/utils/welcomeEmails.js` (`USER_GUIDE_URL`) |
 | `user-guide.html#understanding-your-role` | `backend/src/utils/welcomeEmails.js` (`GUEST_GUIDE_URL`) |
 | `user-guide.html#your-account-settings` | `backend/src/utils/welcomeEmails.js` (`MFA_HELP_URL`) |

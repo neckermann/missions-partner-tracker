@@ -76,10 +76,11 @@ integration (see [CONTRIBUTING.md § The one rule that matters most](CONTRIBUTIN
 
 ## Background jobs
 
-The worker service runs the scheduled jobs, including the nightly **audit log
-prune** (it deletes entries older than the retention setting, 30, 60 or 90
-days). If the worker isn't running, the audit log keeps growing until it is;
-nothing breaks. The audit log is on by default and records sign-in IP
+The web service runs the scheduled jobs (`backend/src/utils/backgroundJobs.js`),
+including the nightly **audit log prune** (it deletes entries older than the
+retention setting, 30, 60 or 90 days). There is no separate worker service.
+They run only in production, or with `BACKGROUND_JOBS=on`; if they are off the
+audit log keeps growing until they run; nothing breaks. The audit log is on by default and records sign-in IP
 addresses, which matters if you are asked what personal data the app keeps.
 
 ## Deploy / rollback
