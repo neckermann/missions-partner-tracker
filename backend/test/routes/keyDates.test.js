@@ -278,6 +278,41 @@ describe("key dates: the missions team", () => {
   });
 });
 
+describe("key dates: the list you can copy (the email-off option)", () => {
+  test("lists what the email would say for the partners you look after, and says whether email is on", async () => {
+    const partner = await newPartner("copylist");
+    await addAdult(partner.id, dateIn(2), "Dana");
+    const member = await makeGuest("copylist");
+    await prisma.careTeamMember.create({ data: { partnerId: partner.id, userId: member.user.id } });
+    const g = await member.login();
+    const res = await g("/api/key-dates/mine");
+    assert.equal(res.status, 200);
+    assert.equal(typeof res.body.emailOn, "boolean");
+    assert.equal(res.body.items.length, 1);
+    assert.match(res.body.items[0].when, /^In 2 days/);
+    assert.match(res.body.items[0].text, /Dana Reed's birthday/);
+    assert.equal(res.body.items[0].partnerId, partner.id);
+    // Someone who looks after nothing gets an empty list, not an error.
+    assert.deepEqual((await viewer("/api/key-dates/mine")).body.items, []);
+  });
+
+  test("reports email off, and 404s while key-date reminders are off", async () => {
+    const before = (await admin("/api/settings")).body.enabledFeatures;
+    await setFeatures({ outboundEmail: false });
+    try {
+      assert.equal((await viewer("/api/key-dates/mine")).body.emailOn, false);
+    } finally {
+      await setFeatures({ outboundEmail: before?.outboundEmail ?? false });
+    }
+    await setFeatures({ keyDates: false });
+    try {
+      assert.equal((await viewer("/api/key-dates/mine")).status, 404);
+    } finally {
+      await setFeatures({ keyDates: true });
+    }
+  });
+});
+
 describe("key dates: the feature gates", () => {
   test("counts nothing, and the endpoints 404, while the flags are off", async () => {
     const partner = await newPartner("gates");
