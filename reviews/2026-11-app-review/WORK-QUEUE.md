@@ -46,9 +46,13 @@ Order is: safety first, then the install path, then the small bugs, then everyth
 | 16a | **B2** email "on but not ready" is treated as off everywhere (use the existing copy-link fallbacks) and one "Email isn't finished setting up" notice is shown. Does not tackle the Postmark-is-hard question | (new) | Covers Add User dead end and the Subscribe page's false "check your email" |
 | 16b | **B11** guest wording: one line at each place a care-team guest is told what they are, what is hidden, and that their entries wait for approval; the Add User form stops offering Guest when it cannot be used and no longer calls it trips-only | (new) | |
 | 16c | **B15** dead ends: no bell item or link leads to a switched-off or hidden page; Enabled Features no longer says updates "wait on Pending Dispatches" when that page is blocked; Monthly Support gets a menu entry | (new) | |
-| 16d | **B6 part 2** ask for the admin's password again before a backup download; replace the restore guide's "temporary, unlisted file host" advice with safe handling; read-only: record in the issue what Render's Postgres plan already backs up (no change to Render). **File encryption: pending decision** | (new) | Scheduled backups deferred (D25) |
-| 16f | **B6 part 3** restore from inside the app, for a church that cannot run `npm run backup:restore`. Requires: admin re-enters password; upload the file; typed confirmation; checksum and migration-version check (as the CLI does); an automatic backup of the current data first; the site refuses other writes while it runs; the whole restore is one transaction (as `restoreRows` already is); an audit entry. Replaces the guide's "CLI-only" reasoning | (new) | Largest, riskiest item: a bug here wipes a church's data. Tests against a real database for every guard; cannot be tried on dev-test unattended. Put after 16e. Opens the PR but is **not** merged to `dev` without the owner (rule 2 exception) |
+| 16d | **B6 part 2** ask for the admin's password again before a backup download; replace the restore guide's "temporary, unlisted file host" advice with safe handling; read-only: record in the issue what Render's Postgres plan already backs up (no change to Render). **Optional passphrase encryption of the downloaded file**, with a clear warning that a lost passphrase cannot be recovered; unencrypted stays available (D27) | (new) | Scheduled backups deferred (D25) |
+| 16f | **B6 part 3** restore from inside the app, for a church that cannot run `npm run backup:restore`. Requires: admin re-enters password; upload the file; typed confirmation; asks for the passphrase if the file is encrypted; checksum and migration-version check (as the CLI does); an automatic backup of the current data first; the site refuses other writes while it runs; the whole restore is one transaction (as `restoreRows` already is); an audit entry. Replaces the guide's "CLI-only" reasoning | (new) | Largest, riskiest item: a bug here wipes a church's data. Tests against a real database for every guard; cannot be tried on dev-test unattended. Put after 16e. Opens the PR but is **not** merged to `dev` without the owner (rule 2 exception) |
 | 16e | **B5** plain words, using report 1's jargon table (exact string, file, replacement), including the ticket number printed at `AdminDispatchSettings.jsx:313`; update tests | (new) | Last in Phase 1: touches many files, so run it after the others to avoid conflicts |
+
+| 16g | **C12** a plain warning before a restricted partner's letter is sent to the AI scan, and guests cannot trigger the scan | (new) | Near #325 |
+| 16h | **C13** partner photos are no longer reachable by web address when the partner's settings say they shouldn't be public | (new) | Read how photos are served before changing anything |
+| 16i | **C14** link fields accept only web addresses (http and https), not any text | (new) | |
 
 The B items have no issue yet. File one per item from the draft text in `README.md` (section B) before starting each, and link it in the PR.
 
@@ -103,6 +107,9 @@ Update this table as items land.
 | 16d | B6 part 2 | not started | |
 | 16e | B5 | not started | |
 | 16f | B6 part 3 | not started | |
+| 16g | C12 | not started | |
+| 16h | C13 | not started | |
+| 16i | C14 | not started | |
 | 17 | A10 | not started | |
 | 18 | B13 | not started | |
 
