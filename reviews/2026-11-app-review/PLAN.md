@@ -66,6 +66,9 @@ Not re-run: A1 (needs the live demo, which is off limits and not mine to touch),
 | D29 | B3 and B4 stay in #477 | |
 | D30 | C9: decline option and optional amount (16j); "on it / met" state in the schema batch (19) | WORK-QUEUE |
 | D31 | B14 docs pass queued last in Phase 1; screenshots left to the owner | WORK-QUEUE item 16k |
+| D32 | The Viewer role stays: it gives church staff a full read-only view, where other roles see limited parts | No change; C3's Viewer removal dropped. Lead/Member merge not decided |
+| D33 | Trips stay as they are for now | C1 |
+| D34 | Issues filed for B and C items (#498 to #514); queue starts now, in order | WORK-QUEUE.md |
 | D5 | Blueprint default names | A8: drop the `name-instance` step, add a Deploy to Render button, list true requirements and cost |
 | D7 | No church has real data yet | Confirmed; wipe-on-upgrade is acceptable for now |
 
