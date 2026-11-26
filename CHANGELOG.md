@@ -29,6 +29,7 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ### Changed
 
+- **A new install publishes nothing until the church chooses to (#490).** The public directory and map are now off by default, so a new install shows no partners to the internet. The first time an admin reaches the admin area they are asked once, in plain words, whether to turn them on ("Not yet" is fine); it can be changed any time under Settings → Privacy and safety. Individual partners were already private until "Show on public site" is ticked. A site that has never chosen shows a short "This isn't public" notice at `/` (a brand-new site with no accounts goes to setup instead). A church that already chose keeps its choice; installs that never did will see the directory and map turn off after this update (there are no churches with data yet).
 - **A new install is useful straight away (#477).** The contact log and key-date reminders are now on by default, and the first admin created at `/setup` is on the missions team. Until now both features were off, and turning them on did nothing because nobody was on the missions team (reminders go to whoever looks after a partner: its care team, else the missions team), so the bell said "Nothing waiting" with a birthday four days away. Email for key dates still needs Email (Sending). A church that wants either off can still switch it off under Settings → Enabled Features. Installs that never chose will see both turn on after this update; there are no churches with data yet.
 
 ## [0.1.0-beta.3] - 2026-11-26
