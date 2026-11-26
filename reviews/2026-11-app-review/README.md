@@ -394,7 +394,7 @@ Filed 2026-11-26 after the owner's approval, with the owner's decisions folded i
 | A4 | neckermann/missions-partner-tracker#491 |
 | A5 | neckermann/missions-partner-tracker#492 |
 | A6 | neckermann/missions-partner-tracker#493 |
-| A7 | neckermann/missions-partner-tracker#494 |
+| A7 | neckermann/missions-partner-tracker#494 (reworked: remove the worker) |
 | A8 | neckermann/missions-partner-tracker#495 |
 | A9 | Notes added as a comment on neckermann/missions-partner-tracker#477 |
 | A10 | neckermann/missions-partner-tracker#496 |

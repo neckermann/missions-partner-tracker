@@ -54,6 +54,9 @@ Not re-run: A1 (needs the live demo, which is off limits and not mine to touch),
 | D10 | No setup code; atomic first-admin creation, front-page redirect and a guide line instead | A3 filed as #497 |
 | D11 | File A1-A8 and A10 | Done: #489 to #496, plus a comment on #477 |
 
+| D12 | One service: schedulers and WhatsApp run inside the web service; no worker, and none offered as an option; the owner accepts the WhatsApp-in-web-process risk | A7 reworked as #494 "Remove the separate worker". No heartbeat or warning needed. First task: measure memory on dev-test; if tight, use a bigger plan, not a worker |
+| D13 | Blueprint deploys from the upstream repo directly | A8 (#495); see the release-branch question still open below |
+
 Still open: D6 (WhatsApp, Viewer role, "Trips departing soon" alert), not blocking.
 
 ## 3. Waves
@@ -83,7 +86,7 @@ These do not depend on any decision except D2 to D4 for the optional parts, and 
 Do in this order:
 
 1. **A3 + A9's small piece + A10** (one PR): atomic first-admin creation, `/` redirects to `/setup` or shows an empty state, first admin joins the missions team, contact log and key-date reminders on by default, recovery codes, documented clear-2FA command, `FIELD_ENCRYPTION_KEY` required at start-up.
-2. **A7** (including the heartbeat table): worker shares the web service's secrets, last-seen record, admin warning, true cost in every place. Heartbeat is a schema change, so it goes in before the freeze.
+2. **A7 (reworked, D12)**: remove the worker; schedulers and WhatsApp start from `server.js` behind a database lock; correct the cost; measure memory on dev-test first. No schema change.
 3. **A4 move** (and D3, D4 once decided): move the two settings to a page that always exists. Also B13's setting if wanted.
 4. **A5 (reduced, per D1)**: start-up mismatch check so a bad upgrade never goes live, fix SPEC § 8.3 and the UPGRADING.md "easy way", and add the wipe-on-upgrade warning to README, UPGRADING.md and the marketing page. No freeze, so the hard rules stay as they are.
 5. **A8** per D5, plus the corrected requirements text.
