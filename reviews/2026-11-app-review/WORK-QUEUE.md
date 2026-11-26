@@ -93,7 +93,7 @@ A6's PR is #515.
 |---|---|---|---|
 | 1 | A6 | merged to dev | #515 |
 | 2 | A2a | merged to dev | #516 |
-| 3 | A1 | in progress | |
+| 3 | A1 | PR open, CI running | #517 |
 | 4 | A3 | not started | |
 | 5 | A9 small piece | not started | |
 | 6 | A4 | not started | |
@@ -124,4 +124,4 @@ A6's PR is #515.
 
 ## Log
 
-- 2026-11-26: item 1 (A6) merged to `dev` as #515 after all four checks (backend-tests, lint, frontend-build, e2e) passed. Item 2 (A2a) merged as #516 (all four checks green). #490 stays open for A2b. Item 3 (A1) started.
+- 2026-11-26: item 1 (A6) merged to `dev` as #515 after all four checks (backend-tests, lint, frontend-build, e2e) passed. Item 2 (A2a) merged as #516 (all four checks green). #490 stays open for A2b. Item 3 (A1) opened as #517; a code review of the first version found four real problems (email settings guard on the wrong method, remote reset scripts, the worker, setup links), all fixed before merge.
