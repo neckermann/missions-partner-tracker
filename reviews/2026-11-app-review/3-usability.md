@@ -1,5 +1,13 @@
 # 3. Usability and acceptance
-**Status: Draft, not yet verified by the lead reviewer.**
+**Status: Checked by the lead reviewer, 2026-11-26. The findings listed under "Lead check" were re-checked; the rest stand as the helper reported them.**
+
+> **Lead check**
+> - **U3 reproduced by the lead:** on a fresh local install with no accounts, the front page stayed at `/` showing "Loading..." and never led to setup (`frontend/src/pages/PublicDirectory.jsx:50` treats "no partners" as "not loaded").
+> - **U4 reproduced by the helper, with a correction to how it is framed:** SPEC.md § 5.2 lists "Public / restricted / safe-to-contact flags" as something a care team member may change. So this is the intended behaviour, not a bug. Whether a guest should be able to do it is the owner's decision; the recommendation stands.
+> - **U8 confirmed (read in the code):** `render.yaml:139-140` leaves the worker's encryption key for a person to copy by hand.
+> - **U9 confirmed in part (read in the code):** the Bible passage and its "(ESV)" credit are written into `frontend/src/pages/PublicSubscribe.jsx` (about lines 30-43).
+> - **Housekeeping correction:** the helper's two servers were stopped once mid-review by a clean-up command of mine, not by anything external. The helper restarted them and re-ran the step.
+> - **Not re-checked:** the click and screen counts, U1, U2, U5 to U7, U10 to U16. The screenshot `u-forced-two-factor-enrolment.png` shows the setup key of a throwaway local account that no longer exists.
 **Reviewed:** branch `dev` at e713437 (0.1.0-beta.3), 2026-11-26.
 
 ## Summary

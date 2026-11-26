@@ -1,5 +1,13 @@
 # 1. Complexity: switches, settings, alerts, jobs, roles and words
-**Status: Draft, not yet verified by the lead reviewer.**
+**Status: Checked by the lead reviewer, 2026-11-26. The findings listed under "Lead check" were re-checked; the rest stand as the helper reported them.**
+
+> **Lead check**
+> - **Feature switch count confirmed:** 9 on by default and 14 off (`grep -c "defaultEnabled: true|false" backend/src/utils/features.js`).
+> - **C3 confirmed (read in the code):** `frontend/src/pages/AdminPartnerForm.jsx:32`.
+> - **C4 confirmed in part (read in the code):** the two restricted-partner settings are on the Dispatches settings page (`frontend/src/pages/AdminDispatchSettings.jsx:137-166`), and that page's route is shown only when GroupMe, WhatsApp or Email (Sending) is on (`frontend/src/main.jsx:388-394`). I did not test the server side.
+> - **C2 confirmed in part:** a search of `backend/src` and the schema finds no heartbeat or "worker last seen" record, so the app has nothing to tell it whether the worker is running.
+> - **C10 confirmed:** the ticket number "#209" is printed in help text at `frontend/src/pages/AdminDispatchSettings.jsx:313`.
+> - **Not re-checked:** the other counts (settings pages, inputs, alerts, jobs, emails, roles) and C5 to C15.
 **Reviewed:** branch `dev` at e713437 (0.1.0-beta.3), 2026-11-26.
 
 ## Summary

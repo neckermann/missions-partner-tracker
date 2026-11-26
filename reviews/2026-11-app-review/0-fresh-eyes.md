@@ -1,5 +1,11 @@
 # 0. Fresh eyes: the blank-page sketch versus the built app
-**Status: Draft, not yet verified by the lead reviewer.**
+**Status: Checked by the lead reviewer, 2026-11-26. The findings listed under "Lead check" were re-checked; the rest stand as the helper reported them.**
+
+> **Lead check**
+> - **F1 confirmed (read in the code):** the New Partner form starts with `isPublic: true` (`frontend/src/pages/AdminPartnerForm.jsx:32`) while the database default is `false` (`backend/prisma/schema.prisma:20`).
+> - **F4 confirmed in part (read in the code):** the "Mission Trips" heading and the "Trip Capacity" section are not tied to the trips switch (`frontend/src/pages/AdminPartnerDetail.jsx:1618-1651`); only the trip list card is. I did not recount the line and model totals.
+> - **F2 confirmed in part (read in the code):** first-run setup creates the admin without putting them on the missions team (`backend/src/routes/auth.js:132-140`). The usability helper separately reproduced the empty "Nothing waiting." bell.
+> - **Not re-checked:** F6 (the missing link to Pending Dispatches), the "nothing exists" claims (import, snooze, public prayer requests, giving link), and all counts.
 **Reviewed:** branch `dev` at e713437 (0.1.0-beta.3), 2026-11-26.
 
 ## Summary
