@@ -102,9 +102,9 @@ A6's PR is #515.
 | 9 | A5 | merged to dev | #523 |
 | 10 | A8 | merged to dev | #524 |
 | 11 | B1 | merged to dev | #525 |
-| 12 | B9 | PR open, CI running | #526 |
+| 12 | B9 | merged to dev | #526 |
 | 13 | B7 | PR open, CI running | #527 |
-| 14 | B8 | not started | |
+| 14 | B8 | in progress | |
 | 15 | B10 | not started | |
 | 16 | B12 | not started | |
 | 16a | B2 | not started | |
@@ -135,3 +135,4 @@ A6's PR is #515.
 - 2026-11-26: item 11 (B1) merged as #525 (all four checks green). Item 12 (B9) started.
 - 2026-11-26: item 12 (B9) opened as #526. At the owner's request the dev-test worker service on Render was deleted (it followed `dev`, which no longer has `worker.js`). The production worker was left running on purpose: it follows `main`, which still has the old code until the first release; delete it after `dev` is merged into `main`.
 - 2026-11-26: item 13 (B7) opened as #527 (jobs use the church's own day; a saved time zone applies at once). #526 (B9) CI still running (e2e).
+- 2026-11-26: item 12 (B9) merged as #526 (all four checks green). #527 (B7) had a changelog and `server.js` import conflict with it, resolved by keeping both sides; CI re-running. Item 14 (B8) started.
