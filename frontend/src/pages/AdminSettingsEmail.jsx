@@ -119,6 +119,13 @@ export default function AdminSettingsEmail() {
               <strong>{v.sendEnabled ? "Enabled" : "Disabled"}</strong>
               {settings.outboundConfigured ? " · Configured" : " · Not configured"}
             </p>
+            {v.sendEnabled && !settings.outboundConfigured && (
+              <p role="status" style={{ color: "var(--warn)" }}>
+                Email isn't finished setting up. Until a mail account and From address are saved below,
+                nothing is emailed: the app shows a link to copy instead (new users, setup links) and the
+                public Subscribe form says it isn't available.
+              </p>
+            )}
             <p style={{ color: "var(--muted)" }}>From: {v.fromAddress || "Not set"}</p>
             {testResult && <p style={{ color: "var(--muted)" }}>{testResult}</p>}
           </>

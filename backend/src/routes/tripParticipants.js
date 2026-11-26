@@ -2,6 +2,7 @@
 // approving an application becomes a participant through the same tx.tripParticipant.create path as
 // the direct-add route.
 const express = require("express");
+const { isOutboundEmailReady, READY_SELECT } = require("../utils/emailReady");
 const { z } = require("zod");
 const prisma = require("../prismaClient");
 const { requireAuth, requireRole, requireTripScope } = require("../middleware/requireAuth");
@@ -31,7 +32,6 @@ const {
   buildTripDatesIcs,
   sendLateJoinerCatchUpEmails,
 } = require("../utils/tripEmails");
-const { isFeatureEnabled } = require("../utils/features");
 const { decodePhotoDataUrl } = require("../utils/participantPhoto");
 const { participantSchema, defaultParticipantGoal } = require("../utils/tripParticipantSchema");
 
@@ -42,7 +42,7 @@ router.use(requireFeature("trips"));
 async function getSettings() {
   return prisma.churchSettings.findUnique({
     where: { id: "singleton" },
-    select: { enabledFeatures: true, allowPublicSupportRaisingLinks: true },
+    select: { ...READY_SELECT, allowPublicSupportRaisingLinks: true },
   });
 }
 
@@ -149,7 +149,7 @@ router.put(
         application.trip.startDate &&
         application.trip.endDate
       ) {
-        if (isFeatureEnabled(settings?.enabledFeatures, "outboundEmail")) {
+        if (isOutboundEmailReady(settings)) {
           await sendParticipantEmail(
             updated.participant,
             `You're on the team: ${application.trip.name || application.trip.type || "your trip"}`,
@@ -228,7 +228,7 @@ router.post(
 
       let teamWelcomeEmail = null;
       if (trip.status !== "completed" && trip.startDate && trip.endDate) {
-        if (isFeatureEnabled(settings?.enabledFeatures, "outboundEmail")) {
+        if (isOutboundEmailReady(settings)) {
           await sendParticipantEmail(
             participant,
             `You're on the team: ${trip.name || trip.type || "your trip"}`,
@@ -364,7 +364,7 @@ router.post(
       const participant = await prisma.tripParticipant.findUnique({ where: { id: req.params.id } });
       if (!participant) return res.status(404).json({ error: "Not found" });
       const settings = await getSettings();
-      if (isFeatureEnabled(settings?.enabledFeatures, "outboundEmail")) {
+      if (isOutboundEmailReady(settings)) {
         await sendParticipantEmail(
           participant,
           "Your trip access link",

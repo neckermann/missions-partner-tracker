@@ -25,6 +25,7 @@ const CATEGORY_GROUP = {
   newPrayerRequests: "Partner Care",
   newOneTimeNeeds: "Partner Care",
   adminMfaDisabled: "System",
+  emailNotFinished: "System",
   timeToCheckBackups: "System",
   whatsappConnectionDrop: "System",
 };

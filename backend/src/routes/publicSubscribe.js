@@ -1,4 +1,5 @@
 const express = require("express");
+const { isOutboundEmailReady, READY_SELECT } = require("../utils/emailReady");
 const rateLimit = require("express-rate-limit");
 const { z } = require("zod");
 const prisma = require("../prismaClient");
@@ -24,12 +25,18 @@ router.use(requireFeature(["publicPrayerDigest"]));
 async function requireSubscribeDependencies(req, res, next) {
   const settings = await prisma.churchSettings.findUnique({
     where: { id: "singleton" },
-    select: { enabledFeatures: true },
+    select: READY_SELECT,
   });
   const ok =
     isFeatureEnabled(settings?.enabledFeatures, "publicDirectory") &&
     isFeatureEnabled(settings?.enabledFeatures, "outboundEmail");
   if (!ok) return res.status(404).json({ error: "Not found" });
+  // Email is switched on but the church hasn't entered a mail account: never promise "check your email".
+  if (!isOutboundEmailReady(settings)) {
+    return res
+      .status(503)
+      .json({ error: "Email updates aren't available right now. Please try again later." });
+  }
   next();
 }
 

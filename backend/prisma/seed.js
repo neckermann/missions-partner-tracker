@@ -1278,7 +1278,7 @@ const ADDITIONAL_USERS = [
 
 // More users across roles, active state and MFA-required, so Manage Users has variety.
 // mfaSetupRequired, not mfaEnabled: mfaEnabled with no real TOTP secret would lock the account
-// out. Fixed, obviously fake password: these accounts only populate the list. None get a
+// out. Random, unknown password (unusablePasswordHash): these accounts only populate the list. None get a
 // cadence: their @example.org addresses (RFC 2606) are non-deliverable, and a demo reset must
 // never attempt a digest send.
 //
@@ -2425,10 +2425,18 @@ const DEMO_USER_DETAILS = {
 };
 const userDetails = (firstName, lastName) => DEMO_USER_DETAILS[`${firstName} ${lastName}`] || {};
 
+// The populate-the-list accounts get a password nobody knows: a random one, hashed and never printed
+// or stored anywhere else. The old shared fixed password was in the repo, so anyone could have
+// signed in to a seeded copy that was left running. (The two published demo logins use
+// demoGuestPassword() instead, by design.) To sign in as one of these, reset its password in Manage Users.
+async function unusablePasswordHash(bcrypt) {
+  return bcrypt.hash(require("crypto").randomBytes(32).toString("hex"), 12);
+}
+
 async function seedAdditionalUsers() {
   console.log(`Seeding ${ADDITIONAL_USERS.length} additional admin users...`);
   const bcrypt = require("bcryptjs");
-  const passwordHash = await bcrypt.hash("SeedDemoUser2026!", 12);
+  const passwordHash = await unusablePasswordHash(bcrypt);
   for (const u of ADDITIONAL_USERS) {
     const email = `${slugify(`${u.firstName} ${u.lastName}`)}@example.org`;
     await prisma.user.upsert({
@@ -2514,7 +2522,7 @@ async function seedNotificationQueue() {
 // Two demo logins are published (demo/README.md): a care team member and a trip leader. They are
 // the exception to "MFA is required for a guest": a shared, published account can't enrol an
 // authenticator without locking out other visitors, so they are created with mfaSetupRequired
-// off. Everything else is a populate-the-list account with the fixed fake password.
+// off. Everything else is a populate-the-list account with an unknown random password.
 // Defined once in src/utils/demoLogins.js, which the demo banner also reads.
 const {
   demoCareMemberEmail,
@@ -2533,7 +2541,7 @@ async function seedCareTeamsDemo() {
     notifySupportNeedCreated,
   } = require("../src/utils/dispatchRecording");
   const publishedHash = await bcrypt.hash(demoGuestPassword(), 12);
-  const fakeHash = await bcrypt.hash("SeedDemoUser2026!", 12);
+  const fakeHash = await unusablePasswordHash(bcrypt);
 
   const makeGuest = (email, firstName, lastName, { published, lapsed }) =>
     prisma.user.upsert({
@@ -3639,6 +3647,10 @@ async function main() {
       `Found ${existingMissionaries} missionaries and ${existingOrgs} organizations already on file — seeding will add more on top of these, not replace them.`
     );
   }
+
+  // A freshly created database has no settings row yet (the app makes it on first use); the seed
+  // updates it below, so make sure it exists.
+  await prisma.churchSettings.upsert({ where: { id: "singleton" }, update: {}, create: { id: "singleton" } });
 
   const churchSettings = await prisma.churchSettings.findUnique({ where: { id: "singleton" } });
   const admin = await prisma.user.findFirst({ where: { role: "admin" } });

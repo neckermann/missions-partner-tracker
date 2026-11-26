@@ -4,7 +4,6 @@ const { z } = require("zod");
 const prisma = require("../prismaClient");
 const { requireRole } = require("../middleware/requireAuth");
 const { sendWelcomeEmail } = require("../utils/welcomeEmails");
-const { isFeatureEnabled } = require("../utils/features");
 const { subscribeToDefaultDigest } = require("../utils/digestDefaults");
 const { recordAudit } = require("../utils/auditLog");
 const {
@@ -18,12 +17,13 @@ const {
 const { passwordSchema } = require("../utils/password");
 const { isTwoFactorRequired } = require("../utils/twoFactor");
 const { isGuardedDemo, refuseOnGuardedDemo } = require("../utils/demoMode");
+const { isOutboundEmailReady, READY_SELECT } = require("../utils/emailReady");
 
-// Narrow select: this route only needs to know whether outbound email is on.
+// Narrow select: this route only needs to know whether this site can send email.
 async function getSettings() {
   return prisma.churchSettings.findUnique({
     where: { id: "singleton" },
-    select: { enabledFeatures: true },
+    select: READY_SELECT,
   });
 }
 
@@ -371,7 +371,7 @@ router.post("/", async (req, res, next) => {
     let welcomeEmail = { sent: false, skipped: true };
     if (sendWelcome && !password) {
       const settings = await getSettings();
-      if (isFeatureEnabled(settings?.enabledFeatures, "outboundEmail")) {
+      if (isOutboundEmailReady(settings)) {
         try {
           await sendWelcomeEmail(created, { requireMfa: requireMfa || (await isTwoFactorRequired()) });
           welcomeEmail = { sent: true };
@@ -417,7 +417,7 @@ router.post("/:id/setup-link", refuseOnGuardedDemo("Sending a setup link"), asyn
       return res.status(400).json({ error: "This account already has a password" });
     }
     const settings = await getSettings();
-    if (isFeatureEnabled(settings?.enabledFeatures, "outboundEmail")) {
+    if (isOutboundEmailReady(settings)) {
       await sendWelcomeEmail(user, { requireMfa: user.mfaSetupRequired || (await isTwoFactorRequired()) });
       await recordAudit(null, {
         action: "user.setup_link_sent",
