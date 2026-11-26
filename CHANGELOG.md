@@ -16,6 +16,10 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ## [Unreleased]
 
+### Added
+
+- **Trip applications and backup reminders can come by email (#423).** When Email (Sending) is on, a new trip application emails the admins and editors, and the trip's own leaders (a Guest with active access to it), with the applicant's name and a link to review it, never their contact details. Admins also get a backup reminder email about once a month, held back for 30 days after they dismiss the in-app one, and off once the reminder is turned off for good. With email off nothing changes: the application is still a bell badge and a row on the trip's Team page, and the backup reminder is still the banner and the bell. Neither is ever sent from a public demo.
+
 ## [0.1.0-beta.3] - 2026-11-26
 
 ### Changed

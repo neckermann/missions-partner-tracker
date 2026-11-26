@@ -14,6 +14,7 @@ const { startEmailDispatchScheduler, startGroupMeScheduler } = require("./utils/
 const { startTripReminderScheduler } = require("./utils/tripReminderScheduler");
 const { startKeyDateReminderScheduler } = require("./utils/keyDateReminderScheduler");
 const { startCareChatDispatchScheduler } = require("./utils/careChatDispatch");
+const { startBackupReminderScheduler } = require("./utils/backupReminderEmail");
 const { startReportScheduler } = require("./utils/reportScheduler");
 const { startAuditPruneScheduler } = require("./utils/auditPruneScheduler");
 const whatsappClient = require("./utils/whatsappClient");
@@ -44,6 +45,7 @@ if (require.main === module) {
     startTripReminderScheduler();
     startKeyDateReminderScheduler();
     startCareChatDispatchScheduler();
+    startBackupReminderScheduler();
     startReportScheduler();
     startAuditPruneScheduler();
     console.log("Missionary Tracker worker is running.");

@@ -1564,6 +1564,12 @@ server-side: downloading is the only copy that exists, so store it
 somewhere safe immediately (a password manager's file storage, an
 encrypted drive — somewhere only trusted people can reach).
 
+Nothing in the app backs up your database, so it reminds you. An admin sees
+a banner and a **Time to check your backups** item on the bell, and, **when
+Email (Sending) is on**, also gets a short email about once a month (never on
+a public demo). Dismissing the banner holds the email back for 30 days too,
+and **turning the reminder off for good** on the System Info page stops both.
+
 ![The Backups section of the About App page: a Back up now button and the opt-out for the periodic reminder](docs/assets/screenshots/backups-settings.png)
 
 **This file is the most sensitive thing this app can produce.** It

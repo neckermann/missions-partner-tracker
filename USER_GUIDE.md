@@ -661,7 +661,7 @@ covered below.
   shown to applicants or participants.
 - **Contributions** is the giving ledger — who gave, how much, by
   Check/Cash/Online/Other, to whom it's credited.
-- **Applications awaiting review** — click a row to open its own review
+- **Applications awaiting review** — a new application also shows as a badge on the bell. When Email (Sending) is on, the admins and editors, and the trip's own leaders, get an email naming the applicant with a link to review it (never their contact details). Click a row to open its own review
   page, with the applicant's full answers already shown. **Approve or
   Decline** there launches a short wizard (Decision, then Confirm); a
   declined one can still be reconsidered later.
