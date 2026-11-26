@@ -144,6 +144,10 @@ router.post("/setup", async (req, res, next) => {
           passwordHash,
           role: "admin",
           authProvider: "local",
+          // Nobody else is on the missions team yet. The contact log and key-date reminders go to whoever
+          // looks after a partner (its care team, else the missions team), so without this they would
+          // notify no one until an admin found the switch on the user's own page.
+          onMissionsTeam: true,
         },
       });
 
