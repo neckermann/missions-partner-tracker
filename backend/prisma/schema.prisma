@@ -776,9 +776,12 @@ model KeyDateReminder {
   kind           String
   subjectId      String   @default("")
   occurrenceDate DateTime @db.Date
+  // Which heads-up this was: 0 = the final one (inside keyDateLeadDays), otherwise the advance threshold
+  // in days (90, 30, ...) it was raised at. Each (date, heads-up) is mailed to a person once.
+  tier           Int      @default(0)
   sentAt         DateTime @default(now())
 
-  @@unique([userId, partnerId, kind, subjectId, occurrenceDate])
+  @@unique([userId, partnerId, kind, subjectId, occurrenceDate, tier])
   @@index([partnerId])
 }
 
@@ -1390,6 +1393,9 @@ model ChurchSettings {
   // Days ahead a key date is raised (bell and daily email agree), and days without a logged
   // contact before a partner is "quiet".
   keyDateLeadDays  Int @default(7)
+  // Earlier heads-ups for a key date, in days before it (default 90 and 30). They ride in the email digest;
+  // the final one (keyDateLeadDays) goes out on its own when the next digest would come too late.
+  keyDateAdvanceDays Int[] @default([90, 30])
   contactStaleDays Int @default(90)
 
   // Email dispatch customization; null subject/signature means the built-in default

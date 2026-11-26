@@ -144,6 +144,22 @@ describe("the two care timings are church settings", () => {
     });
   });
 
+  test("the earlier key-date heads-ups are a church setting: up to three, whole days", async () => {
+    const put = (keyDateAdvanceDays) =>
+      admin("/api/settings", { method: "PUT", body: { keyDateAdvanceDays } });
+    assert.equal((await put([90, 60, 30, 14])).status, 400, "no more than three");
+    assert.equal((await put([1])).status, 400, "a day or two out is the final window's job");
+    assert.equal((await put([400])).status, 400, "within a year");
+    assert.equal((await put([45.5])).status, 400, "whole days");
+    assert.equal((await put([120, 45])).status, 200);
+    assert.deepEqual((await admin("/api/settings")).body.keyDateAdvanceDays, [120, 45]);
+    assert.equal((await put([])).status, 200, "none turns the earlier heads-ups off");
+    await prisma.churchSettings.update({
+      where: { id: "singleton" },
+      data: { keyDateAdvanceDays: [90, 30] },
+    });
+  });
+
   test("the key-date window follows the lead days", async () => {
     const { user } = await makeUser("lead");
     const partner = await newPartner("window");

@@ -12,11 +12,19 @@ import Field from "../components/admin/Field.jsx";
 
 // Church-wide partner care settings: who looks after partners that have no care team of their own (the
 // "missions team", named however this church says it), and the timings the care features share. Admin only.
+// "90, 30" -> [90, 30]; anything that isn't a whole number is dropped (the server also checks the bounds).
+const parseDays = (text) =>
+  String(text || "")
+    .split(/[,\s]+/)
+    .filter(Boolean)
+    .map(Number)
+    .filter((n) => Number.isInteger(n));
+
 export default function AdminSettingsPartnerCare() {
   const { enabledFeatures, ownerGroupName, refreshSettings, cadenceTiersEnabled } = useSettings();
   const [team, setTeam] = useState(undefined); // undefined = loading; { members, candidates }
   // How far ahead a key date is raised, and how long without contact makes a partner quiet.
-  const [timings, setTimings] = useState(null); // { keyDateLeadDays, contactStaleDays }
+  const [timings, setTimings] = useState(null); // { keyDateLeadDays, keyDateAdvanceDays, contactStaleDays }
   // The email digest tier a person starts on when added to the missions team ("" = nobody is subscribed for them).
   const [defaultDigest, setDefaultDigest] = useState(undefined);
   const [loadError, setLoadError] = useState("");
@@ -29,11 +37,15 @@ export default function AdminSettingsPartnerCare() {
   const reloadTimings = () =>
     fetchChurchSettings()
       .then((s) => {
-        setTimings({ keyDateLeadDays: s?.keyDateLeadDays ?? 7, contactStaleDays: s?.contactStaleDays ?? 90 });
+        setTimings({
+          keyDateLeadDays: s?.keyDateLeadDays ?? 7,
+          keyDateAdvanceDays: s?.keyDateAdvanceDays ?? [90, 30],
+          contactStaleDays: s?.contactStaleDays ?? 90,
+        });
         setDefaultDigest(s?.defaultDigestCadence || "");
       })
       .catch(() => {
-        setTimings({ keyDateLeadDays: 7, contactStaleDays: 90 });
+        setTimings({ keyDateLeadDays: 7, keyDateAdvanceDays: [90, 30], contactStaleDays: 90 });
         setDefaultDigest("");
       });
 
@@ -185,11 +197,13 @@ export default function AdminSettingsPartnerCare() {
           canEdit
           value={{
             keyDateLeadDays: String(timings?.keyDateLeadDays ?? 7),
+            keyDateAdvanceDays: (timings?.keyDateAdvanceDays ?? [90, 30]).join(", "),
             contactStaleDays: String(timings?.contactStaleDays ?? 90),
           }}
           onSave={(draft) =>
             updateChurchSettings({
               keyDateLeadDays: Number(draft.keyDateLeadDays),
+              keyDateAdvanceDays: parseDays(draft.keyDateAdvanceDays),
               contactStaleDays: Number(draft.contactStaleDays),
             })
           }
@@ -202,13 +216,24 @@ export default function AdminSettingsPartnerCare() {
                 showEmpty
               />
               <Field
+                label="Earlier heads-ups in the digest"
+                value={
+                  timings?.keyDateAdvanceDays?.length
+                    ? timings.keyDateAdvanceDays.map((n) => `${n} days`).join(", ") + " ahead"
+                    : "None"
+                }
+                showEmpty
+              />
+              <Field
                 label="A partner is quiet after"
                 value={timings ? `${timings.contactStaleDays} days without contact` : "Loading…"}
                 showEmpty
               />
               <p style={{ color: "var(--muted)", marginTop: "0.5rem" }}>
-                The same numbers are used on the bell, in the daily email, on My partners and as the default
-                in the Last heard from report. The email is still sent at 7am church time.
+                The final number is used on the bell, in the daily email, on My partners and as the default in
+                the Last heard from report. Earlier heads-ups ride in each person's email digest, once each.
+                The short daily email goes out at 7am church time, and only to someone whose digest wouldn't
+                reach them before the date.
               </p>
             </>
           )}
@@ -223,6 +248,16 @@ export default function AdminSettingsPartnerCare() {
                   value={d.keyDateLeadDays}
                   onChange={(e) => set("keyDateLeadDays", e.target.value)}
                   required
+                />
+              </label>
+              <label>
+                Earlier heads-ups in the email digest, in days (up to three, e.g. 90, 30; leave empty for
+                none)
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={d.keyDateAdvanceDays}
+                  onChange={(e) => set("keyDateAdvanceDays", e.target.value)}
                 />
               </label>
               <label>

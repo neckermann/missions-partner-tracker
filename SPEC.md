@@ -788,14 +788,28 @@ straight to it, several to My partners).
 the web process) on a daily 07:00 church-local cron, in the shape of
 `tripReminderScheduler.js`. It sends **one grouped email per person**, only on a
 day something is due and not yet mailed to that person — never one per partner.
-`KeyDateReminder` (unique per person, partner, kind, subject and occurrence
-date) is the idempotency record, written after the send: a re-run never repeats
+`KeyDateReminder` (unique per person, partner, kind, subject, occurrence
+date and `tier`) is the idempotency record, written after the send: a re-run never repeats
 an occurrence, next year's is a new row, a corrected date re-arms, and a failed
 send leaves no row so tomorrow's tick retries it. The email leaves the app, so a
 restricted partner is named by `maskedDisplayName` and a restricted family's own
 names are omitted; a partner who isn't safe to contact gets a pointer to the
 special instructions on their page, never the instructions themselves.
 `sendEmail` has no `replyTo`, so replies go to the church's From address.
+
+**Heads-ups and the digest.** A key date is raised at tiers: `tier` 0 is the final
+window (`keyDateLeadDays`), otherwise the smallest of `ChurchSettings.keyDateAdvanceDays`
+(default `[90, 30]`, up to three, via `careTimings`/`cleanAdvanceDays`) that still covers
+it (`reminderTier` in `utils/keyDates.js`). The bell and this daily email use tier 0 only.
+The email digest (`sendDigestTier`) leads each staff recipient's message with a "Key dates
+coming up" section: every open date for the partners they look after (their digest scope
+already is "owned" for these) whose heads-up they haven't been mailed, sent even when there
+are no other updates, and recorded as `KeyDateReminder` rows only after a successful send
+(`keyDatesForDigest`, `recordKeyDatesMailed`). The daily email skips someone whose own
+digest comes on or before the date (`utils/digestSchedule.js` `digestComesBefore`, an
+approximation from the dispatch schedule and last-sent stamps), so a person gets one email,
+and a person with no digest always gets the short one. A person who turned key-date email
+off gets neither.
 
 **Never on a public demo.** A demo's care teams are fake seeded addresses, so the
 email would only bounce and spend the email plan. `utils/demoMode.js` lists the
