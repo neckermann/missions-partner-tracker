@@ -374,6 +374,7 @@ async function whatsappConnectionDrop() {
 const CATEGORIES = [
   {
     key: "dispatchesNeedingApproval",
+    requiresAny: ["groupme", "whatsapp", "outboundEmail"],
     label: "Dispatches needing approval",
     icon: "📨",
     linkTo: "/admin/pending-dispatches",
@@ -384,6 +385,7 @@ const CATEGORIES = [
   },
   {
     key: "unmatchedEmails",
+    requiresAny: ["inboundEmail"],
     label: "Unmatched emails",
     icon: "✉️",
     linkTo: "/admin/inbound-email",
@@ -394,6 +396,7 @@ const CATEGORIES = [
   },
   {
     key: "surveyUpdatesPending",
+    requiresAny: ["surveys"],
     label: "Survey updates to review",
     icon: "📝",
     linkTo: "/admin/survey-updates",
@@ -406,6 +409,7 @@ const CATEGORIES = [
   },
   {
     key: "newSurveyResponses",
+    requiresAny: ["surveys"],
     label: "New survey answers",
     icon: "📋",
     linkTo: "/admin/partners",
@@ -418,6 +422,7 @@ const CATEGORIES = [
   },
   {
     key: "inboundEmailFailures",
+    requiresAny: ["inboundEmail"],
     label: "Inbound email errors",
     icon: "⚠️",
     linkTo: "/admin/inbound-email",
@@ -452,6 +457,7 @@ const CATEGORIES = [
   },
   {
     key: "tripsDepartingSoon",
+    requiresAny: ["trips"],
     label: "Trips departing soon",
     icon: "✈️",
     linkTo: "/admin/trips",
@@ -462,6 +468,7 @@ const CATEGORIES = [
   },
   {
     key: "tripsReadyToWrapUp",
+    requiresAny: ["trips"],
     label: "Trips ready to wrap up",
     icon: "🏁",
     linkTo: "/admin/trips",
@@ -472,6 +479,7 @@ const CATEGORIES = [
   },
   {
     key: "tripsWrappedUp",
+    requiresAny: ["trips"],
     label: "Trips wrapped up",
     icon: "📝",
     linkTo: "/admin/trips",
@@ -483,6 +491,7 @@ const CATEGORIES = [
   },
   {
     key: "tripsDepartingSoonIncomplete",
+    requiresAny: ["trips"],
     label: "Trips departing soon, incomplete",
     icon: "⏳",
     linkTo: "/admin/trips",
@@ -493,6 +502,7 @@ const CATEGORIES = [
   },
   {
     key: "overdueTripRequirements",
+    requiresAny: ["trips"],
     label: "Overdue trip requirements",
     icon: "⏰",
     linkTo: "/admin/trips",
@@ -503,6 +513,7 @@ const CATEGORIES = [
   },
   {
     key: "tripApplicationsPending",
+    requiresAny: ["trips"],
     label: "Trip applications pending review",
     icon: "📝",
     linkTo: "/admin/trips",
@@ -513,6 +524,7 @@ const CATEGORIES = [
   },
   {
     key: "newPrayerRequests",
+    requiresAny: ["prayerRequests"],
     label: "New prayer requests",
     icon: "🙏",
     linkTo: "/admin/prayer-requests",
@@ -525,6 +537,7 @@ const CATEGORIES = [
   },
   {
     key: "newOneTimeNeeds",
+    requiresAny: ["oneTimeNeeds"],
     label: "New one-time needs",
     icon: "💝",
     linkTo: "/admin/support/needs",
@@ -567,6 +580,7 @@ const CATEGORIES = [
   },
   {
     key: "dispatchSendFailures",
+    requiresAny: ["groupme", "whatsapp", "outboundEmail"],
     label: "Dispatch send failures",
     icon: "🚫",
     linkTo: "/admin/pending-dispatches",
@@ -577,6 +591,7 @@ const CATEGORIES = [
   },
   {
     key: "whatsappConnectionDrop",
+    requiresAny: ["whatsapp"],
     label: "WhatsApp connection dropped",
     icon: "📵",
     linkTo: "/admin/settings/whatsapp",
@@ -589,7 +604,14 @@ const CATEGORIES = [
 
 // Resolves every category this role may see with per-user seen-state applied; the one function the route calls.
 async function resolveNotificationSummary({ userId, role, scopeTripIds = null, scopePartnerIds = null }) {
+  // A category whose page is switched off is not shown at all: its link would only say "This feature is turned off".
+  const settings = await prisma.churchSettings.findUnique({
+    where: { id: "singleton" },
+    select: { enabledFeatures: true },
+  });
   const visible = CATEGORIES.filter((c) => {
+    if (c.requiresAny && !c.requiresAny.some((f) => isFeatureEnabled(settings?.enabledFeatures, f)))
+      return false;
     if (c.roles && !c.roles.includes(role)) return false;
     if (c.adminOnly) return role === "admin";
     if (role === "guest") return c.tripScoped || c.guestVisible;

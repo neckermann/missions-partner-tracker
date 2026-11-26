@@ -33,7 +33,8 @@ const FEATURES = {
     label: "Newsletters & Docs",
     description:
       "Newsletters and documents (survey responses, signed policies, etc.) on missionary/organization pages and their own admin section.",
-    withoutEmail: "New newsletters wait on Pending Dispatches, where you can copy what is ready to share.",
+    withoutEmail:
+      "New newsletters wait on Pending Dispatches (it appears once GroupMe, WhatsApp or Email sending is on), where you can copy what is ready to share. With none of those on, nothing is queued.",
     defaultEnabled: true,
     group: "admin",
   },
@@ -41,7 +42,8 @@ const FEATURES = {
     label: "Prayer requests",
     description:
       "The Prayer Requests admin section, and the prayer request list on missionary/organization pages.",
-    withoutEmail: "New requests wait on Pending Dispatches, where you can copy what is ready to share.",
+    withoutEmail:
+      "New requests wait on Pending Dispatches (it appears once GroupMe, WhatsApp or Email sending is on), where you can copy what is ready to share. With none of those on, nothing is queued.",
     defaultEnabled: true,
     group: "admin",
   },
@@ -49,7 +51,8 @@ const FEATURES = {
     label: "One-time needs",
     description:
       "The One-Time Needs admin section, and the one-time needs list on missionary/organization pages.",
-    withoutEmail: "New needs wait on Pending Dispatches, where you can copy what is ready to share.",
+    withoutEmail:
+      "New needs wait on Pending Dispatches (it appears once GroupMe, WhatsApp or Email sending is on), where you can copy what is ready to share. With none of those on, nothing is queued.",
     defaultEnabled: true,
     group: "admin",
   },
