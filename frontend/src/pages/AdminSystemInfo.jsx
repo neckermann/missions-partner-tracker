@@ -5,6 +5,7 @@ import useChurchSettings from "../hooks/useChurchSettings.js";
 import SettingsPageHeader from "../components/admin/SettingsPageHeader.jsx";
 import EditableSection from "../components/admin/EditableSection.jsx";
 import BackupDownloadModal from "../components/admin/BackupDownloadModal.jsx";
+import RestoreBackupModal from "../components/admin/RestoreBackupModal.jsx";
 
 function formatBytes(bytes) {
   if (!bytes && bytes !== 0) return "Unknown";
@@ -30,6 +31,7 @@ function InfoRow({ label, value }) {
 export default function AdminSystemInfo() {
   const [info, setInfo] = useState(null);
   const [downloading, setDownloading] = useState(false);
+  const [restoring, setRestoring] = useState(false);
   const [infoError, setInfoError] = useState("");
 
   const { settings, error: settingsError } = useChurchSettings();
@@ -145,6 +147,16 @@ export default function AdminSystemInfo() {
           Download Backup
         </button>
         {downloading && <BackupDownloadModal onClose={() => setDownloading(false)} />}
+        <h4 style={{ marginTop: "1.5rem" }}>Restore from a backup</h4>
+        <p style={{ color: "var(--muted)" }}>
+          Put a downloaded backup back. This replaces everything on the site with the backup's contents, so it
+          asks for your password and a typed confirmation, and downloads a copy of what is here now first so
+          you can undo it.
+        </p>
+        <button type="button" className="btn danger" onClick={() => setRestoring(true)}>
+          Restore from a backup…
+        </button>
+        {restoring && <RestoreBackupModal onClose={() => setRestoring(false)} />}
       </div>
 
       {settingsError ? (

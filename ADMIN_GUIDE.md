@@ -1618,11 +1618,27 @@ at all.
 
 #### Restoring a backup
 
-Restoring is deliberately **CLI-only** — there's no "restore" button in
-the UI. An untested restore path makes the backup button theater, and a
-one-click restore is also a one-click way to destroy a production
-database, so this stays a deliberate, typed command rather than a click
-an admin could fire by accident.
+There are two ways to put a backup back. Both **replace everything** with
+the backup's contents and both check the file first (its checksum, and that
+it was made for this version of the app's database).
+
+**In the app** (no command line needed): **Settings → About App → Restore
+from a backup…**. It asks for the backup file, **your password again**,
+the file's passphrase if it was locked, and the word `RESTORE` typed
+exactly. Before it changes anything it builds a copy of what the site holds
+right now; when the restore finishes, that copy downloads automatically
+(named `before-restore-…`), so a restore you regret can be undone by
+restoring that file. While it runs, which can take a minute or two, the
+site refuses every other change; the whole restore is one database
+transaction, so if anything fails partway nothing is changed. Afterwards you
+are signed out, and a linked WhatsApp number needs linking again. Every
+restore, and every refused attempt, is in the audit log. It is for admins
+only and is switched off on a public demo. Very large backups (over about
+40 MB as downloaded) are refused with a pointer to the command below, so a
+small server isn't run out of memory.
+
+**From the command line**, for a backup too large for the app, a site that
+won't start, or an empty new database:
 
 **On Render** (the documented deployment path — see
 [Getting your church running](#getting-your-church-running-render)):

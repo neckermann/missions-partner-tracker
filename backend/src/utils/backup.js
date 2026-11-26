@@ -269,6 +269,95 @@ async function restoreRows(prisma, rowsByModel, { timeout = 10 * 60 * 1000 } = {
   return counts;
 }
 
+// A restore through the app reads the whole file into memory (as the download builds it in memory), and the
+// app can run on a small server. Past these sizes the command-line restore, which has the same checks, is the
+// way: refusing up front beats running out of memory halfway.
+const MAX_RESTORE_FILE_BYTES = 40 * 1024 * 1024; // the file as uploaded (gzipped, possibly locked)
+const MAX_RESTORE_TEXT_BYTES = 160 * 1024 * 1024; // once unzipped
+
+class RestoreFileError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "RestoreFileError";
+  }
+}
+
+// Turns an uploaded file into the parsed backup, running every check that does not need the database:
+// unlock it if it is locked (the passphrase), unzip it within a size cap, verify its checksum, and confirm it
+// was made for this version of the database. Throws RestoreFileError with a plain message for each failure.
+function readBackupFile(fileBuffer, { passphrase } = {}) {
+  const { isEncryptedBackup, decryptBackup } = require("./backupCrypto");
+  if (!Buffer.isBuffer(fileBuffer) || fileBuffer.length === 0)
+    throw new RestoreFileError("That file is empty.");
+  if (fileBuffer.length > MAX_RESTORE_FILE_BYTES) {
+    throw new RestoreFileError(
+      "That backup is too large to restore from the browser. Use the restore command instead (see the Admin Guide)."
+    );
+  }
+
+  let gz = fileBuffer;
+  if (isEncryptedBackup(fileBuffer)) {
+    if (!passphrase)
+      throw new RestoreFileError("This backup is locked with a passphrase. Enter it to continue.");
+    try {
+      gz = decryptBackup(fileBuffer, passphrase);
+    } catch (err) {
+      throw new RestoreFileError(err.message);
+    }
+  }
+
+  let text;
+  try {
+    text = zlib.gunzipSync(gz, { maxOutputLength: MAX_RESTORE_TEXT_BYTES }).toString("utf8");
+  } catch (err) {
+    if (err.code === "ERR_BUFFER_TOO_LARGE") {
+      throw new RestoreFileError(
+        "That backup is too large to restore from the browser. Use the restore command instead (see the Admin Guide)."
+      );
+    }
+    throw new RestoreFileError("That doesn't look like a backup file from this app.");
+  }
+
+  let parsed;
+  try {
+    parsed = parseBackup(text);
+  } catch (err) {
+    throw new RestoreFileError(err.message);
+  }
+
+  const current = latestMigrationName();
+  if (parsed.manifest.migrationName !== current) {
+    throw new RestoreFileError(
+      `This backup was made for a different version of the app's database (${parsed.manifest.migrationName}, this site is on ${current}), so it can't be restored here.`
+    );
+  }
+  return parsed;
+}
+
+// A full replace, all or nothing: in ONE transaction, delete every row of every backed-up model (children
+// before parents, the reverse of the restore order) and insert the backup's rows. Any error, at any row,
+// rolls the whole thing back and the existing data is untouched. WhatsApp session state and spent passkey
+// challenges are not part of a backup and are left alone.
+async function replaceAllRows(prisma, rowsByModel, { timeout = 10 * 60 * 1000 } = {}) {
+  const counts = {};
+  await prisma.$transaction(
+    async (tx) => {
+      for (const model of [...MODELS].reverse()) {
+        await tx[model].deleteMany({});
+      }
+      for (const model of MODELS) {
+        const rows = rowsByModel[model] || [];
+        for (const row of rows) {
+          await tx[model].create({ data: row });
+        }
+        counts[model] = rows.length;
+      }
+    },
+    { timeout, maxWait: 30 * 1000 }
+  );
+  return counts;
+}
+
 module.exports = {
   MODELS,
   BYTES_FIELDS,
@@ -277,5 +366,10 @@ module.exports = {
   buildBackup,
   parseBackup,
   restoreRows,
+  replaceAllRows,
+  readBackupFile,
+  RestoreFileError,
+  MAX_RESTORE_FILE_BYTES,
+  MAX_RESTORE_TEXT_BYTES,
   latestMigrationName,
 };

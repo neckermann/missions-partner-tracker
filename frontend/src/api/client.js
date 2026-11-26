@@ -128,28 +128,23 @@ export async function fetchSystemInfo() {
   return data;
 }
 
-// Asks for the admin's password again (and, if given, locks the file with a passphrase), then saves the file
-// the server sends. A failed request answers with JSON but arrives as a Blob, so its message is read out here.
-export async function downloadBackup({ password, passphrase }) {
-  let res;
-  try {
-    res = await api.post(
-      "/backups/download",
-      { password, ...(passphrase ? { passphrase } : {}) },
-      { responseType: "blob" }
-    );
-  } catch (err) {
-    const blob = err.response?.data;
-    if (blob && typeof blob.text === "function") {
-      try {
-        err.message = JSON.parse(await blob.text()).error || err.message;
-      } catch {
-        // keep the original message
-      }
+// A failed backup call answers with JSON but arrives as a Blob (the success answer is a file), so the plain
+// message is read out of it here.
+async function blobErrorMessage(err) {
+  const blob = err.response?.data;
+  if (blob && typeof blob.text === "function") {
+    try {
+      err.message = JSON.parse(await blob.text()).error || err.message;
+    } catch {
+      // keep the original message
     }
-    throw err;
   }
-  const name = /filename="([^"]+)"/.exec(res.headers["content-disposition"] || "")?.[1] || "backup.ndjson.gz";
+  return err;
+}
+
+// Saves a file the server sent as the answer, under the name it chose; returns that name.
+function saveResponseFile(res, fallbackName) {
+  const name = /filename="([^"]+)"/.exec(res.headers["content-disposition"] || "")?.[1] || fallbackName;
   const url = URL.createObjectURL(res.data);
   const link = document.createElement("a");
   link.href = url;
@@ -159,6 +154,42 @@ export async function downloadBackup({ password, passphrase }) {
   link.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
   return name;
+}
+
+// Asks for the admin's password again (and, if given, locks the file with a passphrase), then saves the file
+// the server sends.
+export async function downloadBackup({ password, passphrase }) {
+  let res;
+  try {
+    res = await api.post(
+      "/backups/download",
+      { password, ...(passphrase ? { passphrase } : {}) },
+      { responseType: "blob" }
+    );
+  } catch (err) {
+    throw await blobErrorMessage(err);
+  }
+  return saveResponseFile(res, "backup.ndjson.gz");
+}
+
+// Restores a backup file, REPLACING everything on the site. On success the server answers with a safety copy
+// of what was there just before, which is saved automatically; its name is returned. On any failure nothing
+// was changed and the thrown error carries the server's plain message.
+export async function restoreBackup({ file, password, confirmation, passphrase, safetyPassphrase }) {
+  const form = new FormData();
+  form.append("file", file);
+  form.append("password", password);
+  form.append("confirmation", confirmation);
+  if (passphrase) form.append("passphrase", passphrase);
+  if (safetyPassphrase) form.append("safetyPassphrase", safetyPassphrase);
+  let res;
+  try {
+    // Can take a minute or two on a large backup.
+    res = await api.post("/backups/restore", form, { responseType: "blob", timeout: 10 * 60 * 1000 });
+  } catch (err) {
+    throw await blobErrorMessage(err);
+  }
+  return saveResponseFile(res, "before-restore.ndjson.gz");
 }
 
 export async function fetchBackupCheck() {

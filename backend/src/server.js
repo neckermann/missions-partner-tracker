@@ -56,6 +56,7 @@ const versionRoutes = require("./routes/version");
 const systemInfoRoutes = require("./routes/systemInfo");
 const backupCheckRoutes = require("./routes/backupCheck");
 const backupsRoutes = require("./routes/backups");
+const { refuseWritesDuringRestore } = require("./utils/restoreLock");
 const inboundEmailRoutes = require("./routes/inboundEmail");
 const dispatchRoutes = require("./routes/dispatches");
 const notificationRoutes = require("./routes/notifications");
@@ -178,6 +179,9 @@ app.use("/api/auth/passkeys", (req, res, next) =>
 
 // Generous: the public pages fire many requests per visitor; this only blunts scraping.
 app.use("/api/public", rateLimit({ windowMs: 60 * 1000, max: 120 }));
+
+// While an in-app restore runs, every other write is refused (utils/restoreLock.js).
+app.use("/api", refuseWritesDuringRestore);
 
 // The backup file is the heaviest request and the most sensitive output (see
 // routes/backups.js); this stops a compromised admin session pulling it in a loop.
