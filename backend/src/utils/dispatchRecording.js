@@ -2,12 +2,13 @@
 // on (prayer request/one-time need/newsletter created, prayer answered, need
 // decided). Routes call these, never a channel's notify function.
 //
-// Every event is recorded except a restricted partner's when
+// Every event is recorded (while some channel is on) except a restricted partner's when
 // allowRestrictedPartnerDispatch is off (dispatchEligibility.js
 // isRestrictedPartnerBlocked). All other settings affect only delivery, via
 // isEligibleForChannel at send time.
 const prisma = require("../prismaClient");
 const { isRestrictedPartnerBlocked, getChurchSettings } = require("./dispatchEligibility");
+const { isFeatureEnabled } = require("./features");
 const { sendUrgentDispatch } = require("./dispatchOrchestrator");
 
 // Every function here is best-effort: a broken write must never block the save that triggered it.
@@ -44,6 +45,10 @@ async function createDispatchRecord(type, partner, payload, review, requireRevie
     prisma.partner.findUnique({ where: { id: partner.id }, select: { isRestricted: true } }),
   ]);
   if (isRestrictedPartnerBlocked(freshPartner, settings)) return null;
+  // With no way to send (GroupMe, WhatsApp and outbound email all off) a record could only pile up
+  // and post all at once when a channel is switched on later.
+  const features = settings?.enabledFeatures;
+  if (!["groupme", "whatsapp", "outboundEmail"].some((f) => isFeatureEnabled(features, f))) return null;
   return enqueue(type, partner.id, payload, review, requireReview);
 }
 

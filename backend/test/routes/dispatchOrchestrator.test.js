@@ -170,6 +170,43 @@ describe("clearDispatchRecords", () => {
     assert.ok(await prisma.dispatchRecord.findUnique({ where: { id: row.id } }), "row must still be queued");
   });
 
+  test("an unsent row nothing applies to is dropped after 14 days, not before", async () => {
+    await prisma.churchSettings.update({
+      where: { id: "singleton" },
+      data: {
+        enabledFeatures: {},
+        emailDispatchDayOfWeek: null,
+        emailDispatchDayOfMonth: null,
+        emailDispatchHour: null,
+      },
+    });
+    const partner = await createPartner();
+    const day = 24 * 60 * 60 * 1000;
+    const fresh = await createRow(partner.id, "newsletterCreated", { partnerName: "x" }, { createdAt: new Date(Date.now() - 13 * day) });
+    const stale = await createRow(partner.id, "newsletterCreated", { partnerName: "x" }, { createdAt: new Date(Date.now() - 15 * day) });
+
+    const { cleared } = await clearDispatchRecords();
+    assert.equal(cleared, 1);
+    assert.ok(await prisma.dispatchRecord.findUnique({ where: { id: fresh.id } }));
+    assert.equal(await prisma.dispatchRecord.findUnique({ where: { id: stale.id } }), null);
+  });
+
+  test("an old row held for review is kept even when nothing applies", async () => {
+    await prisma.churchSettings.update({
+      where: { id: "singleton" },
+      data: { enabledFeatures: {}, allowRestrictedPartnerDispatch: true },
+    });
+    const partner = await createPartner({ isRestricted: true });
+    const row = await createRow(
+      partner.id,
+      "prayerRequestCreated",
+      { partnerName: "x", requestText: "t" },
+      { createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) }
+    );
+    await clearDispatchRecords();
+    assert.ok(await prisma.dispatchRecord.findUnique({ where: { id: row.id } }));
+  });
+
   test("restricted-and-unreviewed never clears, even once GroupMe has posted it", async () => {
     await prisma.churchSettings.update({
       where: { id: "singleton" },
@@ -442,5 +479,18 @@ describe("sendUrgentDispatch", () => {
 
     const result = await sendUrgentDispatch(row, partner);
     assert.equal(result.whatsappPosted, false);
+  });
+});
+
+describe("createDispatchRecord", () => {
+  test("records nothing while no channel is on, and records once one is", async () => {
+    const { createDispatchRecord } = require("../../src/utils/dispatchRecording");
+    const partner = await createPartner();
+    await prisma.churchSettings.update({ where: { id: "singleton" }, data: { enabledFeatures: {} } });
+    assert.equal(await createDispatchRecord("newsletterCreated", partner, { partnerName: "x" }), null);
+    assert.equal(await prisma.dispatchRecord.count({ where: { partnerId: partner.id } }), 0);
+
+    await prisma.churchSettings.update({ where: { id: "singleton" }, data: { enabledFeatures: { groupme: true } } });
+    assert.ok(await createDispatchRecord("newsletterCreated", partner, { partnerName: "x" }));
   });
 });

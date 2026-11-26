@@ -27,6 +27,7 @@ async function create(body) {
   return admin("/api/prayer-requests", { method: "POST", body: { partnerId, ...body } });
 }
 
+let originalFeatures;
 before(async () => {
   await ensureTestUsers();
   admin = await client("admin");
@@ -34,6 +35,9 @@ before(async () => {
   viewer = await client("viewer");
   unauthenticated = await client();
 
+  originalFeatures = (await prisma.churchSettings.findUnique({ where: { id: "singleton" }, select: { enabledFeatures: true } }))?.enabledFeatures ?? {};
+  // Records are only queued while some channel is on.
+  await prisma.churchSettings.update({ where: { id: "singleton" }, data: { enabledFeatures: { ...originalFeatures, outboundEmail: true } } });
   await removeFixturePartners();
   const partner = await admin("/api/partners", {
     method: "POST",
@@ -43,6 +47,7 @@ before(async () => {
 });
 
 after(async () => {
+  await prisma.churchSettings.update({ where: { id: "singleton" }, data: { enabledFeatures: originalFeatures } });
   await prisma.dispatchRecord.deleteMany({ where: { partnerId } });
   await removeFixturePartners();
   await removeTestUsers();

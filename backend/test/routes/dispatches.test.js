@@ -68,7 +68,7 @@ before(async () => {
   await prisma.churchSettings.upsert({
     where: { id: "singleton" },
     update: {
-      enabledFeatures: {},
+      enabledFeatures: { outboundEmail: true },
       chatDispatchPrayerRequests: true,
       chatDispatchOneTimeNeeds: true,
       chatDispatchNewsletters: true,
@@ -216,7 +216,7 @@ describe("GET/PUT /api/settings/dispatches -- admin gate and defaults", () => {
 
 describe("GET /api/dispatches/pending -- any logged-in role", () => {
   test("a viewer can list the queue", async () => {
-    await prisma.churchSettings.update({ where: { id: "singleton" }, data: { enabledFeatures: {} } });
+    await prisma.churchSettings.update({ where: { id: "singleton" }, data: { enabledFeatures: { outboundEmail: true } } });
     const requestText = `${FIXTURE_TAG} viewer can see this`;
     await createPrayerRequest(requestText);
 
@@ -361,7 +361,7 @@ describe("GET /api/dispatches/urgent-recipient-count", () => {
       assert.ok(res.body.publicCount >= 1);
     } finally {
       await prisma.publicSubscriber.delete({ where: { id: sub.id } });
-      await prisma.churchSettings.update({ where: { id: "singleton" }, data: { enabledFeatures: {} } });
+      await prisma.churchSettings.update({ where: { id: "singleton" }, data: { enabledFeatures: { outboundEmail: true } } });
     }
   });
 
@@ -408,7 +408,7 @@ describe("GET /api/dispatches/urgent-recipient-count", () => {
       assert.equal(res.body.publicCount, 0);
     } finally {
       await prisma.publicSubscriber.delete({ where: { id: sub.id } });
-      await prisma.churchSettings.update({ where: { id: "singleton" }, data: { enabledFeatures: {} } });
+      await prisma.churchSettings.update({ where: { id: "singleton" }, data: { enabledFeatures: { outboundEmail: true } } });
     }
   });
 });

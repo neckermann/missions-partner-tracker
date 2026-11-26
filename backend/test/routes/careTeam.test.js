@@ -74,7 +74,7 @@ before(async () => {
     select: { enabledFeatures: true },
   });
   originalEnabledFeatures = settings?.enabledFeatures ?? {};
-  await setFeatures({ careTeam: true, reports: true });
+  await setFeatures({ careTeam: true, reports: true, outboundEmail: true });
   partnerA = (
     await admin("/api/partners", {
       method: "POST",
