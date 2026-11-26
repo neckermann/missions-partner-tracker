@@ -8,6 +8,7 @@ const { sendEmailBatch } = require("./email");
 const { buildBlurb } = require("./dispatchBlurbs");
 const { loadOpenKeyDates } = require("./keyDateQueries");
 const { CHANNELS, isEligibleForChannel } = require("./dispatchEligibility");
+const { churchToday } = require("./today");
 const {
   buildEmailDispatchMessage,
   buildUnsubscribeUrl,
@@ -80,7 +81,7 @@ async function recordKeyDatesMailed(userId, keyDates) {
 async function keyDatesForDigest(userIds, settings) {
   const byUser = new Map();
   if (!isFeatureEnabled(settings?.enabledFeatures, "keyDates") || userIds.length === 0) return byUser;
-  const open = await loadOpenKeyDates(new Date(), { withAdvance: true });
+  const open = await loadOpenKeyDates(churchToday(), { withAdvance: true });
   if (open.length === 0) return byUser;
 
   const optedOut = new Set(

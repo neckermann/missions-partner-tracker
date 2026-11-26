@@ -68,6 +68,7 @@ const publicTripParticipantRoutes = require("./routes/publicTripParticipants");
 const prisma = require("./prismaClient");
 const { backgroundJobsEnabled, startBackgroundJobs, stopBackgroundJobs } = require("./utils/backgroundJobs");
 const { assertSchemaMatches } = require("./utils/schemaCheck");
+const { applyChurchTimezone } = require("./utils/timezone");
 const { readTrustProxy, trustProxySetting, describeTrustProxy } = require("./utils/trustProxy");
 
 const app = express();
@@ -284,7 +285,7 @@ if (require.main === module) {
         where: { id: "singleton" },
         select: { timezone: true },
       });
-      process.env.TZ = settings?.timezone || "UTC";
+      applyChurchTimezone(settings?.timezone);
     } catch (err) {
       console.error("Couldn't read ChurchSettings.timezone at startup, defaulting to UTC:", err);
       process.env.TZ = process.env.TZ || "UTC";

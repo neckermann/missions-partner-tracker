@@ -14,6 +14,7 @@ const { loadOpenKeyDates } = require("./keyDateQueries");
 const { loadUpdatesToPassOn } = require("./contactLogQueries");
 const { careTimings } = require("./careSettings");
 const { toUtcDay, daysBetween } = require("../reporting/definitions");
+const { churchToday } = require("./today");
 
 // A first run on a church with many quiet partners posts a few a day, not all at once.
 const QUIET_POSTS_PER_RUN = 5;
@@ -123,7 +124,7 @@ async function recordUpdatesToPassOn(today) {
 }
 
 // `today` is injectable so a run is testable. Returns how many posts were recorded per type.
-async function recordCareChatDispatches({ today = new Date() } = {}) {
+async function recordCareChatDispatches({ today = churchToday() } = {}) {
   const none = { keyDateComing: 0, quietPartner: 0, updateToPassOn: 0 };
   if (await isDemoInstance()) return none;
   const settings = await prisma.churchSettings.findUnique({ where: { id: "singleton" } });
