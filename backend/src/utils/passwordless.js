@@ -18,6 +18,17 @@ function demoBlocksPasswordless() {
   return isDemoDeployment() && process.env.DEMO_ALLOW_PASSWORDLESS !== "true";
 }
 
+// Whether the passkey-only sign-in routes exist: the church offers it beside passwords, or passwordless
+// mode is on (which needs it). Off by default; the sign-in page only shows the button when this is true.
+async function isPasskeySignInOn(db = prisma) {
+  if (await isPasswordlessOn(db)) return true;
+  const settings = await db.churchSettings.findUnique({
+    where: { id: "singleton" },
+    select: { allowPasskeySignIn: true },
+  });
+  return settings?.allowPasskeySignIn === true;
+}
+
 async function isPasswordlessOn(db = prisma) {
   if (demoBlocksPasswordless()) return false;
   const settings = await db.churchSettings.findUnique({
@@ -123,6 +134,7 @@ module.exports = {
   LINK_TTL_MINUTES,
   LINK_COOLDOWN_MS,
   isPasswordlessOn,
+  isPasskeySignInOn,
   demoBlocksPasswordless,
   isEmailReady,
   passwordlessBlocker,

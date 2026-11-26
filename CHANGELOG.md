@@ -16,6 +16,10 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ## [Unreleased]
 
+### Added
+
+- **Sign in with a passkey, beside the password.** A new switch on Manage Users (Settings → Users → Passkey sign-in, off by default) puts a **Sign in with a passkey** button under the password form, so someone who has added a passkey can use their fingerprint, face or screen lock instead of typing a password. Passwords keep working, so nothing can lock anyone out, and passwordless mode (which removes the password form) implies it. Migration: new `ChurchSettings.allowPasskeySignIn` column (baseline squashed).
+
 ## [0.1.0-beta.3] - 2026-11-26
 
 ### Changed

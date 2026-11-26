@@ -1335,6 +1335,11 @@ model ChurchSettings {
   // state.
   requirePasswordless Boolean @default(false)
 
+  // Offers "Sign in with a passkey" on the sign-in page beside the password form. A passkey (with the
+  // device's own fingerprint, face or screen lock) is the whole sign-in; passwords keep working, so there
+  // is nothing to lock anyone out of. Implied while requirePasswordless is on.
+  allowPasskeySignIn Boolean @default(false)
+
   // Schedule for the three email dispatch tiers (emailDispatchDelivery.js,
   // emailDispatchScheduler.js). Biweekly uses emailDispatchDayOfWeek; monthly and quarterly
   // use emailDispatchDayOfMonth (capped at 1-28 to avoid short months) and are told apart by

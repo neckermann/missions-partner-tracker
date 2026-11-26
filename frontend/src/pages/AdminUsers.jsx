@@ -169,6 +169,17 @@ export default function AdminUsers() {
     }
   }
 
+  // Offers "Sign in with a passkey" on the sign-in page beside the password form. Passwords keep working.
+  async function handleTogglePasskeySignIn(allow) {
+    setError("");
+    try {
+      await updateChurchSettings({ allowPasskeySignIn: allow });
+      setCurrentUser(await fetchCurrentUser());
+    } catch (err) {
+      reportError(err, "Couldn't change passkey sign-in");
+    }
+  }
+
   // Recovery path for a lost/broken authenticator device — clears MFA so
   // the user can log in with just their password and re-enroll themselves.
   async function handleResetMfa(id, email) {
@@ -415,6 +426,26 @@ export default function AdminUsers() {
             Set up two-factor on your own account first (My Account), so turning this on doesn't lock you out.
           </p>
         )}
+      </div>
+
+      <div className="admin-section" style={{ marginBottom: "1rem" }}>
+        <h3 style={{ marginTop: 0 }}>Passkey sign-in</h3>
+        <div className="admin-checkbox-row">
+          <label className="checkbox-option">
+            <input
+              type="checkbox"
+              checked={passwordlessOn || !!currentUser?.allowPasskeySignIn}
+              disabled={passwordlessOn}
+              onChange={(e) => handleTogglePasskeySignIn(e.target.checked)}
+            />
+            Show "Sign in with a passkey" on the sign-in page
+          </label>
+        </div>
+        <p style={{ fontSize: "0.85rem", color: "var(--muted)", marginBottom: 0 }}>
+          {passwordlessOn
+            ? "On while passwordless sign-in is on."
+            : "People who have added a passkey (My account) can use their fingerprint, face or screen lock instead of typing a password. Passwords keep working."}
+        </p>
       </div>
 
       <div className="admin-section" style={{ marginBottom: "1rem" }}>

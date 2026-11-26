@@ -20,6 +20,7 @@ const { isTwoFactorRequired } = require("../utils/twoFactor");
 const { isDemoDeployment, endOtherSessions } = require("../utils/demoMode");
 const {
   isPasswordlessOn,
+  isPasskeySignInOn,
   demoBlocksPasswordless,
   isEmailReady,
   redeemSignInLink,
@@ -96,9 +97,13 @@ router.get("/setup-status", async (req, res, next) => {
     // `passwordReset`: "Forgot your password?" needs working email, a password to
     // reset (not passwordless), and a real church (never a shared demo login).
     const passwordless = await isPasswordlessOn();
+    // `passkeySignIn`: the church allows it (or passwordless is on), so the sign-in page offers
+    // "Sign in with a passkey" beside the password form.
+    const passkeySignIn = await isPasskeySignInOn();
     res.json({
       needed: count === 0,
       passwordless,
+      passkeySignIn,
       passwordReset: !passwordless && !isDemoDeployment() && (await isEmailReady()),
     });
   } catch (err) {
@@ -315,6 +320,14 @@ router.get("/me", requireAuth, async (req, res, next) => {
         passwordlessRequired: await isPasswordlessOn(),
         // The public demo refuses to switch passwordless sign-in on (the owner's test deployment may allow it).
         passwordlessBlockedByDemo: demoBlocksPasswordless(),
+        // The raw church setting (the Manage Users switch); isPasskeySignInOn also counts passwordless mode.
+        allowPasskeySignIn:
+          (
+            await prisma.churchSettings.findUnique({
+              where: { id: "singleton" },
+              select: { allowPasskeySignIn: true },
+            })
+          )?.allowPasskeySignIn === true,
         emailReady: await isEmailReady(),
       },
     });

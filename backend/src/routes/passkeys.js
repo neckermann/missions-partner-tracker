@@ -13,8 +13,8 @@ const { requireAuth, requireAuthOrMfaSetup } = require("../middleware/requireAut
 const { setSessionCookie } = require("../utils/jwt");
 const { recordAuditSafe } = require("../utils/auditLog");
 const { isTwoFactorRequired } = require("../utils/twoFactor");
-const { isPasswordlessOn } = require("../utils/passwordless");
 const { isDemoDeployment, endOtherSessions } = require("../utils/demoMode");
+const { isPasskeySignInOn } = require("../utils/passwordless");
 const {
   MAX_PASSKEYS,
   relyingParty,
@@ -320,13 +320,15 @@ module.exports = function passkeyRoutes({ completeLogin }) {
     }
   });
 
-  // The passkey is the whole sign-in: no password, no pending token. No email is asked for, so
+  // The passkey is the whole sign-in: no password, no pending token. Available when the church allows it
+  // (allowPasskeySignIn, offered beside the password form) or passwordless mode is on (which removes
+  // the password form). User verification is required, so it is as strong as password plus a second step. No email is asked for, so
   // nothing here reveals which addresses have accounts: the browser offers the passkeys it holds
   // for this site and the answer names the credential.
 
   router.post("/passwordless/options", async (req, res, next) => {
     try {
-      if (!(await isPasswordlessOn())) return res.status(404).json({ error: "Not found" });
+      if (!(await isPasskeySignInOn())) return res.status(404).json({ error: "Not found" });
       const rp = relyingParty(req);
       const options = await generateAuthenticationOptions({ rpID: rp.rpID, userVerification: "required" });
       res.json({
@@ -340,7 +342,7 @@ module.exports = function passkeyRoutes({ completeLogin }) {
 
   router.post("/passwordless/verify", async (req, res, next) => {
     try {
-      if (!(await isPasswordlessOn())) return res.status(404).json({ error: "Not found" });
+      if (!(await isPasskeySignInOn())) return res.status(404).json({ error: "Not found" });
       const { challengeToken, response } = req.body || {};
       const passkey =
         response && typeof response.id === "string"

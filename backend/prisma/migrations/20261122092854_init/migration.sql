@@ -786,6 +786,7 @@ CREATE TABLE "ChurchSettings" (
     "requireTwoFactor" BOOLEAN NOT NULL DEFAULT false,
     "demoMode" BOOLEAN NOT NULL DEFAULT false,
     "requirePasswordless" BOOLEAN NOT NULL DEFAULT false,
+    "allowPasskeySignIn" BOOLEAN NOT NULL DEFAULT false,
     "emailDispatchDayOfWeek" INTEGER,
     "emailDispatchDayOfMonth" INTEGER,
     "emailDispatchHour" INTEGER,
