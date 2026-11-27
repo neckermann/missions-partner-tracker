@@ -7,7 +7,14 @@
 // isRestrictedPartnerBlocked). All other settings affect only delivery, via
 // isEligibleForChannel at send time.
 const prisma = require("../prismaClient");
-const { isRestrictedPartnerBlocked, getChurchSettings } = require("./dispatchEligibility");
+const {
+  CHANNELS,
+  isRestrictedPartnerBlocked,
+  needsReview,
+  isEligibleForChannel,
+  getChurchSettings,
+} = require("./dispatchEligibility");
+const { hasWhatsAppTarget } = require("./whatsappChannel");
 const { isFeatureEnabled } = require("./features");
 const { sendUrgentDispatch } = require("./dispatchOrchestrator");
 
@@ -39,17 +46,51 @@ async function enqueue(type, partnerId, payload, review, requireReview = false) 
 // The one place recording depends on a setting (restricted-partner events only).
 // Re-fetches isRestricted by id rather than trusting the caller's partner shape,
 // which lacks it; this is the one safety-critical check in the system.
-async function createDispatchRecord(type, partner, payload, review, requireReview = false) {
+//
+// It also records nothing when no channel that is switched on would ever take this event: GroupMe and
+// WhatsApp only count when their own content-type choice lets this type through, and email only when it is on
+// and the type is one email carries. Otherwise the row could only sit there and post, all at once, when
+// someone later changes a setting. Two things are always recorded: a row held for staff review (it must show up
+// to be approved), and an urgent one (`options.urgent`: its immediate send does not wait on a schedule).
+async function createDispatchRecord(type, partner, payload, review, requireReview = false, options = {}) {
   const [settings, freshPartner] = await Promise.all([
     getChurchSettings(),
-    prisma.partner.findUnique({ where: { id: partner.id }, select: { isRestricted: true } }),
+    prisma.partner.findUnique({ where: { id: partner.id }, select: { isRestricted: true, isPublic: true } }),
   ]);
   if (isRestrictedPartnerBlocked(freshPartner, settings)) return null;
-  // With no way to send (GroupMe, WhatsApp and outbound email all off) a record could only pile up
-  // and post all at once when a channel is switched on later.
   const features = settings?.enabledFeatures;
   if (!["groupme", "whatsapp", "outboundEmail"].some((f) => isFeatureEnabled(features, f))) return null;
+
+  const wouldBe = {
+    type,
+    payload,
+    reviewRequired: requireReview,
+    dispatchReviewedAt: review ? new Date() : null,
+  };
+  const held = needsReview(wouldBe, freshPartner);
+  if (!options.urgent && !held && !anyEnabledChannelWouldTake(wouldBe, freshPartner, settings)) return null;
   return enqueue(type, partner.id, payload, review, requireReview);
+}
+
+// True when at least one switched-on channel is allowed to carry this kind of event. Recipients and schedules
+// are not considered (those can change before a send); only what the church has turned on and which kinds of
+// post each channel is set to carry.
+function anyEnabledChannelWouldTake(row, partner, settings) {
+  const features = settings?.enabledFeatures;
+  const takes = (channel) => isEligibleForChannel(row, channel, partner, settings, true);
+  if (isFeatureEnabled(features, "groupme") && takes(CHANNELS.GROUPME)) return true;
+  if (
+    isFeatureEnabled(features, "whatsapp") &&
+    hasWhatsAppTarget(row, settings) &&
+    takes(CHANNELS.WHATSAPP)
+  ) {
+    return true;
+  }
+  if (isFeatureEnabled(features, "outboundEmail")) {
+    if (takes(CHANNELS.EMAIL_ADMIN)) return true;
+    if (isFeatureEnabled(features, "publicPrayerDigest") && takes(CHANNELS.EMAIL_PUBLIC)) return true;
+  }
+  return false;
 }
 
 // Fires the immediate dispatch when isUrgent is set. sendUrgentDispatch still
@@ -82,7 +123,8 @@ async function notifyPrayerRequestCreated(prayerRequest, approval, { requireRevi
         sourceFileId: prayerRequest.sourceFile?.id || null,
       },
       review,
-      requireReview
+      requireReview,
+      { urgent: !requireReview && prayerRequest.isUrgent }
     );
     await maybeDispatchUrgent(row, prayerRequest.partner, !requireReview && prayerRequest.isUrgent);
   });
@@ -124,7 +166,8 @@ async function notifySupportNeedCreated(supportNeed, approval, { requireReview =
         sourceFileId: supportNeed.sourceFile?.id || null,
       },
       review,
-      requireReview
+      requireReview,
+      { urgent: !requireReview && supportNeed.isUrgent }
     );
     await maybeDispatchUrgent(row, supportNeed.partner, !requireReview && supportNeed.isUrgent);
   });
