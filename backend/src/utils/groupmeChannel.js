@@ -11,7 +11,7 @@ const prisma = require("../prismaClient");
 const { decryptField } = require("./crypto");
 const { isGuardedDemoInstance } = require("./demoMode");
 const { isFeatureEnabled } = require("./features");
-const { buildBlurb } = require("./dispatchBlurbs");
+const { buildBlurb, DISPATCH_PARTNER_SELECT } = require("./dispatchBlurbs");
 const { CHANNELS, isEligibleForChannel } = require("./dispatchEligibility");
 const { shouldFlushDailyChatChannel } = require("./chatSchedule");
 const { packMessages } = require("./messagePacking");
@@ -146,7 +146,7 @@ async function runGroupMePass(settings, now) {
   if (rows.length > 0) {
     const partners = await prisma.partner.findMany({
       where: { id: { in: [...new Set(rows.map((row) => row.partnerId))] } },
-      select: { id: true, displayName: true, fieldDisplayName: true, isRestricted: true, isPublic: true },
+      select: DISPATCH_PARTNER_SELECT,
     });
     const partnerById = new Map(partners.map((p) => [p.id, p]));
 

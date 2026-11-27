@@ -412,7 +412,10 @@ site can see, independently of each other:
   (e.g. someone your church supports but doesn't publicize).
 - **Restricted-access location** (`isRestricted`) — only relevant if
   `isPublic` is also checked. Automatically, on the public site only:
-  reduces the missionary's name to initials (an organization's name stays
+  reduces the missionary's name to initials built from the adults on the
+  record ("T.S. and S.S." for a couple, "T.S." for one adult, "T.S., S.S.
+  and J.K." for three; a partner with no adults recorded uses the initials
+  of the display name) (an organization's name stays
   visible — it's an institution, not a person), replaces their real photo
   with a generic silhouette icon (a plain shape — single, couple, or
   family, matching their actual household — never a real photo of any

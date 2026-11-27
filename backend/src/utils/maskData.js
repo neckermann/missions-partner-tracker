@@ -10,6 +10,47 @@ function toInitials(fullName = "") {
     .join("");
 }
 
+// What a loader adds to a partner query so a restricted partner's initials can be built from the adults. The
+// adults' real names are only ever used to make initials here; never put them in a response.
+const MASK_NAME_SELECT = {
+  adults: { select: { firstName: true, lastName: true, isPrimaryContact: true, createdAt: true } },
+};
+
+// "Tim Smith" -> "T.S.", a first name alone -> "T.", nobody named -> "".
+function adultInitials(adult) {
+  return [adult?.firstName, adult?.lastName]
+    .map(
+      (part) =>
+        String(part || "")
+          .trim()
+          .match(/\p{L}/u)?.[0]
+    )
+    .filter(Boolean)
+    .map((letter) => `${letter.toUpperCase()}.`)
+    .join("");
+}
+
+// A missionary household's initials, from its adults: "T.S. and S.S.", "T.S., S.S. and J.K.", a single adult "T.S.".
+// The primary contact first, then in the order they were added. "" when no adult has a name recorded.
+function initialsOfAdults(adults) {
+  if (!Array.isArray(adults)) return "";
+  const ordered = [...adults].sort(
+    (a, b) =>
+      Number(Boolean(b.isPrimaryContact)) - Number(Boolean(a.isPrimaryContact)) ||
+      new Date(a.createdAt || 0) - new Date(b.createdAt || 0)
+  );
+  const each = ordered.map(adultInitials).filter(Boolean);
+  if (each.length <= 1) return each[0] || "";
+  return `${each.slice(0, -1).join(", ")} and ${each[each.length - 1]}`;
+}
+
+// The initials a restricted partner is shown as: from the adults when they are loaded and named, else (an
+// organization, or a partner with no adults recorded) from the display name, as before.
+function restrictedInitials(partner) {
+  const fromAdults = partner?.kind === "organization" ? "" : initialsOfAdults(partner?.adults);
+  return fromAdults || toInitials(partner?.displayName || "");
+}
+
 // Shown wherever a restricted partner's name can surface outside the signed-in
 // app: public site/API, GroupMe/WhatsApp dispatches, email digests, report
 // exports. Initials when ChurchSettings.restrictedPartnerInitialsEnabled (default
@@ -21,7 +62,7 @@ function maskedDisplayName(partner, settings) {
   if (settings?.restrictedPartnerInitialsEnabled === false) {
     return partner.fieldDisplayName || GENERIC_RESTRICTED_LABEL;
   }
-  return toInitials(partner.displayName);
+  return restrictedInitials(partner);
 }
 
 // Country-level fallback pin for restricted missionaries, keyed by the country
@@ -388,4 +429,12 @@ function toPublicPartner(p, settings) {
   };
 }
 
-module.exports = { toInitials, toPublicPartner, missionaryHouseholdCategory, maskedDisplayName };
+module.exports = {
+  toInitials,
+  restrictedInitials,
+  initialsOfAdults,
+  MASK_NAME_SELECT,
+  toPublicPartner,
+  missionaryHouseholdCategory,
+  maskedDisplayName,
+};

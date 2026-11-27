@@ -5,7 +5,7 @@ const { DIGEST_RECIPIENT_ROLES } = require("./digestRoles");
 const { resolveDigestScope } = require("./digestScope");
 const { isFeatureEnabled } = require("./features");
 const { sendEmailBatch } = require("./email");
-const { buildBlurb } = require("./dispatchBlurbs");
+const { buildBlurb, DISPATCH_PARTNER_SELECT } = require("./dispatchBlurbs");
 const { loadOpenKeyDates } = require("./keyDateQueries");
 const { CHANNELS, isEligibleForChannel } = require("./dispatchEligibility");
 const { churchToday } = require("./today");
@@ -221,7 +221,7 @@ async function sendDigestTier(tier, settings) {
 
   const partners = await prisma.partner.findMany({
     where: { id: { in: [...new Set(rows.map((row) => row.partnerId))] } },
-    select: { id: true, displayName: true, fieldDisplayName: true, isRestricted: true, isPublic: true },
+    select: DISPATCH_PARTNER_SELECT,
   });
   const partnerById = new Map(partners.map((p) => [p.id, p]));
 

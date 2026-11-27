@@ -24,14 +24,17 @@ function stripInternal(row) {
   return out;
 }
 
-function maskRow(row, sensitiveKeys, settings) {
+// `initialsByName` maps a restricted partner's display name to the initials it is shown as (built from its adults by
+// restrictedPartnerInitials() in registry.js); a name not in it falls back to initials of the name itself.
+function maskRow(row, sensitiveKeys, settings, initialsByName) {
   const out = stripInternal(row);
   if (!row._restricted) return out;
   if (PARTNER_NAME_KEY in out) {
     out[PARTNER_NAME_KEY] =
       settings?.restrictedPartnerInitialsEnabled === false
         ? GENERIC_RESTRICTED_LABEL
-        : toInitials(String(out[PARTNER_NAME_KEY] || ""));
+        : initialsByName?.get(String(out[PARTNER_NAME_KEY] || "")) ||
+          toInitials(String(out[PARTNER_NAME_KEY] || ""));
   }
   for (const key of sensitiveKeys) {
     if (key in out) out[key] = null;
@@ -39,10 +42,10 @@ function maskRow(row, sensitiveKeys, settings) {
   return out;
 }
 
-function applyMasking(rows, columns, audience = "admin", settings) {
+function applyMasking(rows, columns, audience = "admin", settings, initialsByName) {
   if (audience !== "shared") return rows.map(stripInternal);
   const sensitiveKeys = columns.filter((c) => c.sensitive).map((c) => c.key);
-  return rows.map((r) => maskRow(r, sensitiveKeys, settings));
+  return rows.map((r) => maskRow(r, sensitiveKeys, settings, initialsByName));
 }
 
 module.exports = { applyMasking, PARTNER_NAME_KEY };

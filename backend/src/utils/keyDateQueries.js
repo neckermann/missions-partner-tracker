@@ -46,7 +46,16 @@ async function loadOpenKeyDates(today = churchToday(), { withAdvance = false } =
       anniversary: true,
       supportingSince: true,
       commissionedAt: true,
-      adults: { select: { id: true, firstName: true, lastName: true, birthday: true } },
+      adults: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          birthday: true,
+          isPrimaryContact: true,
+          createdAt: true,
+        },
+      },
       children: { select: { id: true, firstName: true, lastName: true, birthday: true } },
     },
   });
