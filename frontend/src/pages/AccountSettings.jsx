@@ -654,7 +654,7 @@ function MfaSection({ user, onChange }) {
             }}
           >
             <label>
-              Current Password
+              Your password, to make new recovery codes
               <input
                 type="password"
                 value={codesPassword}
