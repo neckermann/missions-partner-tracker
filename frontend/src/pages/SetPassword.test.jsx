@@ -37,7 +37,9 @@ describe("SetPassword: asking for a new link", () => {
     });
     renderExpired();
     await askForNewLink();
-    expect(await screen.findByRole("status")).toHaveTextContent(/new link to set up your sign-in is on its way/);
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      /new link to set up your sign-in is on its way/
+    );
     expect(requestPasswordSetupLink).toHaveBeenCalledWith("pat@example.test");
   });
 

@@ -25,7 +25,9 @@ describe("ForgotPassword", () => {
     renderIt();
     fireEvent.change(screen.getByLabelText("Email"), { target: { value: "dana@example.org" } });
     fireEvent.click(screen.getByRole("button", { name: "Email me a link" }));
-    expect(await screen.findByRole("status")).toHaveTextContent("a new link to set up your sign-in is on its way");
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "a new link to set up your sign-in is on its way"
+    );
     expect(client.requestPasswordSetupLink).toHaveBeenCalledWith("dana@example.org");
     expect(screen.getByRole("link", { name: "Back to sign in" })).toBeInTheDocument();
   });
