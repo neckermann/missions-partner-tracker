@@ -116,21 +116,37 @@ describe("AdminSettingsPartnerCare", () => {
     expect(screen.getByText("90 days, 30 days ahead")).toBeTruthy();
   });
 
-  it("saves new timings as numbers", async () => {
+  it("the key-date numbers are their own editable card under the reminder status, saved as numbers", async () => {
     renderIt();
-    fireEvent.click(await screen.findByRole("button", { name: /timing/i }));
+    fireEvent.click(await screen.findByRole("button", { name: /key-date timing/i }));
     const dialog = await screen.findByRole("dialog");
     fireEvent.change(within(dialog).getByLabelText(/Raise a key date/), { target: { value: "14" } });
     fireEvent.change(within(dialog).getByLabelText(/Earlier heads-ups/), { target: { value: "120, 45 x" } });
-    fireEvent.change(within(dialog).getByLabelText(/Call a partner quiet/), { target: { value: "60" } });
+    // The quiet-partner number is not on this card.
+    expect(within(dialog).queryByLabelText(/Call a partner quiet/)).toBeNull();
     fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
     await waitFor(() =>
       expect(updateChurchSettings).toHaveBeenCalledWith({
         keyDateLeadDays: 14,
         keyDateAdvanceDays: [120, 45],
-        contactStaleDays: 60,
       })
     );
+  });
+
+  it("the quiet-partner number is on its own card, and saves only itself", async () => {
+    renderIt();
+    fireEvent.click(await screen.findByRole("button", { name: /quiet partners/i }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).queryByLabelText(/Raise a key date/)).toBeNull();
+    fireEvent.change(within(dialog).getByLabelText(/Call a partner quiet/), { target: { value: "60" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(updateChurchSettings).toHaveBeenCalledWith({ contactStaleDays: 60 }));
+  });
+
+  it("the key-date status links to Enabled Features for the on/off switch", async () => {
+    renderIt();
+    const link = await screen.findByRole("link", { name: "Enabled Features" });
+    expect(link.getAttribute("href")).toBe("/admin/settings/features");
   });
 
   it("sets the digest a new missions team member starts on, from the tiers the church offers", async () => {
