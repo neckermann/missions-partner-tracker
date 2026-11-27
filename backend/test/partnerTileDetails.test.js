@@ -57,5 +57,5 @@ test("a partner who is not on the public site gets the silhouette, not a photo a
   const hidden = partnerTileDetails({ ...person, isPublic: false });
   const open = partnerTileDetails({ ...person, isPublic: true });
   assert.doesNotMatch(hidden.photoSrc, /\/api\/photos\//);
-  assert.match(open.photoSrc, /\/api\/photos\/p1\/raw/);
+  assert.match(open.photoSrc, /\/api\/photos\/p1$/);
 });
