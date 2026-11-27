@@ -119,10 +119,12 @@ A6's PR is #515.
 | 16i | C14 | merged | #537 |
 | 16j | C9a | merged (decline option and optional amount; the 'someone's on it / met' state is C9b in the schema batch) | #538 |
 | 16k | B14 | merged | #541 |
-| 17 | A10 | not started | |
-| 18 | B13 | not started | |
-| 19 | C9b | not started | |
-| 20 | B10b | not started: setting to skip review for trusted senders (new column) | #505 |
+| 17 | A10 | DRAFT, stacked, not merged (schema) | #550 |
+| 18 | B13 | DRAFT, stacked, not merged (schema) | #553 |
+| 19 | C9b | DRAFT, stacked, not merged (schema) | #554 |
+| 20 | B10b | DRAFT, stacked, not merged (schema) | #551 |
+| 21 | C11 | DRAFT, stacked, not merged (schema): church-wide currency setting, issue #555 | #556 |
+| 22 | C8 | not started: proposed per-partner contact snooze and grace start; waiting on the owner's yes | |
 
 ## Log
 
@@ -146,3 +148,4 @@ A6's PR is #515.
 - 2026-11-26: #535 (C12), #537 (C14) and #538 (C9a: Decline choice on Record Decision, optional requested amount stored as 0 and shown as 'No amount') merged. Item 16f (B6 part 3, restore from inside the app) opened as DRAFT #539 and is not merged: owner review required. Remaining Phase 1: B5 (#500 plain words), B14 (#509 docs pass). Then Phase 2 (schema batch, stop before merging): A10 (#496), B10b (#505 skip-review setting), B13 (#508), C9b (#511).
 - 2026-11-26: #540 (B5, plain words) merged (all four checks green, including e2e on the renamed labels). Item 16k (B14, docs pass) opened as #541 (docs, two code comments and one console message; screenshots and 'Last verified' dates left for the owner on purpose). Phase 1 is complete once #541 merges; #539 (in-app restore) stays a DRAFT awaiting the owner. Phase 2 (schema batch) not started: stop before merging anything there.
 - 2026-11-26: #541 (B14, docs pass) merged (all four checks green). **Phase 1 is complete**: every item is merged except 16f (B6 part 3, in-app restore), which is DRAFT #539, brought up to date with `dev`, its CI re-running, waiting for the owner's review. Phase 2 (schema batch: A10 #496, B10b #505, B13 #508, C9b #511) not started; it stops before merging and needs the owner for the dev-test database reset. Owner follow-ups are listed at the top of this file.
+- 2026-11-27: #542 (first-admin tests now run in CI), #543 (one merged trip alert) and #547 (no record when no switched-on channel would carry the event) merged (all four checks green). **Phase 2 schema batch built, stacked, NOT merged**, in this order (each PR's base is the one before it; they all edit the one baseline migration): #550 (A10: recovery codes, `npm run clear-two-factor`, `FIELD_ENCRYPTION_KEY` required at start-up, second-admin nudge) -> #551 (B10b: skip review for a verified partner, off by default) -> #553 (B13: Subscribe-page passage is a church setting) -> #554 (C9b: "Someone's on it" / "Met" on one-time needs; state names are my choice, easy to change) -> #556 (C11, issue #555: church-wide currency). Owner steps before any of them merge: reset the dev-test database (UPGRADING.md), review each PR, merge in order retargeting to `dev`. Note for #550: self-hosted installs running without `FIELD_ENCRYPTION_KEY` will stop at start-up. C8 (contact snooze) not built: waiting on the owner's yes. #550 e2e needed two fixes of my own making (a duplicate "Current Password" label, and the two-factor requirement spec not saving the recovery codes); both pushed and merged up the stack. Follow-up issues filed: #544 (restricted initials from adults), #545 (key-date card not editable), #546 (icon-only buttons), #548 (survey fields sweep), #549 (sign-in deep dive), #552 (test suite review).
