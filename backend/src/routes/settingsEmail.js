@@ -22,6 +22,7 @@ const emailSettingsSelect = {
   inboundEmailWebhookUsername: true,
   inboundEmailWebhookPassword: true,
   inboundEmailAddress: true,
+  inboundEmailSkipReview: true,
   enabledFeatures: true,
 };
 
@@ -36,6 +37,8 @@ function shapeEmailSettings(settings) {
     ),
     // Informational (#252): the address people were told to email; not involved in routing the webhook.
     inboundEmailAddress: settings?.inboundEmailAddress || null,
+    // Off by default: every inbound message waits for a person. See ChurchSettings.inboundEmailSkipReview.
+    skipReview: settings?.inboundEmailSkipReview === true,
     // The username alone is meaningless without the password (schema.prisma), so echoing it back is
     // safe. webhookPath is static: the admin builds the Basic-Auth URL in Postmark from it, so no
     // credential-bearing URL is ever rendered here.
@@ -54,6 +57,7 @@ const emailSchema = z.object({
   webhookPassword: z.string().trim().min(1).optional(),
   // Plain text, not a secret -- the address partners send mail to (#252).
   inboundEmailAddress: z.string().trim().email().optional().nullable(),
+  skipReview: z.boolean().optional(),
 });
 
 // GET /api/settings/email -- unlike GroupMe/Joshua Project/AI Extraction (reachable while off),
@@ -92,6 +96,7 @@ router.put(
         webhookUsername,
         webhookPassword,
         inboundEmailAddress,
+        skipReview,
       } = emailSchema.parse(req.body);
 
       const fields = {};
@@ -100,6 +105,7 @@ router.put(
       if (webhookUsername) fields.inboundEmailWebhookUsername = webhookUsername;
       if (webhookPassword) fields.inboundEmailWebhookPassword = encryptField(webhookPassword);
       if (inboundEmailAddress !== undefined) fields.inboundEmailAddress = inboundEmailAddress;
+      if (skipReview !== undefined) fields.inboundEmailSkipReview = skipReview;
 
       // enabledFeatures is one JSON blob shared with other integrations; Prisma has no partial-JSON
       // update, so read it and merge just these two keys.
