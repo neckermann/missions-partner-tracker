@@ -606,17 +606,19 @@ describe("survey packs and updates", () => {
       body: { answers: [] },
     });
     assert.equal(submit.status, 200);
-    const proposed = (await pending()).map((u) => u.field).sort();
+    // Only this survey's suggestions: earlier tests leave their own waiting on the same partner.
+    const ours = async () => (await pending()).filter((u) => u.surveyTitle === `${FIXTURE_TAG} Formats`);
+    const proposed = (await ours()).map((u) => u.field).sort();
     assert.deepEqual(
       proposed,
       ["contactMethod", "emergencyContactName"],
       "the same phone and email on file in another spelling propose nothing"
     );
-    const row = (await pending()).find((u) => u.field === "contactMethod");
+    const row = (await ours()).find((u) => u.field === "contactMethod");
     assert.equal(row.inputType, "contactMethod");
     assert.equal(row.problem, null);
     await editor(`/api/survey-updates/${row.id}/reject`, { method: "POST" });
-    await editor(`/api/survey-updates/${(await pending())[0].id}/reject`, { method: "POST" });
+    await editor(`/api/survey-updates/${(await ours())[0].id}/reject`, { method: "POST" });
   });
 
   test("a suggestion that is not a real value says why and cannot be approved (#548)", async () => {
