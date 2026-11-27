@@ -58,6 +58,9 @@ model Partner {
   contactViaRole      String?
   contactViaPhone     String?
   contactViaEmail     String?
+  // "Not this season": until this day the partner is not called quiet (My partners, the bell and the care
+  // chat posts leave them out). Staff-facing and optional. A follow-up date someone set on purpose still counts.
+  contactSnoozedUntil DateTime? @db.Date
   // Missionary-only: this church is the sending church. Distinct from SendingParty, which
   // describes whichever church sends them.
   sentByOurChurch     Boolean  @default(false)

@@ -52,11 +52,15 @@ export default function AssignedPartnersTable() {
       key: "daysSinceContact",
       label: "Last contact",
       sortable: true,
-      sortBy: (r) => r.daysSinceContact ?? Number.MAX_SAFE_INTEGER,
+      // A partner nobody has contacted ranks by how long they have been on the list, not above everyone.
+      sortBy: (r) => r.daysSinceContact ?? r.daysOnList ?? 0,
       render: (r) => (
         <span>
           {sinceLabel(r.daysSinceContact)}
           {r.quiet && <StatusPill label="Quiet" color="#a6540f" />}
+          {r.snoozedUntil && (
+            <StatusPill label={`Not this season until ${formatDateLong(r.snoozedUntil)}`} color="#666" />
+          )}
         </span>
       ),
     },

@@ -208,6 +208,8 @@ const partnerSchema = z.object({
   contactViaRole: z.string().trim().max(200).optional().nullable(),
   contactViaPhone: z.string().trim().max(100).optional().nullable(),
   contactViaEmail: z.string().trim().max(200).optional().nullable(),
+  // "Not this season": blank clears it.
+  contactSnoozedUntil: z.preprocess((v) => (v === "" ? null : v), z.coerce.date().nullable()).optional(),
   sentByOurChurch: z.boolean().optional(),
   anniversary: z.coerce.date().optional().nullable(),
   emergencyContactName: z.string().optional().nullable(),

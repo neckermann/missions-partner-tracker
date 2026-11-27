@@ -25,6 +25,7 @@ CREATE TABLE "Partner" (
     "contactViaRole" TEXT,
     "contactViaPhone" TEXT,
     "contactViaEmail" TEXT,
+    "contactSnoozedUntil" DATE,
     "sentByOurChurch" BOOLEAN NOT NULL DEFAULT false,
     "contactFirstName" TEXT,
     "contactLastName" TEXT,
