@@ -507,3 +507,54 @@ describe("createDispatchRecord", () => {
     assert.ok(await createDispatchRecord("newsletterCreated", partner, { partnerName: "x" }));
   });
 });
+
+describe("createDispatchRecord: nothing is queued that no switched-on channel would carry", () => {
+  const { createDispatchRecord } = require("../../src/utils/dispatchRecording");
+  const patch = (data) => prisma.churchSettings.update({ where: { id: "singleton" }, data });
+
+  test("GroupMe on but newsletters unticked, no email: a newsletter is not queued, a prayer request is", async () => {
+    await patch({
+      enabledFeatures: { groupme: true },
+      chatDispatchNewsletters: false,
+      chatDispatchPrayerRequests: true,
+    });
+    const partner = await createPartner();
+    assert.equal(await createDispatchRecord("newsletterCreated", partner, { partnerName: "x" }), null);
+    assert.ok(
+      await createDispatchRecord("prayerRequestCreated", partner, { partnerName: "x", requestText: "t" })
+    );
+  });
+
+  test("an urgent event is always recorded: its immediate send does not wait on a schedule", async () => {
+    await patch({ enabledFeatures: { groupme: true }, chatDispatchNewsletters: false });
+    const partner = await createPartner();
+    const row = await createDispatchRecord("newsletterCreated", partner, { partnerName: "x" }, null, false, {
+      urgent: true,
+    });
+    assert.ok(row);
+  });
+
+  test("a row held for review is always recorded, so it can be approved", async () => {
+    await patch({ enabledFeatures: { groupme: true }, chatDispatchNewsletters: false });
+    const partner = await createPartner();
+    const row = await createDispatchRecord("newsletterCreated", partner, { partnerName: "x" }, null, true);
+    assert.ok(row);
+    assert.equal(row.reviewRequired, true);
+  });
+
+  test("email on carries everything, so it is queued whatever the chat choices", async () => {
+    await patch({ enabledFeatures: { outboundEmail: true }, chatDispatchNewsletters: false });
+    const partner = await createPartner();
+    assert.ok(await createDispatchRecord("newsletterCreated", partner, { partnerName: "x" }));
+  });
+
+  test("a chat-only care post is not queued when only email is on, and is when its chat switch is on", async () => {
+    await patch({ enabledFeatures: { outboundEmail: true }, chatDispatchKeyDates: true });
+    const partner = await createPartner();
+    assert.equal(await createDispatchRecord("keyDateComing", partner, { partnerName: "x" }), null);
+    await patch({ enabledFeatures: { groupme: true }, chatDispatchKeyDates: true });
+    assert.ok(await createDispatchRecord("keyDateComing", partner, { partnerName: "x" }));
+    await patch({ chatDispatchKeyDates: false });
+    assert.equal(await createDispatchRecord("keyDateComing", partner, { partnerName: "x" }), null);
+  });
+});
