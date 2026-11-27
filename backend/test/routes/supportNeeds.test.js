@@ -383,3 +383,95 @@ describe("DELETE /api/support-needs/:id", () => {
     assert.equal(await prisma.supportNeed.findUnique({ where: { id: created.body.id } }), null);
   });
 });
+
+// Where a need stands in real life (#511), apart from the funding decision: who has taken it on, and the day
+// it was met. Both optional, both clearable, and neither touches the decision or sends anything.
+describe("someone's on it / met", () => {
+  const raise = async () => {
+    const res = await create({
+      description: `${FIXTURE_TAG} state test`,
+      requestedAmount: 100,
+      requestDate: "2026-01-01",
+    });
+    assert.equal(res.status, 201);
+    return res.body;
+  };
+
+  test("a new need has neither", async () => {
+    const need = await raise();
+    assert.equal(need.handledBy, null);
+    assert.equal(need.metDate, null);
+  });
+
+  test("staff can say who is on it and when it was met, and the decision is untouched", async () => {
+    const need = await raise();
+    const on = await editor(`/api/support-needs/${need.id}`, {
+      method: "PUT",
+      body: { handledBy: "  the deacons  " },
+    });
+    assert.equal(on.status, 200);
+    assert.equal(on.body.handledBy, "the deacons");
+    assert.equal(on.body.approvedAmount, null);
+
+    const met = await editor(`/api/support-needs/${need.id}`, {
+      method: "PUT",
+      body: { metDate: "2026-02-03" },
+    });
+    assert.equal(met.status, 200);
+    assert.equal(String(met.body.metDate).slice(0, 10), "2026-02-03");
+    assert.equal(met.body.handledBy, "the deacons", "an update that omits it leaves it alone");
+    assert.equal(met.body.approvedAmount, null, "met is not a decision");
+  });
+
+  test("blank clears both", async () => {
+    const need = await raise();
+    await editor(`/api/support-needs/${need.id}`, {
+      method: "PUT",
+      body: { handledBy: "x", metDate: "2026-02-03" },
+    });
+    const cleared = await editor(`/api/support-needs/${need.id}`, {
+      method: "PUT",
+      body: { handledBy: "", metDate: "" },
+    });
+    assert.equal(cleared.status, 200);
+    assert.equal(cleared.body.handledBy, null);
+    assert.equal(cleared.body.metDate, null);
+  });
+
+  test("can be given when the need is raised", async () => {
+    const res = await create({
+      description: `${FIXTURE_TAG} raised already covered`,
+      requestedAmount: 0,
+      requestDate: "2026-01-01",
+      handledBy: "Pastor Sam",
+      metDate: "2026-01-02",
+    });
+    assert.equal(res.status, 201);
+    assert.equal(res.body.handledBy, "Pastor Sam");
+  });
+
+  test("an over-long name and a bad date are refused; a viewer cannot set either", async () => {
+    const need = await raise();
+    const long = await editor(`/api/support-needs/${need.id}`, {
+      method: "PUT",
+      body: { handledBy: "x".repeat(121) },
+    });
+    assert.equal(long.status, 400);
+    const bad = await editor(`/api/support-needs/${need.id}`, { method: "PUT", body: { metDate: "soon" } });
+    assert.equal(bad.status, 400);
+    const asViewer = await viewer(`/api/support-needs/${need.id}`, {
+      method: "PUT",
+      body: { handledBy: "me" },
+    });
+    assert.equal(asViewer.status, 403);
+  });
+
+  test("a met need drops out of the care list's awaiting-a-decision count", async () => {
+    const need = await raise();
+    const count = () =>
+      prisma.supportNeed.count({ where: { partnerId, approvedAmount: null, metDate: null } });
+    const before = await count();
+    await editor(`/api/support-needs/${need.id}`, { method: "PUT", body: { metDate: "2026-02-03" } });
+    assert.equal(await count(), before - 1);
+  });
+});

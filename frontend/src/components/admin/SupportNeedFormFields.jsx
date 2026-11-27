@@ -61,6 +61,27 @@ export default function SupportNeedFormFields({
         Notes
         <input value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} />
       </label>
+      {mode === "edit" && (
+        <>
+          <label>
+            Someone's on it (who, optional)
+            <input
+              value={form.handledBy ?? ""}
+              onChange={(e) => setForm((f) => ({ ...f, handledBy: e.target.value }))}
+              placeholder="A person or a group, e.g. the deacons"
+              maxLength={120}
+            />
+          </label>
+          <label>
+            Met on (optional)
+            <input
+              type="date"
+              value={form.metDate ?? ""}
+              onChange={(e) => setForm((f) => ({ ...f, metDate: e.target.value }))}
+            />
+          </label>
+        </>
+      )}
       {mode === "create" && !limited && (
         <>
           {hasEnabledChannel && (

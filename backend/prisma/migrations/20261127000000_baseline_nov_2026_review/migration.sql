@@ -599,6 +599,8 @@ CREATE TABLE "SupportNeed" (
     "decisionNote" TEXT,
     "notes" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "handledBy" TEXT,
+    "metDate" DATE,
     "isUrgent" BOOLEAN NOT NULL DEFAULT false,
     "sourceFileId" TEXT,
     "lastEditedById" TEXT,

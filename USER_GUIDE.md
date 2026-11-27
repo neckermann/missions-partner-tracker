@@ -458,7 +458,13 @@ has made a call (tick **Decline this request** to record a no), plus an
 optional **Decision Note** for why it came out that way (a reason for
 declining, or for funding less than what was asked). The requested
 amount is optional: leave it blank when a letter names no figure, and the
-need shows "No amount". The requested amount (when there is one) and the
+need shows "No amount". Separately from the decision, open a need to
+record **Someone's on it** (who has taken it on: a person or a group) and
+**Met on** (the day it was covered, by your church or anyone else). An
+undecided need with someone on it reads "Someone's on it: …" instead of
+Pending Decision, and a met need reads **Met** whatever was decided;
+neither sends anything, and a met need no longer counts as waiting for a
+decision. The requested amount (when there is one) and the
 approved amount/decision note (once decided) show up in the GroupMe post and the
 admin email digest for that need — one-time needs never reach the
 public digest, so there's no reason to hold that detail back from the
