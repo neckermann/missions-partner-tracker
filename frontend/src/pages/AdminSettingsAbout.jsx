@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { PHONE_COUNTRIES, phoneCountryLabel } from "../utils/phoneCountries.js";
 import EmailInput from "../components/shared/EmailInput.jsx";
-import PhoneInput from "../components/shared/PhoneInput.jsx";
+import PhoneField from "../components/shared/PhoneField.jsx";
 import { formatPhone } from "../utils/phone.js";
 import { updateChurchSettings, syncAllSendingChurch, uploadChurchLogo } from "../api/client.js";
 import { useSettings } from "../context/SettingsContext.jsx";
@@ -203,15 +203,13 @@ export default function AdminSettingsAbout() {
                 Church Name
                 <input value={d.churchName || ""} onChange={(e) => set("churchName", e.target.value)} />
               </label>
-              <label>
-                Phone
-                <PhoneInput
-                  inputMode="tel"
-                  value={d.phone || ""}
-                  onChange={(e) => set("phone", e.target.value)}
-                  autoComplete="off"
-                />
-              </label>
+              <PhoneField
+                label="Phone"
+                inputMode="tel"
+                value={d.phone || ""}
+                onChange={(e) => set("phone", e.target.value)}
+                autoComplete="off"
+              />
               <label>
                 Contact First Name
                 <input

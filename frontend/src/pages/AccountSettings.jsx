@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import PhoneInput from "../components/shared/PhoneInput.jsx";
+import PhoneField from "../components/shared/PhoneField.jsx";
 import { formatPhone } from "../utils/phone.js";
 import {
   fetchCurrentUser,
@@ -156,10 +156,12 @@ function ProfileSection({ user, onChange }) {
       )}
       edit={(draft, set) => (
         <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-          <label>
-            Phone
-            <PhoneInput value={draft.phone} maxLength={40} onChange={(e) => set("phone", e.target.value)} />
-          </label>
+          <PhoneField
+            label="Phone"
+            value={draft.phone}
+            maxLength={40}
+            onChange={(e) => set("phone", e.target.value)}
+          />
           <label>
             About you
             <textarea

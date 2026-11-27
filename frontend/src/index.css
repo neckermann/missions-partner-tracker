@@ -2815,3 +2815,64 @@ button.report-summary-item[aria-pressed="true"] {
     margin: 0.6in;
   }
 }
+
+/* A labelled phone field (components/shared/PhoneField.jsx): the label above, then the country picker and the box
+   side by side, then the hint. The picker shows a compact "US +1" over a native select that is laid on top of
+   it and made see-through, so the long country list and a phone's own picker still work. */
+.phone-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.phone-input {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.4rem;
+  align-items: stretch;
+}
+.phone-country {
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: 0 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: normal;
+  white-space: nowrap;
+}
+.phone-country:focus-within {
+  outline: 2px solid var(--accent, #2a5d3c);
+  outline-offset: 1px;
+}
+.phone-country-caret {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+.phone-country select {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.phone-hint {
+  grid-column: 1 / -1;
+  color: var(--danger);
+  font-size: 0.85rem;
+  font-weight: normal;
+}
+@media (max-width: 480px) {
+  .phone-input {
+    grid-template-columns: 1fr;
+  }
+  .phone-country {
+    min-height: 2.4rem;
+  }
+}
