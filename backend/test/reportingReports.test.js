@@ -478,3 +478,52 @@ test("another currency swaps the symbol in money columns only", async () => {
   assert.equal(columns.find((c) => c.key === "approved").label, "Approved (€)");
   assert.equal(columns.find((c) => c.key === "description").label, "Need");
 });
+
+// A column, summary line or chart that belongs to a feature is left out of every run while the feature is off.
+// The registry reads the switches itself, so a caller that passes nothing still gets the gated result.
+function partnersPrisma(enabledFeatures) {
+  const selects = [];
+  return {
+    selects,
+    partner: {
+      findMany: async ({ select }) => {
+        selects.push(select);
+        return [
+          {
+            displayName: "Amara Family",
+            kind: "missionary",
+            addresses: [{ type: "physical", country: "Kenya" }],
+            supportEntries: [{ amount: 700, effectiveDate: day("2020-01-01"), createdAt: day("2020-01-01") }],
+          },
+        ];
+      },
+    },
+    churchSettings: { findUnique: async () => ({ currency: "USD", enabledFeatures }) },
+  };
+}
+
+for (const id of ["where-we-serve", "partner-roster"]) {
+  test(`${id}: no support amount is loaded, computed or returned while Monthly support is off`, async () => {
+    const report = getReport(id, { role: "admin", isEnabled: () => true });
+    const ctx = { today: new Date("2026-11-27T00:00:00Z"), audience: "admin" };
+
+    const onPrisma = partnersPrisma({ monthlySupport: true });
+    const on = await runReport(report, {}, { ...ctx, prisma: onPrisma });
+    assert.ok(on.columns.some((c) => c.key === "monthly"));
+    assert.equal(on.rows[0].monthly, 700);
+    assert.ok(onPrisma.selects[0].supportEntries, "the entries are loaded while the feature is on");
+
+    const offPrisma = partnersPrisma({ monthlySupport: false });
+    const off = await runReport(report, {}, { ...ctx, prisma: offPrisma });
+    assert.ok(!off.columns.some((c) => c.key === "monthly" || c.key === "share"));
+    assert.ok(!("monthly" in off.rows[0]) && !("share" in off.rows[0]));
+    assert.ok(!JSON.stringify(off).includes("700"));
+    assert.ok(!off.summary.some((line) => /committed/i.test(line.label)));
+    assert.equal(off.chart, null);
+    assert.equal(offPrisma.selects[0].supportEntries, undefined, "the entries are not even loaded");
+    assert.ok(
+      off.columns.every((c) => !("requiresFeature" in c)),
+      "the gating key is not sent to the browser"
+    );
+  });
+}

@@ -945,7 +945,11 @@ The current reports, by group:
 
 A report tied to a feature that's turned off (see
 [ADMIN_GUIDE.md § Feature toggles](ADMIN_GUIDE.md#feature-toggles))
-simply doesn't appear in the hub.
+simply doesn't appear in the hub. With **Monthly support** turned off,
+the two reports that stay (**Where we serve** and **Partner roster &
+tenure**) also leave out their committed-amount columns, totals and
+chart, on screen, in the CSV and in a scheduled email, so no support
+amount shows anywhere while that feature is off.
 
 **Saved views** on a report's own page let you save a set of filters by
 name — **private** (only you see it) or **shared** (everyone with access
