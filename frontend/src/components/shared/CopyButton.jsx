@@ -50,6 +50,7 @@ function CheckIcon() {
 export default function CopyButton({
   text,
   label = "Copy",
+  copiedLabel = "Copied!",
   showText = false,
   className = "btn secondary small",
 }) {
@@ -65,7 +66,7 @@ export default function CopyButton({
   }
 
   const name =
-    state === "copied" ? "Copied!" : state === "failed" ? "Couldn't copy, select it by hand" : label;
+    state === "copied" ? copiedLabel : state === "failed" ? "Couldn't copy, select it by hand" : label;
   return (
     <button
       type="button"

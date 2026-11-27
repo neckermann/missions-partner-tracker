@@ -15,6 +15,7 @@ import Breadcrumb from "../components/shared/Breadcrumb.jsx";
 import LastEdited from "../components/shared/LastEdited.jsx";
 import Wizard from "../components/shared/Wizard.jsx";
 import ManualSendNotice from "../components/shared/ManualSendNotice.jsx";
+import CopyValue from "../components/shared/CopyValue.jsx";
 import { mapServerErrorMessage } from "../utils/friendlyError.js";
 
 // A sibling route (not nested under TripDetailLayout's Outlet), so it repeats that layout's
@@ -358,12 +359,22 @@ function ApplicantAnswers({ application: a, answers }) {
   return (
     <>
       <div className="form-grid">
-        <ViewField label="Email" value={a.email} />
-        <ViewField label="Phone" value={formatPhone(a.phone)} />
+        <ViewField label="Email" value={a.email} copy="email" whose={a.firstName} />
+        <ViewField label="Phone" value={formatPhone(a.phone)} copy="phone" whose={a.firstName} />
         <ViewField label="Address" value={address} />
         <ViewField label="Emergency contact" value={emergencyContactName} />
-        <ViewField label="Emergency phone" value={formatPhone(a.emergencyContactPhone)} />
-        <ViewField label="Emergency email" value={a.emergencyContactEmail} />
+        <ViewField
+          label="Emergency phone"
+          value={formatPhone(a.emergencyContactPhone)}
+          copy="phone"
+          whose={a.emergencyContactFirstName}
+        />
+        <ViewField
+          label="Emergency email"
+          value={a.emergencyContactEmail}
+          copy="email"
+          whose={a.emergencyContactFirstName}
+        />
       </div>
       {/* declinedReason is null for other statuses. */}
       {a.status === "declined" && (
@@ -390,11 +401,24 @@ function ApplicantAnswers({ application: a, answers }) {
   );
 }
 
-function ViewField({ label, value }) {
+// `copy` ("phone" or "email") adds a copy button beside the value; `whose` names the person for its label.
+function ViewField({ label, value, copy, whose }) {
   return (
     <div>
       <div style={{ fontSize: "0.75rem", color: "var(--muted)", fontWeight: 600 }}>{label}</div>
-      <div>{value || "—"}</div>
+      <div>
+        {value ? (
+          copy ? (
+            <CopyValue kind={copy} value={String(value)} whose={whose}>
+              {value}
+            </CopyValue>
+          ) : (
+            value
+          )
+        ) : (
+          "—"
+        )}
+      </div>
     </div>
   );
 }
