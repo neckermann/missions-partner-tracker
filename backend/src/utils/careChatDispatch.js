@@ -5,7 +5,7 @@
 // Opt-in per type (ChurchSettings.chatDispatchKeyDates / QuietPartners / UpdatesToPass, all off by default),
 // and recorded only when a chat channel is on to take it, so Pending Dispatches never fills with posts nobody
 // will send. CareChatPost makes each occurrence post once. Never on a public demo (a scheduled send).
-const cron = require("node-cron");
+const cron = require("./pausableCron");
 const prisma = require("../prismaClient");
 const { isFeatureEnabled } = require("./features");
 const { isDemoInstance } = require("./demoMode");

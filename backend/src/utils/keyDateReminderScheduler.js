@@ -8,7 +8,7 @@
 // year's is a new row, and a failed send leaves no row so tomorrow retries while
 // the date is in the window. Needs keyDates + outboundEmail.
 
-const cron = require("node-cron");
+const cron = require("./pausableCron");
 const prisma = require("../prismaClient");
 const { isFeatureEnabled } = require("./features");
 const { sendEmail } = require("./email");
