@@ -5,6 +5,7 @@ const { test, describe, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 require("dotenv").config({ quiet: true });
 const prisma = require("../../src/prismaClient");
+const { generate } = require("otplib");
 const { client, stopServer, ensureTestUsers, removeTestUsers } = require("./helpers");
 
 const SETUP_EMAILS = [
@@ -12,6 +13,7 @@ const SETUP_EMAILS = [
   "first-admin-b@example.test",
   "first-admin-c@example.test",
 ];
+const CHOICE_EMAILS = ["first-admin-password@example.test", "first-admin-passkey@example.test"];
 let anon;
 let canRun = false;
 let savedSettings; // setup turns two-factor on for the whole church; later test files must not inherit that
@@ -29,7 +31,7 @@ before(async () => {
 
 after(async () => {
   if (canRun) {
-    await prisma.user.deleteMany({ where: { email: { in: SETUP_EMAILS } } });
+    await prisma.user.deleteMany({ where: { email: { in: [...SETUP_EMAILS, ...CHOICE_EMAILS] } } });
     if (savedSettings) {
       await prisma.churchSettings.update({
         where: { id: "singleton" },
@@ -82,5 +84,67 @@ describe("first-run setup", () => {
     });
     assert.equal(res.status, 409);
     assert.match(res.body.error, /redeploy/i);
+  });
+});
+
+// The first administrator chooses how to sign in, as anyone with a new account does, and is signed in straight
+// away: setup hands back the enrolment token instead of sending them to a separate sign-in.
+describe("the first administrator's choice of how to sign in", () => {
+  const post = (path, body, headers) => anon(path, { method: "POST", body, headers });
+
+  test("a password, then an authenticator app, signs them in with no extra sign-in", async (t) => {
+    if (!canRun) return cannotRun(t);
+    await prisma.user.deleteMany({});
+    const res = await post("/api/auth/setup", {
+      email: "first-admin-password@example.test",
+      password: "A-Long-Passw0rd-For-Tests!",
+    });
+    assert.equal(res.status, 201, JSON.stringify(res.body));
+    assert.ok(res.body.setupToken, "an enrolment token comes straight back");
+    assert.equal(res.headers.getSetCookie().length, 0, "no session until the second factor is added");
+    const bearer = { Authorization: `Bearer ${res.body.setupToken}` };
+    const setup = await post("/api/auth/mfa/setup", undefined, bearer);
+    assert.equal(setup.status, 200);
+    const verified = await post(
+      "/api/auth/mfa/verify-setup",
+      { token: await generate({ secret: setup.body.secret }) },
+      bearer
+    );
+    assert.equal(verified.status, 200, JSON.stringify(verified.body));
+    const cookie = verified.headers
+      .getSetCookie()
+      .map((c) => c.split(";")[0])
+      .join("; ");
+    const me = await anon("/api/auth/me", { headers: { Cookie: cookie } });
+    assert.equal(me.status, 200);
+    assert.equal(me.body.user?.role ?? me.body.role, "admin");
+  });
+
+  test("a passkey needs no password: the account has none, and the enrolment token can register one", async (t) => {
+    if (!canRun) return cannotRun(t);
+    await prisma.user.deleteMany({});
+    const res = await post("/api/auth/setup", {
+      email: "first-admin-passkey@example.test",
+      method: "passkey",
+    });
+    assert.equal(res.status, 201, JSON.stringify(res.body));
+    const admin = await prisma.user.findUnique({ where: { email: "first-admin-passkey@example.test" } });
+    assert.equal(admin.passwordHash, null);
+    assert.equal(admin.role, "admin");
+    assert.equal(admin.onMissionsTeam, true);
+    const options = await post(
+      "/api/auth/passkeys/register/options",
+      {},
+      { Authorization: `Bearer ${res.body.setupToken}` }
+    );
+    assert.equal(options.status, 200, JSON.stringify(options.body));
+  });
+
+  test("a password is still required unless the passkey way is chosen", async (t) => {
+    if (!canRun) return cannotRun(t);
+    await prisma.user.deleteMany({});
+    const res = await post("/api/auth/setup", { email: "first-admin-password@example.test" });
+    assert.equal(res.status, 400);
+    assert.equal(await prisma.user.count(), 0);
   });
 });

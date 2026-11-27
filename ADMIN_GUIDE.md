@@ -57,10 +57,12 @@ of running it for your own church, see
   **$13 a month** (the cheapest paid tiers). Nothing else is billed: the
   database also holds every uploaded photo, newsletter and document, and
   the scheduled emails and posts run inside the same service.
-- A phone with an authenticator app (Google Authenticator, Authy, 1Password
-  and so on). Two-factor sign-in is required from the very first sign-in
-  (see [Authentication setup](#authentication-setup)).
-- An email address and a strong password for the first admin account.
+- A way to sign in with two proofs, which is required from the very first
+  sign-in (see [Authentication setup](#authentication-setup)): either a
+  passkey on your own phone or computer (your fingerprint, face or screen
+  lock), or a password plus an authenticator app on your phone (Google
+  Authenticator, Authy, 1Password and so on).
+- An email address for the first admin account.
 
 The deployment goes through Render, via [`render.yaml`](render.yaml) at the
 root of this repo: a Blueprint that creates one web service and one
@@ -87,11 +89,16 @@ Postgres database in a single step.
    `/setup` first creates it. If setup says it has "already been completed" and
    you did not create that account, redeploy to start again (a new install has
    no data to lose).
-5. Create your first admin account right in the browser, sign in once, and set
-   up your authenticator app (scan a QR code, confirm a code). You can turn the
-   two-factor requirement off later in Manage Users, but it is on by default.
-6. The first time you reach the admin area you are asked, once, whether to
-   show your partners on a public website. "Not yet" is fine, and you can
+5. Create your first admin account right in the browser. The page asks
+   **Where will you mostly sign in?** On your own device, choose a passkey (no
+   password to remember, and no recovery codes: that is why the next step is
+   a second administrator). On shared or several computers, choose a password
+   and an authenticator app (scan a QR code, confirm a code, then keep your
+   recovery codes). Either way you are signed in when you finish. You can turn
+   the two-factor requirement off later in Manage Users, but it is on by default.
+6. The first time you reach the admin area you are offered, once, to add a
+   second administrator (skippable, and step 7 below does the same later), and
+   then asked whether to show your partners on a public website. "Not yet" is fine, and you can
    change it any time under Settings → Privacy and Safety.
 7. **Add a second administrator** (Settings → Manage Users → Add User, role
    Admin) as soon as someone else you trust can take the role. One

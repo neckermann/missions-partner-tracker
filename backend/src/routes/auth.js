@@ -137,21 +137,29 @@ const SETUP_LOCK_KEY = 7204117102;
 router.post("/setup", async (req, res, next) => {
   try {
     const { email, password } = req.body;
-    if (!email || !password) {
+    // Two ways in, as for any new account: a password (then an authenticator app), or a passkey on this
+    // device with no password at all.
+    const passkeyOnly = req.body.method === "passkey";
+    if (!email || (!passkeyOnly && !password)) {
       return res.status(400).json({ error: "Email and password are required" });
     }
-    const parsedPassword = passwordSchema.safeParse(password);
-    if (!parsedPassword.success) {
-      return res.status(400).json({ error: parsedPassword.error.issues[0].message });
+    if (passkeyOnly && !(await isPasskeySignInOn())) {
+      return res.status(400).json({ error: "Passkeys aren't available on this site." });
+    }
+    if (!passkeyOnly) {
+      const parsedPassword = passwordSchema.safeParse(password);
+      if (!parsedPassword.success) {
+        return res.status(400).json({ error: parsedPassword.error.issues[0].message });
+      }
     }
 
-    const passwordHash = await bcrypt.hash(password, 12);
+    const passwordHash = passkeyOnly ? null : await bcrypt.hash(password, 12);
     const created = await prisma.$transaction(async (tx) => {
       // Waits here until any other setup request has finished; released when this transaction ends.
       await tx.$queryRaw`SELECT pg_advisory_xact_lock(${SETUP_LOCK_KEY}::bigint)::text`;
       if ((await tx.user.count()) > 0) return false;
 
-      await tx.user.create({
+      const admin = await tx.user.create({
         data: {
           email: email.toLowerCase().trim(),
           passwordHash,
@@ -172,7 +180,7 @@ router.post("/setup", async (req, res, next) => {
         update: { requireTwoFactor: true },
         create: { id: "singleton", requireTwoFactor: true },
       });
-      return true;
+      return admin;
     });
 
     if (!created) {
@@ -181,9 +189,10 @@ router.post("/setup", async (req, res, next) => {
           "Setup has already been completed for this instance. If you did not create that account, redeploy to start again.",
       });
     }
-    // No session yet: with the requirement on, an unenrolled account can't use
-    // one. The first admin signs in (POST /login) and is taken through enrolment.
-    res.status(201).json({ ok: true, mfaSetupRequired: true });
+    // No session yet: with the requirement on, an unenrolled account can't use one. The enrolment token goes
+    // straight back so the page carries on to adding the second factor (an authenticator app, or the passkey
+    // itself), and finishing that opens the session: no separate sign-in step.
+    res.status(201).json({ ok: true, mfaSetupRequired: true, setupToken: signMfaSetupToken(created) });
   } catch (err) {
     next(err);
   }
