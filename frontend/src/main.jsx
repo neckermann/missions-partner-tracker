@@ -34,6 +34,7 @@ const AdminPartners = lazy(() => import("./pages/AdminPartners.jsx"));
 const AdminPartnerForm = lazy(() => import("./pages/AdminPartnerForm.jsx"));
 const AdminPartnerDetail = lazy(() => import("./pages/AdminPartnerDetail.jsx"));
 const AdminBooklet = lazy(() => import("./pages/AdminBooklet.jsx"));
+const AdminPrayerSheet = lazy(() => import("./pages/AdminPrayerSheet.jsx"));
 const AdminUsers = lazy(() => import("./pages/AdminUsers.jsx"));
 const AdminUserForm = lazy(() => import("./pages/AdminUserForm.jsx"));
 const AccountSettings = lazy(() => import("./pages/AccountSettings.jsx"));
@@ -161,6 +162,14 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                 <Route path="partners" element={<AdminPartners />} />
                 <Route path="partners/new" element={<AdminPartnerForm />} />
                 <Route path="partners/:id" element={<AdminPartnerDetail />} />
+                <Route
+                  path="prayer-sheet"
+                  element={
+                    <RequireAdminFeature feature="prayerRequests">
+                      <AdminPrayerSheet />
+                    </RequireAdminFeature>
+                  }
+                />
                 <Route
                   path="booklet"
                   element={

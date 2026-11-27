@@ -91,6 +91,8 @@ They run only in production, or with `BACKGROUND_JOBS=on`; if they are off the
 audit log keeps growing until they run; nothing breaks. The audit log is on by default and records sign-in IP
 addresses, which matters if you are asked what personal data the app keeps.
 
+A digest or chat post is **due once its scheduled day and hour has passed without a send**, not only while the clock reads that exact hour. If the service was down or restarting at the scheduled hour, the send goes out as soon as it is back (the same day for daily and weekly sends, and later in the month for a monthly or quarterly one), and only once per cycle. A schedule that has never sent waits for its next slot rather than firing the moment it is configured. On a clock-change day with no 2am, a 2am send goes out at 3am.
+
 ## Deploy / rollback
 
 See [WORKFLOW.md](WORKFLOW.md) for the normal path (push to

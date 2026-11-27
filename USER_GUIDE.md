@@ -807,6 +807,23 @@ flag.
 
 ![The central Newsletters & Docs page, listing uploads across every partner with their Kind](docs/assets/screenshots/partner-files.png)
 
+### Prayer sheet
+
+**Prayer sheet** (under Prayer Requests in the menu) makes something ready for
+Sunday: a one-page, printable list of what to pray for, or the same thing as
+slides for the screen at church (**Show as slides**: one partner per slide,
+arrow keys or the buttons to move, Escape to close). Pick how often you make a
+sheet, **every week**, **every two weeks** or **once a month**, and the sheets
+rotate through your partners so each comes round about once a month: weekly
+shows a quarter of your partners on each sheet, every two weeks shows half, and
+monthly shows all of them on one. The same Sunday always gives the same sheet.
+Your choice of rhythm is remembered in your browser.
+
+Because it is handed out, it shows only what your public site may show: a
+partner that is public, not archived and not restricted, and only its prayer
+requests marked as ministry and public that are still ongoing. Private
+requests, restricted partners and answered requests never appear.
+
 ### Printable partner booklet
 
 **Print Booklet** builds a print-formatted directory: pick a **Look &
@@ -1830,8 +1847,10 @@ entirely by what you check in the admin dashboard:
   quarterly an admin has chosen to offer, pre-selected to monthly when
   it's available), and either every partner or several specific ones
   picked from a checklist. A visitor clicks a
-  link in a confirmation email before anything actually sends (double
-  opt-in — nothing goes out to an address nobody confirmed), and every
+  link in a confirmation email, then presses **Confirm my subscription** on
+  the page it opens, before anything actually sends (double opt-in — nothing
+  goes out to an address nobody confirmed, and a mail program that merely
+  opens the link does not confirm it), and every
   digest they get after that carries its own one-click unsubscribe
   link. This public digest is **prayer requests only** — never a
   one-time need, never a newsletter or a link back to one — unlike the
