@@ -14,13 +14,7 @@ const NAV_BADGE_CATEGORIES = {
   surveyUpdates: ["surveyUpdatesPending"],
   prayerRequests: ["newPrayerRequests"],
   oneTimeNeeds: ["newOneTimeNeeds"],
-  trips: [
-    "tripsDepartingSoon",
-    "tripsDepartingSoonIncomplete",
-    "overdueTripRequirements",
-    "tripApplicationsPending",
-    "tripsReadyToWrapUp",
-  ],
+  trips: ["tripsDepartingSoon", "overdueTripRequirements", "tripApplicationsPending", "tripsReadyToWrapUp"],
 };
 
 // A 3+ digit count stretches the pill; the real number stays in the title/aria-label.

@@ -240,3 +240,69 @@ describe("bell items for switched-off pages", () => {
     }
   });
 });
+
+// One trip alert, not two: "Trips departing soon" says how many of the trips still have something missing.
+describe("trips departing soon: one alert", () => {
+  const created = [];
+  let original;
+  before(async () => {
+    original = (
+      await prisma.churchSettings.findUnique({
+        where: { id: "singleton" },
+        select: { enabledFeatures: true },
+      })
+    )?.enabledFeatures;
+    await prisma.churchSettings.update({
+      where: { id: "singleton" },
+      data: { enabledFeatures: { ...(original || {}), trips: true } },
+    });
+    // Other fixtures in this database may already have a trip starting soon; start from a clean slate.
+    await prisma.trip.deleteMany({ where: { name: { contains: FIXTURE_TAG } } });
+  });
+  after(async () => {
+    await prisma.trip.deleteMany({ where: { id: { in: created } } });
+    await prisma.churchSettings.update({
+      where: { id: "singleton" },
+      data: { enabledFeatures: original ?? {} },
+    });
+  });
+
+  const soon = () => new Date(Date.now() + 10 * 24 * 60 * 60 * 1000);
+  async function makeTrip(label, { missing }) {
+    const trip = await prisma.trip.create({
+      data: { name: `${FIXTURE_TAG} ${label}`, status: "planning", startDate: soon(), endDate: soon() },
+    });
+    created.push(trip.id);
+    if (missing) {
+      await prisma.tripParticipant.create({ data: { tripId: trip.id, firstName: "A", lastName: "B" } });
+      await prisma.tripRequirement.create({
+        data: { tripId: trip.id, label: "Passport copy", kind: "document" },
+      });
+    }
+    return trip;
+  }
+  const alertOf = async () => (await admin("/api/notifications/summary")).body.categories;
+
+  test("there is no separate 'incomplete' alert any more", async () => {
+    const keys = (await alertOf()).map((c) => c.key);
+    assert.ok(!keys.includes("tripsDepartingSoonIncomplete"));
+    assert.ok(keys.includes("tripsDepartingSoon"));
+  });
+
+  test("a trip with everything in order counts, with the plain label", async () => {
+    const trip = await makeTrip("all fine", { missing: false });
+    const item = (await alertOf()).find((c) => c.key === "tripsDepartingSoon");
+    assert.ok(item.count >= 1);
+    assert.equal(item.label, "Trips departing soon");
+    await prisma.trip.delete({ where: { id: trip.id } });
+  });
+
+  test("a trip with something missing says so, and links to its requirements", async () => {
+    const trip = await makeTrip("missing a passport", { missing: true });
+    const item = (await alertOf()).find((c) => c.key === "tripsDepartingSoon");
+    assert.match(item.label, /Trips departing soon \(\d+ missing something\)/);
+    // The link goes straight to the requirements when this is the only trip departing soon.
+    if (item.count === 1) assert.equal(item.linkTo, `/admin/trips/${trip.id}/requirements`);
+    await prisma.trip.delete({ where: { id: trip.id } });
+  });
+});
