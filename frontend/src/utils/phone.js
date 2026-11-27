@@ -12,5 +12,11 @@ export function formatPhone(value, country = DEFAULT_COUNTRY) {
   if (!text) return "";
   const parsed = parsePhoneNumberFromString(text, country);
   if (!parsed || !parsed.isPossible()) return text;
-  return parsed.countryCallingCode === "1" ? parsed.formatNational() : parsed.formatInternational();
+  // A North American number is always written (AAA) EEE-NNNN. The library only formats area codes it
+  // knows, and would return bare digits for a fictional one like (111) 111-1111, so this is done here.
+  if (parsed.countryCallingCode === "1" && parsed.nationalNumber.length === 10) {
+    const n = parsed.nationalNumber;
+    return `(${n.slice(0, 3)}) ${n.slice(3, 6)}-${n.slice(6)}`;
+  }
+  return parsed.formatInternational();
 }

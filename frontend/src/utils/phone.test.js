@@ -13,6 +13,12 @@ describe("formatPhone", () => {
     expect(formatPhone("+33123456789")).toBe("+33 1 23 45 67 89");
   });
 
+  it("never turns a number into bare digits, even for an area code the library doesn't know", () => {
+    expect(formatPhone("(111) 111-1111")).toBe("(111) 111-1111");
+    expect(formatPhone("+11111111111")).toBe("(111) 111-1111");
+    expect(formatPhone("000-000-0000")).toBe("(000) 000-0000");
+  });
+
   it("shows a fictional 555 number rather than hiding it", () => {
     expect(formatPhone("+15551234567")).toBe("(555) 123-4567");
   });
