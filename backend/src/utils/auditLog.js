@@ -59,6 +59,8 @@ const AUDIT_ACTIONS = {
 
   "backup.downloaded": { label: "Downloaded a backup", category: "Data" },
   "backup.download_refused": { label: "Backup download refused (wrong password)", category: "Data" },
+  "backup.restored": { label: "Restored the site from a backup", category: "Data" },
+  "backup.restore_refused": { label: "Backup restore refused", category: "Data" },
 
   "partner.restricted_changed": { label: "Changed a partner's restricted status", category: "Restricted" },
   "partner.restricted_viewed": { label: "Viewed a restricted partner", category: "Restricted" },

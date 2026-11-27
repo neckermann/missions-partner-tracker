@@ -9,7 +9,7 @@
 //
 // Hour/day checks use plain Date getters, so process.env.TZ must match the
 // church's local time (see server.js's startup read of ChurchSettings.timezone).
-const cron = require("node-cron");
+const cron = require("./pausableCron");
 const { mostRecentWeeklySlot, mostRecentMonthlySlot, isSlotDue } = require("./sendSlots");
 const prisma = require("../prismaClient");
 const { sendDigestTier } = require("./emailDispatchDelivery");
