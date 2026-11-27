@@ -1027,6 +1027,11 @@ export async function logout() {
   await api.post("/auth/logout");
 }
 
+// Ends every open session of this account, this browser included (the server also clears this browser's cookie).
+export async function logoutEverywhere() {
+  await api.post("/auth/logout-all");
+}
+
 export async function fetchCurrentUser() {
   try {
     const { data } = await api.get("/auth/me");
