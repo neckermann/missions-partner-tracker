@@ -134,6 +134,9 @@ module.exports = [
       ],
       eqeqeq: ["error", "always", { null: "ignore" }],
       "no-var": "error",
+      // No window.confirm()/alert()/prompt(): the app asks through its own dialogs (useConfirmDialog), which
+      // look like the rest of the app, work on a phone and can be tested (CONTRIBUTING.md, Code style).
+      "no-alert": "error",
       "prefer-const": "warn",
 
       // This app's date-only API fields (a birthday, a newsletter's

@@ -293,7 +293,11 @@ tied to the site's address, so set `APP_BASE_URL` to the address people use (its
 host name is the passkey's identity) and keep it stable; if the church moves to
 a new domain, existing passkeys stop working and people add them again (an
 authenticator app is unaffected). **Reset MFA** on a user clears their app and
-passkeys.
+passkeys. A passkey also works only at that one address, so if you open the
+site by another one (the bare domain instead of `www`, or the old
+`onrender.com` address after adding a custom domain), an admin sees a banner at
+the top saying which address the site is set to, and a person whose passkey is
+refused is told the same instead of a bare "couldn't be verified".
 
 **Passwordless sign-in** (#386, Settings → Manage Users) is an optional
 church-wide switch for churches that have outbound email working: nobody signs

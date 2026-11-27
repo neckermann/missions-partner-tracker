@@ -39,14 +39,35 @@ describe("GET /api/system-info", () => {
     assert.equal(typeof res.body.dependencies.express, "string");
     assert.equal(typeof res.body.dependencies.prisma, "string");
     assert.equal(typeof res.body.dependencies.prismaClient, "string");
-    // deployment.onRender is whatever this test's own environment says --
-    // just confirm the shape is internally consistent either way.
-    if (res.body.deployment.onRender) {
-      assert.equal(typeof res.body.deployment.serviceName, "string");
-    } else {
-      assert.equal(res.body.deployment.serviceName, null);
-      assert.equal(res.body.deployment.gitCommit, null);
-      assert.equal(res.body.deployment.externalUrl, null);
+    // deployment.onRender is whatever this test's own environment says, so only one of these two shapes
+    // is ever seen in a given run; both are covered below by setting the variables the route reads.
+    assert.equal(typeof res.body.deployment.onRender, "boolean");
+  });
+
+  test("on Render the deployment names its service, and off Render those fields are null", async () => {
+    const keys = ["RENDER_SERVICE_NAME", "RENDER_GIT_COMMIT", "RENDER_EXTERNAL_URL"];
+    const saved = Object.fromEntries(keys.map((k) => [k, process.env[k]]));
+    try {
+      for (const k of keys) delete process.env[k];
+      const off = (await admin("/api/system-info")).body.deployment;
+      assert.equal(off.onRender, false);
+      assert.equal(off.serviceName, null);
+      assert.equal(off.gitCommit, null);
+      assert.equal(off.externalUrl, null);
+
+      process.env.RENDER_SERVICE_NAME = "church-app";
+      process.env.RENDER_GIT_COMMIT = "abc1234";
+      process.env.RENDER_EXTERNAL_URL = "https://church-app.onrender.com";
+      const on = (await admin("/api/system-info")).body.deployment;
+      assert.equal(on.onRender, true);
+      assert.equal(on.serviceName, "church-app");
+      assert.equal(on.gitCommit, "abc1234");
+      assert.equal(on.externalUrl, "https://church-app.onrender.com");
+    } finally {
+      for (const k of keys) {
+        if (saved[k] === undefined) delete process.env[k];
+        else process.env[k] = saved[k];
+      }
     }
   });
 
