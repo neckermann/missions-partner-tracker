@@ -30,9 +30,23 @@ for why.
 
 ![The login page](docs/assets/screenshots/login-page.png)
 
+**Your first time (the link you were sent).** A new account opens from a link
+in a welcome email (or one an administrator copies to you). The page asks
+**Where will you mostly sign in?** If it is your own phone or computer, choose
+**Mostly on this device**: you create a passkey and use your fingerprint, face
+or screen lock from then on. A passkey has no recovery codes, so if you lose
+that device, ask an administrator to reset your sign-in, or use **Email me a
+new link** on the sign-in page if your church has email set up. If you use
+different or shared computers, choose **On different or shared computers**: you
+choose a password and add an authenticator app, and you are given recovery
+codes to keep. Either way you are signed in at the end, with no separate
+sign-in step. A link works once; an expired one offers to email you a new link.
+If your account already has two-factor, a link only changes your password, and
+you sign in the normal way afterward.
+
 **Forgot your password?** When your church's site can send email, a **Forgot
 your password?** link under the sign-in button asks for your email address and
-sends a link that lets you choose a new one. The link works once and expires
+sends a link that lets you choose a new one (the same page described above). The link works once and expires
 in an hour, and the page says the same thing whether or not that address has
 an account. Choosing a new password signs you out on your other devices, and
 if you use two-factor you're still asked for it next time you sign in. If the

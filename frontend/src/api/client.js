@@ -1158,6 +1158,12 @@ export async function completePasswordSetup(token, password) {
   const { data } = await api.post("/auth/password-setup/complete", { token, password });
   return data;
 }
+// The other way to finish a setup link: no password, a passkey. Spends the link and returns the enrolment token
+// the passkey is then registered with (registering signs the person in).
+export async function startPasskeyLinkSetup(token) {
+  const { data } = await api.post("/auth/password-setup/passkey", { token });
+  return data;
+}
 export async function requestPasswordSetupLink(email) {
   const { data } = await api.post("/auth/password-setup/request", { email });
   return data;

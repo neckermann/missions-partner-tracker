@@ -476,6 +476,11 @@ router.post("/password-setup/validate", async (req, res, next) => {
       // The page words a reset (account already has a password) differently from first-time setup.
       reset: Boolean(row.user.passwordHash),
       mfaRequired: row.user.mfaSetupRequired || (await isTwoFactorRequired()),
+      // The guided page offers only what this site allows and what this account can still be given. An
+      // account that already has two-factor is never handed a new one by a link alone (see /complete).
+      hasSecondFactor: Boolean(row.user.mfaEnabled) && Boolean(row.user.passwordHash),
+      passwordAllowed: !(await isPasswordlessOn()),
+      passkeyAllowed: await isPasskeySignInOn(),
     });
   } catch (err) {
     next(err);
@@ -484,6 +489,9 @@ router.post("/password-setup/validate", async (req, res, next) => {
 
 router.post("/password-setup/complete", noPasswordChangeOnDemo, async (req, res, next) => {
   try {
+    if (await isPasswordlessOn()) {
+      return res.status(403).json({ error: "This church signs in with a passkey, not a password" });
+    }
     const { token, password } = req.body || {};
     const parsedPassword = passwordSchema.safeParse(password);
     if (!parsedPassword.success) {
@@ -500,12 +508,25 @@ router.post("/password-setup/complete", noPasswordChangeOnDemo, async (req, res,
     // whoever had the old password is signed out (endOtherSessions skips demos,
     // whose logins are shared).
     const isReset = Boolean(row.user.passwordHash);
-    // One transaction: set the password, burn this link, and drop the account's
-    // other outstanding links so none can be replayed.
+    // A passkey-only account (no password yet, but two-factor on) choosing a password is the lost-device
+    // case: its old passkeys go, or the person would be asked for the one they lost.
+    const replacingPasskeys = row.user.mfaEnabled && !isReset;
     await prisma.$transaction([
+      ...(replacingPasskeys
+        ? [
+            prisma.userPasskey.deleteMany({ where: { userId: row.userId } }),
+            prisma.userRecoveryCode.deleteMany({ where: { userId: row.userId } }),
+          ]
+        : []),
+      // One transaction: set the password, burn this link, and drop the account's
+      // other outstanding links so none can be replayed.
       prisma.user.update({
         where: { id: row.userId },
-        data: { passwordHash, ...(isReset ? endOtherSessions() : {}) },
+        data: {
+          passwordHash,
+          ...(isReset || replacingPasskeys ? endOtherSessions() : {}),
+          ...(replacingPasskeys ? { mfaEnabled: false, mfaSecret: null } : {}),
+        },
       }),
       prisma.passwordSetupToken.deleteMany({
         where: { userId: row.userId, tokenHash: { not: hashToken(String(token)) } },
@@ -517,9 +538,64 @@ router.post("/password-setup/complete", noPasswordChangeOnDemo, async (req, res,
       actor: row.user,
       req,
     });
-    // Not signed in here on purpose: signing in normally also runs any required
-    // two-factor enrolment.
-    res.json({ ok: true, mfaRequired: row.user.mfaSetupRequired || (await isTwoFactorRequired()) });
+    const mfaRequired = row.user.mfaSetupRequired || (await isTwoFactorRequired());
+    const stillHasSecondFactor = row.user.mfaEnabled && !replacingPasskeys;
+    // An account with no second factor yet goes straight on to adding one, with no extra sign-in: the link
+    // proved the inbox and the page then makes the person enrol an authenticator app (the passkey route is
+    // /password-setup/passkey), and finishing that signs them in. An account that already has two-factor,
+    // and a public demo, get no session from a link alone: they sign in the normal way and meet their
+    // second factor there.
+    if (!stillHasSecondFactor && !isDemoDeployment()) {
+      return res.json({ ok: true, mfaRequired, setupToken: signMfaSetupToken(row.user) });
+    }
+    res.json({ ok: true, mfaRequired });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// The other way to finish a setup link: no password at all, a passkey on this device. Spends the link and
+// hands back a short-lived enrolment token (the same one a forced enrolment uses), which the page uses to
+// register the passkey; registering signs the person in. The link is burned here, so an abandoned attempt
+// needs a new one.
+//
+// A link alone never replaces a second factor someone already has: an account with a password and two-factor
+// is refused. An account with only passkeys (no password, so the passkey was its whole sign-in) is the lost-
+// device case: the link clears its old passkeys first, as an administrator's Reset MFA does.
+router.post("/password-setup/passkey", noPasswordChangeOnDemo, async (req, res, next) => {
+  try {
+    if (!(await isPasskeySignInOn())) {
+      return res.status(400).json({ error: "Passkeys aren't available on this site." });
+    }
+    const row = await findValidSetupToken(String(req.body?.token || ""));
+    if (!row) return res.status(400).json({ error: SETUP_LINK_INVALID });
+    const user = row.user;
+    if (user.mfaEnabled && user.passwordHash) {
+      return res.status(400).json({
+        error:
+          "This account already has two-factor sign-in, which a link can't replace. Sign in, or ask an administrator to reset it.",
+      });
+    }
+    const replacing = user.mfaEnabled && !user.passwordHash;
+    await prisma.$transaction([
+      ...(replacing
+        ? [
+            prisma.userPasskey.deleteMany({ where: { userId: user.id } }),
+            prisma.userRecoveryCode.deleteMany({ where: { userId: user.id } }),
+            prisma.user.update({
+              where: { id: user.id },
+              data: { mfaEnabled: false, mfaSecret: null, ...endOtherSessions() },
+            }),
+          ]
+        : []),
+      prisma.passwordSetupToken.deleteMany({ where: { userId: user.id } }),
+    ]);
+    await recordAuditSafe(null, {
+      action: replacing ? "auth.passkeys_replaced_by_link" : "auth.passkey_setup_started",
+      actor: user,
+      req,
+    });
+    res.json({ ok: true, setupToken: signMfaSetupToken(user) });
   } catch (err) {
     next(err);
   }
@@ -547,7 +623,7 @@ router.post("/password-setup/request", async (req, res) => {
     emailOn
       ? {
           ok: true,
-          message: "If that email has an account, a link to choose a password is on its way.",
+          message: "If that email has an account, a new link to set up your sign-in is on its way.",
         }
       : {
           ok: true,
@@ -573,6 +649,12 @@ router.post("/password-setup/request", async (req, res) => {
     if (!emailOn || isDemoDeployment()) return;
     if (!user || !user.active || user.authProvider !== "local") return;
     if (!user.passwordHash) {
+      // At most one a minute, as for a reset: otherwise anyone could mail-bomb a person with setup links.
+      const recentSetup = await prisma.passwordSetupToken.findFirst({
+        where: { userId: user.id, usedAt: null, createdAt: { gt: new Date(Date.now() - RESET_COOLDOWN_MS) } },
+        select: { id: true },
+      });
+      if (recentSetup) return;
       await sendWelcomeEmail(user, { requireMfa: user.mfaSetupRequired });
       return;
     }

@@ -20,12 +20,12 @@ describe("ForgotPassword", () => {
   it("asks for the email, then says a link is on its way", async () => {
     client.requestPasswordSetupLink.mockResolvedValue({
       ok: true,
-      message: "If that email has an account, a link to choose a password is on its way.",
+      message: "If that email has an account, a new link to set up your sign-in is on its way.",
     });
     renderIt();
     fireEvent.change(screen.getByLabelText("Email"), { target: { value: "dana@example.org" } });
     fireEvent.click(screen.getByRole("button", { name: "Email me a link" }));
-    expect(await screen.findByRole("status")).toHaveTextContent("a link to choose a password is on its way");
+    expect(await screen.findByRole("status")).toHaveTextContent("a new link to set up your sign-in is on its way");
     expect(client.requestPasswordSetupLink).toHaveBeenCalledWith("dana@example.org");
     expect(screen.getByRole("link", { name: "Back to sign in" })).toBeInTheDocument();
   });

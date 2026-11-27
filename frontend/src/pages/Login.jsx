@@ -3,21 +3,15 @@ import { useNavigate, useLocation, Link } from "react-router-dom";
 import {
   login,
   verifyMfaLogin,
-  startForcedMfaSetup,
-  confirmForcedMfaSetup,
   fetchSetupStatus,
   loginWithPasskey,
-  registerPasskey,
   browserSupportsWebAuthn,
   signInWithPasskeyOnly,
   signInWithPasskeyAutofill,
   browserSupportsWebAuthnAutofill,
   requestSignInLink,
 } from "../api/client.js";
-import MfaAppGuide from "../components/MfaAppGuide.jsx";
-import CopyButton from "../components/shared/CopyButton.jsx";
-import RecoveryCodesPanel from "../components/RecoveryCodesPanel.jsx";
-import { passkeyErrorMessage } from "../utils/passkeyError.js";
+import EnrolSecondFactor from "../components/EnrolSecondFactor.jsx";
 
 // Where to land after login. `next` (from requireAuth's redirect, an /api path) and `from` (from
 // RequireAdminAuth, an SPA route) round-trip through the URL/state, so both are validated here
@@ -41,9 +35,6 @@ export default function Login() {
   const [methods, setMethods] = useState({ authenticatorApp: true, passkey: false });
   const [mfaCode, setMfaCode] = useState("");
   const [setupToken, setSetupToken] = useState(null);
-  const [setupData, setSetupData] = useState(null); // { secret, qrCode }
-  // Recovery codes handed out right after enrolment; the screen waits until they are saved.
-  const [newCodes, setNewCodes] = useState(null);
   // The second step is a one-time recovery code instead of an authenticator code.
   const [useRecovery, setUseRecovery] = useState(false);
   const [error, setError] = useState("");
@@ -99,7 +90,6 @@ export default function Login() {
       setMethods(result.methods || { authenticatorApp: true, passkey: false });
     } else if (result.mfaSetupRequired) {
       setSetupToken(result.setupToken);
-      setSetupData(await startForcedMfaSetup(result.setupToken));
     } else {
       goToDestination();
     }
@@ -201,87 +191,13 @@ export default function Login() {
     }
   }
 
-  async function handlePasskeyEnrol() {
-    setError("");
-    try {
-      await registerPasskey("", setupToken);
-      goToDestination();
-    } catch (err) {
-      setError(`${passkeyErrorMessage(err, "Couldn't add a passkey")} Or use an authenticator app instead.`);
-    }
-  }
-
-  async function handleSetupConfirm(e) {
-    e.preventDefault();
-    setError("");
-    try {
-      const result = await confirmForcedMfaSetup(setupToken, mfaCode);
-      // The session is already open; hold on this screen until the person has saved their codes.
-      if (result?.recoveryCodes?.length) setNewCodes(result.recoveryCodes);
-      else goToDestination();
-    } catch (err) {
-      setError(err.response?.data?.error || "Invalid code");
-    }
-  }
-
-  if (newCodes) {
-    return (
-      <div className="admin-shell" style={{ maxWidth: 480 }}>
-        <RecoveryCodesPanel codes={newCodes} onDone={goToDestination} doneLabel="Continue to the site" />
-      </div>
-    );
-  }
-
   if (setupToken) {
     return (
-      <div className="admin-shell" style={{ maxWidth: 480 }}>
-        <h2>Two-Factor Setup Required</h2>
-        <p style={{ color: "var(--muted)" }}>
-          An administrator requires two-factor authentication on this account. Follow the steps below to
-          finish signing in.
-        </p>
-        {browserSupportsWebAuthn() && (
-          <div style={{ marginBottom: "1rem" }}>
-            <p style={{ color: "var(--muted)" }}>
-              The simplest way is a passkey: your fingerprint, face or screen lock on this device.
-            </p>
-            <button type="button" className="btn" onClick={handlePasskeyEnrol}>
-              Use a passkey
-            </button>
-            <p style={{ color: "var(--muted)", marginTop: "1rem" }}>Or use an authenticator app:</p>
-          </div>
-        )}
-        <MfaAppGuide />
-        {setupData && (
-          <form
-            onSubmit={handleSetupConfirm}
-            style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}
-          >
-            <img src={setupData.qrCode} alt="MFA QR code" style={{ width: 200, height: 200 }} />
-            <p style={{ fontSize: "0.85rem", color: "var(--muted)" }}>
-              Can't scan it? Enter this code manually: <code>{setupData.secret}</code>{" "}
-              <CopyButton text={setupData.secret} label="Copy the setup key" />
-            </p>
-            <label>
-              Code
-              <input
-                type="text"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                maxLength={6}
-                value={mfaCode}
-                onChange={(e) => setMfaCode(e.target.value)}
-                autoFocus
-                required
-              />
-            </label>
-            {error && <p style={{ color: "var(--danger)" }}>{error}</p>}
-            <button type="submit" className="btn">
-              Confirm & Sign In
-            </button>
-          </form>
-        )}
-      </div>
+      <EnrolSecondFactor
+        setupToken={setupToken}
+        intro="An administrator requires two-factor authentication on this account. Follow the steps below to finish signing in."
+        onDone={goToDestination}
+      />
     );
   }
 
@@ -497,6 +413,12 @@ export default function Login() {
           Continue
         </button>
       </form>
+      {canReset && !passwordless && (
+        <p style={{ margin: "1rem 0 0", color: "var(--muted)", fontSize: "0.9rem" }}>
+          Lost your passkey, or signing in for the first time?{" "}
+          <Link to="/forgot-password">Email me a new link</Link>
+        </p>
+      )}
     </div>
   );
 }
