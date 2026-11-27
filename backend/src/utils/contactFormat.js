@@ -6,7 +6,7 @@
 // really exists, so fictional 555 numbers on a demo still save.
 const { parsePhoneNumberFromString } = require("libphonenumber-js/min");
 
-const DEFAULT_PHONE_COUNTRY = "US";
+const { DEFAULT_PHONE_COUNTRY, getPhoneCountry } = require("./phoneCountry");
 const PHONE_PROBLEM =
   "That doesn't look like a phone number. Include the area code, or start with + and the country code.";
 const EMAIL_PROBLEM = "That doesn't look like an email address";
@@ -53,7 +53,8 @@ function zodWith(z, normalize) {
       return result.value;
     });
 }
-const phoneSchema = (z, country) => zodWith(z, (raw) => normalizePhone(raw, country));
+// With no country given, the church's own (utils/phoneCountry.js) is used when the value is checked.
+const phoneSchema = (z, country) => zodWith(z, (raw) => normalizePhone(raw, country || getPhoneCountry()));
 const emailSchema = (z) => zodWith(z, normalizeEmail);
 // An email that must be there (the address someone applies with): trimmed, lower case, valid.
 const requiredEmailSchema = (z) =>

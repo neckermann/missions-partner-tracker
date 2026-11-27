@@ -18,7 +18,7 @@ and how the pieces fit together, not how to work on it or how to use it.
 
 One Postgres database (`backend/prisma/schema.prisma`), accessed only
 through Prisma. Pre-1.0: every schema change is squashed into a single
-baseline migration (`backend/prisma/migrations/20261127000000_baseline_nov_2026_review/`)
+baseline migration (`backend/prisma/migrations/20261127000000_init/`)
 rather than accumulating a migration history.
 
 ### 1.1 Core entity: Partner
@@ -1181,6 +1181,12 @@ code — it reads the same `groupmeText` field GroupMe does (see 6.2a).
 
 ### 6.4 Urgent dispatch
 
+`ChurchSettings.defaultPhoneCountry` (an ISO 3166-1 code, default `US`, validated against libphonenumber's list) is the country a
+phone number typed without a `+` is read in (`utils/phoneCountry.js`, kept in memory, loaded at start-up and refreshed when the setting is saved;
+served on `GET /api/public/settings` so `PhoneInput` can shape numbers the same way). Phones are saved in international form and emails in lower case by
+`utils/contactFormat.js`, and 28 CHECK constraints at the end of the baseline migration make the database refuse any other value in those columns
+(`User.email`, the login, and newsletter signups are not constrained).
+
 `ChurchSettings.currency` (an ISO 4217 code, default `USD`, validated against `Intl`) is the one currency for
 every amount. Amounts stay whole numbers with no currency of their own; the setting only decides how they are
 written (`utils/money.js` on the server for announcements and report headings, `utils/format.js` in the browser,
@@ -1306,6 +1312,22 @@ leaves the previous one serving. `SKIP_SCHEMA_CHECK=true` skips the
 check (RUNBOOK.md). Recovery procedure: `demo/README.md`. Intentional
 until 1.0.0 ships; will need to stop once there's real production data
 anywhere.
+
+**The baseline's name.** The folder is `<timestamp>_init` (today
+`20261127000000_init`). The timestamp is Prisma's required prefix and already
+says when the baseline was cut, so the label stays short and the same for every
+squash: only the timestamp changes, which also changes the migration's name
+and makes `migrate deploy` fail its pre-deploy step on an out-of-date database,
+a loud, safe signal on top of the start-up check. The name also appears in every
+backup's manifest (`migrationName`), which the restore command compares.
+
+**Standing item before 1.0.0: decide the migration naming format.** After 1.0.0
+the baseline is never edited again: every schema change is a new, immutable
+migration folder with a descriptive name. Settle the format going forward
+(for example `YYYYMMDDHHMMSS_short_description`, created with `prisma migrate
+dev --name ...`, one concern per migration) and write it in CONTRIBUTING.md §
+Database migrations before the release is cut. It is on the 1.0.0 decision's
+checklist (CONTRIBUTING.md § Versioning).
 
 ### 8.4 Environment variables
 

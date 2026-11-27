@@ -262,3 +262,71 @@ describe("a trip application", () => {
     assert.equal(row.emergencyContactPhone, null);
   });
 });
+
+describe("the church's country for a number typed without a + (#548)", () => {
+  const setCountry = (code) => admin("/api/settings", { method: "PUT", body: { defaultPhoneCountry: code } });
+  after(async () => {
+    await prisma.churchSettings.update({ where: { id: "singleton" }, data: { defaultPhoneCountry: "US" } });
+    require("../../src/utils/phoneCountry").setPhoneCountry("US");
+  });
+
+  test("only an admin can set it, to a country code the server knows", async () => {
+    assert.equal(
+      (await anon("/api/settings", { method: "PUT", body: { defaultPhoneCountry: "GB" } })).status,
+      401
+    );
+    const bad = await setCountry("ZZ");
+    assert.equal(bad.status, 400);
+    assert.match(bad.body.error, /defaultPhoneCountry: Not a country code/);
+    assert.equal((await setCountry("")).status, 400);
+    const ok = await setCountry("gb");
+    assert.equal(ok.status, 200);
+    assert.equal(ok.body.defaultPhoneCountry, "GB", "saved in upper case");
+    await setCountry("US");
+  });
+
+  test("it is served to the pages, and read when a number is saved without a +", async () => {
+    assert.equal((await anon("/api/public/settings")).body.defaultPhoneCountry, "US");
+    assert.equal((await setCountry("GB")).status, 200);
+    assert.equal((await anon("/api/public/settings")).body.defaultPhoneCountry, "GB");
+
+    const uk = await admin("/api/partners", {
+      method: "POST",
+      body: { kind: "organization", displayName: `${FIXTURE_TAG} uk church`, contactPhone: "020 7946 0958" },
+    });
+    assert.equal(uk.status, 201);
+    assert.equal(
+      (await prisma.partner.findUnique({ where: { id: uk.body.id } })).contactPhone,
+      "+442079460958"
+    );
+
+    // A number with its own + keeps its own country; one that is too short is refused whatever the country.
+    const us = await admin(`/api/partners/${uk.body.id}`, {
+      method: "PUT",
+      body: { contactPhone: "+1 (506) 555-0259" },
+    });
+    assert.equal(us.status, 200);
+    assert.equal(
+      (await prisma.partner.findUnique({ where: { id: uk.body.id } })).contactPhone,
+      "+15065550259"
+    );
+    const plain = await admin(`/api/partners/${uk.body.id}`, {
+      method: "PUT",
+      body: { contactPhone: "12345" },
+    });
+    assert.equal(plain.status, 400);
+    assert.match(plain.body.error, /doesn't look like a phone number/);
+  });
+
+  test("changing it back applies at once, and a saved number never changes", async () => {
+    assert.equal((await setCountry("US")).status, 200);
+    const row = await prisma.partner.findFirst({ where: { displayName: `${FIXTURE_TAG} uk church` } });
+    assert.equal(row.contactPhone, "+15065550259", "nothing saved is rewritten");
+    const us = await admin(`/api/partners/${row.id}`, {
+      method: "PUT",
+      body: { contactPhone: "(337) 555-0100" },
+    });
+    assert.equal(us.status, 200);
+    assert.equal((await prisma.partner.findUnique({ where: { id: row.id } })).contactPhone, "+13375550100");
+  });
+});

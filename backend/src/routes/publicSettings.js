@@ -30,6 +30,8 @@ router.get("/", async (req, res, next) => {
       ownerGroupName: settings?.ownerGroupName || "Missions team",
       // The one currency every amount is shown in (utils/money.js).
       currency: settings?.currency || "USD",
+      // The country a phone number typed without a "+" is read in (utils/phoneCountry.js).
+      defaultPhoneCountry: settings?.defaultPhoneCountry || "US",
       publicTagline: settings?.publicTagline || null,
       aboutText: settings?.aboutText || null,
       // Shown above the public Subscribe form only when the church has set one (#508).

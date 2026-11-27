@@ -312,6 +312,15 @@ generated file afterward. Mention in your PR that it needs
 `npx prisma migrate deploy` (or the equivalent for whoever's running it)
 — there's no CI step that applies migrations automatically.
 
+**Pre-1.0 the migration is a single squashed baseline, named `<timestamp>_init`**
+(for example `20261127000000_init`); you edit it rather than adding a new
+folder (see [SPEC.md § 8.3](SPEC.md#83-migration-strategy-pre-10)). The
+timestamp already says when it was cut, so the label stays `init`. **Before
+1.0.0, settle the migration naming format for everything after it** (the
+baseline stops being edited; each change becomes its own descriptively named
+migration, for example `YYYYMMDDHHMMSS_short_description`) and write it here.
+That is a standing item on the 1.0.0 checklist below.
+
 ## Branches and releasing
 
 `main` is production. Render tracks this repo's default branch and deploys
@@ -376,6 +385,11 @@ steps and means something:
   (see [SPEC.md § 8.3](SPEC.md#83-migration-strategy-pre-10)). Until then a
   release that changes the baseline says so under *Upgrading* in the
   CHANGELOG.
+  Before cutting it, confirm: (1) the **migration naming format** going forward
+  is decided and written in [§ Database migrations](#database-migrations) (the
+  pre-1.0 baseline is `<timestamp>_init`); (2) the baseline is frozen and the
+  squash convention is removed from SPEC § 8.3; (3) UPGRADING.md describes an
+  upgrade that never needs a reset.
 - **Order** follows SemVer: `0.1.0-beta.2 < 0.1.0-beta.10 < 0.1.0 < 0.1.1 <
   0.2.0-beta.1`. `versionCheck.js` implements it, so an instance running a
   beta is told to update once its final release is out, and not before.

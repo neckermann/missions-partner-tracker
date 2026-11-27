@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { PHONE_COUNTRIES, phoneCountryLabel } from "../utils/phoneCountries.js";
 import EmailInput from "../components/shared/EmailInput.jsx";
 import PhoneField from "../components/shared/PhoneField.jsx";
 import { formatPhone } from "../utils/phone.js";
@@ -27,6 +28,7 @@ const emptyForm = {
   websiteLink: "",
   timezone: "UTC",
   currency: "USD",
+  defaultPhoneCountry: "US",
   ...emptyAddress,
   partnerTermSingular: "",
   partnerTermPlural: "",
@@ -140,6 +142,7 @@ export default function AdminSettingsAbout() {
           websiteLink: form.websiteLink,
           timezone: form.timezone,
           currency: form.currency,
+          defaultPhoneCountry: form.defaultPhoneCountry,
           addressLine1: form.addressLine1,
           addressLine2: form.addressLine2,
           city: form.city,
@@ -162,6 +165,9 @@ export default function AdminSettingsAbout() {
             <p style={{ color: "var(--muted)" }}>{v.websiteLink || "No website set"}</p>
             <p style={{ color: "var(--muted)" }}>Timezone: {v.timezone}</p>
             <p style={{ color: "var(--muted)" }}>Currency: {v.currency || "USD"}</p>
+            <p style={{ color: "var(--muted)" }}>
+              Phone numbers typed without a + are read as: {phoneCountryLabel(v.defaultPhoneCountry || "US")}
+            </p>
             {showSyncPrompt && sentByOurChurchCount > 0 && (
               // Not interactive: stops clicks/keydowns on the inner button bubbling to the card's open handler.
               // eslint-disable-next-line jsx-a11y/no-static-element-interactions
@@ -249,7 +255,26 @@ export default function AdminSettingsAbout() {
                   ))}
                 </select>
               </label>
+              <label>
+                Phone numbers without a + are read as
+                <select
+                  value={d.defaultPhoneCountry || "US"}
+                  onChange={(e) => set("defaultPhoneCountry", e.target.value)}
+                >
+                  {PHONE_COUNTRIES.map((c) => (
+                    <option key={c.code} value={c.code}>
+                      {c.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
             </div>
+            <p style={{ color: "var(--muted)", fontSize: "0.85rem", marginTop: "0.5rem" }}>
+              Phone numbers are saved with their country code (+1 506 555 0259). When someone types a number
+              without a + the app assumes it is in this country, so a church in the United Kingdom can type
+              020 7946 0958. A number that starts with + always keeps its own country. It never changes a
+              number already saved.
+            </p>
             <p style={{ color: "var(--muted)", fontSize: "0.85rem", marginTop: "0.5rem" }}>
               Currency is how every amount in the app is written (monthly support, one-time needs, trip money,
               reports and announcements). It only changes the symbol: amounts already saved are not converted,

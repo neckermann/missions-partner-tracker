@@ -12,6 +12,7 @@ const { isPasswordlessOn, passwordlessBlocker } = require("../utils/passwordless
 const { isDemoDeployment, refuseOnGuardedDemo } = require("../utils/demoMode");
 const { applyChurchTimezone } = require("../utils/timezone");
 const { isValidCurrency } = require("../utils/money");
+const { isValidPhoneCountry, setPhoneCountry } = require("../utils/phoneCountry");
 
 const noIntegrationChangesOnDemo = refuseOnGuardedDemo("Changing integration settings");
 const { makeExtResolver, uploadFilteredBy } = require("../utils/upload");
@@ -148,6 +149,13 @@ const settingsSchema = z.object({
     .toUpperCase()
     .refine(isValidCurrency, "Not a currency code this server knows (for example USD, EUR, CAD)")
     .optional(),
+  // The country a phone number typed without a "+" is read in (see schema.prisma).
+  defaultPhoneCountry: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .refine(isValidPhoneCountry, "Not a country code this server knows (for example US, GB, KE)")
+    .optional(),
 });
 
 // GET /api/settings (any logged-in role) — null if never configured yet.
@@ -186,6 +194,7 @@ router.get("/", async (req, res, next) => {
           contactEmail: true,
           timezone: true,
           currency: true,
+          defaultPhoneCountry: true,
           brandFont: true,
           headerColor: true,
           highlightColor: true,
@@ -317,6 +326,8 @@ router.put("/", requireRole("admin"), async (req, res, next) => {
     });
     // A changed time zone applies to the scheduled jobs and every "today" at once; it used to wait for a restart.
     if (data.timezone !== undefined) applyChurchTimezone(updated.timezone);
+    // ...and a changed phone country applies to the next number saved without a +, at once.
+    if (data.defaultPhoneCountry !== undefined) setPhoneCountry(updated.defaultPhoneCountry);
     res.json(shapeSettings(updated));
   } catch (err) {
     next(err);
