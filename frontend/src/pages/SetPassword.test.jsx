@@ -33,11 +33,13 @@ describe("SetPassword: asking for a new link", () => {
   it("shows the server's message while email works", async () => {
     requestPasswordSetupLink.mockResolvedValue({
       ok: true,
-      message: "If that email has an account, a link to choose a password is on its way.",
+      message: "If that email has an account, a new link to set up your sign-in is on its way.",
     });
     renderExpired();
     await askForNewLink();
-    expect(await screen.findByRole("status")).toHaveTextContent(/link to choose a password is on its way/);
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      /new link to set up your sign-in is on its way/
+    );
     expect(requestPasswordSetupLink).toHaveBeenCalledWith("pat@example.test");
   });
 
@@ -59,7 +61,7 @@ describe("SetPassword: asking for a new link", () => {
     renderExpired();
     await askForNewLink();
     await waitFor(() =>
-      expect(screen.getByRole("status")).toHaveTextContent(/link to choose a password is on its way/)
+      expect(screen.getByRole("status")).toHaveTextContent(/new link to set up your sign-in is on its way/)
     );
   });
 });

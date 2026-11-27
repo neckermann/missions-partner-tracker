@@ -73,4 +73,52 @@ test.describe("Passkeys", () => {
     await expect(page.getByText("Disabled")).toBeVisible();
     await context.close();
   });
+
+  test("a new account's setup link: a passkey on this device, signed in straight away", async ({
+    browser,
+  }) => {
+    // An account with no password yet, and the link an administrator would hand over (email is off in CI).
+    const email = `e2e-newaccount-${Date.now()}@example.test`;
+    const created = await admin.request.post("/api/users", {
+      data: { email, firstName: "Dana", lastName: "Newcomer", role: "editor", sendWelcomeEmail: false },
+    });
+    expect(created.ok()).toBeTruthy();
+    const user = await created.json();
+    try {
+      const linkRes = await admin.request.post(`/api/users/${user.id}/setup-link`);
+      const { manualSetupUrl } = await linkRes.json();
+      expect(manualSetupUrl).toContain("/set-password?token=");
+
+      const context = await browser.newContext();
+      const page = await context.newPage();
+      const cdp = await context.newCDPSession(page);
+      await cdp.send("WebAuthn.enable");
+      await cdp.send("WebAuthn.addVirtualAuthenticator", {
+        options: {
+          protocol: "ctap2",
+          transport: "internal",
+          hasResidentKey: true,
+          hasUserVerification: true,
+          isUserVerified: true,
+          automaticPresenceSimulation: true,
+        },
+      });
+
+      await page.goto(new URL(manualSetupUrl).pathname + new URL(manualSetupUrl).search);
+      await expect(page.getByRole("heading", { name: "Welcome, Dana" })).toBeVisible();
+      await expect(page.getByText("Where will you mostly sign in?")).toBeVisible();
+      await page.getByRole("button", { name: "Continue" }).click();
+      await page.getByRole("button", { name: "Create a passkey on this device" }).click();
+      // Signed in straight from the link: no separate sign-in step.
+      await page.waitForURL(/\/admin/);
+      await expect(page.locator(".admin-sidebar")).toBeVisible();
+
+      // The link is spent.
+      await page.goto(new URL(manualSetupUrl).pathname + new URL(manualSetupUrl).search);
+      await expect(page.getByRole("heading", { name: "This link has expired" })).toBeVisible();
+      await context.close();
+    } finally {
+      await admin.request.delete(`/api/users/${user.id}`);
+    }
+  });
 });
