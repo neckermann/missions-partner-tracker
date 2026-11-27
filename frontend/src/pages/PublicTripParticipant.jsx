@@ -15,6 +15,8 @@ import {
   tripMeetingRsvpUrl,
 } from "../api/client.js";
 import { formatDate, formatFileSize, formatCurrency } from "../utils/format.js";
+import { formatChurchDateTime } from "../utils/churchTime.js";
+import { useSettings } from "../context/SettingsContext.jsx";
 import SignatureCapture from "../components/SignatureCapture.jsx";
 import { buildCalendarLinks, meetingDescription } from "../utils/calendarLinks.js";
 import CopyButton from "../components/shared/CopyButton.jsx";
@@ -73,6 +75,7 @@ export default function PublicTripParticipant() {
   const { shareToken } = useParams();
   const [searchParams] = useSearchParams();
   const accessToken = searchParams.get("token");
+  const { timezone } = useSettings();
   const [data, setData] = useState(null);
   const [notFound, setNotFound] = useState(false);
   const [signingId, setSigningId] = useState(null);
@@ -401,12 +404,10 @@ export default function PublicTripParticipant() {
                   </div>
                   <div style={{ fontSize: "0.85rem", color: "var(--muted)" }}>
                     {seg.departureAirport}
-                    {seg.departureAt &&
-                      ` — ${new Date(seg.departureAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}`}
+                    {seg.departureAt && ` — ${formatChurchDateTime(seg.departureAt, timezone)}`}
                     {" → "}
                     {seg.arrivalAirport}
-                    {seg.arrivalAt &&
-                      ` — ${new Date(seg.arrivalAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}`}
+                    {seg.arrivalAt && ` — ${formatChurchDateTime(seg.arrivalAt, timezone)}`}
                   </div>
                 </li>
               ))}
@@ -430,7 +431,7 @@ export default function PublicTripParticipant() {
                 >
                   <div style={{ fontWeight: 600 }}>
                     {m.title ? `${m.title} — ` : ""}
-                    {formatDate(m.startAt)} {m.location ? `— ${m.location}` : ""}
+                    {formatChurchDateTime(m.startAt, timezone)} {m.location ? `— ${m.location}` : ""}
                   </div>
                   <div style={{ fontSize: "0.85rem", display: "flex", gap: "0.8rem", flexWrap: "wrap" }}>
                     {m.meetingLink && (

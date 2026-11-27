@@ -25,6 +25,8 @@ const DEFAULTS = {
   currency: "USD",
   // The country a phone number typed without a "+" is read in (utils/phone.js, components/shared/PhoneInput.jsx).
   defaultPhoneCountry: "US",
+  // The church's own time zone; trip meeting and flight times are shown in it for everyone (utils/churchTime.js).
+  timezone: "America/Chicago",
   // Demo banner fields (routes/publicSettings.js). null/false, not omitted, so DemoBanner is correct
   // before the first fetch resolves.
   isDemo: false,

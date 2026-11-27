@@ -240,6 +240,66 @@ describe("Trips: meetings", () => {
     assert.match(linkChanged[0].TextBody, /https:\/\/zoom\.us\/j\/222/);
   });
 
+  // What the edit form sends for an untouched meeting: the time as wall-clock text with no zone, which
+  // the server reads in the church's zone (utils/timezone.js), plus every other box as it was loaded.
+  function wallClock(iso) {
+    const d = new Date(iso);
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  test("a no-change save is not a reschedule: nothing moves and nobody is emailed", async () => {
+    const { trip } = await createTripWithParticipant();
+    let meeting;
+    await captureEmails(async () => {
+      const res = await admin(`/api/trips/${trip.id}/meetings`, {
+        method: "POST",
+        body: {
+          startAt: "2026-12-02T00:00:00.000Z",
+          title: "Pre-field training",
+          location: "Church fellowship hall",
+          meetingLink: "https://zoom.us/j/111",
+          agenda: "Packing list",
+        },
+      });
+      meeting = res.body;
+    });
+
+    for (const body of [
+      {
+        startAt: wallClock(meeting.startAt),
+        title: meeting.title,
+        location: meeting.location,
+        meetingLink: meeting.meetingLink,
+        agenda: meeting.agenda,
+      },
+      // The time left out altogether, as the form does when the box was not touched.
+      {
+        title: meeting.title,
+        location: meeting.location,
+        meetingLink: meeting.meetingLink,
+        agenda: meeting.agenda,
+      },
+      { startAt: meeting.startAt },
+    ]) {
+      const sent = await captureEmails(async () => {
+        const res = await admin(`/api/trips/meetings/${meeting.id}`, { method: "PUT", body });
+        assert.equal(res.status, 200, JSON.stringify(res.body));
+        assert.equal(res.body.startAt, meeting.startAt, "the meeting's time must not move");
+      });
+      assert.equal(sent.length, 0, "saving a meeting unchanged must not email the team");
+    }
+
+    const moved = await captureEmails(async () => {
+      const res = await admin(`/api/trips/meetings/${meeting.id}`, {
+        method: "PUT",
+        body: { startAt: "2026-12-02T01:00:00.000Z" },
+      });
+      assert.equal(res.status, 200);
+    });
+    assert.equal(moved.length, 1, "a real change of time still tells the team");
+  });
+
   test("explicit resend sends again with no change, and is refused once the meeting is cancelled", async () => {
     const { trip } = await createTripWithParticipant();
     let meeting;

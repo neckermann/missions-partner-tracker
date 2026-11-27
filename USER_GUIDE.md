@@ -679,7 +679,13 @@ covered below.
   login needed), and participants get a day-before reminder too, both
   showing the agenda and join link. Changing the time or join link
   resends the invite automatically; **Resend invite** sends it again on
-  demand with no change needed. Someone added to the team after a
+  demand with no change needed. Saving a meeting without changing its
+  time, place or link emails nobody. **Meeting and flight times are
+  always your church's own time**, with the zone named beside them (for
+  example "6:00 PM Central Time"), whoever is looking and wherever they
+  are, so a leader who is travelling reads and types the same hour as
+  the office does. The zone is the one set under **Settings → About &
+  Branding → Church Info**. Someone added to the team after a
   meeting's already scheduled gets that meeting's invite the moment
   they join — nobody has to remember to resend it for them. Changing
   the trip's own start or end date resends everyone the updated
