@@ -208,7 +208,7 @@ describe("PUT /api/prayer-requests/:id", () => {
 
   test("a genuine transition into status: answered creates exactly one prayerRequestAnswered dispatch record", async () => {
     const created = await create({
-      category: "situational",
+      category: "strategic",
       requestText: `${FIXTURE_TAG} genuine answer transition`,
       dateReceived: "2026-01-01",
     });

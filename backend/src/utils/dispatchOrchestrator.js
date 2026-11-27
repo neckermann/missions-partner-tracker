@@ -7,6 +7,7 @@ const { DIGEST_RECIPIENT_ROLES } = require("./digestRoles");
 const { resolveDigestScope, digestCovers } = require("./digestScope");
 const { isFeatureEnabled } = require("./features");
 const { CHANNELS, isEligibleForChannel, needsReview, getChurchSettings } = require("./dispatchEligibility");
+const { isEverydayPrayer } = require("./dispatchBlurbs");
 const { postToGroupMe } = require("./groupmeChannel");
 const { postToWhatsApp, hasWhatsAppTarget } = require("./whatsappChannel");
 const whatsappClient = require("./whatsappClient");
@@ -73,6 +74,8 @@ async function clearDispatchRecords() {
 
   const clearableIds = rows
     .filter((row) => {
+      // Never sendable, so nothing is waiting on it: drop it now rather than after the grace period.
+      if (isEverydayPrayer(row)) return true;
       const partner = partnerById.get(row.partnerId);
       if (needsReview(row, partner)) return false;
 
@@ -206,6 +209,10 @@ async function sendWhatsAppUrgent(row, partner, partnerById, settings, now) {
 // Re-fetches isRestricted/isPublic by id rather than trusting the caller's
 // partner shape, which lacks these safety-critical fields.
 async function sendUrgentDispatch(row, { id: partnerId }) {
+  // Belt and braces: every channel below refuses it too (dispatchEligibility.js Rule 0).
+  if (isEverydayPrayer(row)) {
+    return { groupmePosted: false, whatsappPosted: false, emailSent: false, adminCount: 0, publicCount: 0 };
+  }
   const [settings, partner] = await Promise.all([
     getChurchSettings(),
     prisma.partner.findUnique({

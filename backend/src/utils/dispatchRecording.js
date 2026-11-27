@@ -17,6 +17,7 @@ const {
 const { hasWhatsAppTarget } = require("./whatsappChannel");
 const { isFeatureEnabled } = require("./features");
 const { sendUrgentDispatch } = require("./dispatchOrchestrator");
+const { isEverydayPrayer } = require("./dispatchBlurbs");
 
 // Every function here is best-effort: a broken write must never block the save that triggered it.
 async function safeNotify(label, fn) {
@@ -53,6 +54,9 @@ async function enqueue(type, partnerId, payload, review, requireReview = false) 
 // someone later changes a setting. Two things are always recorded: a row held for staff review (it must show up
 // to be approved), and an urgent one (`options.urgent`: its immediate send does not wait on a schedule).
 async function createDispatchRecord(type, partner, payload, review, requireReview = false, options = {}) {
+  // An "Everyday" prayer request is staff only: no record is made for it, so there is nothing to send, queue
+  // or show for review. (The payload carries the category so every send path can refuse it as well.)
+  if (isEverydayPrayer({ payload })) return null;
   const [settings, freshPartner] = await Promise.all([
     getChurchSettings(),
     prisma.partner.findUnique({ where: { id: partner.id }, select: { isRestricted: true, isPublic: true } }),
@@ -121,6 +125,9 @@ async function notifyPrayerRequestCreated(prayerRequest, approval, { requireRevi
         partnerName: prayerRequest.partner?.displayName || "A partner",
         requestText: prayerRequest.requestText,
         sourceFileId: prayerRequest.sourceFile?.id || null,
+        // Read by every send path (isEverydayPrayer), and by the edit route to find what is queued for it.
+        category: prayerRequest.category,
+        prayerRequestId: prayerRequest.id,
       },
       review,
       requireReview,
@@ -140,6 +147,8 @@ async function notifyPrayerRequestAnswered(prayerRequest, { requireReview = fals
         requestText: prayerRequest.requestText,
         answeredNote: prayerRequest.answeredNote || null,
         sourceFileId: prayerRequest.sourceFile?.id || null,
+        category: prayerRequest.category,
+        prayerRequestId: prayerRequest.id,
       },
       null,
       requireReview
@@ -204,7 +213,21 @@ async function notifyNewsletterCreated(newsletter, { requireReview = false } = {
   });
 }
 
+// A request edited to "Everyday" while something about it is still queued: the queued record must not go out.
+// Deleting it also takes it off the review queue. Best-effort like the notifiers, but loud, because a failure
+// here leaves a staff-only request waiting to be sent (the channels still refuse it by its payload category
+// only if that was "situational", which a record made while it was Ministry does not carry).
+async function discardQueuedForEverydayPrayer(prayerRequestId) {
+  await prisma.dispatchRecord.deleteMany({
+    where: {
+      type: { in: ["prayerRequestCreated", "prayerRequestAnswered"] },
+      payload: { path: ["prayerRequestId"], equals: prayerRequestId },
+    },
+  });
+}
+
 module.exports = {
+  discardQueuedForEverydayPrayer,
   createDispatchRecord,
   notifyPrayerRequestCreated,
   notifyPrayerRequestAnswered,

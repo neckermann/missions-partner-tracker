@@ -532,8 +532,16 @@ or leave it as "None."
   or calling — church planting, discipleship, language study, funding —
   can optionally be shown on that partner's public profile via **Show on
   public profile**) or **Everyday** (whatever came up — health,
-  travel, family needs, paperwork; admin-only, never shown publicly
-  regardless of any setting).
+  travel, family needs, paperwork; staff only). An Everyday request is
+  **never shared by any route**: it is not posted to GroupMe or
+  WhatsApp, not included in any email update (staff or public), not
+  sent as an urgent update, never shown on the public site, the Sunday
+  prayer sheet or the booklet, and it never appears on Updates to
+  Share. The form hides **Mark as urgent** and **Review and approve
+  now** for it, and says so under the Category box. If you change a
+  Ministry request to Everyday while its update is still waiting to go
+  out, the waiting update is removed. (Changing it back later does not
+  send it: only a new Ministry request makes an update.)
 - A ministry request marked **Show on public profile** can also be
   checked **Include in printed booklet** — a separate setting, since a
   partner can build up more public strategic requests over time than

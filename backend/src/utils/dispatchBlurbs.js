@@ -45,6 +45,15 @@ const REVIEW_GATED_TYPES = new Set([
 // never ride in an email dispatch.
 const CARE_DISPATCH_TYPES = new Set(["keyDateComing", "quietPartner", "updateToPassOn"]);
 
+// A prayer request filed as "Everyday" (category "situational": health, travel, family, paperwork) is staff
+// only. It is never recorded for sending (dispatchRecording.js), and this is the second line: a record that
+// carries the category, or that outlived an edit to it, is refused by every channel (dispatchEligibility.js),
+// is never built into text (buildBlurb returns null, so no chat post, digest or review queue shows it) and is
+// cleared at once (dispatchOrchestrator.js).
+function isEverydayPrayer(row) {
+  return row?.payload?.category === "situational";
+}
+
 // Types eligible for the public email audience; admin (User) recipients keep every type.
 const PUBLIC_EMAIL_DISPATCH_TYPES = new Set(["prayerRequestCreated", "prayerRequestAnswered"]);
 
@@ -85,6 +94,7 @@ function supportNeedOutcomeLabel(payload) {
 // RESTRICTED_NOTICE). Whether an un-reviewed restricted row may *send* is
 // dispatchEligibility.js's needsReview(), not decided here.
 function buildBlurb(row, partner, settings) {
+  if (isEverydayPrayer(row)) return null;
   const { type, payload } = row;
   const restricted = !!partner?.isRestricted;
   const partnerName = restricted
@@ -322,6 +332,7 @@ function buildBlurb(row, partner, settings) {
 module.exports = {
   DISPATCH_PARTNER_SELECT,
   buildBlurb,
+  isEverydayPrayer,
   appBaseUrl,
   REVIEW_GATED_TYPES,
   PUBLIC_EMAIL_DISPATCH_TYPES,

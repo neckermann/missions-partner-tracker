@@ -21,7 +21,7 @@ let partnerId;
 async function createPrayerRequest(requestText) {
   const res = await admin("/api/prayer-requests", {
     method: "POST",
-    body: { partnerId, category: "situational", requestText, dateReceived: "2026-01-01" },
+    body: { partnerId, category: "strategic", requestText, dateReceived: "2026-01-01" },
   });
   assert.equal(res.status, 201, `fixture setup failed: ${JSON.stringify(res.body)}`);
   return res.body.id;
@@ -243,7 +243,7 @@ describe("GET /api/dispatches/pending -- any logged-in role", () => {
     const requestText = `${FIXTURE_TAG} restricted partner's real prayer request text`;
     const created = await admin("/api/prayer-requests", {
       method: "POST",
-      body: { partnerId: restrictedId, category: "situational", requestText, dateReceived: "2026-01-01" },
+      body: { partnerId: restrictedId, category: "strategic", requestText, dateReceived: "2026-01-01" },
     });
     assert.equal(created.status, 201, JSON.stringify(created.body));
 
@@ -287,7 +287,7 @@ describe("GET /api/dispatches/pending -- any logged-in role", () => {
     const requestText = `${FIXTURE_TAG} restricted partner's text, initials off`;
     const created = await admin("/api/prayer-requests", {
       method: "POST",
-      body: { partnerId: restrictedId, category: "situational", requestText, dateReceived: "2026-01-01" },
+      body: { partnerId: restrictedId, category: "strategic", requestText, dateReceived: "2026-01-01" },
     });
     assert.equal(created.status, 201, JSON.stringify(created.body));
 
@@ -472,7 +472,7 @@ describe("restricted-partner notification review & edit (#187)", () => {
       method: "POST",
       body: {
         partnerId: restrictedPartnerId,
-        category: "situational",
+        category: "strategic",
         requestText,
         dateReceived: "2026-01-01",
       },
@@ -607,7 +607,7 @@ describe("restricted-partner notification review & edit (#187)", () => {
         method: "POST",
         body: {
           partnerId: restrictedPartnerId,
-          category: "situational",
+          category: "strategic",
           requestText,
           dateReceived: "2026-01-01",
         },
@@ -646,7 +646,7 @@ describe("restricted-partner notification review & edit (#187)", () => {
       method: "POST",
       body: {
         partnerId: restrictedPartnerId,
-        category: "situational",
+        category: "strategic",
         requestText,
         dateReceived: "2026-01-01",
         approveNow: true,
@@ -671,7 +671,7 @@ describe("restricted-partner notification review & edit (#187)", () => {
       method: "POST",
       body: {
         partnerId: restrictedPartnerId,
-        category: "situational",
+        category: "strategic",
         requestText,
         dateReceived: "2026-01-01",
         approveNow: false,

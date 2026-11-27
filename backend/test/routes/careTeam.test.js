@@ -457,7 +457,7 @@ describe("care team: submitting prayer requests and needs", () => {
 
   const prayerBody = (extra = {}) => ({
     partnerId: partnerA.id,
-    category: "situational",
+    category: "strategic",
     requestText: "care team prayer",
     dateReceived: "2026-01-01",
     ...extra,

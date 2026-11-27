@@ -7,7 +7,11 @@ const { sourceFileProblem } = require("../utils/sourceFile");
 const { requireAuth, requireRole, allowGuestPartnerList } = require("../middleware/requireAuth");
 const { readablePartnerIds, isOnCareTeamFor } = require("../utils/guestAccess");
 const { requireFeature } = require("../middleware/requireFeature");
-const { notifyPrayerRequestCreated, notifyPrayerRequestAnswered } = require("../utils/dispatchRecording");
+const {
+  notifyPrayerRequestCreated,
+  notifyPrayerRequestAnswered,
+  discardQueuedForEverydayPrayer,
+} = require("../utils/dispatchRecording");
 const { partnerRefSelect } = require("../utils/prismaIncludes");
 const { logContactForPrayerRequest } = require("../utils/contactLogQueries");
 const { getSeenAt, touchSeen, markCategorySeen } = require("../notifications/categories");
@@ -194,6 +198,10 @@ router.put("/:id", requireRole("admin", "editor", "viewer", "guest"), async (req
       data,
       include: prayerRequestInclude,
     });
+
+    // Moved to "Everyday" (staff only): anything still queued from when it was Ministry must not go out. Done
+    // whatever else changed, and not best-effort: if it fails the save fails, rather than leave it queued.
+    if (updated.category === "situational") await discardQueuedForEverydayPrayer(updated.id);
 
     // Same best-effort reasoning as the POST route above.
     if (data.status === "answered" && before?.status !== "answered") {
