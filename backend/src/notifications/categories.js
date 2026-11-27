@@ -398,7 +398,7 @@ const CATEGORIES = [
   {
     key: "unmatchedEmails",
     requiresAny: ["inboundEmail"],
-    label: "Emails to sort",
+    label: "Emails to Sort",
     icon: "✉️",
     linkTo: "/admin/inbound-email",
     adminOnly: false,

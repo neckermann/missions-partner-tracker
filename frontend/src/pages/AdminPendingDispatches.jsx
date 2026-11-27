@@ -221,8 +221,8 @@ export default function AdminPendingDispatches() {
   return (
     <div className="admin-shell">
       <PageHeader
-        title="Updates to share"
-        description="New prayer requests, one-time needs, and newsletters wait here instead of posting immediately. Each clears once every channel it applies to (GroupMe, WhatsApp, the admin email, the public email) has handled it, on its own schedule. Schedules, what gets posted to chat and how the email looks are under Settings → Sending updates."
+        title="Updates to Share"
+        description="New prayer requests, one-time needs, and newsletters wait here instead of posting immediately. Each clears once every channel it applies to (GroupMe, WhatsApp, the admin email, the public email) has handled it, on its own schedule. Schedules, what gets posted to chat and how the email looks are under Settings → Sending Updates."
       />
 
       {noChannelOn && readyCount > 0 && (

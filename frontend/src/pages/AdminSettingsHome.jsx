@@ -13,7 +13,7 @@ function buildSections(enabledFeatures) {
     },
     {
       to: "/admin/settings/privacy",
-      title: "Privacy and safety",
+      title: "Privacy and Safety",
       icon: "🔒",
       description:
         "What the public can see, and extra care for partners in sensitive places: initials, and whether updates about them are recorded.",
@@ -26,7 +26,7 @@ function buildSections(enabledFeatures) {
     },
     enabledFeatures.auditTrail && {
       to: "/admin/settings/audit",
-      title: "Audit log",
+      title: "Audit Log",
       icon: "📜",
       description: "Who did what and when: sign-ins, access and settings changes, deletes, backups.",
     },
@@ -80,7 +80,7 @@ function buildSections(enabledFeatures) {
     },
     (enabledFeatures.groupme || enabledFeatures.whatsapp || enabledFeatures.outboundEmail) && {
       to: "/admin/settings/dispatches",
-      title: "Sending updates",
+      title: "Sending Updates",
       icon: "🗓️",
       description: "Subscriber counts, the restricted-partner safety gate, and send schedules.",
     },

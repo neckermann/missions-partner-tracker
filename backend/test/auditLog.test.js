@@ -37,7 +37,7 @@ test("a secret change records that it changed, never its value", () => {
 
 test("the audit log is on unless it is switched off", () => {
   const { isFeatureEnabled, FEATURES } = require("../src/utils/features");
-  assert.equal(FEATURES.auditTrail.label, "Audit log");
+  assert.equal(FEATURES.auditTrail.label, "Audit Log");
   assert.equal(
     isFeatureEnabled(undefined, "auditTrail"),
     true,

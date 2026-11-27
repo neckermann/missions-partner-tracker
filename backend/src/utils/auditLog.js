@@ -13,7 +13,7 @@
 const prisma = require("../prismaClient");
 const { isFeatureEnabled } = require("./features");
 
-// code -> { label, category }; categories group the Audit log page's filter.
+// code -> { label, category }; categories group the Audit Log page's filter.
 const AUDIT_ACTIONS = {
   "auth.login_success": { label: "Signed in", category: "Sign-in" },
   "auth.login_failed": { label: "Failed sign-in", category: "Sign-in" },

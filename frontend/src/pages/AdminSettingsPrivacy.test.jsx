@@ -49,7 +49,7 @@ beforeEach(() => {
   updateChurchSettings.mockResolvedValue(church);
 });
 
-describe("Privacy and safety settings", () => {
+describe("Privacy and Safety settings", () => {
   it("shows what the public can see and the restricted-partner choices, with no messaging feature on", async () => {
     renderPage();
     expect(await screen.findByText("Public directory: On")).toBeInTheDocument();

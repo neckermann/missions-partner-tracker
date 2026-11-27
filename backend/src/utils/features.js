@@ -18,7 +18,7 @@ const FEATURES = {
   publicDirectory: {
     label: "Public directory",
     description:
-      'The public list/search view at the site\'s root ("/"). Off by default: a new install publishes nothing until the church chooses to (one question after the first sign-in, or Settings → Privacy and safety). Off shows a private-instance message there instead.',
+      'The public list/search view at the site\'s root ("/"). Off by default: a new install publishes nothing until the church chooses to (one question after the first sign-in, or Settings → Privacy and Safety). Off shows a private-instance message there instead.',
     defaultEnabled: false,
     group: "public",
   },
@@ -34,7 +34,7 @@ const FEATURES = {
     description:
       "Newsletters and documents (survey responses, signed policies, etc.) on missionary/organization pages and their own admin section.",
     withoutEmail:
-      "New newsletters wait on Updates to share (it appears once GroupMe, WhatsApp or Email sending is on), where you can copy what is ready to share. With none of those on, nothing is queued.",
+      "New newsletters wait on Updates to Share (it appears once GroupMe, WhatsApp or Email sending is on), where you can copy what is ready to share. With none of those on, nothing is queued.",
     defaultEnabled: true,
     group: "admin",
   },
@@ -43,7 +43,7 @@ const FEATURES = {
     description:
       "The Prayer Requests admin section, and the prayer request list on missionary/organization pages.",
     withoutEmail:
-      "New requests wait on Updates to share (it appears once GroupMe, WhatsApp or Email sending is on), where you can copy what is ready to share. With none of those on, nothing is queued.",
+      "New requests wait on Updates to Share (it appears once GroupMe, WhatsApp or Email sending is on), where you can copy what is ready to share. With none of those on, nothing is queued.",
     defaultEnabled: true,
     group: "admin",
   },
@@ -52,7 +52,7 @@ const FEATURES = {
     description:
       "The One-Time Needs admin section, and the one-time needs list on missionary/organization pages.",
     withoutEmail:
-      "New needs wait on Updates to share (it appears once GroupMe, WhatsApp or Email sending is on), where you can copy what is ready to share. With none of those on, nothing is queued.",
+      "New needs wait on Updates to Share (it appears once GroupMe, WhatsApp or Email sending is on), where you can copy what is ready to share. With none of those on, nothing is queued.",
     defaultEnabled: true,
     group: "admin",
   },
@@ -197,9 +197,9 @@ const FEATURES = {
     group: "admin",
   },
   auditTrail: {
-    label: "Audit log",
+    label: "Audit Log",
     description:
-      "On by default. Records who did what and when for sensitive actions (sign-ins with their IP address, role and access changes, settings changes, deletes, backups, views of restricted partners), with an admin-only Audit log page and CSV export. Events are kept for the retention window set under Audit log (30, 60 or 90 days); who last edited a record is kept for good.",
+      "On by default. Records who did what and when for sensitive actions (sign-ins with their IP address, role and access changes, settings changes, deletes, backups, views of restricted partners), with an admin-only Audit Log page and CSV export. Events are kept for the retention window set under Audit Log (30, 60 or 90 days); who last edited a record is kept for good.",
     defaultEnabled: true,
     group: "admin",
   },
