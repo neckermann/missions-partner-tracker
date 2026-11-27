@@ -41,7 +41,12 @@ function send(photo, res, isPublic) {
   res.set("Cross-Origin-Resource-Policy", "cross-origin");
   // A photo row is never updated in place, so its bytes are immutable for this id: safe to cache. A
   // non-public photo is cached only by the signed-in person's own browser, never by a shared cache.
-  res.set("Cache-Control", isPublic ? "public, max-age=31536000, immutable" : "private, max-age=3600");
+  // A photo that is not public is only ever cached by the signed-in person's own browser ("private"), and it is just as
+  // immutable, so it is kept for the year too (it used to be re-downloaded every hour, full size).
+  res.set(
+    "Cache-Control",
+    isPublic ? "public, max-age=31536000, immutable" : "private, max-age=31536000, immutable"
+  );
   // Same VERIFIED_INLINE_TYPES allowlist partner files use (utils/fileResponse.js) rather than
   // trusting the stored contentType; defense-in-depth against a future upload-path bug.
   const contentType = VERIFIED_INLINE_TYPES.has(photo.contentType)

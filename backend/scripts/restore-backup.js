@@ -16,11 +16,14 @@
 // The file's checksum is always verified, --force or not.
 require("dotenv").config({ quiet: true });
 const fs = require("fs");
-const zlib = require("zlib");
 const { PrismaClient } = require("@prisma/client");
 const { PrismaPg } = require("@prisma/adapter-pg");
-const { parseBackup, restoreRows, latestMigrationName } = require("../src/utils/backup");
-const { isEncryptedBackup, decryptBackup } = require("../src/utils/backupCrypto");
+const {
+  isLockedBackupFile,
+  verifyBackupFile,
+  restoreBackupFile,
+  latestMigrationName,
+} = require("../src/utils/backup");
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
@@ -50,21 +53,22 @@ async function main() {
     process.exit(1);
   }
 
-  console.log(`Reading ${filePath}...`);
-  let gzipped = fs.readFileSync(filePath);
-  if (isEncryptedBackup(gzipped)) {
-    const passphrase = process.env.BACKUP_PASSPHRASE || (await askPassphrase());
-    try {
-      gzipped = decryptBackup(gzipped, passphrase);
-    } catch (err) {
-      console.error(`${err.message}. Nothing was changed.`);
-      process.exit(1);
-    }
+  // The file is read as a stream, never held in memory whole, and twice: once to check everything (the checksum,
+  // the row counts, and for a locked file the passphrase and that it wasn't changed), before anything is
+  // written; once to restore.
+  console.log(`Checking ${filePath}...`);
+  let passphrase;
+  if (await isLockedBackupFile(filePath)) {
+    passphrase = process.env.BACKUP_PASSPHRASE || (await askPassphrase());
   }
-  const text = zlib.gunzipSync(gzipped).toString("utf8");
-
-  // parseBackup verifies the checksum and throws on a mismatch; never skippable.
-  const { manifest, rowsByModel } = parseBackup(text);
+  let manifest;
+  try {
+    // Throws on a bad passphrase, a changed file or a checksum mismatch; never skippable.
+    manifest = await verifyBackupFile(filePath, { passphrase });
+  } catch (err) {
+    console.error(`${err.message}. Nothing was changed.`);
+    process.exit(1);
+  }
   console.log(`Backup created ${manifest.createdAt}, app version ${manifest.appVersion}.`);
 
   const currentMigration = latestMigrationName();
@@ -89,7 +93,7 @@ async function main() {
   }
 
   console.log("Restoring...");
-  const counts = await restoreRows(prisma, rowsByModel);
+  const { counts } = await restoreBackupFile(prisma, filePath, { passphrase, skipVerify: true });
   for (const [model, count] of Object.entries(counts)) {
     console.log(`  ${model}: ${count} row(s)`);
   }

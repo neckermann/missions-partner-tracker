@@ -84,7 +84,7 @@ describe("POST /api/backups/download", () => {
     assert.equal(res.status, 200);
     assert.equal(res.headers.get("content-type"), "application/octet-stream");
     assert.match(res.headers.get("content-disposition"), /\.ndjson\.gz\.locked"$/);
-    assert.ok(String(res.body).startsWith("MPTBAK1"), "it is the locked format, not plain gzip");
+    assert.ok(String(res.body).startsWith("MPTBAK2"), "it is the streamed locked format, not plain gzip");
   });
 
   test("a passphrase that is too short is refused", async () => {

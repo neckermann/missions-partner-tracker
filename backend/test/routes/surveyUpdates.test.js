@@ -272,6 +272,15 @@ describe("survey packs and updates", () => {
       400
     );
 
+    // A big phone photo (the browser shrinks it first, so this is the safety net): 6 MB used to be refused
+    // ("under 5 MB"); up to 15 MB is accepted and over it is refused with a plain message.
+    const padded = (bytes) => Buffer.concat([PNG, Buffer.alloc(bytes)]);
+    const sixMb = await send("image/png", padded(6 * 1024 * 1024));
+    assert.equal(sixMb.status, 200, JSON.stringify(sixMb.body).slice(0, 160));
+    const tooBig = await send("image/png", padded(16 * 1024 * 1024));
+    assert.equal(tooBig.status, 400);
+    assert.match(tooBig.body.error, /under 15 MB/);
+
     assert.equal((await send("image/png", PNG)).status, 200);
     const page = await anon(`/api/public/surveys/${token}`);
     assert.deepEqual(page.body.photos, [photoQ.id]);

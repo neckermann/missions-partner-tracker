@@ -371,6 +371,8 @@ export default function AdminPartners() {
                         <img
                           src={row.photo}
                           alt={row.name}
+                          loading="lazy"
+                          decoding="async"
                           className="missionary-thumb"
                           style={{ width: 36, height: 36 }}
                           onError={(e) => (e.target.style.display = "none")}

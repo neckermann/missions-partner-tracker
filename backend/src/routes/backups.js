@@ -5,8 +5,8 @@ const { z } = require("zod");
 const prisma = require("../prismaClient");
 const { recordAudit } = require("../utils/auditLog");
 const { requireRole } = require("../middleware/requireAuth");
-const { buildBackup } = require("../utils/backup");
-const { MIN_PASSPHRASE_LENGTH, encryptBackup } = require("../utils/backupCrypto");
+const { writeBackup } = require("../utils/backup");
+const { MIN_PASSPHRASE_LENGTH } = require("../utils/backupCrypto");
 
 // The backup file is the heaviest request and the most sensitive output; this stops a compromised admin session
 // pulling it in a loop. Wrong passwords count too. It sits AFTER the admin check and counts per admin account, not
@@ -34,7 +34,7 @@ const downloadSchema = z.object({
     .optional(),
 });
 
-// Builds the whole database as a gzipped NDJSON file in memory and sends it back; nothing is persisted.
+// Streams the whole database as a gzipped NDJSON file; nothing is persisted.
 //
 // The file contains unmasked data for every partner (including restricted ones) and every user's password
 // hash and encrypted MFA secret -- the most sensitive export this app can produce. So: POST (a link or a
@@ -58,7 +58,10 @@ router.post("/download", async (req, res, next) => {
       return res.status(401).json({ error: "That password isn't right" });
     }
 
-    const { buffer, manifest } = await buildBackup(prisma);
+    // Streamed: the file is read from the database and sent in pieces as it is made, never held in memory whole
+    // (see writeBackup), so photos and files can't run a small server out of memory. The audit entry is written
+    // as the download starts, so a client that drops the connection can't skip it; a failure part way through
+    // ends the download early, and the half file fails its checksum if anyone tries to restore it.
     const encrypted = Boolean(passphrase);
     await recordAudit(null, {
       action: "backup.downloaded",
@@ -66,12 +69,23 @@ router.post("/download", async (req, res, next) => {
       req,
       details: { passphraseProtected: encrypted },
     });
-    const stamp = manifest.createdAt.replace(/[:.]/g, "-");
+    const createdAt = new Date().toISOString();
+    const stamp = createdAt.replace(/[:.]/g, "-");
     const filename = encrypted ? `backup-${stamp}.ndjson.gz.locked` : `backup-${stamp}.ndjson.gz`;
 
     res.setHeader("Content-Type", encrypted ? "application/octet-stream" : "application/gzip");
     res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
-    res.send(encrypted ? encryptBackup(buffer, passphrase) : buffer);
+    res.setHeader("Cache-Control", "no-store");
+    try {
+      await writeBackup(prisma, res, { passphrase, createdAt });
+    } catch (err) {
+      if (res.headersSent) {
+        console.error("Backup download failed part way:", err.message);
+        res.destroy();
+        return;
+      }
+      throw err;
+    }
   } catch (err) {
     next(err);
   }

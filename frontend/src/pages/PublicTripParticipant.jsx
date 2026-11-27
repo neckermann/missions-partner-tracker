@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { prepareImage } from "../utils/prepareImage.js";
 import { useParams, useSearchParams } from "react-router-dom";
 import PublicSiteHeader from "../components/PublicSiteHeader.jsx";
 import DemoBanner from "../components/DemoBanner.jsx";
@@ -150,9 +151,16 @@ export default function PublicTripParticipant() {
 
   async function handleDraftPhotoChange(file) {
     if (!file) return;
-    const dataUrl = await readFileAsDataUrl(file);
+    // Checked and shrunk before it is read, so a phone photo isn't sent at full size.
+    setPageSaveError("");
+    const prepared = await prepareImage(file, { allowed: ["image/jpeg", "image/png", "image/webp"] });
+    if (prepared.error) {
+      setPageSaveError(prepared.error);
+      return;
+    }
+    const dataUrl = await readFileAsDataUrl(prepared.file);
     setPageDraftPhotoDataUrl(dataUrl);
-    setPageDraftPhotoContentType(file.type);
+    setPageDraftPhotoContentType(prepared.file.type);
   }
 
   async function handleSavePage(e) {
