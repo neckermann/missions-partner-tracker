@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
+import PartnerLinkButton from "../components/admin/PartnerLinkButton.jsx";
 import PageHeader from "../components/shared/PageHeader.jsx";
-import { Link } from "react-router-dom";
 import {
   fetchPartnerFiles,
   uploadPartnerFile,
@@ -389,12 +389,7 @@ export default function AdminPartnerFiles() {
         fileDetail &&
         (canEdit ? (
           <QuickActionModal title="Newsletter / Doc" onClose={closeModal} onSubmit={submitFileDetail}>
-            <Link
-              to={`/admin/partners/${fileDetail.form.partnerId}`}
-              style={{ display: "inline-block", marginBottom: "0.75rem" }}
-            >
-              Go to partner →
-            </Link>
+            <PartnerLinkButton partnerId={fileDetail.form.partnerId} partners={partners} />
             <PartnerFileFormFields
               form={fileDetail.form}
               setForm={setFileDetailForm}
@@ -421,12 +416,7 @@ export default function AdminPartnerFiles() {
           </QuickActionModal>
         ) : (
           <Modal title="Newsletter / Doc" onClose={closeModal}>
-            <Link
-              to={`/admin/partners/${fileDetail.form.partnerId}`}
-              style={{ display: "inline-block", marginBottom: "0.75rem" }}
-            >
-              Go to partner →
-            </Link>
+            <PartnerLinkButton partnerId={fileDetail.form.partnerId} partners={partners} />
             <Field
               label="Partner"
               value={partners.find((p) => p.id === fileDetail.form.partnerId)?.displayName}

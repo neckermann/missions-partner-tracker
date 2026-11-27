@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
+import PartnerLinkButton from "../components/admin/PartnerLinkButton.jsx";
 import NeedDecisionFields from "../components/admin/NeedDecisionFields.jsx";
 import { HeldForReviewNote } from "../components/admin/GuestNotice.jsx";
 import PageHeader from "../components/shared/PageHeader.jsx";
-import { Link } from "react-router-dom";
 import {
   fetchSupportNeeds,
   createSupportNeed,
@@ -425,12 +425,7 @@ export default function AdminOneTimeNeeds() {
         needDetail &&
         (canEditRow({ partnerId: needDetail.form.partnerId, ...needDetail.form }) ? (
           <QuickActionModal title="One-Time Need" onClose={closeModal} onSubmit={submitNeedDetail}>
-            <Link
-              to={`/admin/partners/${needDetail.form.partnerId}`}
-              style={{ display: "inline-block", marginBottom: "0.75rem" }}
-            >
-              Go to partner →
-            </Link>
+            <PartnerLinkButton partnerId={needDetail.form.partnerId} partners={partners} />
             {!isGuest && <LastEdited name={needDetail.lastEditedByName} at={needDetail.lastEditedAt} />}
             <SupportNeedFormFields
               form={needDetail.form}
@@ -456,12 +451,7 @@ export default function AdminOneTimeNeeds() {
           </QuickActionModal>
         ) : (
           <Modal title="One-Time Need" onClose={closeModal}>
-            <Link
-              to={`/admin/partners/${needDetail.form.partnerId}`}
-              style={{ display: "inline-block", marginBottom: "0.75rem" }}
-            >
-              Go to partner →
-            </Link>
+            <PartnerLinkButton partnerId={needDetail.form.partnerId} partners={partners} />
             {!isGuest && <LastEdited name={needDetail.lastEditedByName} at={needDetail.lastEditedAt} />}
             <Field label="Description" value={needDetail.form.description} />
             <Field label="Requested Amount" value={formatRequestedAmount(needDetail.form.requestedAmount)} />
