@@ -80,7 +80,11 @@ One PR for the batch is fine. Open it, then stop and report. The owner approves 
 - [ ] Give dev-test its own `DEMO_ADMIN_EMAIL` and `DEMO_ADMIN_PASSWORD` in Render, and set `DEMO_TESTING_SITE=true` there once A1 ships.
 - [ ] Clean up the production demo (remove or revoke the GroupMe, Postmark and Anthropic values; unpair any WhatsApp number) when A1 reaches production.
 - [ ] Delete the production and dev-test worker services on Render after A7 ships.
-- [ ] Approve and run the dev-test database reset after the Phase 2 batch.
+- [x] Approve and run the dev-test database reset after the Phase 2 batch. Done 2026-11-27 (see the log).
+- [ ] Review the Phase 2 PRs after the fact: they were merged on the owner's go-ahead, not line-reviewed by the owner.
+- [ ] Look at the prayer sheet's print layout and slide view in a browser (#568).
+- [ ] Decide H1 (sign-out and copied sessions), and whether to merge #539 (in-app restore) and open the #546 labels PR.
+- [ ] Before the next release, tell self-hosted churches that `FIELD_ENCRYPTION_KEY` is now required at start-up (#550).
 - [ ] Decide when to merge `dev` into `main` (a release for every church).
 - [ ] Test the Blueprint on a real Render account (default name taken? address? `APP_BASE_URL`?).
 
@@ -119,12 +123,18 @@ A6's PR is #515.
 | 16i | C14 | merged | #537 |
 | 16j | C9a | merged (decline option and optional amount; the 'someone's on it / met' state is C9b in the schema batch) | #538 |
 | 16k | B14 | merged | #541 |
-| 17 | A10 | DRAFT, stacked, not merged (schema) | #550 |
-| 18 | B13 | DRAFT, stacked, not merged (schema) | #553 |
-| 19 | C9b | DRAFT, stacked, not merged (schema) | #554 |
-| 20 | B10b | DRAFT, stacked, not merged (schema) | #551 |
-| 21 | C11 | DRAFT, stacked, not merged (schema): church-wide currency setting, issue #555 | #556 |
-| 22 | C8 | not started: proposed per-partner contact snooze and grace start; waiting on the owner's yes | |
+| 17 | A10 | merged to dev (schema; dev-test reset 2026-11-27) | #550 |
+| 18 | B13 | merged to dev (schema) | #553 |
+| 19 | C9b | merged to dev (schema); state names "Someone's on it" / "Met" are my choice | #554 |
+| 20 | B10b | merged to dev (schema) | #551 |
+| 21 | C11 | merged to dev (schema): church-wide currency setting, issue #555 | #556 |
+| 22 | C8 | merged to dev (schema): per-partner "Not this season" snooze, and the quiet clock starts when a partner joins a list | #560 |
+| 23 | C10 | merged to dev (no schema): Sunday prayer sheet, rotation weekly / bi-weekly / monthly, print page and slide view. Print layout and slide view not yet checked in a browser | #568 |
+| 24 | C15 | merged to dev: G14a trip reminders #561, G14b email dispatch batches #562, G14c/d missed send slots #563, G14e report recipients #564, H3 backup limit per admin #565, H4 confirm link needs a button #566, H6 trip documents checked by real type #567 | #561-#567 |
+| 25 | Flaky tests | merged to dev: phone "555" vs UUID #557, audit-entry wait #558, passwordless link wait #559 | #557-#559 |
+| 26 | C7 | deferred by the owner (import) | |
+| 27 | C5, C3, C6 | C5 after the survey sweep (#548); C3 Viewer role kept (nothing to build); C6 not now | |
+| 28 | H1 | needs the owner: sign-out ending a copied session (all-devices sign-out vs a revocation record) | |
 
 ## Log
 
@@ -149,3 +159,5 @@ A6's PR is #515.
 - 2026-11-26: #540 (B5, plain words) merged (all four checks green, including e2e on the renamed labels). Item 16k (B14, docs pass) opened as #541 (docs, two code comments and one console message; screenshots and 'Last verified' dates left for the owner on purpose). Phase 1 is complete once #541 merges; #539 (in-app restore) stays a DRAFT awaiting the owner. Phase 2 (schema batch) not started: stop before merging anything there.
 - 2026-11-26: #541 (B14, docs pass) merged (all four checks green). **Phase 1 is complete**: every item is merged except 16f (B6 part 3, in-app restore), which is DRAFT #539, brought up to date with `dev`, its CI re-running, waiting for the owner's review. Phase 2 (schema batch: A10 #496, B10b #505, B13 #508, C9b #511) not started; it stops before merging and needs the owner for the dev-test database reset. Owner follow-ups are listed at the top of this file.
 - 2026-11-27: #542 (first-admin tests now run in CI), #543 (one merged trip alert) and #547 (no record when no switched-on channel would carry the event) merged (all four checks green). **Phase 2 schema batch built, stacked, NOT merged**, in this order (each PR's base is the one before it; they all edit the one baseline migration): #550 (A10: recovery codes, `npm run clear-two-factor`, `FIELD_ENCRYPTION_KEY` required at start-up, second-admin nudge) -> #551 (B10b: skip review for a verified partner, off by default) -> #553 (B13: Subscribe-page passage is a church setting) -> #554 (C9b: "Someone's on it" / "Met" on one-time needs; state names are my choice, easy to change) -> #556 (C11, issue #555: church-wide currency). Owner steps before any of them merge: reset the dev-test database (UPGRADING.md), review each PR, merge in order retargeting to `dev`. Note for #550: self-hosted installs running without `FIELD_ENCRYPTION_KEY` will stop at start-up. C8 (contact snooze) not built: waiting on the owner's yes. #550 e2e needed two fixes of my own making (a duplicate "Current Password" label, and the two-factor requirement spec not saving the recovery codes); both pushed and merged up the stack. Follow-up issues filed: #544 (restricted initials from adults), #545 (key-date card not editable), #546 (icon-only buttons), #548 (survey fields sweep), #549 (sign-in deep dive), #552 (test suite review).
+- 2026-11-27: C group decisions from the owner: C8 build as described (#560); C10 prayer sheet with a selectable rhythm (weekly, bi-weekly, monthly), rotation of partners, sheet plus slide view (#568); C7 import deferred; C3 Viewer role kept; C5 after #548; C6 not now; C15 approved (#561-#567). Flaky tests fixed in #557-#559. #561-#568 merged to `dev`, each after all four checks were green on its final head.
+- 2026-11-27: **Phase 2 stack merged and the dev-test database reset.** `dev` merged into the bottom branch and the stack passed up it; all six (#550, #551, #553, #554, #556, #560) green on all four checks on their final heads, merged bottom-up with merge commits (not squash, so each later PR's diff stayed its own). Render first refused every build: the workspace was out of build pipeline minutes (the owner added funds). Then: clear-cache deploy of dev failed at pre-deploy as expected (P3018, 42P07, relation already exists); a one-off Render job on the dev service dropped and recreated the `public` schema of the dev database only (it refuses to run unless the database name matches); a second clear-cache deploy went live, applying the new baseline; the dev reseed cron was fired once and `POST /api/demo/reset` returned 200. No `.env` was read, no Render settings changed, no schedule forced. The production demo (`main`) was not touched.
