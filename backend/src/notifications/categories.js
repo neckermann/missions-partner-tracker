@@ -27,6 +27,13 @@ const { loadOpenKeyDatesFor } = require("../utils/keyDateQueries");
 const { careTimings } = require("../utils/careSettings");
 const { READY_SELECT, isOutboundEmailUnfinished } = require("../utils/emailReady");
 const { isDemoDeployment } = require("../utils/demoMode");
+const {
+  SEND_READINESS_SELECT,
+  emailScheduleProblem,
+  isGroupMeUnfinished,
+  isWhatsAppUnfinished,
+  isChatTimeMissing,
+} = require("../utils/sendReadiness");
 
 const SOON_DAYS = 30;
 const BACKUP_REMIND_AGAIN_AFTER_MS = 30 * 24 * 60 * 60 * 1000;
@@ -340,6 +347,41 @@ async function emailNotFinished() {
   return { count: unfinished ? 1 : 0, latest: unfinished ? new Date() : null };
 }
 
+// A channel that is switched on but cannot send (utils/sendReadiness.js): updates would otherwise wait, or be
+// skipped, with nothing on screen saying so. `latest` is when the settings last changed, so the bell shows it as
+// new once and again after the next change, until it is fixed.
+async function sendReadinessSettings() {
+  return prisma.churchSettings.findUnique({ where: { id: "singleton" }, select: SEND_READINESS_SELECT });
+}
+const notSending = (settings, broken) => ({
+  count: broken ? 1 : 0,
+  latest: broken ? settings?.updatedAt || new Date() : null,
+});
+
+async function emailScheduleNotSet() {
+  const settings = await sendReadinessSettings();
+  const problem = emailScheduleProblem(settings);
+  return {
+    ...notSending(settings, Boolean(problem)),
+    label: problem === "half" ? "The email schedule is only half set" : undefined,
+  };
+}
+
+async function groupmeNotFinished() {
+  const settings = await sendReadinessSettings();
+  return notSending(settings, isGroupMeUnfinished(settings));
+}
+
+async function whatsappNotFinished() {
+  const settings = await sendReadinessSettings();
+  return notSending(settings, isWhatsAppUnfinished(settings));
+}
+
+async function chatTimeNotSet() {
+  const settings = await sendReadinessSettings();
+  return notSending(settings, isChatTimeMissing(settings));
+}
+
 async function adminMfaDisabled() {
   const rows = await prisma.user.findMany({
     where: { role: "admin", active: true, mfaEnabled: false },
@@ -581,6 +623,50 @@ const CATEGORIES = [
     perUser: false,
     tripScoped: false,
     resolve: emailNotFinished,
+  },
+  {
+    key: "emailScheduleNotSet",
+    requiresAny: ["outboundEmail"],
+    label: "Update emails have no schedule, so none will go out",
+    icon: "🗓️",
+    linkTo: "/admin/settings/dispatches",
+    adminOnly: true,
+    perUser: false,
+    tripScoped: false,
+    resolve: emailScheduleNotSet,
+  },
+  {
+    key: "groupmeNotFinished",
+    requiresAny: ["groupme"],
+    label: "GroupMe isn't finished setting up",
+    icon: "💬",
+    linkTo: "/admin/settings/groupme",
+    adminOnly: true,
+    perUser: false,
+    tripScoped: false,
+    resolve: groupmeNotFinished,
+  },
+  {
+    key: "whatsappNotFinished",
+    requiresAny: ["whatsapp"],
+    label: "WhatsApp isn't finished setting up",
+    icon: "💬",
+    linkTo: "/admin/settings/whatsapp",
+    adminOnly: true,
+    perUser: false,
+    tripScoped: false,
+    resolve: whatsappNotFinished,
+  },
+  {
+    key: "chatTimeNotSet",
+    requiresAny: ["groupme", "whatsapp"],
+    label: "Chat posts have no send time, so none will go out",
+    icon: "⏰",
+    linkTo: "/admin/settings/dispatches",
+    adminOnly: true,
+    perUser: false,
+    tripScoped: false,
+    resolve: chatTimeNotSet,
   },
   {
     key: "adminMfaDisabled",
