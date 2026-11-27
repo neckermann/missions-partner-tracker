@@ -225,7 +225,7 @@ export default function AdminSettingsGroupMe() {
       <SettingsPageHeader title="GroupMe" />
       <p style={{ color: "var(--muted)" }}>
         Posts new prayer requests, one-time needs, and newsletters to GroupMe Topics as they're added, and
-        (when turned on under Sending updates) partner care posts such as coming key dates. Turn this on in{" "}
+        (when turned on under Sending Updates) partner care posts such as coming key dates. Turn this on in{" "}
         <a href="/admin/settings/features">Enabled Features</a> once it's configured below.
       </p>
 

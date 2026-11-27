@@ -3,7 +3,7 @@ import { formatDate } from "../../utils/format.js";
 
 // "Last edited by Dana Whitfield on 11/24/2026". Who last changed a record is a current-state fact
 // kept on the record (the name is a snapshot, so it survives the account being deleted) and, unlike
-// the Audit log, never expires. Renders nothing for a record no signed-in person has changed
+// the Audit Log, never expires. Renders nothing for a record no signed-in person has changed
 // (job, seed, public form). Takes name and at, and optionally createdAt for "Added ...".
 export default function LastEdited({ name, at, createdAt, style }) {
   const edited = name && at ? `Last edited by ${name} on ${formatDate(at)}` : null;

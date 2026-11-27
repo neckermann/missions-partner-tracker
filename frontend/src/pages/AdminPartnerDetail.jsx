@@ -866,7 +866,7 @@ export default function AdminPartnerDetail() {
               {isAdmin && (
                 <p style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
                   What a restricted partner shows publicly, and how to change it:{" "}
-                  <Link to="/admin/settings/privacy">Privacy and safety</Link>.
+                  <Link to="/admin/settings/privacy">Privacy and Safety</Link>.
                 </p>
               )}
             </>

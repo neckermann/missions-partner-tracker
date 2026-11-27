@@ -1345,7 +1345,7 @@ export async function fetchReachablePartners() {
   return data;
 }
 
-// Audit log. Empty filters are dropped, not sent as "".
+// Audit Log. Empty filters are dropped, not sent as "".
 const withoutBlanks = (params) => Object.fromEntries(Object.entries(params).filter(([, v]) => v));
 export async function fetchAuditLog(params = {}) {
   const { data } = await api.get("/audit", { params: withoutBlanks(params) });

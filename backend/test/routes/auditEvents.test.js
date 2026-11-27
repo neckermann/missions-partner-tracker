@@ -1,4 +1,4 @@
-// The audit trail end to end: the real routes write the entries the Audit log page reads.
+// The audit trail end to end: the real routes write the entries the Audit Log page reads.
 // Covers sign-in (success and failure, never leaking a reason to the caller), account changes,
 // trip access, care teams, settings (secrets noted as changed, never stored), feature toggles,
 // partner/trip deletes, backups and restricted-partner views.

@@ -92,7 +92,7 @@ Postgres database in a single step.
    two-factor requirement off later in Manage Users, but it is on by default.
 6. The first time you reach the admin area you are asked, once, whether to
    show your partners on a public website. "Not yet" is fine, and you can
-   change it any time under Settings → Privacy and safety.
+   change it any time under Settings → Privacy and Safety.
 
 **The region is Oregon, and cannot be changed afterwards.** Render won't move
 an existing service, so a church that wants a different region (`ohio`,
@@ -177,7 +177,7 @@ full file with inline comments):
 | `FIELD_ENCRYPTION_KEY` | Yes (the Render button makes one for you) | Encrypts every reversibly-stored secret at rest: two-factor (MFA) secrets, plus the Postmark server token, GroupMe access token, Joshua Project API key, and WhatsApp session. Generate with `npm run generate-secrets`. The app refuses to start without a usable key (32 bytes, base64), the same as `SESSION_SECRET`: two-factor sign-in is required from the first sign-in and cannot be set up without it. Keep it somewhere durable. See [Rotating FIELD_ENCRYPTION_KEY](#rotating-field_encryption_key) below |
 | `NOMINATIM_CONTACT` | Recommended | Your contact email, sent with geocoding requests per [Nominatim's usage policy](https://operations.osmfoundation.org/policies/nominatim/) |
 | `MFA_ISSUER` | No | Name shown in a user's authenticator app when they enroll in MFA; defaults to "Missions Partner Tracker Admin" |
-| `APP_BASE_URL` | On Render: no. Elsewhere: yes | This app's own public URL, no trailing slash — needed for every link the app puts in a message or builds for you: setup, password-reset and sign-in links, survey and trip links, passkeys, the email digest's unsubscribe link, and the dispatch queue's own links: the GroupMe newsletter dispatch's link and the email digest's "read the source" / "read the full newsletter" links (see [GroupMe dispatch](USER_GUIDE.md#groupme-dispatch-admin-only) and [Updates to share](USER_GUIDE.md#updates-to-share)). On Render this is picked up automatically from `RENDER_EXTERNAL_URL`, so you need not set it; set it yourself if you use your own domain or host elsewhere. Leave it unset elsewhere and those links just don't appear (and a setup or sign-in link can't be built). |
+| `APP_BASE_URL` | On Render: no. Elsewhere: yes | This app's own public URL, no trailing slash — needed for every link the app puts in a message or builds for you: setup, password-reset and sign-in links, survey and trip links, passkeys, the email digest's unsubscribe link, and the dispatch queue's own links: the GroupMe newsletter dispatch's link and the email digest's "read the source" / "read the full newsletter" links (see [GroupMe dispatch](USER_GUIDE.md#groupme-dispatch-admin-only) and [Updates to Share](USER_GUIDE.md#updates-to-share)). On Render this is picked up automatically from `RENDER_EXTERNAL_URL`, so you need not set it; set it yourself if you use your own domain or host elsewhere. Leave it unset elsewhere and those links just don't appear (and a setup or sign-in link can't be built). |
 | `TRUST_PROXY` | No | How many reverse proxies sit in front of the app, from `0` to `10`; the default `1` is right for Render and for a single nginx or load balancer. Sets where the sign-in rate limits read the visitor's address (see [Rate limiting](#rate-limiting)). `0` if the app is reached directly; `2` for two proxies (Cloudflare in front of Render). |
 | `BACKGROUND_JOBS` | No | `on` or `off` to force the scheduled jobs and the WhatsApp connection on or off. Left unset they run when `NODE_ENV=production` and not otherwise, so a laptop pointed at a database with real email settings never sends anything on its own. |
 
@@ -199,7 +199,7 @@ prayer digest nested under Email (Sending) since it depends on it), and
 **Integrations** (AI Features, Joshua Project).
 
 **Without email.** Email (Sending) is optional. Where an email would have gone out, the app hands you what you need
-instead: trip invites, setup links and survey links appear with a copy button; queued updates wait on Updates to share with **Copy the updates that are ready**; key dates show a copyable list on My partners; scheduled report
+instead: trip invites, setup links and survey links appear with a copy button; queued updates wait on Updates to Share with **Copy the updates that are ready**; key dates show a copyable list on My partners; scheduled report
 emails are replaced by the Reports page and its download. A few things need real email and say so (passwordless
 sign-in, the public prayer digest). Enabled Features shows a "Without email" line on each feature where it matters.
 
@@ -207,7 +207,7 @@ sign-in, the public prayer digest). Enabled Features shows a "Without email" lin
 
 | Feature | Default | Notes |
 |---|---|---|
-| Public directory | **Off** | The public list/search view at the site's root (`/`). **Off on a new install:** the first time an admin reaches the admin area they are asked once whether to turn on the public directory and map ("Not yet" is fine), and it can be changed any time under Settings → Privacy and safety. Off shows a short "this isn't public" page there instead. |
+| Public directory | **Off** | The public list/search view at the site's root (`/`). **Off on a new install:** the first time an admin reaches the admin area they are asked once whether to turn on the public directory and map ("Not yet" is fine), and it can be changed any time under Settings → Privacy and Safety. Off shows a short "this isn't public" page there instead. |
 | Public map | **Off** | The public map view (`/map`). Same off-behavior as above. Independent of the directory toggle — a church can run either one alone, or both, or neither; the partner-detail page stays reachable as long as at least one of the two is on. |
 | Newsletters & Docs | On | Newsletters and documents (survey responses, signed policies, etc.) on missionary/organization pages and their own admin section. |
 | Prayer requests | On | The Prayer Requests admin section, and the prayer request list on missionary/organization pages. |
@@ -217,18 +217,18 @@ sign-in, the public prayer digest). Enabled Features shows a "Without email" lin
 | Public trip discovery | **Off** | The public Trip Opportunities listing (`/trips`) and plain, id-addressed application links. Also requires Mission trips to be on. A church can run trips entirely by private link with this off and Mission trips on — see [§ Trips](#trips) below. |
 | Print booklet | On | The printable prayer & support directory generator. |
 | Reports | On | A question-based hub of read-only reports over existing data (support, prayer requests, one-time needs, data completeness, trips, mailing list, users & access, and more), each with URL-backed filters, summary tiles, CSV download, and a print view. Reports can be saved (private or shared) and, for an admin, scheduled as a recurring email. See [USER_GUIDE.md § Reports](USER_GUIDE.md#reports). |
-| GroupMe dispatch | **Off** | Queues new prayer requests, one-time needs, and newsletters — plus a prayer request's recorded answer and a one-time need's funding decision — for GroupMe, sent out to their own configured Topics on the schedule configured at Settings → Sending updates, or via manual send from Updates to share. Configured entirely in the UI (Settings → GroupMe) with the admin's own personal access token, not a bot — GroupMe's Bots API has no awareness of Topics. Off by default since it's the one feature here that posts to a third-party service on its own, not just on request. See [USER_GUIDE.md § GroupMe dispatch](USER_GUIDE.md#groupme-dispatch-admin-only). |
+| GroupMe dispatch | **Off** | Queues new prayer requests, one-time needs, and newsletters — plus a prayer request's recorded answer and a one-time need's funding decision — for GroupMe, sent out to their own configured Topics on the schedule configured at Settings → Sending Updates, or via manual send from Updates to Share. Configured entirely in the UI (Settings → GroupMe) with the admin's own personal access token, not a bot — GroupMe's Bots API has no awareness of Topics. Off by default since it's the one feature here that posts to a third-party service on its own, not just on request. See [USER_GUIDE.md § GroupMe dispatch](USER_GUIDE.md#groupme-dispatch-admin-only). |
 | WhatsApp dispatch | **Off** | The same three dispatch types as GroupMe, posted to their own groups inside one WhatsApp community, on the same daily schedule and content-type mutes as GroupMe (a church can run either or both). Configured entirely in the UI (Settings → WhatsApp): link a **dedicated** phone number by scanning a QR code, pick the community, then a group per dispatch type. Off by default because it's an **unofficial** connection — see [Dispatch: WhatsApp](#dispatch-whatsapp) below before turning it on. See [USER_GUIDE.md § WhatsApp dispatch](USER_GUIDE.md#whatsapp-dispatch-admin-only). |
-| Care teams | **Off** | Give each partner a care team: one Lead plus Members, all logins, who keep in touch with them. A care team member can do what an editor can for their own partner, except that **what they enter is held in Updates to share for you to approve before it's sent anywhere**, they can't record a decision on a one-time need, and they never see monthly support. A Guest can be given a partner this way instead of a trip. See [USER_GUIDE.md § Care teams](USER_GUIDE.md#care-teams). Turning it off hides all of it and ignores the seats for access; nothing is deleted. Adds a *Care team coverage* report. |
+| Care teams | **Off** | Give each partner a care team: one Lead plus Members, all logins, who keep in touch with them. A care team member can do what an editor can for their own partner, except that **what they enter is held in Updates to Share for you to approve before it's sent anywhere**, they can't record a decision on a one-time need, and they never see monthly support. A Guest can be given a partner this way instead of a trip. See [USER_GUIDE.md § Care teams](USER_GUIDE.md#care-teams). Turning it off hides all of it and ignores the seats for access; nothing is deleted. Adds a *Care team coverage* report. |
 | Key-date reminders | **On** | Reminds whoever looks after each partner (its care team, else your **missions team**) about coming birthdays (including children), wedding anniversaries and supported-since milestones (the first year, then every fifth), a week ahead by default (Settings → Partner Care → Timing sets 1 to 60 days, and how many days without contact make a partner "quiet", 7 to 365): on the bell, in each person's **email digest** (dates 90 and 30 days out, each once; Settings → Partner Care → Timing sets the earlier heads-ups, up to three), and in **one short email** for the final stretch, sent at 7am church time only on days something is due and only to someone whose digest wouldn't reach them before the date. It doesn't need Care teams; the email needs **Email (Sending)** and is sent by the scheduled jobs. A partner with no care team goes to your **missions team** (the people marked "On the missions team" under Settings → Partner Care or on a user; you can rename the group there), who also see those partners on My partners and under "Partners to reach out to" (staff only: a Guest is never on it). Anyone can turn off their own daily email under My account → Key-date email; the bell alert stays. With Email (Sending) off, **My partners** shows the list the email would have sent, with **Copy this week's list**. A public demo keeps this on for the bell but never sends the email; logging a contact with the topic "Key date" clears a reminder. Restricted partners are named by initials only. |
 | Support preferences | **Off** | A menu of ways your church can support partners (housing while they are home, airport pick-up, prayer, care packages and so on), which you edit under Settings → Support Preferences, and each partner's choices from it, shown as a card on their page and recorded by staff or the people who look after them. Doesn't need Care teams. Never shown publicly, in the booklet or in dispatches; a trip leader doesn't see it. Adds a "Support preferences" report. |
 | Partner surveys | **Off** | Build short surveys (a check-in, an annual update, a poll) under Settings → Surveys and send each partner a personal link to answer, or fill one in for them from their page. Answers show on the partner's page for staff (and their care team, when Care teams is on) only. A person starts every send; nothing is emailed automatically, and the app never emails a restricted partner or one marked not to be contacted directly. Doesn't need Care teams; sending the links needs Email (Sending) and `APP_BASE_URL` (without email you copy each link instead). Adds a "Survey responses" report. Questions can be linked to a part of the partner's record (phone, email, preferred contact method, emergency contact, photo): a differing answer waits on **Survey Updates** for an admin or editor to approve, edit or reject, and is never applied automatically. Starter templates are built in. |
-| Audit log | **On** | Records who did what and when for sensitive actions (sign-ins and failed sign-ins, role and access changes, settings changes, deletes, backups, restricted-partner changes and views) and adds an admin-only **Settings → Audit log** page with filters and CSV export. Entries are kept for 30, 60 or 90 days (default 90) and pruned nightly by the scheduled jobs, even if the feature is later turned off. Secrets are never stored. It is on by default because it records nothing before it is on; sign-in entries include the IP address (personal data), so a church that doesn't want that can turn it off here. See [USER_GUIDE.md § Audit log](USER_GUIDE.md#audit-log-admin-only). |
+| Audit Log | **On** | Records who did what and when for sensitive actions (sign-ins and failed sign-ins, role and access changes, settings changes, deletes, backups, restricted-partner changes and views) and adds an admin-only **Settings → Audit Log** page with filters and CSV export. Entries are kept for 30, 60 or 90 days (default 90) and pruned nightly by the scheduled jobs, even if the feature is later turned off. Secrets are never stored. It is on by default because it records nothing before it is on; sign-in entries include the IP address (personal data), so a church that doesn't want that can turn it off here. See [USER_GUIDE.md § Audit Log](USER_GUIDE.md#audit-log-admin-only). |
 | Contact log | **On** | Record every call, text, email, visit or card with a partner, show a contact card (primary contact, preferred method, one-tap call/text/email/WhatsApp) on each partner page, and flag partners nobody has been in touch with for 90 days. Adds an **My partners** tab for care team members, a "Partners to reach out to" alert, and feeds the Last heard from report. A partner marked not safe to contact shows staff's special instructions instead of the buttons, and is left out of the printed booklet's contact details. Entries are internal only. |
 | Joshua Project stats | **Off** | Shows country-level unreached-people-group statistics on a partner's page (public and admin). Requires an API key, set at Settings → Integrations, under Joshua Project ([free key](https://joshuaproject.net/api/request)). The Country Code (FIPS) field on Serving Location only appears once this is on — turning it on after partners already exist means going back into each one's Serving Location to enter the code manually or re-trigger the auto-lookup (see [USER_GUIDE.md § Editing a partner](USER_GUIDE.md#editing-a-partner)). |
 | AI Features | **Off** | Adds a "Scan for requests" button on each newsletter/document that's PDF, JPEG, PNG, or `.eml` (Word/Excel aren't supported). Sends that one file to Claude (Anthropic's API) to look for prayer requests and one-time financial needs, then shows them for review — nothing is added until you explicitly accept a suggestion. Requires an API key, set at Settings → Integrations, under AI Features ([get one at console.anthropic.com](https://console.anthropic.com/settings/keys), pay-per-scan, a few cents/month at typical volume). Off by default even once the key is configured, since it's the one feature here that sends data to a third party. |
 | Email (Sending) | **Off** | Enables outbound email through a configured [Postmark](https://postmarkapp.com) account, set at Settings → Email. Today's only sender is the batched dispatch digest (see [§ Email (Postmark)](#email-postmark) below), plus Send Test Email on that same settings page. Independent of Email (Receiving) below — a church can turn on either, both, or neither. |
-| Email (Receiving) | **Off** | Lets partners email newsletter updates straight into this app via a Postmark inbound webhook, held in Emails to sort for a quick review, then assigned to the matching partner. Set up on the same Settings → Email page as Sending, independently toggled. Also sets the one informational **Inbound Email Address** field — purely display, not required for the webhook itself. See [§ Email (Postmark)](#email-postmark) below. |
+| Email (Receiving) | **Off** | Lets partners email newsletter updates straight into this app via a Postmark inbound webhook, held in Emails to Sort for a quick review, then assigned to the matching partner. Set up on the same Settings → Email page as Sending, independently toggled. Also sets the one informational **Inbound Email Address** field — purely display, not required for the webhook itself. See [§ Email (Postmark)](#email-postmark) below. |
 | Public prayer digest | **Off** | Lets anyone subscribe (no login) to email digests of prayer-request updates, from the public **Subscribe** page (`/subscribe`) or from a single partner's own page — for all partners or just the ones they pick. Also requires Public directory and Email (Sending) to be on — shown nested under Email (Sending) on this page, and its checkbox can't be turned on until that one is. See [§ Dispatch: GroupMe, the admin digest, and the public digest](#dispatch-groupme-the-admin-digest-and-the-public-digest) below. |
 
 ![The Admin Features dialog, with the Contact log, Key-date reminders and Care teams toggles](docs/assets/screenshots/enabled-features-admin.png)
@@ -254,7 +254,7 @@ deleted: turning it back on brings the records back.
 | Joshua Project stats | A Joshua Project API key, and a country code on the partner | No country statistics on partner pages. |
 
 Features that only add pages or sections (Prayer requests, One-time needs, Monthly support,
-Newsletters & Docs, Mission trips, Reports, Print booklet, Audit log) can each be left off without
+Newsletters & Docs, Mission trips, Reports, Print booklet, Audit Log) can each be left off without
 affecting any other feature, with two small exceptions: the Contact Log also lists church visits and
 newsletter filings, and its "Updates to pass on" box reads decided needs and answered prayers, so those
 lines disappear when One-time needs, Prayer requests or Newsletters & Docs is off.
@@ -266,10 +266,10 @@ check on the relevant route(s), not a database migration.
 All of this lives under **Settings**, an expandable group in
 the admin sidebar itself (not a separate page with its own tab bar) —
 click it to reveal, in order: **About & Branding** (Church Info/address and
-branding together on one page), **Manage Users**, **Audit log**, and
+branding together on one page), **Manage Users**, **Audit Log**, and
 **Enabled Features**; then the settings for the features you've turned on
 (**Trips**, **Care Teams**, and **Communications** — Email, GroupMe,
-WhatsApp, Sending updates, which itself includes a read-only Who gets update emails section, not a separate nav link — and
+WhatsApp, Sending Updates, which itself includes a read-only Who gets update emails section, not a separate nav link — and
 **Integrations**: AI Features, Joshua Project); and last **About App**
 (runtime/database diagnostics plus database backups, on one page — see
 [§ Database backups](#database-backups) below). The Settings home page
@@ -343,7 +343,7 @@ A few things worth knowing operationally:
   administrator you trust. It is on by default for
   a new install (the first-run setup turns it on), off on an install that
   predates it, can't be turned on for the public demo, and changes to it are in the
-  [Audit log](USER_GUIDE.md#audit-log-admin-only). No role is special:
+  [Audit Log](USER_GUIDE.md#audit-log-admin-only). No role is special:
   a Guest is treated like everyone else. See
   [USER_GUIDE.md § Your account settings](USER_GUIDE.md#your-account-settings)
   for the user-facing flow.
@@ -678,7 +678,7 @@ login. In practice that means:
 If you need *staff* (admins, editors, viewers) who can see some partners but
 not others, this app can't express that, and pretending otherwise with
 roles would be worse than saying so plainly. A Guest is the supported way to
-limit someone to particular trips or partners. The Updates to share page's own held-row
+limit someone to particular trips or partners. The Updates to Share page's own held-row
 text (see [§ Restricted-partner dispatch
 review](#restricted-partner-dispatch-review)) follows this same
 rule — it's not role-gated, since `GET /api/prayer-requests` and `GET
@@ -729,7 +729,7 @@ suspect it's actually leaked; otherwise leave it alone indefinitely.
 
 ### Restricted-country masking policy
 
-**Settings → Privacy and safety** (always in the menu, whatever features are on) holds the choices that
+**Settings → Privacy and Safety** (always in the menu, whatever features are on) holds the choices that
 go with it: whether the public directory and map are on, whether a restricted partner's public name is
 their initials or a generic label, and whether updates about restricted partners are recorded for
 sending. Only staff can change whether a partner is shown publicly or restricted; a care-team Guest
@@ -783,7 +783,7 @@ manually-uploaded newsletter. If the sender's address matches exactly
 one partner — either that partner's own Contact Email (organizations) or
 any of their household adults' email addresses (missionaries) — that is
 noted, but a sender address can be forged, so by default **every**
-message waits in the **Emails to sort** queue, where any logged-in
+message waits in the **Emails to Sort** queue, where any logged-in
 admin or editor can view the raw email and assign it to the right
 partner as a Newsletter (scannable by AI Features like any other), or an
 admin can discard it. Nothing is ever deleted automatically. On
@@ -829,7 +829,7 @@ is off by default. Setup:
 somewhere that makes an obviously church-branded inbound address risky
 (`updates@yourchurch.org` reads as exactly what it is) can be given a
 separate, non-church-branded domain to send to instead — landing in the
-exact same Emails to sort review flow as everyone else. This
+exact same Emails to Sort review flow as everyone else. This
 app's webhook doesn't care which domain mail arrived at: it
 authenticates by the Basic Auth credentials in the URL and files by the
 sender's own address, not by the recipient domain, so one app endpoint
@@ -871,7 +871,7 @@ directly against the code, not assumed:
 | Trip meeting **RSVP tracking** (yes/no/maybe) | **Sending only** | Deliberately link-based, not reply-based — a participant clicks one of three token-verified links in their invite email; nothing needs to come back in. **Receiving is not required for this**, by design (see `TripMeetingRsvp` in `schema.prisma`). |
 | Scheduled report emails | **Sending** | |
 | Partners emailing newsletters/updates in, held for a quick review, then filed to their record | **Receiving** | Works with Sending off — this direction doesn't send anything itself. |
-| Emails to sort review queue | **Receiving** | Same as above. |
+| Emails to Sort review queue | **Receiving** | Same as above. |
 
 Receiving-only is a complete, valid setup on its own (lets partners send
 updates in, with no outbound capability at all); Sending-only is just as
@@ -887,7 +887,7 @@ transit and encryption at rest; Postmark itself (distinct from its data
 centers) hasn't undergone its own independent SOC audit. Postmark
 retains inbound message content for **45 days by default** before it's
 purged from their side; this app's own copy (the stored `.eml`, whether
-filed as a Newsletter or still sitting in the Emails to sort queue) is
+filed as a Newsletter or still sitting in the Emails to Sort queue) is
 what persists afterward — a church shouldn't rely on Postmark itself as
 a second copy past that window.
 
@@ -942,7 +942,7 @@ know before turning it on:
 - **Schedule and message size.** WhatsApp sends once a day, at an
   admin-set hour, with three independent content-type mutes (Prayer
   Requests / One-Time Needs / Newsletters) — both configured on Site
-  Administration → Sending updates. GroupMe and WhatsApp are both
+  Administration → Sending Updates. GroupMe and WhatsApp are both
   chat-style, near-real-time channels, which is why they're scheduled
   on that one shared daily-hour field and the same three mutes rather
   than each getting its own — not because WhatsApp borrows GroupMe's
@@ -959,7 +959,7 @@ Every event a partner generates — a prayer request created or
 answered, a one-time need created or decided, a newsletter arriving —
 is recorded once, in a shared `DispatchRecord` table, with exactly one
 exception: a restricted partner's event is only recorded at all if
-**Record updates about restricted partners** (Settings → Privacy and safety; see below) is on. Everything else about how it
+**Record updates about restricted partners** (Settings → Privacy and Safety; see below) is on. Everything else about how it
 actually reaches someone is a question of *delivery*, answered
 identically by one shared rule regardless of channel: GroupMe, the
 admin digest, and the public digest each independently decide, at the
@@ -1020,7 +1020,7 @@ all structurally absent from the public one:
 
 Both email digests share one subject-line template, signature, and
 layout choice (Classic — text only, or Snapshot — adds each partner's
-photo/field/overview), all admin-configurable on the same Sending updates page. Full walkthrough of each control: [USER_GUIDE.md § How the update email looks](USER_GUIDE.md#how-the-update-email-looks).
+photo/field/overview), all admin-configurable on the same Sending Updates page. Full walkthrough of each control: [USER_GUIDE.md § How the update email looks](USER_GUIDE.md#how-the-update-email-looks).
 
 A restricted-access partner's content is masked on every channel —
 name reduced to initials, photo to a silhouette, no source link —
@@ -1037,7 +1037,7 @@ either way.
 **Schedules.** The admin and public digests share three cadence tiers
 — biweekly, monthly, or quarterly — each admin and public subscriber
 picks for themselves; the church sets the actual day/time those tiers
-fire on the Sending updates page. GroupMe and WhatsApp's shared
+fire on the Sending Updates page. GroupMe and WhatsApp's shared
 daily hour is a completely separate, independent setting on the same
 page — a church can run the chat channels and the email tiers on
 entirely different schedules.
@@ -1060,7 +1060,7 @@ UTC on Render, never a church's own local time). Changing the timezone
 takes effect on the next restart/deploy, not instantly.
 
 **Which tiers are even offered.** Each of the three cadence tiers can
-be turned off from the same Sending updates page's Email Schedule
+be turned off from the same Sending Updates page's Email Schedule
 section — biweekly is off by default (an existing admin's suggested
 starting point), monthly and quarterly are on. Turning a tier off
 removes it from both cadence pickers (an admin's own Account Settings,
@@ -1103,7 +1103,7 @@ For a restricted partner specifically, a second checkbox — **Review
 and approve now** — appears alongside **Mark as urgent**, admin/editor
 only. Checking it confirms, at creation time, that the exact text just
 typed is safe to send verbatim, and clears the review hold right then
-instead of requiring a separate visit to Updates to share
+instead of requiring a separate visit to Updates to Share
 afterward. It's a shortcut for the same review step described in
 [§ Restricted-partner dispatch
 review](#restricted-partner-dispatch-review), not a send of its
@@ -1137,7 +1137,7 @@ confirmation without the second. Turning **Public prayer digest** off
 again stops delivery to already-confirmed subscribers immediately, not
 just new signups.
 
-An **Who gets update emails** section on the same Sending updates page
+An **Who gets update emails** section on the same Sending Updates page
 (visible whenever the public digest is on) shows how many admins and
 public visitors are subscribed — counts only, never an email address.
 
@@ -1168,7 +1168,7 @@ human reading the real content can judge. Newsletters aren't affected —
 a restricted partner's newsletter dispatch is already fully
 suppressed, nothing to review.
 
-On the Updates to share page, a held item shows an amber
+On the Updates to Share page, a held item shows an amber
 **Awaiting review** badge, and the row itself already shows the real
 (unmasked) text — not the generic placeholder — regardless of who's
 looking; that text was never actually protected by hiding it here, since
@@ -1181,7 +1181,7 @@ it's accepted, one of two ways:
 - **Approve** — a one-click path for text that's already fine as-is.
   Shows the real text in the confirmation prompt, nothing to edit.
 - **Edit** — opens the same reveal-and-edit view available on any
-  queued item (see [USER_GUIDE.md § Updates to share](USER_GUIDE.md#updates-to-share)), but for a held
+  queued item (see [USER_GUIDE.md § Updates to Share](USER_GUIDE.md#updates-to-share)), but for a held
   item, saving carries the same confirmation and also clears the hold —
   the button reads **Save and Approve** rather than plain **Save** to
   make that consequence explicit.
@@ -1194,7 +1194,7 @@ previously reviewed text.
 
 A church that would rather not run a review step at all — fully
 automated, nobody checking a queue — can leave **Record updates about
-restricted partners** off on **Settings → Privacy and safety** (the default). With it off, a restricted
+restricted partners** off on **Settings → Privacy and Safety** (the default). With it off, a restricted
 partner's events are never recorded in the first place, for any type;
 there's nothing to hold and nothing to review, since there's nothing
 recorded. Turning it on takes on the review responsibility above in
@@ -1437,7 +1437,7 @@ live:
   collected, with no admin involved — an admin logging one here is the
   fallback for a document that arrived by some other means. A document
   can also reach a participant's file when an unrelated inbound email
-  from them is assigned to them from the Emails to sort queue.
+  from them is assigned to them from the Emails to Sort queue.
 
 **Two feature flags, not one** — see [§ Feature toggles](#feature-toggles)
 above:
