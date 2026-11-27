@@ -84,6 +84,30 @@ describe("a staff-uploaded participant photo", () => {
     assert.ok(row && row.photo.length > 1024 * 1024, "the whole photo was stored");
   });
 
+  test("a real large photo gets a small copy for pages, and the full one stays at /photo/raw", async () => {
+    const sharp = require("sharp");
+    const raw = Buffer.alloc(2400 * 1600 * 3);
+    for (let i = 0; i < raw.length; i++) raw[i] = (i * 31 + (i >> 5) * 17) & 255;
+    const full = await sharp(raw, { raw: { width: 2400, height: 1600, channels: 3 } })
+      .jpeg()
+      .toBuffer();
+    const res = await admin(`/api/trips/participants/${participant.id}`, {
+      method: "PUT",
+      body: { photo: `data:image/jpeg;base64,${full.toString("base64")}`, photoContentType: "image/jpeg" },
+    });
+    assert.equal(res.status, 200, JSON.stringify(res.body).slice(0, 200));
+    const row = await prisma.tripParticipantPhoto.findUnique({ where: { id: participant.id } });
+    assert.equal(row.photo.length, full.length);
+    assert.ok(row.displayBytes && row.displayBytes.length < full.length / 4);
+
+    const base = `/api/public/trips/participants/${participant.id}/photo`;
+    const shown = await anon(base);
+    assert.equal(shown.headers.get("content-type"), "image/jpeg");
+    assert.equal(Number(shown.headers.get("content-length")), row.displayBytes.length);
+    const rawRes = await anon(`${base}/raw`);
+    assert.equal(Number(rawRes.headers.get("content-length")), full.length);
+  });
+
   test("a photo near the 15 MB limit is accepted", async () => {
     const res = await put(admin, 14 * 1024 * 1024);
     assert.equal(res.status, 200, JSON.stringify(res.body).slice(0, 200));

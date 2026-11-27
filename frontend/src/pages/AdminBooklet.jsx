@@ -248,7 +248,7 @@ function buildMissionaryPageHtml(m, accent, fields) {
     <section class="booklet-page" style="--accent:${accent}">
       <div class="booklet-shape shape-a"></div>
       <div class="booklet-shape shape-b"></div>
-      ${fields.showPhoto && m.photos?.[0]?.url ? `<img class="booklet-photo" src="${escapeHtml(m.photos[0].url)}" alt="" />` : ""}
+      ${fields.showPhoto && m.photos?.[0]?.url ? `<img class="booklet-photo" src="${escapeHtml(m.photos[0].rawUrl || m.photos[0].url)}" alt="" />` : ""}
       <p class="booklet-eyebrow">${escapeHtml(m.fieldDisplayName || "")}</p>
       <h2 class="booklet-name">${escapeHtml(m.displayName)}</h2>
       ${fields.showOverview && m.overview ? `<div class="booklet-callout"><p>${escapeHtml(m.overview)}</p></div>` : ""}

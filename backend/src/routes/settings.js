@@ -20,6 +20,7 @@ const { makeExtResolver, uploadFilteredBy } = require("../utils/upload");
 // General/logo settings. GroupMe, WhatsApp, Email, Trips and Dispatches settings live in sibling
 // settings*.js files mounted at the same /api/settings prefix from server.js.
 const { loadChurchLists } = require("../utils/tripTemplates");
+const { shrinkLogo } = require("../utils/photoCopies");
 const {
   KEY_DATE_LEAD_RANGE,
   CONTACT_STALE_RANGE,
@@ -348,21 +349,24 @@ router.post("/logo", requireRole("admin"), upload.single("image"), async (req, r
       return res.status(400).json({ error: "File content doesn't match its declared image type" });
     }
 
+    // Shrunk at upload (at most 800px wide, in its own format so transparency survives): it is on every page.
+    const logo = await shrinkLogo(req.file.buffer, signatureMime);
+
     const updated = await prisma.churchSettings.upsert({
       where: { id: "singleton" },
       create: {
         id: "singleton",
-        logoContentType: signatureMime,
+        logoContentType: logo.contentType,
         updatedById: req.user.id,
-        logoRow: { create: { logoBytes: req.file.buffer } },
+        logoRow: { create: { logoBytes: logo.bytes } },
       },
       update: {
-        logoContentType: signatureMime,
+        logoContentType: logo.contentType,
         updatedById: req.user.id,
         logoRow: {
           upsert: {
-            create: { logoBytes: req.file.buffer },
-            update: { logoBytes: req.file.buffer },
+            create: { logoBytes: logo.bytes },
+            update: { logoBytes: logo.bytes },
           },
         },
       },

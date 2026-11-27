@@ -13,6 +13,7 @@ const {
 const { generateShareToken } = require("../src/utils/tripAccessToken");
 const { demoDisabledFeatureFlags } = require("../src/utils/demoMode");
 const { replaceQuestions, replaceRequirementItems, answerRows } = require("../src/utils/tripTemplates");
+const { makeDisplayCopy } = require("../src/utils/photoCopies");
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
 
@@ -1500,7 +1501,12 @@ async function seedTripsDemo() {
       if (photo) {
         await prisma.tripParticipant.update({
           where: { id: john.id },
-          data: { photoBytesRow: { create: { photo: photo.bytes } }, photoContentType: photo.contentType },
+          data: {
+            photoBytesRow: {
+              create: { photo: photo.bytes, displayBytes: await makeDisplayCopy(photo.bytes) },
+            },
+            photoContentType: photo.contentType,
+          },
         });
       }
     }
@@ -1542,7 +1548,12 @@ async function seedTripsDemo() {
       if (photo) {
         await prisma.tripParticipant.update({
           where: { id: david.id },
-          data: { photoBytesRow: { create: { photo: photo.bytes } }, photoContentType: photo.contentType },
+          data: {
+            photoBytesRow: {
+              create: { photo: photo.bytes, displayBytes: await makeDisplayCopy(photo.bytes) },
+            },
+            photoContentType: photo.contentType,
+          },
         });
       }
     }
@@ -1942,7 +1953,12 @@ async function seedTripsDemo() {
       if (photo) {
         await prisma.tripParticipant.update({
           where: { id: marcus.id },
-          data: { photoBytesRow: { create: { photo: photo.bytes } }, photoContentType: photo.contentType },
+          data: {
+            photoBytesRow: {
+              create: { photo: photo.bytes, displayBytes: await makeDisplayCopy(photo.bytes) },
+            },
+            photoContentType: photo.contentType,
+          },
         });
       }
     }
@@ -3779,7 +3795,7 @@ async function main() {
         links: { create: buildLinks(`${last.toLowerCase()}family`) },
         photos: {
           create: {
-            bytesRow: { create: { bytes: photo.bytes } },
+            bytesRow: { create: { bytes: photo.bytes, displayBytes: await makeDisplayCopy(photo.bytes) } },
             contentType: photo.contentType,
             receivedDate: dateBetween(1, 0),
           },
@@ -3925,7 +3941,7 @@ async function main() {
         tripLogisticsNotes: chance(0.5) ? pick(LOGISTICS_NOTES) : null,
         photos: {
           create: {
-            bytesRow: { create: { bytes: logo.bytes } },
+            bytesRow: { create: { bytes: logo.bytes, displayBytes: await makeDisplayCopy(logo.bytes) } },
             contentType: logo.contentType,
             receivedDate: dateBetween(1, 0),
           },

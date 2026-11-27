@@ -186,6 +186,7 @@ CREATE TABLE "TripParticipant" (
 CREATE TABLE "TripParticipantPhoto" (
     "id" TEXT NOT NULL,
     "photo" BYTEA NOT NULL,
+    "displayBytes" BYTEA,
 
     CONSTRAINT "TripParticipantPhoto_pkey" PRIMARY KEY ("id")
 );
@@ -738,6 +739,7 @@ CREATE TABLE "Photo" (
 CREATE TABLE "PhotoBytes" (
     "id" TEXT NOT NULL,
     "bytes" BYTEA NOT NULL,
+    "displayBytes" BYTEA,
 
     CONSTRAINT "PhotoBytes_pkey" PRIMARY KEY ("id")
 );
