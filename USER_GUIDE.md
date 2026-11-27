@@ -1830,8 +1830,10 @@ entirely by what you check in the admin dashboard:
   quarterly an admin has chosen to offer, pre-selected to monthly when
   it's available), and either every partner or several specific ones
   picked from a checklist. A visitor clicks a
-  link in a confirmation email before anything actually sends (double
-  opt-in — nothing goes out to an address nobody confirmed), and every
+  link in a confirmation email, then presses **Confirm my subscription** on
+  the page it opens, before anything actually sends (double opt-in — nothing
+  goes out to an address nobody confirmed, and a mail program that merely
+  opens the link does not confirm it), and every
   digest they get after that carries its own one-click unsubscribe
   link. This public digest is **prayer requests only** — never a
   one-time need, never a newsletter or a link back to one — unlike the
