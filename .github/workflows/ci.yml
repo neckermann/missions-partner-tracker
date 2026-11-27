@@ -180,6 +180,10 @@ jobs:
       E2E_BASE_URL: http://localhost:4000
       E2E_ADMIN_EMAIL: e2e@example.com
       E2E_ADMIN_PASSWORD: E2eOnlyPassword123!
+      # The route tests, the app and the browser all run in a US zone, not UTC: a date-only value that arrives as
+      # UTC midnight reads as the previous day anywhere west of UTC, which is where date bugs hide and UTC
+      # never shows them. (The unit-test job already does the same, with America/Los_Angeles.)
+      TZ: America/Chicago
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
