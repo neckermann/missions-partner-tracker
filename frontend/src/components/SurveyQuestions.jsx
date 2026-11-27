@@ -7,6 +7,8 @@ import {
 } from "../utils/supportAnswer.js";
 import { ADDRESS_PARTS, addressToValue, parseAddressValue, formatAddressValue } from "../utils/address.js";
 import { formatPhone } from "../utils/phone.js";
+import PhoneInput from "./shared/PhoneInput.jsx";
+import EmailInput from "./shared/EmailInput.jsx";
 
 // A checkbox or radio next to its label. Inline: the global label and input rules would otherwise
 // stack and centre it.
@@ -22,11 +24,9 @@ export const choiceRowStyle = {
 export const choiceInputStyle = { width: "auto", flexShrink: 0 };
 
 // The box for a question linked to a field of the record (the server says which in `inputType`).
-const SINGLE_LINE = {
-  tel: { type: "tel", autoComplete: "tel", inputMode: "tel" },
-  email: { type: "email", autoComplete: "email", inputMode: "email" },
-  line: { type: "text", autoComplete: "off", inputMode: "text" },
-};
+// A phone and an email use the shared boxes (they shape the number as you type and say so when you leave
+// the box if it can't be one); a short line is a plain one-line input.
+const LINE = { type: "text", autoComplete: "off", inputMode: "text" };
 
 // The questions of a survey as a form, used on the partner's own page and when staff fill one in
 // for them. `answers` is { [questionId]: { value, values, other } }; `onChange(questionId, patch)`.
@@ -191,19 +191,25 @@ export default function SurveyQuestions({
         if (q.kind === "text") {
           // A question linked to a phone, an email or a short line of the record gets the box that
           // fits it (a phone keypad, an email keyboard, one line); anything else is a free text area.
-          const single = SINGLE_LINE[q.inputType];
+          const box = {
+            value: a.value || "",
+            disabled,
+            onChange: (e) => onChange(q.id, { value: e.target.value }),
+          };
           return (
             <label key={q.id} style={{ display: "block", marginBottom: "1rem" }}>
               {label}
-              {single ? (
+              {q.inputType === "tel" ? (
+                <PhoneInput {...box} maxLength={q.maxLength || 40} />
+              ) : q.inputType === "email" ? (
+                <EmailInput {...box} maxLength={q.maxLength || 200} />
+              ) : q.inputType === "line" ? (
                 <input
-                  type={single.type}
-                  autoComplete={single.autoComplete}
-                  inputMode={single.inputMode}
+                  type={LINE.type}
+                  autoComplete={LINE.autoComplete}
+                  inputMode={LINE.inputMode}
                   maxLength={q.maxLength || 200}
-                  value={a.value || ""}
-                  disabled={disabled}
-                  onChange={(e) => onChange(q.id, { value: e.target.value })}
+                  {...box}
                 />
               ) : (
                 <textarea
