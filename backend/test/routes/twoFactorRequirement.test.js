@@ -192,11 +192,20 @@ describe("two-factor requirement: turning it on", () => {
     const res = await as(adminCookie)("/api/settings", { method: "PUT", body: { requireTwoFactor: true } });
     assert.equal(res.status, 200);
     assert.equal(res.body.requireTwoFactor, true);
-    const entry = await prisma.auditLog.findFirst({
-      where: { action: "settings.updated" },
-      orderBy: { createdAt: "desc" },
-    });
-    assert.ok(JSON.stringify(entry?.details).includes("requireTwoFactor"), "the change is in the audit log");
+    // The settings audit entry is written by middleware after the response has finished, so it can land a moment
+    // after this request returns (auditEvents.test.js waits for it the same way). Reading it straight away lost
+    // that race now and then.
+    let entry;
+    for (let waited = 0; waited < 4000 && !entry; waited += 50) {
+      const recent = await prisma.auditLog.findMany({
+        where: { action: "settings.updated" },
+        orderBy: { createdAt: "desc" },
+        take: 5,
+      });
+      entry = recent.find((e) => JSON.stringify(e.details).includes("requireTwoFactor"));
+      if (!entry) await new Promise((r) => setTimeout(r, 50));
+    }
+    assert.ok(entry, "the change is in the audit log");
     await setRequirement(false);
   });
 });
