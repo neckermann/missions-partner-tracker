@@ -840,6 +840,12 @@ export async function fetchPrayerRequests(params = {}) {
   return data;
 }
 
+// The Sunday prayer sheet: { date, cadence, group, totalPartners, partners } (backend/src/utils/prayerSheet.js).
+export async function fetchPrayerSheet({ date, cadence, perPartner } = {}) {
+  const { data } = await api.get("/prayer-sheet", { params: { date, cadence, perPartner } });
+  return data;
+}
+
 export async function createPrayerRequest(payload) {
   const { data } = await api.post("/prayer-requests", payload);
   return data;
