@@ -29,6 +29,8 @@ const emptyForm = {
   usePartnerTermInAdmin: false,
   publicTagline: "",
   aboutText: "",
+  subscribePassage: "",
+  subscribePassageSource: "",
   primaryColor: "",
   headerColor: "",
   highlightColor: "",
@@ -248,6 +250,8 @@ export default function AdminSettingsAbout() {
           value={{
             publicTagline: form.publicTagline,
             aboutText: form.aboutText,
+            subscribePassage: form.subscribePassage,
+            subscribePassageSource: form.subscribePassageSource,
             headerColor: form.headerColor,
             primaryColor: form.primaryColor,
             highlightColor: form.highlightColor,
@@ -261,6 +265,12 @@ export default function AdminSettingsAbout() {
                 <strong>Tagline:</strong> {v.publicTagline || "Not set"}
               </p>
               <p style={{ color: "var(--muted)" }}>{v.aboutText || "No about text set"}</p>
+              <p style={{ color: "var(--muted)" }}>
+                <strong>Subscribe page passage:</strong>{" "}
+                {v.subscribePassage
+                  ? `${v.subscribePassage.slice(0, 80)}${v.subscribePassage.length > 80 ? "…" : ""}${v.subscribePassageSource ? ` (${v.subscribePassageSource})` : ""}`
+                  : "None. The page shows no passage."}
+              </p>
               <div style={{ display: "flex", gap: "1rem", marginTop: "0.5rem" }}>
                 <span
                   title="Header color"
@@ -317,6 +327,27 @@ export default function AdminSettingsAbout() {
                   placeholder="An optional blurb shown on the public partner directory."
                 />
               </label>
+              <label style={{ marginTop: "1rem" }}>
+                Scripture passage on the Subscribe page
+                <textarea
+                  rows={4}
+                  value={d.subscribePassage || ""}
+                  onChange={(e) => set("subscribePassage", e.target.value)}
+                  placeholder="Optional. Leave empty to show no passage."
+                />
+              </label>
+              <label style={{ marginTop: "0.5rem" }}>
+                Where the passage is from
+                <input
+                  value={d.subscribePassageSource || ""}
+                  onChange={(e) => set("subscribePassageSource", e.target.value)}
+                  placeholder="e.g. Ephesians 6:18 (ESV)"
+                />
+              </label>
+              <p style={{ margin: "0.35rem 0 0", color: "var(--muted)", fontSize: "0.85rem" }}>
+                Shown above the form where people sign up for prayer updates. You choose the translation, and
+                check that its licence lets you quote it.
+              </p>
               <label style={{ marginTop: "1rem", maxWidth: "220px" }}>
                 Header Color
                 <input

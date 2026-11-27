@@ -1087,7 +1087,9 @@ needed:
   keeping everyone in sync after an address or contact change. It's
   deliberate, not automatic: saving About Church alone never touches any
   partner on its own.
-- **Branding** — Public Site (tagline, about text, three independent
+- **Branding** — Public Site (tagline, about text, an optional Scripture
+  passage and its source shown above the Subscribe form (empty by default,
+  so you choose the translation and check its licence), three independent
   colors, plus a font choice), Logo, and Partner Terminology (swap
   "Missionary" for whatever your church calls them, and optionally use
   that term in the admin nav too). Each color controls a different part

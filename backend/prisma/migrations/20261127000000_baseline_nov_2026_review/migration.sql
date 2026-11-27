@@ -759,6 +759,8 @@ CREATE TABLE "ChurchSettings" (
     "usePartnerTermInAdmin" BOOLEAN NOT NULL DEFAULT false,
     "publicTagline" TEXT,
     "aboutText" TEXT,
+    "subscribePassage" TEXT,
+    "subscribePassageSource" TEXT,
     "primaryColor" TEXT,
     "headerColor" TEXT,
     "highlightColor" TEXT,

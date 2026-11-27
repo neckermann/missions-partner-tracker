@@ -30,6 +30,9 @@ router.get("/", async (req, res, next) => {
       ownerGroupName: settings?.ownerGroupName || "Missions team",
       publicTagline: settings?.publicTagline || null,
       aboutText: settings?.aboutText || null,
+      // Shown above the public Subscribe form only when the church has set one (#508).
+      subscribePassage: settings?.subscribePassage || null,
+      subscribePassageSource: settings?.subscribePassageSource || null,
       // The email-digest cadence tiers an admin offers (#209). Public so the logged-out Subscribe page
       // and "follow this partner" form can filter their cadence picker. Defaults mirror ChurchSettings'
       // column defaults.

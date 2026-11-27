@@ -7,7 +7,7 @@ import PublicSubscribeForm from "../components/PublicSubscribeForm.jsx";
 // Public, no-login "subscribe to prayer updates" page: a subscribe form with a picker for all partners or
 // specific ones. Mirrors PublicDirectory.jsx's masthead/banner shape.
 export default function PublicSubscribe() {
-  const { partnerTermPlural } = useSettings();
+  const { partnerTermPlural, subscribePassage, subscribePassageSource } = useSettings();
   const plural = partnerTermPlural.toLowerCase();
 
   return (
@@ -24,23 +24,12 @@ export default function PublicSubscribe() {
           partner's page to sign up for theirs directly if they offer one.
         </p>
 
-        <blockquote className="scripture-quote">
-          <p>
-            Therefore take up the whole armor of God, that you may be able to withstand in the evil day, and
-            having done all, to stand firm. Stand therefore, having fastened on the belt of truth, and having
-            put on the breastplate of righteousness, and, as shoes for your feet, having put on the readiness
-            given by the gospel of peace. In all circumstances take up the shield of faith, with which you can
-            extinguish all the flaming darts of the evil one; and take the helmet of salvation, and the sword
-            of the Spirit, which is the word of God,{" "}
-            <strong>
-              praying at all times in the Spirit, with all prayer and supplication. To that end, keep alert
-              with all perseverance, making supplication for all the saints, and also for me, that words may
-              be given to me in opening my mouth boldly to proclaim the mystery of the gospel, for which I am
-              an ambassador in chains, that I may declare it boldly, as I ought to speak.
-            </strong>
-          </p>
-          <cite>— Ephesians 6:13–20 (ESV)</cite>
-        </blockquote>
+        {subscribePassage && (
+          <blockquote className="scripture-quote">
+            <p style={{ whiteSpace: "pre-line" }}>{subscribePassage}</p>
+            {subscribePassageSource && <cite>— {subscribePassageSource}</cite>}
+          </blockquote>
+        )}
 
         <PublicSubscribeForm
           picker

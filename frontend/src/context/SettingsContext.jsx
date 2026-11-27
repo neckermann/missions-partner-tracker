@@ -18,6 +18,8 @@ const DEFAULTS = {
   ownerGroupName: "Missions team",
   publicTagline: null,
   aboutText: null,
+  subscribePassage: null,
+  subscribePassageSource: null,
   // Demo banner fields (routes/publicSettings.js). null/false, not omitted, so DemoBanner is correct
   // before the first fetch resolves.
   isDemo: false,
