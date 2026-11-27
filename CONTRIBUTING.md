@@ -314,6 +314,15 @@ generated file afterward. Mention in your PR that it needs
 `npx prisma migrate deploy` (or the equivalent for whoever's running it)
 — there's no CI step that applies migrations automatically.
 
+**From 1.0, rehearse each new migration on populated data.** CI only migrates an
+empty database, where the usual failures cannot happen (a required column with no
+default, a rule that existing rows break, a unique index over rows that already
+match). `backend/test/routes/upgradePopulatedDb.test.js` has a harness for this:
+add the new migration's folder name to `MIGRATIONS_TO_REHEARSE` and it runs the SQL
+against populated copies of the tables it touches, in a scratch schema, so the real
+tables are never changed. The same file checks that a populated database survives
+`prisma migrate deploy` again, the start-up schema check and a read through the app.
+
 **Pre-1.0 the migration is a single squashed baseline, named `<timestamp>_init`**
 (for example `20261127000000_init`); you edit it rather than adding a new
 folder (see [SPEC.md § 8.3](SPEC.md#83-migration-strategy-pre-10)). The
