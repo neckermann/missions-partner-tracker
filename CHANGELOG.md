@@ -16,6 +16,15 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ## [Unreleased]
 
+## [0.1.0-beta.4] - 2026-11-27
+
+### Upgrading
+
+- **Every install that ran `0.1.0-beta.3` or earlier must have its database reset, then reseeded (pre-1.0).** The single baseline migration was edited in place and its folder renamed from `20261122092854_init` to `20261127000000_init`. For example: the database now refuses a phone or email that isn't in the saved form (#573), recovery codes for two-factor (#550), one-time needs gain "someone's on it" and "met" (#554), and there are new church settings for the currency (#556), the Scripture passage on the Subscribe page (#553) and skipping the review of verified partners' mail (#551). The app refuses to start on the old database ("Not starting: This database was built from an earlier version of migration ...") and the deploy fails safe, leaving the old version running, until the database is reset. Steps: [UPGRADING.md](UPGRADING.md) and [RUNBOOK.md](RUNBOOK.md). A new install is unaffected.
+- **`FIELD_ENCRYPTION_KEY` is now required to start** (it protects two-factor secrets and every saved integration credential). The Render button generates one for a new install; an existing install must set one before updating (`npm run generate-secrets` prints one), and must keep it: losing or changing it locks out everyone who uses an authenticator app.
+- **There is no separate worker service any more.** The scheduled jobs and the WhatsApp connection run inside the web service (#522). After updating, delete the old worker service in Render.
+- **Sign-in:** the "Passkey sign-in" church setting is gone (the passkey button is always on the sign-in page), and a setup link now signs a new person in at the end. Nothing to do.
+
 ### Added
 
 - **First-run setup uses the same choice, then asks for a second administrator (#590, #589).** The first administrator chooses a passkey (no password) or a password and an authenticator app, and is signed in when they finish, with no separate sign-in. Right after, a one-time, skippable "Add a second administrator" screen comes before the public-site question, and the Home reminder stays until there are two. The wording about the authenticator app now says a passkey is offered first.
