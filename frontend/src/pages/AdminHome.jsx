@@ -17,7 +17,6 @@ const CATEGORY_GROUP = {
   surveyUpdatesPending: "Partner Care",
   dispatchSendFailures: "Communications",
   tripsDepartingSoon: "Trips",
-  tripsDepartingSoonIncomplete: "Trips",
   overdueTripRequirements: "Trips",
   tripApplicationsPending: "Trips",
   tripsReadyToWrapUp: "Trips",
