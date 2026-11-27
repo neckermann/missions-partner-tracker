@@ -301,7 +301,7 @@ refused is told the same instead of a bare "couldn't be verified".
 
 **Passwordless sign-in** (#386, Settings → Manage Users) is an optional
 church-wide switch for churches that have outbound email working: nobody signs
-in with a password (switch on **Passkey sign-in** under Settings → Users to also show a **Sign in with a passkey** button beside the password form); a person with a passkey signs in with it alone, and anyone
+in with a password (the sign-in page always offers **Sign in with a passkey** first, except on a public demo); a person with a passkey signs in with it alone, and anyone
 without one gets a one-time emailed link (valid 15 minutes) and is then taken
 through adding a passkey. It needs working outbound email and a passkey on the
 admin turning it on, implies the two-factor requirement, is refused on a demo,

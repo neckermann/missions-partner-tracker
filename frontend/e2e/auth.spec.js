@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { login, ADMIN_EMAIL } from "./helpers.js";
+import { login, ADMIN_EMAIL, submitLoginForm } from "./helpers.js";
 
 test.describe("Admin login", () => {
   test("valid credentials land on the admin dashboard", async ({ page }) => {
@@ -10,9 +10,7 @@ test.describe("Admin login", () => {
 
   test("invalid credentials show an error and stay on the login page", async ({ page }) => {
     await page.goto("/login");
-    await page.fill('input[type="email"]', ADMIN_EMAIL);
-    await page.fill('input[type="password"]', "definitely-the-wrong-password");
-    await page.click('button[type="submit"]');
+    await submitLoginForm(page, ADMIN_EMAIL, "definitely-the-wrong-password");
     await expect(page).toHaveURL(/\/login/);
     await expect(page.locator("body")).toContainText(/invalid|incorrect|failed/i);
   });

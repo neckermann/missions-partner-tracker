@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { generate as generateTotp } from "otplib";
-import { login, ADMIN_EMAIL, ADMIN_PASSWORD } from "./helpers.js";
+import { login, ADMIN_EMAIL, ADMIN_PASSWORD, submitLoginForm } from "./helpers.js";
 
 // Logging in IS the security boundary in this app: any account that can sign in reads every
 // partner's full record, including restricted partners' exact locations and contact details
@@ -20,9 +20,7 @@ async function createUser(page, { role, suffix }) {
 
 async function signInAs(page, email, password) {
   await page.goto("/login");
-  await page.fill('input[type="email"]', email);
-  await page.fill('input[type="password"]', password);
-  await page.click('button[type="submit"]');
+  await submitLoginForm(page, email, password);
 }
 
 // The account page has two "Current Password" fields: one for changing the
@@ -163,9 +161,7 @@ test.describe("login redirect for direct links to authenticated files", () => {
     await page.goto("/api/partner-files/any-id/download");
     await expect(page).toHaveURL(/\/login\?next=%2Fapi%2Fpartner-files%2Fany-id%2Fdownload/);
 
-    await page.fill('input[type="email"]', ADMIN_EMAIL);
-    await page.fill('input[type="password"]', ADMIN_PASSWORD);
-    await page.click('button[type="submit"]');
+    await submitLoginForm(page, ADMIN_EMAIL, ADMIN_PASSWORD);
 
     // The fixture ID doesn't exist, so this 404s; a 404 JSON body (not a /login redirect or the
     // bare "Authentication required") proves requireAuth let the request through with the fresh
@@ -178,9 +174,7 @@ test.describe("login redirect for direct links to authenticated files", () => {
   for (const malicious of ["https://evil.com", "//evil.com", "/not-an-api-path"]) {
     test(`/login?next=${malicious} falls back to /admin instead of honoring it`, async ({ page }) => {
       await page.goto(`/login?next=${encodeURIComponent(malicious)}`);
-      await page.fill('input[type="email"]', ADMIN_EMAIL);
-      await page.fill('input[type="password"]', ADMIN_PASSWORD);
-      await page.click('button[type="submit"]');
+      await submitLoginForm(page, ADMIN_EMAIL, ADMIN_PASSWORD);
       await page.waitForURL(/\/admin$/);
     });
   }
