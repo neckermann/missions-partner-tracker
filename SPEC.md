@@ -495,6 +495,14 @@ than by omission"). Roles exist to gate **writes**, not visibility:
   required; refused for the last factor while two-factor is required), and `login/options|verify`
   (second step after the password, using the pending token). Login returns `methods`
   `{authenticatorApp, passkey}`. Admin MFA reset deletes passkeys.
+- **Recovery codes (#496)**: `UserRecoveryCode` (user, SHA-256 of the code, `usedAt`). Ten random
+  codes are made when an authenticator app is confirmed (`POST /api/auth/mfa/verify-setup` returns
+  them once) or on request (`POST /api/auth/mfa/recovery-codes`, password required, retires the old
+  set). `POST /api/auth/mfa/login-verify` takes `recoveryCode` in place of `token`; a code is spent
+  by one conditional update, shares the per-account wrong-code limit, and is audited
+  (`auth.recovery_code_used`). Turning the app off or an admin MFA reset deletes the codes, and
+  `backend/scripts/clear-two-factor.js` (`npm run clear-two-factor -- <email>`) clears an account's
+  two-factor from the server. `FIELD_ENCRYPTION_KEY` is a start-up requirement (`config/env.js`).
 - **Passwordless (#386 Layer 2)**: `ChurchSettings.requirePasswordless`, church-wide, off by
   default, never on a demo. Turning it on (`PUT /api/settings`) needs outbound email ready (feature
   on, Postmark token and From address set, `APP_BASE_URL`) and the acting admin to hold a passkey;

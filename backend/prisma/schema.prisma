@@ -1552,6 +1552,7 @@ model User {
   onMissionsTeam Boolean @default(false)
 
   passkeys         UserPasskey[]
+  recoveryCodes    UserRecoveryCode[]
   signInLinkTokens SignInLinkToken[]
 
   // Opt-in admin digest email, self-service. null = not subscribed; otherwise the cadence tier
@@ -1823,6 +1824,20 @@ model UserPasskey {
   label        String
   createdAt    DateTime  @default(now())
   lastUsedAt   DateTime?
+
+  @@index([userId])
+}
+
+// One-time codes that get a person back in when they lose their authenticator app. Ten are made when
+// they enrol (and again on request, which retires every older code). Only a SHA-256 of each code is
+// kept; a code is high-entropy and random, so a fast hash is enough. usedAt is set the one time it works.
+model UserRecoveryCode {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  codeHash  String    @unique
+  createdAt DateTime  @default(now())
+  usedAt    DateTime?
 
   @@index([userId])
 }

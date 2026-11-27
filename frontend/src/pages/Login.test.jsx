@@ -209,3 +209,57 @@ describe("Forgot your password?", () => {
     expect(screen.queryByRole("link", { name: "Forgot your password?" })).not.toBeInTheDocument();
   });
 });
+
+describe("recovery codes", () => {
+  test("a lost phone: the second step can take a recovery code instead", async () => {
+    client.login.mockResolvedValue({
+      mfaRequired: true,
+      pendingToken: "t",
+      methods: { authenticatorApp: true, passkey: false },
+    });
+    client.verifyMfaLogin.mockResolvedValue({ user: {} });
+    await signIn();
+    fireEvent.click(await screen.findByRole("button", { name: "I lost my phone: use a recovery code" }));
+    expect(screen.getByText(/Enter one of your recovery codes/)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Code"), { target: { value: "abcde-fghjk" } });
+    fireEvent.click(screen.getByRole("button", { name: "Verify" }));
+    await waitFor(() =>
+      expect(client.verifyMfaLogin).toHaveBeenCalledWith("t", "abcde-fghjk", { recovery: true })
+    );
+  });
+
+  test("an authenticator code is still sent as a code", async () => {
+    client.login.mockResolvedValue({
+      mfaRequired: true,
+      pendingToken: "t",
+      methods: { authenticatorApp: true, passkey: false },
+    });
+    client.verifyMfaLogin.mockResolvedValue({ user: {} });
+    await signIn();
+    fireEvent.change(await screen.findByLabelText("Code"), { target: { value: "123456" } });
+    fireEvent.click(screen.getByRole("button", { name: "Verify" }));
+    await waitFor(() =>
+      expect(client.verifyMfaLogin).toHaveBeenCalledWith("t", "123456", { recovery: false })
+    );
+  });
+
+  test("after first-time setup the codes are shown and the way on waits until they are saved", async () => {
+    client.login.mockResolvedValue({ mfaSetupRequired: true, setupToken: "s" });
+    client.startForcedMfaSetup.mockResolvedValue({ secret: "SECRET", qrCode: "data:image/png;base64,x" });
+    client.confirmForcedMfaSetup.mockResolvedValue({
+      user: {},
+      recoveryCodes: ["aaaaa-bbbbb", "ccccc-ddddd"],
+    });
+    await signIn();
+    fireEvent.change(await screen.findByLabelText("Code"), { target: { value: "123456" } });
+    fireEvent.click(screen.getByRole("button", { name: "Confirm & Sign In" }));
+    expect(await screen.findByText("aaaaa-bbbbb")).toBeInTheDocument();
+    const go = screen.getByRole("button", { name: "Continue to the site" });
+    expect(go).toBeDisabled();
+    expect(navigate).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByLabelText(/I have saved these codes/));
+    expect(go).toBeEnabled();
+    fireEvent.click(go);
+    expect(navigate).toHaveBeenCalled();
+  });
+});

@@ -59,32 +59,32 @@ describe("validateEnv", () => {
 
   test("reports every fatal problem at once, not just the first", () => {
     const { fatal } = validateEnv({});
-    assert.equal(fatal.length, 2);
+    assert.equal(fatal.length, 3);
   });
 
-  describe("FIELD_ENCRYPTION_KEY only warns", () => {
-    // A bad key makes utils/crypto.js throw at first use, so MFA enrollment
-    // fails loudly and nothing is ever written under a weak key. Refusing to
-    // boot would take a running deployment offline over a feature that
-    // already fails closed.
+  describe("FIELD_ENCRYPTION_KEY is required", () => {
+    // Two-factor is required from the first sign-in and enrolling needs the key, so a deployment without a
+    // usable one could never get its first admin in. It stops the server, like SESSION_SECRET.
     const badKeys = {
       missing: undefined,
       empty: "",
       "the .env.example placeholder": "change-me-to-a-real-generated-key",
-      // 24 bytes, not 32 -- which is what the shipped placeholder happens to
-      // decode to, and why it throws rather than encrypting weakly.
+      // 24 bytes, not 32 -- which is what the shipped placeholder happens to decode to.
       "decodes to the wrong length": crypto.randomBytes(24).toString("base64"),
     };
 
     for (const [label, value] of Object.entries(badKeys)) {
       test(label, () => {
-        const { fatal, warnings } = validateEnv({ ...valid(), FIELD_ENCRYPTION_KEY: value });
-        assert.deepEqual(fatal, [], "must never block startup");
-        assert.equal(warnings.length, 1);
-        assert.match(warnings[0], /FIELD_ENCRYPTION_KEY/);
-        assert.match(warnings[0], /two-factor/i, "says what actually breaks");
+        const { fatal } = validateEnv({ ...valid(), FIELD_ENCRYPTION_KEY: value });
+        assert.equal(fatal.length, 1);
+        assert.match(fatal[0], /FIELD_ENCRYPTION_KEY/);
+        assert.match(fatal[0], /generate-secrets/, "says how to fix it");
       });
     }
+
+    test("a good key is accepted", () => {
+      assert.deepEqual(validateEnv(valid()).fatal, []);
+    });
   });
 
   // The session cookie is only marked secure/HTTPS-only when NODE_ENV is exactly "production"
@@ -126,7 +126,7 @@ describe("assertValidEnv", () => {
 
   test("prints warnings but still returns", () => {
     const { log, lines } = fakeLog();
-    assertValidEnv({ ...valid(), FIELD_ENCRYPTION_KEY: "" }, { log });
+    assertValidEnv({ ...valid(), NODE_ENV: "development" }, { log });
     assert.equal(lines.warn.length, 1);
     assert.match(lines.warn[0], /\[config\]/);
   });

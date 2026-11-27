@@ -1063,6 +1063,17 @@ CREATE TABLE "UserPasskey" (
 );
 
 -- CreateTable
+CREATE TABLE "UserRecoveryCode" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "codeHash" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "usedAt" TIMESTAMP(3),
+
+    CONSTRAINT "UserRecoveryCode_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "PublicSubscriber" (
     "id" TEXT NOT NULL,
     "email" TEXT NOT NULL,
@@ -1453,6 +1464,12 @@ CREATE UNIQUE INDEX "UserPasskey_credentialId_key" ON "UserPasskey"("credentialI
 CREATE INDEX "UserPasskey_userId_idx" ON "UserPasskey"("userId");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "UserRecoveryCode_codeHash_key" ON "UserRecoveryCode"("codeHash");
+
+-- CreateIndex
+CREATE INDEX "UserRecoveryCode_userId_idx" ON "UserRecoveryCode"("userId");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "PublicSubscriber_email_key" ON "PublicSubscriber"("email");
 
 -- CreateIndex
@@ -1685,6 +1702,9 @@ ALTER TABLE "SignInLinkToken" ADD CONSTRAINT "SignInLinkToken_userId_fkey" FOREI
 
 -- AddForeignKey
 ALTER TABLE "UserPasskey" ADD CONSTRAINT "UserPasskey_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "UserRecoveryCode" ADD CONSTRAINT "UserRecoveryCode_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "PublicSubscriberPartner" ADD CONSTRAINT "PublicSubscriberPartner_subscriberId_fkey" FOREIGN KEY ("subscriberId") REFERENCES "PublicSubscriber"("id") ON DELETE CASCADE ON UPDATE CASCADE;

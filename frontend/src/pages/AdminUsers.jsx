@@ -369,6 +369,8 @@ export default function AdminUsers() {
   const signingIn = users.filter((u) => u.active && u.authProvider === "local");
   const notEnrolled = signingIn.filter((u) => !u.mfaEnabled).length;
   const twoFactorRequired = !!currentUser?.twoFactorRequired;
+  // Only worth saying once the list has loaded.
+  const onlyOneAdmin = users.length > 0 && users.filter((u) => u.role === "admin" && u.active).length === 1;
   const passwordlessOn = !!currentUser?.passwordlessRequired;
   const withoutPasskey = signingIn.filter((u) => !u.passkeyCount).length;
   // Why the passwordless switch can't be used yet, if it can't (the server checks the same).
@@ -400,6 +402,13 @@ export default function AdminUsers() {
         </p>
       )}
       {notice && <p role="status">{notice}</p>}
+      {onlyOneAdmin && (
+        <p role="note" className="admin-section" style={{ margin: "1rem 0" }}>
+          <strong>You are the only administrator.</strong> If you lose your phone and your recovery codes,
+          nobody inside the app can let you back in. Add a second administrator you trust so each can reset
+          the other's two-factor.
+        </p>
+      )}
       {manualSetupLink && <ManualSendNotice recipients={manualSetupLink} />}
 
       <div className="admin-section" style={{ margin: "1rem 0" }}>

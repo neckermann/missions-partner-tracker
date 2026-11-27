@@ -174,7 +174,7 @@ full file with inline comments):
 | `PORT` | No | Defaults to 4000 |
 | `NODE_ENV` | No | `development` or `production` — must be exactly `production` on a real deployment, or the session cookie isn't marked secure/HTTPS-only. Render and most PaaS platforms set this for you; a self-hosted server/container needs it set by hand. |
 | `SESSION_SECRET` | Yes | Signs the session cookie (see [Authentication setup](#authentication-setup)). Generate a long random value, e.g. `openssl rand -base64 48`. See [Rotating SESSION_SECRET](#rotating-session_secret) below |
-| `FIELD_ENCRYPTION_KEY` | Yes (the Render button makes one for you) | Encrypts every reversibly-stored secret at rest: two-factor (MFA) secrets, plus the Postmark server token, GroupMe access token, Joshua Project API key, and WhatsApp session. Generate with `npm run generate-secrets`. Without it the app starts, but two-factor sign-in is required from the first sign-in and cannot be set up, so the first admin is locked out, and any of those integrations fail. See [Rotating FIELD_ENCRYPTION_KEY](#rotating-field_encryption_key) below |
+| `FIELD_ENCRYPTION_KEY` | Yes (the Render button makes one for you) | Encrypts every reversibly-stored secret at rest: two-factor (MFA) secrets, plus the Postmark server token, GroupMe access token, Joshua Project API key, and WhatsApp session. Generate with `npm run generate-secrets`. The app refuses to start without a usable key (32 bytes, base64), the same as `SESSION_SECRET`: two-factor sign-in is required from the first sign-in and cannot be set up without it. Keep it somewhere durable. See [Rotating FIELD_ENCRYPTION_KEY](#rotating-field_encryption_key) below |
 | `NOMINATIM_CONTACT` | Recommended | Your contact email, sent with geocoding requests per [Nominatim's usage policy](https://operations.osmfoundation.org/policies/nominatim/) |
 | `MFA_ISSUER` | No | Name shown in a user's authenticator app when they enroll in MFA; defaults to "Missions Partner Tracker Admin" |
 | `APP_BASE_URL` | On Render: no. Elsewhere: yes | This app's own public URL, no trailing slash — needed for every link the app puts in a message or builds for you: setup, password-reset and sign-in links, survey and trip links, passkeys, the email digest's unsubscribe link, and the dispatch queue's own links: the GroupMe newsletter dispatch's link and the email digest's "read the source" / "read the full newsletter" links (see [GroupMe dispatch](USER_GUIDE.md#groupme-dispatch-admin-only) and [Updates to share](USER_GUIDE.md#updates-to-share)). On Render this is picked up automatically from `RENDER_EXTERNAL_URL`, so you need not set it; set it yourself if you use your own domain or host elsewhere. Leave it unset elsewhere and those links just don't appear (and a setup or sign-in link can't be built). |
@@ -331,8 +331,16 @@ A few things worth knowing operationally:
   it off for themselves. Before turning it on, make sure the admins have
   enrolled: the switch only works for an admin who has set up two-factor
   on their own account, and it shows how many active accounts haven't
-  yet. If someone loses their authenticator, Manage Users' **Reset MFA**
-  clears it and they enrol again at next sign-in. It is on by default for
+  yet. When someone sets up an authenticator app they are shown **ten
+  recovery codes** (each works once) and must tick that they have saved
+  them; a lost phone is then a recovery code at the sign-in screen, and
+  **My Account → Two-factor → Make a new set of recovery codes** replaces
+  the set. If someone loses their authenticator *and* their codes,
+  another admin's Manage Users **Reset MFA** clears it and they enrol
+  again at next sign-in. A sole admin has no other admin: whoever runs the
+  server clears it from the command line (see
+  [Locked out of two-factor](#locked-out-of-two-factor)), so add a second
+  administrator you trust. It is on by default for
   a new install (the first-run setup turns it on), off on an install that
   predates it, can't be turned on for the public demo, and changes to it are in the
   [Audit log](USER_GUIDE.md#audit-log-admin-only). No role is special:
@@ -686,6 +694,22 @@ env vars) **instantly invalidates every currently-issued session token**,
 logging everyone out. That's the correct, expected behavior if you ever
 suspect the value has leaked — do it, then have everyone log back in.
 There's no partial/soft rotation; it's all-or-nothing by design.
+
+### Locked out of two-factor
+
+Someone who has lost their authenticator app, their passkeys and their recovery codes needs two-factor
+cleared. Another admin does it from **Manage Users → Reset MFA**. If the person locked out is the only admin,
+whoever runs the server does it from a shell with the same `DATABASE_URL` as the app (on Render, the
+service's **Shell** tab):
+
+```bash
+cd backend && npm run clear-two-factor -- you@yourchurch.org
+```
+
+It removes that account's authenticator secret, passkeys and recovery codes and signs the account out
+everywhere; nothing else about the account changes. The next password sign-in goes straight to setting
+two-factor up again and shows a new set of recovery codes. The action is recorded in the audit log.
+If the password is lost too, use `node prisma/createAdmin.js <email> "<new password>"` first.
 
 ### Rotating FIELD_ENCRYPTION_KEY
 
