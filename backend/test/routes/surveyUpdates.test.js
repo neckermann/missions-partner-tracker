@@ -162,9 +162,9 @@ describe("survey packs and updates", () => {
       "primaryPhone",
     ]);
     const phone = list.find((u) => u.field === "primaryPhone");
-    assert.equal(phone.currentValue, "(111) 111-1111");
+    assert.equal(phone.currentValue, "+11111111111");
     const adult = await prisma.adult.findFirst({ where: { partnerId: partner.id } });
-    assert.equal(adult.phone1, "(111) 111-1111", "nothing is applied until someone approves");
+    assert.equal(adult.phone1, "+11111111111", "nothing is applied until someone approves");
 
     assert.equal((await viewer("/api/survey-updates")).status, 403);
     assert.equal((await anon("/api/survey-updates")).status, 401);
