@@ -93,3 +93,13 @@ describe("ContactCard copy buttons", () => {
     expect(screen.queryByRole("button", { name: "Copy Dana's phone number" })).toBeNull();
   });
 });
+
+describe("CopyValue layout", () => {
+  it("lets a long email wrap instead of forcing the page wider than a phone screen", () => {
+    render(<CopyValue kind="email" value="info@albaniatheologicalseminary.example.org" />);
+    const text = screen.getByText("info@albaniatheologicalseminary.example.org");
+    expect(text.style.overflowWrap).toBe("anywhere");
+    // Nothing on the wrapper may stop the text wrapping.
+    expect(text.closest(".copy-value").style.whiteSpace).not.toBe("nowrap");
+  });
+});
