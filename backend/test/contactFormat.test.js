@@ -7,6 +7,7 @@ const {
   normalizeEmail,
   phoneSchema,
   emailSchema,
+  requiredEmailSchema,
 } = require("../src/utils/contactFormat");
 
 test("a phone is saved in international form, however it was typed", () => {
@@ -75,11 +76,28 @@ test("the zod pieces turn blank into null, save the normal form and report the p
     email: "a@b.org",
   });
   assert.deepEqual(schema.parse({ phone: "", email: null }), { phone: null, email: null });
-  assert.deepEqual(schema.parse({}), { phone: null, email: null });
+  // Left out stays left out: a partial update that doesn't mention a number must not erase it.
+  assert.deepEqual(schema.parse({}), {});
+  assert.deepEqual(
+    z
+      .object({ phone: phoneSchema(z) })
+      .partial()
+      .parse({}),
+    {}
+  );
   const bad = schema.safeParse({ phone: "dsafdsfsadf", email: "nope" });
   assert.equal(bad.success, false);
   const messages = bad.error.issues.map((i) => i.message);
   assert.ok(messages.some((m) => /phone number/.test(m)));
   assert.ok(messages.some((m) => /email address/.test(m)));
   assert.deepEqual(bad.error.issues.map((i) => i.path[0]).sort(), ["email", "phone"]);
+});
+
+test("a required email is trimmed and lower case, and blank or invalid is refused", () => {
+  const schema = z.object({ email: requiredEmailSchema(z) });
+  assert.deepEqual(schema.parse({ email: "  Sam@Example.ORG " }), { email: "sam@example.org" });
+  assert.equal(schema.safeParse({}).success, false);
+  assert.equal(schema.safeParse({ email: "" }).success, false);
+  assert.equal(schema.safeParse({ email: "   " }).success, false);
+  assert.match(schema.safeParse({ email: "nope" }).error.issues[0].message, /email address/);
 });

@@ -284,6 +284,17 @@ Two rules for new models and lists (see
   `ChurchSettings.enabledFeatures` (so a fork adds a feature flag without a
   migration). Say why in a comment on the column. Don't store JSON or
   comma-separated values in a `String` column either.
+- **A new phone or email column uses the one shared rule (#548).** In the
+  route's Zod schema write `phoneSchema(z)` or `emailSchema(z)` (or
+  `requiredEmailSchema(z)`) from `backend/src/utils/contactFormat.js`, never a
+  bare `z.string()`: the value is refused in plain words when it isn't a
+  phone or email, saved in one form (a phone as `+15065550259`, an email in
+  lower case), blank becomes `null`, and a field a request leaves out is left
+  alone. Show a phone with `formatPhone` (`frontend/src/utils/phone.js`) and
+  give its input `type="tel"`. A survey field needs a `normalize` and an
+  `inputType` in `utils/surveyFields.js` (a test fails without them), and any
+  script that writes the column directly (the demo seed) must write the saved
+  form.
 - **A new list about partners, or about things that belong to a partner,
   takes the `sendingChurch` filter** (`withSendingChurch` in
   `backend/src/utils/sendingChurch.js`, and the shared `FilterBar` field),

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { formatPhone } from "../utils/phone.js";
 import {
   fetchCurrentUser,
   changePassword,
@@ -141,7 +142,7 @@ function ProfileSection({ user, onChange }) {
   return (
     <EditableSection
       title="Your details"
-      value={{ phone: user.phone || "", profile: user.profile || "" }}
+      value={{ phone: formatPhone(user.phone), profile: user.profile || "" }}
       onSave={async (draft) => {
         await updateMyProfile({ phone: draft.phone, profile: draft.profile });
         await onChange();

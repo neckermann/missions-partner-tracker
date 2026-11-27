@@ -4,6 +4,7 @@
 const express = require("express");
 const { optionalWebAddress } = require("../utils/webAddress");
 const { z } = require("zod");
+const { phoneSchema, emailSchema } = require("../utils/contactFormat");
 const prisma = require("../prismaClient");
 const { recordAudit } = require("../utils/auditLog");
 const { latestOf, tripLastUpdated, listFields } = require("../utils/lastUpdated");
@@ -928,8 +929,8 @@ router.delete(
 const contributionSchema = z.object({
   participantId: z.string().optional().nullable(),
   donorName: z.string().min(1),
-  donorEmail: z.string().email().optional().nullable(),
-  donorPhone: z.string().optional().nullable(),
+  donorEmail: emailSchema(z),
+  donorPhone: phoneSchema(z),
   amount: z.coerce.number().int().positive(),
   method: z.enum(["check", "cash", "online", "other"]),
   reference: z.string().optional().nullable(),

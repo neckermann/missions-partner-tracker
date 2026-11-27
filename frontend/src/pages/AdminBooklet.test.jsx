@@ -117,7 +117,7 @@ describe("AdminBooklet contact details and the contact level (#288)", () => {
     fetchPartners.mockResolvedValue([withAdult({ contactLevel: "normal" })]);
     render(<AdminBooklet />);
     await waitFor(() => expect(getPreviewHtml()).toContain("Open Missionary"));
-    expect(getPreviewHtml()).toContain("555-111-2222");
+    expect(getPreviewHtml()).toContain("(555) 111-2222");
     expect(getPreviewHtml()).toContain("dana@example.org");
     expect(getPreviewHtml()).toContain("Phone call");
   });
@@ -129,7 +129,7 @@ describe("AdminBooklet contact details and the contact level (#288)", () => {
     const html = getPreviewHtml();
     expect(html).toContain("Dana Reed");
     expect(html).toContain("Details withheld");
-    expect(html).not.toContain("555-111-2222");
+    expect(html).not.toContain("(555) 111-2222");
     expect(html).not.toContain("dana@example.org");
     expect(html).not.toContain("Phone call");
     expect(html).not.toContain("Secret staff reason");
@@ -160,7 +160,7 @@ describe("AdminBooklet contact details and the contact level (#288)", () => {
     expect(html).not.toContain("PO Box 99");
     expect(html).toContain("Home Church");
     expect(html).not.toContain("Ruth Aide");
-    expect(html).not.toContain("555-999-0000");
+    expect(html).not.toContain("(555) 999-0000");
   });
 
   it("still prints them for a partner who is safe to contact", async () => {
@@ -171,7 +171,7 @@ describe("AdminBooklet contact details and the contact level (#288)", () => {
     expect(html).toContain("12 Hidden Lane");
     expect(html).toContain("PO Box 99");
     expect(html).toContain("Ruth Aide");
-    expect(html).toContain("555-999-0000");
+    expect(html).toContain("(555) 999-0000");
   });
 });
 

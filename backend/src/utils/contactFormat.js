@@ -36,13 +36,15 @@ function normalizeEmail(raw) {
 }
 
 // The same checks as zod pieces: blank becomes null, anything else must pass and is saved in its
-// normalised form. `issue` is the message the form shows.
+// normalised form, and a field that was left out stays left out (so a partial update never wipes
+// a stored number). The message is the plain-words one from normalize.
 function zodWith(z, normalize) {
   return z
     .string()
     .optional()
     .nullable()
     .transform((raw, ctx) => {
+      if (raw === undefined) return undefined;
       const result = normalize(raw);
       if (result.error) {
         ctx.addIssue({ code: "custom", message: result.error });
@@ -53,6 +55,16 @@ function zodWith(z, normalize) {
 }
 const phoneSchema = (z, country) => zodWith(z, (raw) => normalizePhone(raw, country));
 const emailSchema = (z) => zodWith(z, normalizeEmail);
+// An email that must be there (the address someone applies with): trimmed, lower case, valid.
+const requiredEmailSchema = (z) =>
+  z.string().transform((raw, ctx) => {
+    const result = normalizeEmail(raw);
+    if (result.error || !result.value) {
+      ctx.addIssue({ code: "custom", message: result.error || EMAIL_PROBLEM });
+      return z.NEVER;
+    }
+    return result.value;
+  });
 
 module.exports = {
   DEFAULT_PHONE_COUNTRY,
@@ -62,4 +74,5 @@ module.exports = {
   normalizeEmail,
   phoneSchema,
   emailSchema,
+  requiredEmailSchema,
 };

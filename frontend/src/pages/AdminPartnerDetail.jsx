@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { formatPhone } from "../utils/phone.js";
 import NeedDecisionFields from "../components/admin/NeedDecisionFields.jsx";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import {
@@ -998,8 +999,8 @@ export default function AdminPartnerDetail() {
                 <>
                   <Field label="Name" value={[a.firstName, a.lastName].filter(Boolean).join(" ")} />
                   <Field label="Birthday" value={formatDateLong(a.birthday)} />
-                  <Field label="Phone 1" value={a.phone1} />
-                  <Field label="Phone 2" value={a.phone2} />
+                  <Field label="Phone 1" value={formatPhone(a.phone1)} />
+                  <Field label="Phone 2" value={formatPhone(a.phone2)} />
                   <Field label="Email" value={a.email} />
                   {a.isPrimaryContact && <Field label="Primary contact" value="Yes" />}
                 </>
@@ -1020,8 +1021,8 @@ export default function AdminPartnerDetail() {
                   isPrimaryContact: !!a.isPrimaryContact,
                   firstName: a.firstName || "",
                   lastName: a.lastName || "",
-                  phone1: a.phone1 || "",
-                  phone2: a.phone2 || "",
+                  phone1: formatPhone(a.phone1),
+                  phone2: formatPhone(a.phone2),
                   email: a.email || "",
                   birthday: toDateInputValue(a.birthday),
                 })
@@ -1087,7 +1088,7 @@ export default function AdminPartnerDetail() {
               }
               value={{
                 name: p.emergencyContactName || "",
-                phone: p.emergencyContactPhone || "",
+                phone: formatPhone(p.emergencyContactPhone),
                 email: p.emergencyContactEmail || "",
               }}
               view={(v) => (
@@ -1105,7 +1106,12 @@ export default function AdminPartnerDetail() {
                   </label>
                   <label>
                     Phone
-                    <input value={d.phone} onChange={(e) => set("phone", e.target.value)} />
+                    <input
+                      type="tel"
+                      inputMode="tel"
+                      value={d.phone}
+                      onChange={(e) => set("phone", e.target.value)}
+                    />
                   </label>
                   <label>
                     Email
@@ -1214,7 +1220,7 @@ export default function AdminPartnerDetail() {
               orgType: p.orgType || "Local",
               contactFirstName: p.contactFirstName || "",
               contactLastName: p.contactLastName || "",
-              contactPhone: p.contactPhone || "",
+              contactPhone: formatPhone(p.contactPhone),
               contactEmail: p.contactEmail || "",
             }}
             view={(v) => (
@@ -1265,7 +1271,12 @@ export default function AdminPartnerDetail() {
                       </label>
                       <label>
                         Contact Phone
-                        <input value={d.contactPhone} onChange={(e) => set("contactPhone", e.target.value)} />
+                        <input
+                          type="tel"
+                          inputMode="tel"
+                          value={d.contactPhone}
+                          onChange={(e) => set("contactPhone", e.target.value)}
+                        />
                       </label>
                       <label>
                         Contact Email
@@ -1303,7 +1314,7 @@ export default function AdminPartnerDetail() {
                   contactFirstName: p[key]?.contactFirstName || "",
                   contactLastName: p[key]?.contactLastName || "",
                   contactEmail: p[key]?.contactEmail || "",
-                  phone: p[key]?.phone || "",
+                  phone: formatPhone(p[key]?.phone),
                   websiteLink: p[key]?.websiteLink || "",
                   mailingAddress: { ...emptyAddress, ...(p[key]?.mailingAddress || {}) },
                   ...(key === "sendingChurch" ? { sentByOurChurch: p.sentByOurChurch } : {}),
@@ -1387,7 +1398,12 @@ export default function AdminPartnerDetail() {
                       </label>
                       <label>
                         Phone
-                        <input value={d.phone} onChange={(e) => set("phone", e.target.value)} />
+                        <input
+                          type="tel"
+                          inputMode="tel"
+                          value={d.phone}
+                          onChange={(e) => set("phone", e.target.value)}
+                        />
                       </label>
                       <label>
                         Website
@@ -2048,6 +2064,8 @@ export default function AdminPartnerDetail() {
             <label>
               Phone 1
               <input
+                type="tel"
+                inputMode="tel"
                 value={adultCrud.form.phone1}
                 onChange={(e) => adultCrud.setForm((f) => ({ ...f, phone1: e.target.value }))}
               />
@@ -2055,6 +2073,8 @@ export default function AdminPartnerDetail() {
             <label>
               Phone 2
               <input
+                type="tel"
+                inputMode="tel"
                 value={adultCrud.form.phone2}
                 onChange={(e) => adultCrud.setForm((f) => ({ ...f, phone2: e.target.value }))}
               />

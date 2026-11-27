@@ -1,6 +1,7 @@
 const express = require("express");
 const { optionalWebAddress } = require("../utils/webAddress");
 const { z } = require("zod");
+const { phoneSchema, emailSchema } = require("../utils/contactFormat");
 const prisma = require("../prismaClient");
 const { requireAuth, requireRole } = require("../middleware/requireAuth");
 const { matchesFileSignature } = require("../utils/fileSignature");
@@ -92,10 +93,10 @@ const settingsSchema = z.object({
   stateProvinceRegion: z.string().optional().nullable(),
   postalCode: z.string().optional().nullable(),
   country: z.string().optional().nullable(),
-  phone: z.string().optional().nullable(),
+  phone: phoneSchema(z),
   contactFirstName: z.string().optional().nullable(),
   contactLastName: z.string().optional().nullable(),
-  contactEmail: z.string().optional().nullable(),
+  contactEmail: emailSchema(z),
   websiteLink: optionalWebAddress(),
   partnerTermSingular: z.string().optional().nullable(),
   partnerTermPlural: z.string().optional().nullable(),

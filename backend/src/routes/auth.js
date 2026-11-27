@@ -3,6 +3,7 @@ const { isOutboundEmailReady, READY_SELECT } = require("../utils/emailReady");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { z } = require("zod");
+const { phoneSchema } = require("../utils/contactFormat");
 const { generateSecret, generateURI, verify: verifyOtp } = require("otplib");
 const QRCode = require("qrcode");
 const prisma = require("../prismaClient");
@@ -805,7 +806,7 @@ router.put("/profile", requireAuth, async (req, res, next) => {
   try {
     const data = z
       .object({
-        phone: z.string().trim().max(40).nullable().optional(),
+        phone: phoneSchema(z),
         profile: z.string().trim().max(1000).nullable().optional(),
       })
       .parse(req.body);
