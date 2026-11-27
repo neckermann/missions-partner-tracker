@@ -113,9 +113,15 @@ describe("isFeatureEnabled", () => {
   describe("withoutEmail (what you get when Email (Sending) is off)", () => {
     const { FEATURES } = require("../src/utils/features");
 
+    test("some features do carry a note (so the loop below is not checking nothing)", () => {
+      assert.ok(Object.values(FEATURES).filter((f) => "withoutEmail" in f).length >= 3);
+    });
+
     test("a note is one real sentence, and a feature that needs email to be switched on has one", () => {
       for (const [key, f] of Object.entries(FEATURES)) {
-        if (f.withoutEmail !== undefined) {
+        // A note, where a feature has one, must be a real sentence. (`in`, not `!== undefined`: a note set to
+        // undefined or left empty is a missing note, and has to fail.)
+        if ("withoutEmail" in f) {
           assert.ok(
             typeof f.withoutEmail === "string" && f.withoutEmail.trim().length > 20,
             `${key}: say what you get`

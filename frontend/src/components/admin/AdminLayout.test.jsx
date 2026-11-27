@@ -89,7 +89,7 @@ describe("AdminLayout -- guest route guard", () => {
     currentUser = guest([], { readIds: ["trip-7"], seats: [{ id: "p1", label: "P" }] });
     const router = renderAt("/admin/trips/trip-9");
 
-    await screen.findByText("Partner Page").catch(() => {});
+    expect(await screen.findByText("Partner Page")).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/admin/partners");
   });
 

@@ -245,6 +245,10 @@ describe("bell items for switched-off pages", () => {
 describe("trips departing soon: one alert", () => {
   const created = [];
   let original;
+  // Any other trip on this shared database that starts within the window is set aside (marked completed) for the
+  // length of these tests and put back after, so "exactly one trip is departing soon" is a fact of the test, not
+  // of whatever other files left behind.
+  let setAside = [];
   before(async () => {
     original = (
       await prisma.churchSettings.findUnique({
@@ -258,9 +262,23 @@ describe("trips departing soon: one alert", () => {
     });
     // Other fixtures in this database may already have a trip starting soon; start from a clean slate.
     await prisma.trip.deleteMany({ where: { name: { contains: FIXTURE_TAG } } });
+    const now = new Date();
+    setAside = await prisma.trip.findMany({
+      where: {
+        status: { not: "completed" },
+        startDate: { gt: now, lte: new Date(now.getTime() + 31 * 24 * 60 * 60 * 1000) },
+      },
+      select: { id: true, status: true },
+    });
+    for (const trip of setAside) {
+      await prisma.trip.update({ where: { id: trip.id }, data: { status: "completed" } });
+    }
   });
   after(async () => {
     await prisma.trip.deleteMany({ where: { id: { in: created } } });
+    for (const trip of setAside) {
+      await prisma.trip.update({ where: { id: trip.id }, data: { status: trip.status } });
+    }
     await prisma.churchSettings.update({
       where: { id: "singleton" },
       data: { enabledFeatures: original ?? {} },
@@ -292,7 +310,7 @@ describe("trips departing soon: one alert", () => {
   test("a trip with everything in order counts, with the plain label", async () => {
     const trip = await makeTrip("all fine", { missing: false });
     const item = (await alertOf()).find((c) => c.key === "tripsDepartingSoon");
-    assert.ok(item.count >= 1);
+    assert.equal(item.count, 1);
     assert.equal(item.label, "Trips departing soon");
     await prisma.trip.delete({ where: { id: trip.id } });
   });
@@ -300,9 +318,10 @@ describe("trips departing soon: one alert", () => {
   test("a trip with something missing says so, and links to its requirements", async () => {
     const trip = await makeTrip("missing a passport", { missing: true });
     const item = (await alertOf()).find((c) => c.key === "tripsDepartingSoon");
-    assert.match(item.label, /Trips departing soon \(\d+ missing something\)/);
+    assert.equal(item.count, 1);
+    assert.equal(item.label, "Trips departing soon (1 missing something)");
     // The link goes straight to the requirements when this is the only trip departing soon.
-    if (item.count === 1) assert.equal(item.linkTo, `/admin/trips/${trip.id}/requirements`);
+    assert.equal(item.linkTo, `/admin/trips/${trip.id}/requirements`);
     await prisma.trip.delete({ where: { id: trip.id } });
   });
 });
