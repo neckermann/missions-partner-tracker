@@ -19,6 +19,7 @@ const countryInfoRoutes = require("./routes/countryInfo");
 const supportNeedRoutes = require("./routes/supportNeeds");
 const supportEntryRoutes = require("./routes/supportEntries");
 const prayerRequestRoutes = require("./routes/prayerRequests");
+const prayerSheetRoutes = require("./routes/prayerSheet");
 const adultRoutes = require("./routes/adults");
 const childRoutes = require("./routes/children");
 const furloughRoutes = require("./routes/furloughs");
@@ -205,6 +206,7 @@ app.use("/api/public/country-info", countryInfoRoutes); // open (Joshua Project 
 app.use("/api/support-needs", supportNeedRoutes); // protected (admin) — session required
 app.use("/api/support-entries", supportEntryRoutes); // protected (admin) — session required
 app.use("/api/prayer-requests", prayerRequestRoutes); // protected (admin) — session required
+app.use("/api/prayer-sheet", prayerSheetRoutes); // protected (staff) — the Sunday prayer sheet, public-safe content only
 app.use("/api/adults", adultRoutes); // protected (admin) — session required
 app.use("/api/children", childRoutes); // protected (admin) — session required
 app.use("/api/furloughs", furloughRoutes); // protected (admin) — session required
