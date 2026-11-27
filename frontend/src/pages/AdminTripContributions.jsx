@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { fetchTrips, addTripContribution } from "../api/client.js";
 import TripSelect from "../components/admin/TripSelect.jsx";
-import { formatDate } from "../utils/format.js";
+import { formatDate, formatCurrency, currencySymbol } from "../utils/format.js";
 import { mapServerErrorMessage } from "../utils/friendlyError.js";
 import useCurrentUser from "../hooks/useCurrentUser.js";
 import Modal from "../components/Modal.jsx";
@@ -83,7 +83,7 @@ export default function AdminTripContributions() {
         ...log,
       ]);
       setError("");
-      setSuccess(`Logged $${entry.amount} from ${entry.donorName}.`);
+      setSuccess(`Logged ${formatCurrency(entry.amount)} from ${entry.donorName}.`);
       reload();
       return true;
     } catch (err) {
@@ -183,7 +183,7 @@ export default function AdminTripContributions() {
                 />
               </label>
               <label>
-                Amount ($)
+                Amount ({currencySymbol()})
                 <input
                   type="number"
                   value={entry.amount}

@@ -40,3 +40,28 @@ describe("one-time need announcements", () => {
     assert.match(declined.groupmeText, /Not this year/);
   });
 });
+
+describe("the church's currency in announcements", () => {
+  const base = {
+    description: "A roof",
+    requestedAmount: 1500,
+    approvedAmount: 1200,
+    partnerName: "The Smiths",
+  };
+
+  test("a church that set euros sees euros in the request and the approval", () => {
+    const created = buildBlurb(row("supportNeedCreated", base), partner, { currency: "EUR" });
+    assert.match(created.groupmeText, /Requested: €1,500/);
+    assert.doesNotMatch(created.groupmeText, /\$/);
+    const decided = buildBlurb(row("supportNeedDecided", base), partner, { currency: "EUR" });
+    assert.match(decided.groupmeText, /Approved: €1,200/);
+  });
+
+  test("no currency set, or a bad one, reads in dollars as before", () => {
+    assert.match(buildBlurb(row("supportNeedCreated", base), partner, {}).groupmeText, /Requested: \$1,500/);
+    assert.match(
+      buildBlurb(row("supportNeedCreated", base), partner, { currency: "nonsense" }).groupmeText,
+      /Requested: \$1,500/
+    );
+  });
+});

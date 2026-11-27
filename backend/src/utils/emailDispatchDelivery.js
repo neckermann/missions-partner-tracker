@@ -144,7 +144,11 @@ async function sendToRecipients(rows, partnerById, recipients, settings, keyDate
     const keyDates = recipient.kind === CHANNELS.EMAIL_ADMIN ? keyDatesByUser.get(recipient.id) || [] : [];
     if (eligibleRows.length === 0 && keyDates.length === 0) continue;
 
-    const blurbs = eligibleRows.map((row) => buildBlurb(row, partnerById.get(row.partnerId))).filter(Boolean);
+    // Only the currency is passed on: this path has never given buildBlurb the rest of the settings, and
+    // handing them over would change how a restricted partner's name is masked in these emails.
+    const blurbs = eligibleRows
+      .map((row) => buildBlurb(row, partnerById.get(row.partnerId), { currency: settings?.currency }))
+      .filter(Boolean);
     const content =
       recipient.kind === CHANNELS.EMAIL_ADMIN
         ? buildAdminEmailDispatchContent(blurbs, partnerDetailsById, settings, keyDates)

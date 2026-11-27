@@ -28,6 +28,8 @@ router.get("/", async (req, res, next) => {
       usePartnerTermInAdmin: settings?.usePartnerTermInAdmin || false,
       // What this church calls the group that looks after partners with no care team ("Missions team").
       ownerGroupName: settings?.ownerGroupName || "Missions team",
+      // The one currency every amount is shown in (utils/money.js).
+      currency: settings?.currency || "USD",
       publicTagline: settings?.publicTagline || null,
       aboutText: settings?.aboutText || null,
       // Shown above the public Subscribe form only when the church has set one (#508).

@@ -209,3 +209,51 @@ describe("GET /api/public/settings -- the Subscribe page passage (#508)", () => 
     assert.equal(res.status, 400);
   });
 });
+
+describe("the church-wide currency", () => {
+  let original;
+  before(async () => {
+    original = await prisma.churchSettings.findUnique({
+      where: { id: "singleton" },
+      select: { currency: true },
+    });
+  });
+  after(async () => {
+    await prisma.churchSettings.updateMany({
+      where: { id: "singleton" },
+      data: { currency: original?.currency || "USD" },
+    });
+  });
+
+  test("is USD until a church changes it, and is public so every page can show amounts", async () => {
+    await prisma.churchSettings.upsert({
+      where: { id: "singleton" },
+      update: { currency: "USD" },
+      create: { id: "singleton" },
+    });
+    assert.equal((await anon("/api/public/settings")).body.currency, "USD");
+  });
+
+  test("an admin can change it, in any letter case, and the public setting follows", async () => {
+    const admin = await client("admin");
+    const res = await admin("/api/settings", { method: "PUT", body: { currency: " eur " } });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.equal(res.body.currency, "EUR");
+    assert.equal((await anon("/api/public/settings")).body.currency, "EUR");
+  });
+
+  test("a code that is not a currency is refused and changes nothing", async () => {
+    const admin = await client("admin");
+    for (const bad of ["ZZZ", "dollars", "$", "US", ""]) {
+      const res = await admin("/api/settings", { method: "PUT", body: { currency: bad } });
+      assert.equal(res.status, 400, bad);
+    }
+    assert.equal((await anon("/api/public/settings")).body.currency, "EUR");
+  });
+
+  test("only an admin can change it", async () => {
+    const editor = await client("editor");
+    const res = await editor("/api/settings", { method: "PUT", body: { currency: "CAD" } });
+    assert.equal(res.status, 403);
+  });
+});

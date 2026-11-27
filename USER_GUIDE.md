@@ -1068,7 +1068,10 @@ either take effect immediately, everywhere, with no code changes
 needed:
 
 - **About Church** — Church Info: name, phone, contact name/email,
-  website, and address. This is also what auto-fills "Sent by our church"
+  website, timezone, **currency** (how every amount in the app is written:
+  monthly support, one-time needs, trip money, reports and announcements;
+  it changes only the symbol and converts nothing, so check existing
+  figures if you change it), and address. This is also what auto-fills "Sent by our church"
   on the missionary form. Right after saving a change here, if any
   partners are marked "Sent by our church," a prompt appears showing how
   many and offering to **update them all with this info** — a one-click

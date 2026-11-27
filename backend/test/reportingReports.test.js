@@ -454,3 +454,27 @@ test("last heard from: a prayer request received counts as hearing from a partne
   );
   assert.match(out.notes[0], /prayer request/);
 });
+
+// Money column headings follow the church's currency: "($)" in the definitions becomes the church's symbol.
+const { runReport } = require("../src/reporting/registry");
+async function runNeedsReport(currency) {
+  const report = getReport("needs-pipeline", { role: "admin", isEnabled: () => true });
+  assert.ok(report, "the needs pipeline report exists");
+  const prisma = {
+    supportNeed: { findMany: async () => [] },
+    churchSettings: { findUnique: async () => (currency ? { currency } : null) },
+  };
+  return runReport(report, {}, { prisma, today: new Date("2026-11-27T00:00:00Z"), audience: "admin" });
+}
+
+test("money column headings read in dollars by default", async () => {
+  const labels = (await runNeedsReport(undefined)).columns.map((c) => c.label);
+  assert.ok(labels.includes("Requested ($)"));
+});
+
+test("another currency swaps the symbol in money columns only", async () => {
+  const { columns } = await runNeedsReport("EUR");
+  assert.equal(columns.find((c) => c.key === "requested").label, "Requested (€)");
+  assert.equal(columns.find((c) => c.key === "approved").label, "Approved (€)");
+  assert.equal(columns.find((c) => c.key === "description").label, "Need");
+});

@@ -2,6 +2,7 @@
 // { id, group, label, question, params, fields, columns, fetch, compute }. Add a
 // report there and the route and frontend pick it up.
 const { applyMasking } = require("./masking");
+const { currencySymbol } = require("../utils/money");
 
 const GROUPS = [
   {
@@ -75,6 +76,14 @@ function getReport(id, { role, isEnabled }) {
   return report && allowed(report, role, isEnabled) ? report : null;
 }
 
+// A currency column's heading says "($)" or "($/mo)": swap the "$" for the church's currency symbol. Only
+// currency columns, so a "$" anywhere else is left alone.
+function localizeColumns(columns, currency) {
+  const symbol = currencySymbol(currency);
+  if (symbol === "$") return columns;
+  return columns.map((c) => (c.type === "currency" ? { ...c, label: c.label.replace(/\$/g, symbol) } : c));
+}
+
 // Parse, fetch, compute, then mask in one place. `audience` is "admin" for the
 // signed-in app; anything leaving it must pass "shared" with `settings` (decides
 // whether a restricted partner's masked name is initials or a generic label).
@@ -82,9 +91,15 @@ async function runReport(report, query, { prisma, today, audience = "admin", set
   const params = report.params.parse(query);
   const data = await report.fetch(params, { prisma, today });
   const result = report.compute(data, params, { today });
+  // Money columns are written with a "$" in their heading in the definitions; show the church's symbol instead.
+  const church = await prisma.churchSettings?.findUnique({
+    where: { id: "singleton" },
+    select: { currency: true },
+  });
+  const columns = localizeColumns(report.columns, church?.currency);
   return {
-    columns: report.columns,
-    rows: applyMasking(result.rows, report.columns, audience, settings),
+    columns,
+    rows: applyMasking(result.rows, columns, audience, settings),
     summary: result.summary || [],
     chart: report.chart || null,
     notes: result.notes || [],
