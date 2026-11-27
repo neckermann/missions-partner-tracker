@@ -1236,6 +1236,11 @@ model ChurchSettings {
 
   publicTagline   String? // short subtitle under the public map/directory header
   aboutText       String?             @db.Text // optional blurb shown on the public directory
+  // A passage of Scripture shown above the public Subscribe form, and where it is from ("Ephesians 6:18, ESV").
+  // Empty (nothing shown) until a church sets one; the app ships no passage of its own, since the church picks
+  // the translation and the text may be under a licence.
+  subscribePassage       String? @db.Text
+  subscribePassageSource String?
   // Three brand colors: primaryColor is the ACCENT (buttons, links, headings, letterhead),
   // headerColor the header and admin sidebar background, highlightColor
   // hover/focus/active/selected feedback.

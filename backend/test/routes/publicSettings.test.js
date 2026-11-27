@@ -2,7 +2,7 @@ const { test, describe, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 require("dotenv").config({ quiet: true });
 const prisma = require("../../src/prismaClient");
-const { client, stopServer } = require("./helpers");
+const { client, stopServer, ensureTestUsers, removeTestUsers } = require("./helpers");
 
 // DEMO_RESET_TOKEN is read fresh per request (not cached at startup), so
 // these mutate process.env directly around each request rather than
@@ -11,10 +11,12 @@ const { client, stopServer } = require("./helpers");
 let anon;
 
 before(async () => {
+  await ensureTestUsers();
   anon = await client(null);
 });
 
 after(async () => {
+  await removeTestUsers();
   await stopServer();
 });
 
@@ -155,5 +157,55 @@ describe("GET /api/public/settings/logo/raw -- embeddable by third parties", () 
     const res = await anon("/api/public/settings/logo/raw");
     assert.equal(res.status, 200);
     assert.equal(res.headers.get("cross-origin-resource-policy"), "cross-origin");
+  });
+});
+
+describe("GET /api/public/settings -- the Subscribe page passage (#508)", () => {
+  let original;
+  before(async () => {
+    original = await prisma.churchSettings.findUnique({
+      where: { id: "singleton" },
+      select: { subscribePassage: true, subscribePassageSource: true },
+    });
+  });
+  after(async () => {
+    await prisma.churchSettings.updateMany({ where: { id: "singleton" }, data: original || {} });
+  });
+
+  test("is empty until a church sets one", async () => {
+    await prisma.churchSettings.upsert({
+      where: { id: "singleton" },
+      update: { subscribePassage: null, subscribePassageSource: null },
+      create: { id: "singleton" },
+    });
+    const res = await anon("/api/public/settings");
+    assert.equal(res.body.subscribePassage, null);
+    assert.equal(res.body.subscribePassageSource, null);
+  });
+
+  test("is served once an admin sets it, and a blank value clears it", async () => {
+    const admin = await client("admin");
+    const set = await admin("/api/settings", {
+      method: "PUT",
+      body: { subscribePassage: "  Pray without ceasing.  ", subscribePassageSource: "1 Thessalonians 5:17" },
+    });
+    assert.equal(set.status, 200, JSON.stringify(set.body));
+    let res = await anon("/api/public/settings");
+    assert.equal(res.body.subscribePassage, "Pray without ceasing.");
+    assert.equal(res.body.subscribePassageSource, "1 Thessalonians 5:17");
+
+    await admin("/api/settings", {
+      method: "PUT",
+      body: { subscribePassage: "", subscribePassageSource: "" },
+    });
+    res = await anon("/api/public/settings");
+    assert.equal(res.body.subscribePassage, null);
+    assert.equal(res.body.subscribePassageSource, null);
+  });
+
+  test("an over-long passage is refused", async () => {
+    const admin = await client("admin");
+    const res = await admin("/api/settings", { method: "PUT", body: { subscribePassage: "x".repeat(4001) } });
+    assert.equal(res.status, 400);
   });
 });
