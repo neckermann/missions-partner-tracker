@@ -37,7 +37,7 @@ export default function AdminSettingsPrivacy() {
   if (loadError) {
     return (
       <div className="admin-shell">
-        <SettingsPageHeader title="Privacy and safety" />
+        <SettingsPageHeader title="Privacy and Safety" />
         <p className="form-error" role="alert">
           {loadError}
         </p>
@@ -64,7 +64,7 @@ export default function AdminSettingsPrivacy() {
 
   return (
     <div className="admin-shell">
-      <SettingsPageHeader title="Privacy and safety" />
+      <SettingsPageHeader title="Privacy and Safety" />
       <p style={{ color: "var(--muted)" }}>
         What anyone on the internet can see about your partners, and extra care for partners who work where
         being named publicly could put them at risk.

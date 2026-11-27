@@ -6,6 +6,7 @@ import { useSettings } from "../../context/SettingsContext.jsx";
 import QuickActionModal from "../shared/QuickActionModal.jsx";
 import { onClickUnlessSelecting } from "../../utils/clickableRow.js";
 import StatusPill from "./StatusPill.jsx";
+import CopyValue from "../shared/CopyValue.jsx";
 
 // A partner's care team: one Lead plus Members, all logins. Serves both the partner page and the
 // trip page, and is the "assign a care team" wizard from both. Terms are fixed, not settings.
@@ -13,12 +14,14 @@ import StatusPill from "./StatusPill.jsx";
 // guest sees names only (the API omits emails). `showHeading` lets the trip page drop the card chrome.
 // Phone, email and a line about them: sent only to signed-in staff roles, never a guest.
 function MemberDetails({ m }) {
-  const reach = [formatPhone(m.phone), m.email].filter(Boolean).join(" · ");
-  if (!reach && !m.profile) return null;
+  const reach = [formatPhone(m.phone), m.email].filter(Boolean);
+  if (reach.length === 0 && !m.profile) return null;
   return (
     <div style={{ fontSize: "0.85rem", color: "var(--muted)" }}>
-      {reach}
-      {reach && m.profile ? " — " : ""}
+      <CopyValue kind="phone" value={m.phone} whose={m.firstName} />
+      {m.phone && m.email ? " · " : ""}
+      <CopyValue kind="email" value={m.email} whose={m.firstName} />
+      {reach.length > 0 && m.profile ? " — " : ""}
       {m.profile}
     </div>
   );

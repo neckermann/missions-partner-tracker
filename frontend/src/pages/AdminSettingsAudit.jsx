@@ -114,7 +114,7 @@ export default function AdminSettingsAudit() {
   return (
     <div className="admin-shell">
       <SettingsPageHeader
-        title="Audit log"
+        title="Audit Log"
         actions={
           <a className="btn secondary" href={auditExportUrl(applied)}>
             Export CSV

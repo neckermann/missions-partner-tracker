@@ -5,6 +5,7 @@ import { contactLevelOf, methodLabel } from "../../utils/contactMethods.js";
 import { formatDateLong, todayInputValue, toDateInputValue } from "../../utils/format.js";
 import ContactCardEditor from "./ContactCardEditor.jsx";
 import { onClickUnlessSelecting } from "../../utils/clickableRow.js";
+import CopyValue from "../shared/CopyValue.jsx";
 
 // The contact card on a partner's page: who to reach first, how they like to be reached, one-tap
 // actions, how careful to be, and when anyone last was in touch. Shown to everyone who can see the
@@ -62,6 +63,11 @@ export default function ContactCard({
   // directly, and only the ticked ways under caution.
   let actions = hidden || !person ? [] : contactActions(person);
   if (level === "caution" && channels.length > 0) actions = actions.filter((a) => channels.includes(a.key));
+  // Copy follows the same rule as the tap actions: a number may be copied only where Call or Text is offered, an
+  // email only where Email is, so the button can never hand over a way the church said not to use.
+  const canCopyPhone = actions.some((a) => a.key === "call" || a.key === "text");
+  const canCopyEmail = actions.some((a) => a.key === "email");
+  const firstName = (p) => (p?.name || "").split(" ")[0] || undefined;
   const viaActions = hidden
     ? contactActions({ phone: partner.contactViaPhone, email: partner.contactViaEmail }).filter(
         (a) => a.key === "call" || a.key === "email"
@@ -148,9 +154,9 @@ export default function ContactCard({
                 )}
                 {(partner.contactViaPhone || partner.contactViaEmail) && (
                   <div style={{ fontSize: "0.9rem", color: "var(--muted)" }}>
-                    {[formatPhone(partner.contactViaPhone), partner.contactViaEmail]
-                      .filter(Boolean)
-                      .join(" · ")}
+                    <CopyValue kind="phone" value={partner.contactViaPhone} whose={partner.contactViaName} />
+                    {partner.contactViaPhone && partner.contactViaEmail ? " · " : ""}
+                    <CopyValue kind="email" value={partner.contactViaEmail} whose={partner.contactViaName} />
                   </div>
                 )}
                 <ActionButtons actions={viaActions} />
@@ -167,7 +173,18 @@ export default function ContactCard({
             </div>
             {!hidden && (person.phone || person.email) && (
               <div style={{ fontSize: "0.9rem", color: "var(--muted)" }}>
-                {[formatPhone(person.phone), person.email].filter(Boolean).join(" · ")}
+                {/* A copy button only for a way the card itself offers: under caution, only the ticked ways. */}
+                {canCopyPhone ? (
+                  <CopyValue kind="phone" value={person.phone} whose={firstName(person)} />
+                ) : (
+                  formatPhone(person.phone)
+                )}
+                {person.phone && person.email ? " · " : ""}
+                {canCopyEmail ? (
+                  <CopyValue kind="email" value={person.email} whose={firstName(person)} />
+                ) : (
+                  person.email
+                )}
               </div>
             )}
           </div>

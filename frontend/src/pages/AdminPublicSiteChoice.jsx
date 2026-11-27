@@ -5,7 +5,7 @@ import { useSettings } from "../context/SettingsContext.jsx";
 
 // Shown once to an admin, the first time they reach the admin area on a site that has never decided
 // whether to publish its partners. Either answer (or "Not yet") stores both switches, so the screen never
-// comes back; the choice can be changed any time under Settings -> Privacy and safety.
+// comes back; the choice can be changed any time under Settings -> Privacy and Safety.
 export default function AdminPublicSiteChoice() {
   const navigate = useNavigate();
   const { refreshSettings } = useSettings();
@@ -44,7 +44,7 @@ export default function AdminPublicSiteChoice() {
       <p style={{ color: "var(--muted)" }}>
         Nothing is shown until you choose each partner: a partner only appears when "Show on public site" is
         ticked on their page, and partners start unticked. You can change this at any time under Settings →
-        Privacy and safety.
+        Privacy and Safety.
       </p>
       {error && (
         <p className="form-error" role="alert">

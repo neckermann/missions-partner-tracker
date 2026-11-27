@@ -910,6 +910,25 @@ router.post("/logout", (req, res) => {
   res.json({ ok: true });
 });
 
+// "Sign out of all devices": ends every open session of this account, this browser included. A session is a signed
+// cookie that carries the account's session number (sessionVersion); raising the number makes every cookie issued
+// before it stop working (middleware/requireAuth.js), the same thing a password change does. Useful after signing in
+// on a shared computer or losing a phone. No password is asked for: it can only sign people out, never in.
+// Not on a demo, whose logins are shared: it would sign every visitor out.
+router.post("/logout-all", requireAuth, async (req, res, next) => {
+  try {
+    if (isDemoDeployment()) {
+      return res.status(403).json({ error: "Signing out of all devices isn't available on the public demo" });
+    }
+    await prisma.user.update({ where: { id: req.user.id }, data: { sessionVersion: { increment: 1 } } });
+    clearSessionCookie(res);
+    await recordAuditSafe(null, { action: "auth.logout_all", actor: req.user, req });
+    res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // Followed-partner ids come from a separate query, run only when
 // the scope is hand-picked partners with a real subscription.
 async function sanitizeUser(user) {

@@ -304,6 +304,8 @@ is the one e2e spec that already asserts this for a public page today.
 
 ## Copy tone
 
+**Menu labels and page titles use Title Case** ("Prayer Requests", "Updates to Share", "Privacy and Safety"): every word starts with a capital except small joining words (a, an, and, the, to, of, in, on, for, with, or). A page's own title matches its menu entry. A test (`frontend/src/menuLabelCase.test.js`) reads the sidebar and fails on a label that breaks the rule. Button labels and sentences stay in sentence case.
+
 Match the voice already used across `CONTRIBUTING.md`, `SPEC.md`, and
 this doc set: plain, direct, explains *why* a decision was made rather
 than just describing *what* exists, and states a tradeoff explicitly

@@ -34,7 +34,7 @@ function hourSummary(value) {
 }
 
 // Email dispatch schedule, chat-channel schedule and content mutes, and email appearance, each its own
-// EditableSection card. (The restricted-partner settings moved to Settings → Privacy and safety.)
+// EditableSection card. (The restricted-partner settings moved to Settings → Privacy and Safety.)
 // The review queue lives on the separate "Pending Dispatches" page.
 export default function AdminDispatchSettings() {
   const { enabledFeatures } = useSettings();
@@ -68,7 +68,7 @@ export default function AdminDispatchSettings() {
   if (loadError) {
     return (
       <div className="admin-shell">
-        <SettingsPageHeader title="Sending updates" />
+        <SettingsPageHeader title="Sending Updates" />
         <p className="form-error" role="alert">
           {loadError}
         </p>
@@ -80,7 +80,7 @@ export default function AdminDispatchSettings() {
   return (
     <div className="admin-shell">
       <SettingsPageHeader
-        title="Sending updates"
+        title="Sending Updates"
         actions={
           <TemplatePackButtons
             importLabel="Import wording…"
@@ -92,8 +92,8 @@ export default function AdminDispatchSettings() {
       <p style={{ color: "var(--muted)" }}>
         Schedules for the admin and public update emails and for {chatLabel || "GroupMe/WhatsApp"}, the chat
         channels' choice of what gets posted, and how the update email looks. The settings for partners in
-        sensitive places are under <Link to="/admin/settings/privacy">Privacy and safety</Link>. To review or
-        edit what's currently queued, see the <strong>Updates to share</strong> page in the main menu.
+        sensitive places are under <Link to="/admin/settings/privacy">Privacy and Safety</Link>. To review or
+        edit what's currently queued, see the <strong>Updates to Share</strong> page in the main menu.
       </p>
 
       {enabledFeatures.publicPrayerDigest && (

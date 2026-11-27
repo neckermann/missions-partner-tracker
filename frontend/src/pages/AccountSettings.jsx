@@ -16,6 +16,7 @@ import {
   registerPasskey,
   removePasskey,
   browserSupportsWebAuthn,
+  logoutEverywhere,
 } from "../api/client.js";
 import { passkeyErrorMessage } from "../utils/passkeyError.js";
 import { passwordsMatch } from "../utils/password.js";
@@ -25,6 +26,7 @@ import MfaAppGuide from "../components/MfaAppGuide.jsx";
 import ThemeToggle from "../components/shared/ThemeToggle.jsx";
 import RecoveryCodesPanel from "../components/RecoveryCodesPanel.jsx";
 import CopyButton from "../components/shared/CopyButton.jsx";
+import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
 
 const emptyPasswordDraft = { currentPassword: "", newPassword: "", confirmPassword: "" };
 
@@ -126,6 +128,8 @@ export default function AccountSettings() {
           <KeyDateEmailSection user={user} onChange={reloadUser} />
         )}
 
+      {user && <SignOutEverywhereSection />}
+
       <div className="admin-section">
         <h3>Appearance</h3>
         <p style={{ color: "var(--muted)" }}>
@@ -134,6 +138,52 @@ export default function AccountSettings() {
         </p>
         <ThemeToggle />
       </div>
+    </div>
+  );
+}
+
+// Ends every open session of this account on every device and browser, this one included. Signing out from the
+// menu only ends this browser's session.
+function SignOutEverywhereSection() {
+  const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function signOutEverywhere() {
+    setError("");
+    const ok = await confirmDialog({
+      title: "Sign out of all devices?",
+      body: "Every browser and phone signed in as you, this one too, will need to sign in again.",
+      confirmLabel: "Sign out everywhere",
+      danger: true,
+    });
+    if (!ok) return;
+    setBusy(true);
+    try {
+      await logoutEverywhere();
+      window.location.assign("/login");
+    } catch (err) {
+      setError(err.response?.data?.error || "That didn't work. Nothing was changed.");
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="admin-section">
+      <h3>Sign out of all devices</h3>
+      <p style={{ color: "var(--muted)" }}>
+        Signing out from the menu ends this browser only. Use this after signing in on a shared computer, or
+        if you lose a phone: it ends every session signed in as you, on every device, this one included.
+      </p>
+      <button type="button" className="btn danger" onClick={signOutEverywhere} disabled={busy}>
+        {busy ? "Signing out…" : "Sign out of all devices"}
+      </button>
+      {error && (
+        <p className="form-error" role="alert" style={{ marginTop: "0.75rem" }}>
+          {error}
+        </p>
+      )}
+      {confirmElement}
     </div>
   );
 }

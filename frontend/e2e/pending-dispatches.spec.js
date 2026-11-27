@@ -6,7 +6,7 @@ import { login, setFeatures, restoreFeatures } from "./helpers.js";
 // way to get a real row onto this page without seeding or mocking.
 let previousFeatures;
 
-test.describe("Updates to share", () => {
+test.describe("Updates to Share", () => {
   test.afterAll(async ({ browser }) => {
     const context = await browser.newContext();
     const page = await context.newPage();
@@ -46,7 +46,7 @@ test.describe("Updates to share", () => {
     await expect(card).toContainText(uniqueText);
 
     await page.goto("/admin/pending-dispatches");
-    await page.waitForSelector("h2:has-text('Updates to share')");
+    await page.waitForSelector("h2:has-text('Updates to Share')");
 
     // Confirms the real request text reached the queue (not a placeholder) and that its row shows
     // the right partner; the page is a shared <Table>, grouped by partner via row ordering

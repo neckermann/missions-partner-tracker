@@ -57,7 +57,7 @@ describe("nextSunday", () => {
 describe("AdminPrayerSheet", () => {
   it("lays out the church, the date, each partner and its requests, and says how much of the whole it is", async () => {
     render(<AdminPrayerSheet />);
-    const page = await screen.findByLabelText("Prayer sheet", { selector: "article" });
+    const page = await screen.findByLabelText("Prayer Sheet", { selector: "article" });
     expect(within(page).getByText("Grace Church")).toBeTruthy();
     expect(
       within(page).getByRole("heading", { level: 1, name: "Praying for our Missionaries" })

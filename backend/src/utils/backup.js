@@ -502,16 +502,23 @@ async function verifyBackupFileUnwrapped(filePath, opts) {
 // Inserts every row of a backup file in FK-safe order inside one transaction, a row at a time as it is read
 // (the file is already in restore order). The file is verified first, so a bad file changes nothing.
 // `filter(model, row)` restores only the rows it accepts (the tests use it to restore a few).
+// `replaceExisting` deletes every backed-up table's rows first, in the same transaction (a full replace).
 // Returns { manifest, counts }.
 async function restoreBackupFile(
   prisma,
   filePath,
-  { passphrase, filter, skipVerify, timeout = 10 * 60 * 1000 } = {}
+  { passphrase, filter, skipVerify, replaceExisting, timeout = 10 * 60 * 1000 } = {}
 ) {
   const manifest = skipVerify ? null : await verifyBackupFile(filePath, { passphrase });
   const counts = Object.fromEntries(MODELS.map((m) => [m, 0]));
   await prisma.$transaction(
     async (tx) => {
+      // A full replace (the in-app restore): everything now on the site goes first, children before parents, in
+      // this same transaction, so a failure at any row puts all of it back. WhatsApp session state and spent
+      // passkey challenges are not part of a backup and are left alone.
+      if (replaceExisting) {
+        for (const model of [...MODELS].reverse()) await tx[model].deleteMany({});
+      }
       let skippedManifest = false;
       for await (const line of readBackupLines(filePath, { passphrase })) {
         if (!skippedManifest) {
