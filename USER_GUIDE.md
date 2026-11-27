@@ -903,7 +903,13 @@ decorative shapes, bold accent rules, and a rectangular photo) — choose
 who's included (archived, restricted-access, organizations), and what
 shows on each page (photo, overview, location, address, family info,
 sending church/org, and an optional facing **Notes & Prayer Page** with
-ruled lines for the reader's own handwritten notes). Both templates'
+ruled lines for the reader's own handwritten notes). **Restricted-access
+partners are left out until you tick the box** (it is unticked when
+the page opens); once ticked, the page says how many restricted
+partners are included and cautions that they print with their real
+names and details, so hand that booklet only to people who may see
+them. The booklet is the church's own document and otherwise prints
+partners whether or not they are on the public site. Both templates'
 accent color defaults to your church's own brand color (**Primary
 Color** in [Church Settings](#church-settings-admin-only)); an instance
 that hasn't set one falls back to a fixed four-color rotation instead.

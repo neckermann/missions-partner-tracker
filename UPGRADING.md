@@ -71,6 +71,14 @@ the ones to know about:
   still waiting. Expect **fewer posts and fewer digest items** than before: only
   Ministry requests are shared. Everyday requests that were already sent stay
   sent; nothing already waiting is released.
+- **The printed booklet no longer includes restricted partners unless you tick
+  the box.** On Print Booklet, **Restricted-access** used to be ticked when the
+  page opened, so a restricted partner printed with their real name and details
+  unless someone remembered to untick it. It now starts unticked; tick it to
+  include them, and the page says how many are included. Nothing else about who
+  the booklet includes changed: it still prints partners whether or not they are
+  on the public site. A booklet you print the same way as before will have
+  **fewer partners** until you tick the box.
 
 ## The easy way: GitHub's "Sync fork" button
 
