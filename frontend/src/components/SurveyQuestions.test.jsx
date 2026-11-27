@@ -125,11 +125,11 @@ describe("SurveyQuestions linked fields (#548)", () => {
     expect(screen.getByLabelText("Anything else").tagName).toBe("TEXTAREA");
   });
 
-  it("sends what is typed in the phone box", () => {
+  it("passes on the international number typed in the phone box", () => {
     const onChange = vi.fn();
     render(<SurveyQuestions questions={linked} answers={{}} onChange={onChange} />);
     fireEvent.change(screen.getByLabelText("Best phone"), { target: { value: "(506) 555-0259" } });
-    expect(onChange).toHaveBeenCalledWith("p", { value: "(506) 555-0259" });
+    expect(onChange).toHaveBeenCalledWith("p", { value: "+15065550259" });
   });
 
   it("shows a contact method's choices in words and answers with the stored value", () => {

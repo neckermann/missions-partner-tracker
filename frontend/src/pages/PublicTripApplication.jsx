@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import EmailInput from "../components/shared/EmailInput.jsx";
-import PhoneInput from "../components/shared/PhoneInput.jsx";
+import PhoneField from "../components/shared/PhoneField.jsx";
 import { useParams, Link } from "react-router-dom";
 import PublicSiteHeader from "../components/PublicSiteHeader.jsx";
 import DemoBanner from "../components/DemoBanner.jsx";
@@ -148,14 +148,12 @@ export default function PublicTripApplication() {
               Email
               <EmailInput required value={values.email} onChange={(e) => setValue("email", e.target.value)} />
             </label>
-            <label>
-              Phone
-              <PhoneInput
-                inputMode="tel"
-                value={values.phone}
-                onChange={(e) => setValue("phone", e.target.value)}
-              />
-            </label>
+            <PhoneField
+              label="Phone"
+              inputMode="tel"
+              value={values.phone}
+              onChange={(e) => setValue("phone", e.target.value)}
+            />
           </div>
           {/* A real field, always required: the minor determination that shows the Parent/guardian step depends on it. */}
           <div className="form-grid" style={{ marginTop: "0.75rem" }}>
@@ -247,14 +245,12 @@ export default function PublicTripApplication() {
                     onChange={(e) => setValue("emergencyContactLastName", e.target.value)}
                   />
                 </label>
-                <label>
-                  Phone
-                  <PhoneInput
-                    inputMode="tel"
-                    value={values.emergencyContactPhone}
-                    onChange={(e) => setValue("emergencyContactPhone", e.target.value)}
-                  />
-                </label>
+                <PhoneField
+                  label="Phone"
+                  inputMode="tel"
+                  value={values.emergencyContactPhone}
+                  onChange={(e) => setValue("emergencyContactPhone", e.target.value)}
+                />
                 <label>
                   Email (optional)
                   <EmailInput
@@ -299,15 +295,13 @@ export default function PublicTripApplication() {
                     onChange={(e) => setValue("parentGuardianRelationship", e.target.value)}
                   />
                 </label>
-                <label>
-                  Phone
-                  <PhoneInput
-                    inputMode="tel"
-                    required
-                    value={values.parentGuardianPhone}
-                    onChange={(e) => setValue("parentGuardianPhone", e.target.value)}
-                  />
-                </label>
+                <PhoneField
+                  label="Phone"
+                  inputMode="tel"
+                  required
+                  value={values.parentGuardianPhone}
+                  onChange={(e) => setValue("parentGuardianPhone", e.target.value)}
+                />
                 <label>
                   Email
                   <EmailInput

@@ -7,7 +7,7 @@ import {
 } from "../utils/supportAnswer.js";
 import { ADDRESS_PARTS, addressToValue, parseAddressValue, formatAddressValue } from "../utils/address.js";
 import { formatPhone } from "../utils/phone.js";
-import PhoneInput from "./shared/PhoneInput.jsx";
+import PhoneField from "./shared/PhoneField.jsx";
 import EmailInput from "./shared/EmailInput.jsx";
 
 // A checkbox or radio next to its label. Inline: the global label and input rules would otherwise
@@ -196,12 +196,22 @@ export default function SurveyQuestions({
             disabled,
             onChange: (e) => onChange(q.id, { value: e.target.value }),
           };
+          if (q.inputType === "tel") {
+            // A phone question owns its label (the picker and the box are separate controls).
+            return (
+              <PhoneField
+                key={q.id}
+                label={label}
+                style={{ marginBottom: "1rem" }}
+                {...box}
+                maxLength={q.maxLength || 40}
+              />
+            );
+          }
           return (
             <label key={q.id} style={{ display: "block", marginBottom: "1rem" }}>
               {label}
-              {q.inputType === "tel" ? (
-                <PhoneInput {...box} maxLength={q.maxLength || 40} />
-              ) : q.inputType === "email" ? (
+              {q.inputType === "email" ? (
                 <EmailInput {...box} maxLength={q.maxLength || 200} />
               ) : q.inputType === "line" ? (
                 <input
