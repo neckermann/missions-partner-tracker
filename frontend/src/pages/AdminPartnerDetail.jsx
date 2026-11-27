@@ -1001,9 +1001,9 @@ export default function AdminPartnerDetail() {
                 <>
                   <Field label="Name" value={[a.firstName, a.lastName].filter(Boolean).join(" ")} />
                   <Field label="Birthday" value={formatDateLong(a.birthday)} />
-                  <Field label="Phone 1" value={formatPhone(a.phone1)} />
-                  <Field label="Phone 2" value={formatPhone(a.phone2)} />
-                  <Field label="Email" value={a.email} />
+                  <Field label="Phone 1" value={formatPhone(a.phone1)} copy="phone" whose={a.firstName} />
+                  <Field label="Phone 2" value={formatPhone(a.phone2)} copy="phone" whose={a.firstName} />
+                  <Field label="Email" value={a.email} copy="email" whose={a.firstName} />
                   {a.isPrimaryContact && <Field label="Primary contact" value="Yes" />}
                 </>
               )}
