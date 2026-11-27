@@ -6,7 +6,7 @@ const prisma = require("../prismaClient");
 const jwt = require("jsonwebtoken");
 const { requireFeature } = require("../middleware/requireFeature");
 const { isFeatureEnabled } = require("../utils/features");
-const { renderSubscriberPage } = require("../utils/subscriberPage");
+const { renderSubscriberPage, escapeHtml } = require("../utils/subscriberPage");
 const { sendConfirmEmail, sendConfirmChangeEmail } = require("../utils/publicSubscribeEmails");
 
 const router = express.Router();
@@ -146,18 +146,43 @@ router.post("/", subscribeLimiter, requireSubscribeDependencies, async (req, res
   }
 });
 
-// GET /confirm?token= -- public, reached from the confirmation email. No requireOutboundEmail:
-// confirming sends nothing.
-router.get("/confirm", async (req, res) => {
+// The confirmation link in the email. GET /confirm?token= only checks the token and shows a button (a plain
+// <form method="POST">, which works without JavaScript); POST /confirm does the work. Acting on the GET would let a
+// mail scanner that pre-opens links confirm a subscription (or apply a change) for someone who never clicked,
+// which is the same reason unsubscribe works this way (publicUnsubscribe.js). Public, no login. No
+// requireOutboundEmail: confirming sends nothing.
+function readConfirmToken(token) {
   let decoded;
   try {
-    decoded = jwt.verify(String(req.query.token || ""), process.env.SESSION_SECRET);
+    decoded = jwt.verify(String(token || ""), process.env.SESSION_SECRET);
   } catch {
-    return res.status(400).send(await renderSubscriberPage("This confirmation link isn't valid."));
+    return null;
   }
-  if (!decoded?.id || (!decoded.subscriberConfirm && !decoded.subscriberConfirmChange)) {
+  if (!decoded?.id || (!decoded.subscriberConfirm && !decoded.subscriberConfirmChange)) return null;
+  return decoded;
+}
+
+router.get("/confirm", async (req, res) => {
+  const decoded = readConfirmToken(req.query.token);
+  if (!decoded)
     return res.status(400).send(await renderSubscriberPage("This confirmation link isn't valid."));
-  }
+  const token = escapeHtml(String(req.query.token));
+  const ask = decoded.subscriberConfirmChange
+    ? "Click below to confirm the change to your prayer update subscription."
+    : "Click below to confirm your subscription to prayer updates.";
+  const label = decoded.subscriberConfirmChange ? "Confirm the change" : "Confirm my subscription";
+  res.send(
+    await renderSubscriberPage(
+      (highlightColor) =>
+        `${ask}<br><br><form method="POST" action="/api/public/subscribe/confirm"><input type="hidden" name="token" value="${token}"><button type="submit" style="background:${highlightColor};color:#fff;border:none;border-radius:6px;padding:10px 20px;font-size:15px;cursor:pointer;">${label}</button></form>`
+    )
+  );
+});
+
+router.post("/confirm", express.urlencoded({ extended: false }), async (req, res) => {
+  const decoded = readConfirmToken(req.body?.token);
+  if (!decoded)
+    return res.status(400).send(await renderSubscriberPage("This confirmation link isn't valid."));
 
   // #327 Finding 11: a confirm-change link carries the proposed values and is where they are
   // applied (POST / never writes them elsewhere). Degrades gracefully (0 rows, still 200) if the

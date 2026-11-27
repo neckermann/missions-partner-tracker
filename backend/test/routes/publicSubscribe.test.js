@@ -147,7 +147,11 @@ describe("POST /api/public/subscribe", () => {
     const link = sentBody.TextBody.match(/\/api\/public\/subscribe\/confirm\?token=(\S+)/);
     assert.ok(link, "confirm-change email should contain a confirm link");
 
-    const confirmRes = await anon(`/api/public/subscribe/confirm?token=${link[1]}`);
+    // Opening the link shows a button and changes nothing; pressing it applies the change.
+    const opened = await anon(`/api/public/subscribe/confirm?token=${link[1]}`);
+    assert.equal(opened.status, 200);
+    assert.equal((await prisma.publicSubscriber.findUnique({ where: { email } })).cadence, "quarterly");
+    const confirmRes = await postConfirm(decodeURIComponent(link[1]));
     assert.equal(confirmRes.status, 200);
     const applied = await prisma.publicSubscriber.findUnique({ where: { email } });
     assert.equal(applied.cadence, "monthly", "clicking the confirm-change link applies the proposed change");
@@ -229,13 +233,54 @@ describe("POST /api/public/subscribe", () => {
   });
 });
 
-describe("GET /api/public/subscribe/confirm", () => {
-  test("a valid confirm token sets confirmedAt and renders a page", async () => {
+// The confirm button's form posts the token in the body, as a browser would.
+const postConfirm = (token) =>
+  anon("/api/public/subscribe/confirm", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: `token=${encodeURIComponent(token)}`,
+  });
+
+describe("GET and POST /api/public/subscribe/confirm", () => {
+  // H4: opening the link only shows a button. A mail scanner that pre-opens links must never confirm anyone.
+  test("GET renders a confirm button and does not confirm anyone by itself", async () => {
+    const row = await prisma.publicSubscriber.create({
+      data: { email: "route-test-sub-confirm-get@example.test" },
+    });
+    const token = jwt.sign({ id: row.id, subscriberConfirm: true }, process.env.SESSION_SECRET);
+    const res = await anon(`/api/public/subscribe/confirm?token=${encodeURIComponent(token)}`);
+    assert.equal(res.status, 200);
+    assert.ok(res.headers.get("content-type").includes("text/html"));
+    assert.match(res.body, /Confirm my subscription/);
+    assert.match(res.body, /method="POST"/);
+    const after = await prisma.publicSubscriber.findUnique({ where: { id: row.id } });
+    assert.equal(after.confirmedAt, null, "GET must not confirm");
+  });
+
+  test("GET on a confirm-change link shows the change button and applies nothing", async () => {
+    const row = await prisma.publicSubscriber.create({
+      data: {
+        email: "route-test-sub-confirm-change-get@example.test",
+        confirmedAt: new Date(),
+        cadence: "quarterly",
+      },
+    });
+    const token = jwt.sign(
+      { id: row.id, subscriberConfirmChange: true, cadence: "monthly", allPartners: true, partnerIds: [] },
+      process.env.SESSION_SECRET
+    );
+    const res = await anon(`/api/public/subscribe/confirm?token=${encodeURIComponent(token)}`);
+    assert.equal(res.status, 200);
+    assert.match(res.body, /Confirm the change/);
+    assert.equal((await prisma.publicSubscriber.findUnique({ where: { id: row.id } })).cadence, "quarterly");
+  });
+
+  test("POST with a valid confirm token sets confirmedAt and renders a page", async () => {
     const row = await prisma.publicSubscriber.create({
       data: { email: "route-test-sub-tokentest@example.test" },
     });
     const token = jwt.sign({ id: row.id, subscriberConfirm: true }, process.env.SESSION_SECRET);
-    const res = await anon(`/api/public/subscribe/confirm?token=${encodeURIComponent(token)}`);
+    const res = await postConfirm(token);
     assert.equal(res.status, 200);
     assert.ok(res.headers.get("content-type").includes("text/html"));
 
@@ -244,8 +289,20 @@ describe("GET /api/public/subscribe/confirm", () => {
   });
 
   test("an invalid token is rejected with a 400 page, no DB write", async () => {
-    const res = await anon("/api/public/subscribe/confirm?token=garbage");
+    assert.equal((await anon("/api/public/subscribe/confirm?token=garbage")).status, 400);
+    assert.equal((await postConfirm("garbage")).status, 400);
+  });
+
+  test("a token in the query string of a POST is ignored: only the form body counts", async () => {
+    const row = await prisma.publicSubscriber.create({
+      data: { email: "route-test-sub-confirm-query@example.test" },
+    });
+    const token = jwt.sign({ id: row.id, subscriberConfirm: true }, process.env.SESSION_SECRET);
+    const res = await anon(`/api/public/subscribe/confirm?token=${encodeURIComponent(token)}`, {
+      method: "POST",
+    });
     assert.equal(res.status, 400);
+    assert.equal((await prisma.publicSubscriber.findUnique({ where: { id: row.id } })).confirmedAt, null);
   });
 
   test("an unsubscribe-token used on confirm is rejected (discriminator check)", async () => {
@@ -256,8 +313,12 @@ describe("GET /api/public/subscribe/confirm", () => {
       { id: row.id, subscriberUnsubscribe: true },
       process.env.SESSION_SECRET
     );
-    const res = await anon(`/api/public/subscribe/confirm?token=${encodeURIComponent(unsubscribeToken)}`);
+    const res = await postConfirm(unsubscribeToken);
     assert.equal(res.status, 400);
+    assert.equal(
+      (await anon(`/api/public/subscribe/confirm?token=${encodeURIComponent(unsubscribeToken)}`)).status,
+      400
+    );
     const after = await prisma.publicSubscriber.findUnique({ where: { id: row.id } });
     assert.equal(after.confirmedAt, null, "must not have been confirmed by the wrong token type");
   });
@@ -269,7 +330,7 @@ describe("GET /api/public/subscribe/confirm", () => {
         data: { email: "route-test-sub-noemailconfirm@example.test" },
       });
       const token = jwt.sign({ id: row.id, subscriberConfirm: true }, process.env.SESSION_SECRET);
-      const res = await anon(`/api/public/subscribe/confirm?token=${encodeURIComponent(token)}`);
+      const res = await postConfirm(token);
       assert.equal(res.status, 200);
     } finally {
       await setFeatures({ outboundEmail: true });
