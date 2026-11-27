@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import PhoneInput from "../components/shared/PhoneInput.jsx";
 import { Link, useLocation } from "react-router-dom";
 import {
   fetchReachablePartners,
@@ -563,8 +564,7 @@ export default function AdminUsers() {
                 </label>
                 <label>
                   Phone
-                  <input
-                    type="tel"
+                  <PhoneInput
                     value={editingUser.form.phone || ""}
                     onChange={(e) => updateForm("phone", e.target.value)}
                     maxLength={40}

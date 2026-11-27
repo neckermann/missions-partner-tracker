@@ -1,4 +1,6 @@
 import React, { useEffect, useState, useCallback } from "react";
+import EmailInput from "../components/shared/EmailInput.jsx";
+import PhoneInput from "../components/shared/PhoneInput.jsx";
 import { formatPhone } from "../utils/phone.js";
 import { applicationAnswerList } from "../utils/applicationAnswers.js";
 import { useParams, Link } from "react-router-dom";
@@ -404,12 +406,11 @@ export default function AdminTripParticipantDetail() {
               </label>
               <label>
                 Email
-                <input value={draft.email} onChange={(e) => set("email", e.target.value)} />
+                <EmailInput value={draft.email} onChange={(e) => set("email", e.target.value)} />
               </label>
               <label>
                 Phone
-                <input
-                  type="tel"
+                <PhoneInput
                   inputMode="tel"
                   value={draft.phone}
                   onChange={(e) => set("phone", e.target.value)}
@@ -472,8 +473,7 @@ export default function AdminTripParticipantDetail() {
               </label>
               <label>
                 Phone
-                <input
-                  type="tel"
+                <PhoneInput
                   inputMode="tel"
                   value={draft.emergencyContactPhone}
                   onChange={(e) => set("emergencyContactPhone", e.target.value)}
@@ -481,7 +481,7 @@ export default function AdminTripParticipantDetail() {
               </label>
               <label>
                 Email
-                <input
+                <EmailInput
                   value={draft.emergencyContactEmail}
                   onChange={(e) => set("emergencyContactEmail", e.target.value)}
                 />
@@ -524,8 +524,7 @@ export default function AdminTripParticipantDetail() {
               </label>
               <label>
                 Parent/guardian phone
-                <input
-                  type="tel"
+                <PhoneInput
                   inputMode="tel"
                   value={draft.parentGuardianPhone}
                   onChange={(e) => set("parentGuardianPhone", e.target.value)}
@@ -533,7 +532,7 @@ export default function AdminTripParticipantDetail() {
               </label>
               <label>
                 Parent/guardian email
-                <input
+                <EmailInput
                   value={draft.parentGuardianEmail}
                   onChange={(e) => set("parentGuardianEmail", e.target.value)}
                 />

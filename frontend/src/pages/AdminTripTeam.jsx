@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import EmailInput from "../components/shared/EmailInput.jsx";
 import { formatPhone } from "../utils/phone.js";
 import { useOutletContext } from "react-router-dom";
 import { updateTrip, generateApplicationLink, addTripParticipant } from "../api/client.js";
@@ -331,7 +332,7 @@ export default function AdminTripTeam() {
             </label>
             <label>
               Email
-              <input
+              <EmailInput
                 value={newParticipant.email}
                 onChange={(e) => setNewParticipant((f) => ({ ...f, email: e.target.value }))}
               />

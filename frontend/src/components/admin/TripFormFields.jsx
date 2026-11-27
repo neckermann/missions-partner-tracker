@@ -1,4 +1,6 @@
 import React from "react";
+import EmailInput from "../../components/shared/EmailInput.jsx";
+import PhoneInput from "../../components/shared/PhoneInput.jsx";
 import PresetOrCustomSelect from "./PresetOrCustomSelect.jsx";
 import AlbumLinkField from "./AlbumLinkField.jsx";
 
@@ -126,8 +128,7 @@ export default function TripFormFields({ form, setForm, partnerPicker }) {
             </label>
             <label>
               Phone
-              <input
-                type="tel"
+              <PhoneInput
                 inputMode="tel"
                 value={p.phone || ""}
                 onChange={(e) => updateParticipant(i, "phone", e.target.value)}
@@ -135,7 +136,10 @@ export default function TripFormFields({ form, setForm, partnerPicker }) {
             </label>
             <label>
               Email
-              <input value={p.email || ""} onChange={(e) => updateParticipant(i, "email", e.target.value)} />
+              <EmailInput
+                value={p.email || ""}
+                onChange={(e) => updateParticipant(i, "email", e.target.value)}
+              />
             </label>
           </div>
         </div>

@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from "react";
+import EmailInput from "../components/shared/EmailInput.jsx";
+import PhoneInput from "../components/shared/PhoneInput.jsx";
 import { formatPhone } from "../utils/phone.js";
 import { updateChurchSettings, syncAllSendingChurch, uploadChurchLogo } from "../api/client.js";
 import { useSettings } from "../context/SettingsContext.jsx";
@@ -197,8 +199,7 @@ export default function AdminSettingsAbout() {
               </label>
               <label>
                 Phone
-                <input
-                  type="tel"
+                <PhoneInput
                   inputMode="tel"
                   value={d.phone || ""}
                   onChange={(e) => set("phone", e.target.value)}
@@ -221,7 +222,10 @@ export default function AdminSettingsAbout() {
               </label>
               <label>
                 Contact Email
-                <input value={d.contactEmail || ""} onChange={(e) => set("contactEmail", e.target.value)} />
+                <EmailInput
+                  value={d.contactEmail || ""}
+                  onChange={(e) => set("contactEmail", e.target.value)}
+                />
               </label>
               <label>
                 Website

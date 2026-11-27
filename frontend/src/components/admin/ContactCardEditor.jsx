@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import EmailInput from "../../components/shared/EmailInput.jsx";
+import PhoneInput from "../../components/shared/PhoneInput.jsx";
 import { formatPhone } from "../../utils/phone.js";
 import Modal from "../Modal.jsx";
 import { updateAdult, updatePartner } from "../../api/client.js";
@@ -210,8 +212,7 @@ export default function ContactCardEditor({ partner, adults, canEditCare, onClos
                 </label>
                 <label>
                   Their phone
-                  <input
-                    type="tel"
+                  <PhoneInput
                     inputMode="tel"
                     value={via.phone}
                     onChange={(e) => setVia({ ...via, phone: e.target.value })}
@@ -220,7 +221,7 @@ export default function ContactCardEditor({ partner, adults, canEditCare, onClos
                 </label>
                 <label>
                   Their email
-                  <input
+                  <EmailInput
                     value={via.email}
                     onChange={(e) => setVia({ ...via, email: e.target.value })}
                     maxLength={200}

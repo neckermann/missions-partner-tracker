@@ -291,7 +291,8 @@ Two rules for new models and lists (see
   phone or email, saved in one form (a phone as `+15065550259`, an email in
   lower case), blank becomes `null`, and a field a request leaves out is left
   alone. Show a phone with `formatPhone` (`frontend/src/utils/phone.js`) and
-  give its input `type="tel"`. A survey field needs a `normalize` and an
+  use the shared `PhoneInput` (`components/shared/PhoneInput.jsx`, which shapes digits as you type and
+  hints when you leave the box) or `EmailInput` for its box, never a bare `<input>`. A survey field needs a `normalize` and an
   `inputType` in `utils/surveyFields.js` (a test fails without them), and any
   script that writes the column directly (the demo seed) must write the saved
   form.

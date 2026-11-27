@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import PhoneInput from "../components/shared/PhoneInput.jsx";
 import { formatPhone } from "../utils/phone.js";
 import {
   fetchCurrentUser,
@@ -157,12 +158,7 @@ function ProfileSection({ user, onChange }) {
         <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
           <label>
             Phone
-            <input
-              type="tel"
-              value={draft.phone}
-              maxLength={40}
-              onChange={(e) => set("phone", e.target.value)}
-            />
+            <PhoneInput value={draft.phone} maxLength={40} onChange={(e) => set("phone", e.target.value)} />
           </label>
           <label>
             About you
