@@ -1,5 +1,5 @@
 // "Forgot your password?" on the sign-in page: the self-service link also serves an account
-// that already has a password. The same generic reply for everyone, one email a minute per
+// that already has a password. The same generic reply for everyone, one email every 15 seconds per
 // account, a one-hour link, every other session ended when it is used, never on a demo, never
 // while passwordless sign-in is on.
 const { test, describe, before, after } = require("node:test");
@@ -102,7 +102,7 @@ after(async () => {
 });
 
 describe("asking for a reset link", () => {
-  test("an account with a password is emailed a one-hour link, once a minute, and the reply gives nothing away", async () => {
+  test("an account with a password is emailed a one-hour link, once every 15 seconds, and the reply gives nothing away", async () => {
     const user = await makeUser("reset");
     postmarkCalls = [];
     const real = await request(user.email);

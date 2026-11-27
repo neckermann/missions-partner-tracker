@@ -152,7 +152,7 @@ describe("POST /api/auth/password-setup/request -- outboundEmail on", () => {
 
   test("a link is sent to a waiting account, and nothing is sent for an unknown address", async () => {
     await new Promise((resolve) => setTimeout(resolve, 300));
-    // The test above already sent this account a link; links are limited to one a minute, so age it.
+    // The test above already sent this account a link; links are limited to one every 15 seconds, so age it.
     await prisma.passwordSetupToken.updateMany({
       where: { userId: user.id },
       data: { createdAt: new Date(Date.now() - 5 * 60 * 1000) },
@@ -170,7 +170,7 @@ describe("POST /api/auth/password-setup/request -- outboundEmail on", () => {
     assert.equal(postmarkCalls.length, 1, "the waiting account is sent its link");
   });
 
-  test("asking again within a minute sends nothing more (no mail-bombing a person)", async () => {
+  test("asking again straight away sends nothing more (no mail-bombing a person)", async () => {
     await new Promise((resolve) => setTimeout(resolve, 300));
     postmarkCalls = [];
     await anon("/api/auth/password-setup/request", { method: "POST", body: { email: user.email } });
