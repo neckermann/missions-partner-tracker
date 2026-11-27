@@ -5,7 +5,7 @@
 // Sent when Email (Sending) is on, the church hasn't turned the reminder off for good
 // (ChurchSettings.backupReminderDisabled), and it is not a demo. An admin is skipped for 30 days after either an
 // email or dismissing the in-app reminder, so the two never nag together.
-const cron = require("node-cron");
+const cron = require("./pausableCron");
 const prisma = require("../prismaClient");
 const { sendEmail } = require("./email");
 const { isFeatureEnabled } = require("./features");
