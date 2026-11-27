@@ -71,7 +71,7 @@ function MeetingFields({ form, setForm, zoneName }) {
 
 // Resend/Cancel live inside the edit popup since they are meeting-specific actions.
 export default function AdminTripMeetings() {
-  const { trip, reload, confirmDialog, id, canWrite } = useOutletContext();
+  const { trip, reload, confirmDialog, id, canWrite, emailOff } = useOutletContext();
   const { timezone } = useSettings();
   const [error, setError] = useState("");
   const [modalMeeting, setModalMeeting] = useState(null); // null | { id: null|meetingId, form, cancelledAt }
@@ -146,7 +146,9 @@ export default function AdminTripMeetings() {
       title: "Cancel this meeting?",
       body: (
         <ConfirmMessageBody>
-          Everyone on the team who was emailed the original invite will get a cancellation notice.
+          {emailOff
+            ? "Email isn't set up on this site, so nobody is told automatically. After you cancel, you'll see each person's own trip page link, to send them yourself so they know."
+            : "Everyone on the team who was emailed the original invite will get a cancellation notice."}
         </ConfirmMessageBody>
       ),
       confirmLabel: "Cancel meeting",
@@ -261,7 +263,7 @@ export default function AdminTripMeetings() {
                     className="btn secondary small"
                     onClick={() => handleResendMeetingInvite(modalMeeting.id)}
                   >
-                    Resend invite
+                    {emailOff ? "Show links to pass on" : "Resend invite"}
                   </button>
                 )}
                 {!modalMeeting.cancelledAt && (

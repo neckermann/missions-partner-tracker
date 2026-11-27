@@ -703,7 +703,12 @@ covered below.
   the trip's own start or end date resends everyone the updated
   calendar invite too. **Cancel** calls a meeting off and emails
   everyone who was invited — the meeting stays listed, crossed out, as
-  a record that it happened and was called off.
+  a record that it happened and was called off. **With email off**
+  nothing here claims an email goes out: scheduling, changing or
+  cancelling a meeting shows each team member's own trip page link for
+  you to pass on, the cancel question says nobody is told automatically,
+  **Resend invite** becomes **Show links to pass on**, and the
+  Requirements tab says no reminders are sent.
 - **Budget** (if turned on in Trips Settings) tracks estimated
   whole-team costs against what's been raised — admin-only, never
   shown to applicants or participants.
@@ -1205,9 +1210,17 @@ role (Admin, Editor, Viewer, or Guest — pick at least one trip for a
 Guest), then how they'll get access — **Send a welcome email** (on
 by default) emails them a one-time "Choose your password" link so you
 never type or see their password; **Require two-factor authentication at
-first sign-in** can be turned on at the same time. If outbound email
-isn't set up, the setup link is shown right there on the page instead, to
-copy and send however you like. Turn the welcome email off to set a
+first sign-in** can be turned on at the same time. **With email off**
+(or switched on but not finished setting up) the page never offers to
+send anything: the tick box reads **Give me a setup link to pass on**,
+the note under it says nothing is emailed, and when you save, the
+one-time setup link is shown right there to copy and send however you
+like (a text, your own email, in person). **Send setup link** on a row
+in Manage Users works the same way, and only ever says "Setup link
+sent" when an email really went out. If there is no link to show
+either (the site has not been told its own web address, `APP_BASE_URL`),
+the message says so and tells you to set a password for the person
+from **Edit**. Turn the tick box off to set a
 password yourself (or leave it blank and use **Send setup link** on their
 row in Manage Users later) — either way, every account is still email +
 password once set up, per [Logging in](#logging-in) above. A setup link

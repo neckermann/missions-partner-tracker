@@ -24,6 +24,7 @@ import Breadcrumb from "../components/shared/Breadcrumb.jsx";
 import LastEdited from "../components/shared/LastEdited.jsx";
 import ManualSendNotice from "../components/shared/ManualSendNotice.jsx";
 import { mapServerErrorMessage } from "../utils/friendlyError.js";
+import { welcomeNotSentMessage } from "../utils/setupLinkMessages.js";
 import useCurrentUser from "../hooks/useCurrentUser.js";
 import RecordUnavailable, { loadErrorStatus } from "../components/shared/RecordUnavailable.jsx";
 import GiveGuestAccessModal from "../components/admin/GiveGuestAccessModal.jsx";
@@ -171,7 +172,10 @@ export default function AdminTripParticipantDetail() {
       setManualAccessLink({ email: created.email, url: created.welcomeEmail.manualSetupUrl });
     } else if (created.welcomeEmail && !created.welcomeEmail.sent && !created.welcomeEmail.skipped) {
       setError(
-        `${created.email} now has guest access, but the welcome email couldn't be sent (${created.welcomeEmail.error}). Use "Send setup link" on their row in Manage Users to try again.`
+        welcomeNotSentMessage(created.email, created.welcomeEmail, {
+          created: "now has guest access",
+          retryHint: 'Use "Send setup link" on their row in Manage Users to try again.',
+        })
       );
     }
   }
