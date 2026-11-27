@@ -434,7 +434,8 @@ const FIELD_OPTIONS = [
 export default function AdminBooklet() {
   const [partners, setPartners] = useState([]);
   const [includeArchived, setIncludeArchived] = useState(false);
-  const [includeRestricted, setIncludeRestricted] = useState(true);
+  // Off by default: a restricted partner prints with their real name and details, so including them is a choice.
+  const [includeRestricted, setIncludeRestricted] = useState(false);
   const [includeOrganizations, setIncludeOrganizations] = useState(true);
   const [fields, setFields] = useState({
     showPhoto: true,
@@ -508,6 +509,13 @@ export default function AdminBooklet() {
       return next;
     });
   }
+
+  // How many restricted partners the booklet would print with the box ticked, under the other choices.
+  const restrictedCount =
+    missionaries.filter((m) => m.isRestricted && (!m.archived || includeArchived)).length +
+    (includeOrganizations
+      ? organizations.filter((o) => o.isRestricted && (!o.archived || includeArchived)).length
+      : 0);
 
   // Depends on churchContact (replaced wholesale by its effect, never mutated) rather than
   // its individual fields.
@@ -646,6 +654,15 @@ export default function AdminBooklet() {
                   Local &amp; National Organizations
                 </label>
               </div>
+              {includeRestricted && (
+                <p role="status" style={{ color: "var(--warn)", fontSize: "0.85rem", margin: "0.5rem 0 0" }}>
+                  {restrictedCount === 1
+                    ? "1 restricted-access partner is included."
+                    : `${restrictedCount} restricted-access partners are included.`}{" "}
+                  They print with their real names and details, so hand this booklet only to people who may
+                  see them.
+                </p>
+              )}
             </div>
 
             <div className="admin-section">

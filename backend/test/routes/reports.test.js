@@ -195,6 +195,114 @@ describe("Role and feature gating", () => {
   // Nothing in DEFAULT_ROLES (registry.js) includes "tripLeader", and the route's
   // requireRole("admin", "editor", "viewer") rejects it with a 403 before the registry is
   // consulted, like every other role-gated route.
+  // Monthly support amounts must not show anywhere once that feature is switched off: not in a report that stays
+  // available, not in its CSV, and not in the partner list the admin pages load.
+  describe("monthly support amounts while Monthly support is off", () => {
+    const AMOUNT = 4321;
+    const COUNTRY = "Supportoffland";
+    let partner;
+
+    before(async () => {
+      partner = await createPartner({
+        displayName: `${FIXTURE_TAG} Support Off Partner`,
+        // A country no seeded partner is in, so its "Where we serve" row is this partner's amount alone.
+        addresses: { create: { type: "physical", country: COUNTRY } },
+      });
+      await prisma.supportEntry.create({
+        data: { partnerId: partner.id, amount: AMOUNT, effectiveDate: new Date("2020-01-01") },
+      });
+    });
+
+    after(async () => {
+      await setFeatures({ monthlySupport: true });
+    });
+
+    const hasAmount = (body) => JSON.stringify(body).includes(String(AMOUNT));
+
+    test("with the feature on, the amounts are there (so the off case is a real difference)", async () => {
+      await setFeatures({ monthlySupport: true });
+      for (const id of ["where-we-serve", "partner-roster"]) {
+        const res = await admin(`/api/reports/${id}`);
+        assert.equal(res.status, 200);
+        assert.ok(
+          res.body.columns.some((c) => c.key === "monthly"),
+          `${id} has the Committed column`
+        );
+        assert.ok(hasAmount(res.body.rows), `${id} carries the amount`);
+      }
+      const list = await admin("/api/partners");
+      assert.equal(list.body.find((p) => p.id === partner.id).supportEntries[0].amount, AMOUNT);
+    });
+
+    test("'Where we serve' and 'Partner roster' leave out every amount, for each role, on screen and in the CSV", async () => {
+      await setFeatures({ monthlySupport: false });
+      for (const as of [admin, editor, viewer]) {
+        for (const id of ["where-we-serve", "partner-roster"]) {
+          const res = await as(`/api/reports/${id}`);
+          assert.equal(res.status, 200, `${id} is still available`);
+          const keys = res.body.columns.map((c) => c.key);
+          assert.ok(!keys.includes("monthly") && !keys.includes("share"), `${id}: no support columns`);
+          assert.ok(
+            res.body.rows.every((r) => !("monthly" in r) && !("share" in r)),
+            `${id}: no support values in the rows`
+          );
+          assert.ok(!hasAmount(res.body), `${id}: the amount appears nowhere in the response`);
+          assert.ok(
+            !res.body.summary.some((line) => /committed/i.test(line.label)),
+            `${id}: no "Committed per month" summary`
+          );
+          assert.equal(res.body.chart, null, `${id}: no support chart`);
+
+          const csv = await as(`/api/reports/${id}?format=csv`);
+          assert.equal(csv.status, 200);
+          assert.doesNotMatch(String(csv.body), /Committed|Share of support/);
+          assert.ok(!String(csv.body).includes(String(AMOUNT)));
+        }
+      }
+      const row = (await admin("/api/reports/where-we-serve")).body.rows.find((r) => r.country === COUNTRY);
+      assert.equal(row?.partners, 1, "the countries and partner counts are still reported");
+    });
+
+    test("the catalog drops the support columns and no longer asks 'how much support goes where?'", async () => {
+      await setFeatures({ monthlySupport: false });
+      const res = await admin("/api/reports");
+      const where = res.body.reports.find((r) => r.id === "where-we-serve");
+      const roster = res.body.reports.find((r) => r.id === "partner-roster");
+      assert.ok(!where.columns.some((c) => c.key === "monthly" || c.key === "share"));
+      assert.ok(!roster.columns.some((c) => c.key === "monthly"));
+      assert.doesNotMatch(where.question, /support/i);
+      assert.ok(!res.body.reports.some((r) => r.id === "support-summary" || r.id === "support-changes"));
+    });
+
+    test("no other report that stays available shows a support amount", async () => {
+      await setFeatures({ monthlySupport: false });
+      const catalog = await admin("/api/reports");
+      for (const report of catalog.body.reports) {
+        const res = await admin(`/api/reports/${report.id}`);
+        assert.equal(res.status, 200, `${report.id} runs`);
+        const mine = res.body.rows.filter((r) => String(r.partnerName || "").includes("Support Off Partner"));
+        assert.ok(!hasAmount(mine), `${report.id} does not carry the partner's support amount`);
+        assert.ok(
+          !res.body.columns.some((c) => /committed|monthly support/i.test(c.label)),
+          `${report.id} has no support column`
+        );
+      }
+    });
+
+    test("GET /api/partners does not return supportEntries to an admin, editor or viewer", async () => {
+      await setFeatures({ monthlySupport: false });
+      for (const as of [admin, editor, viewer]) {
+        const res = await as("/api/partners");
+        assert.equal(res.status, 200);
+        const row = res.body.find((p) => p.id === partner.id);
+        assert.ok(row, "the partner is still listed");
+        assert.equal(row.supportEntries, undefined);
+        assert.ok(!hasAmount(row));
+        assert.ok(res.body.every((p) => !("supportEntries" in p)));
+      }
+    });
+  });
+
   test("a viewer can still reach a trips report (not admin-only)", async () => {
     const res = await viewer("/api/reports/trip-fundraising");
     assert.equal(res.status, 200);

@@ -19,6 +19,7 @@ import SettingsPageHeader from "../components/admin/SettingsPageHeader.jsx";
 import Table from "../components/shared/Table.jsx";
 import QuickActionModal from "../components/shared/QuickActionModal.jsx";
 import { mapServerErrorMessage } from "../utils/friendlyError.js";
+import { setupLinkNotSentMessage } from "../utils/setupLinkMessages.js";
 import { formatUtcDate } from "../utils/format.js";
 import { GuestGrantsPanel } from "../components/admin/GuestAccessPanels.jsx";
 import TripGrantPicker from "../components/admin/TripGrantPicker.jsx";
@@ -198,8 +199,11 @@ export default function AdminUsers() {
       const result = await sendUserSetupLink(id);
       if (result?.manualSetupUrl) {
         setManualSetupLink({ email, url: result.manualSetupUrl });
-      } else {
+      } else if (result?.sent) {
         setNotice(`Setup link sent to ${email}.`);
+      } else {
+        setNotice("");
+        setError(setupLinkNotSentMessage(email));
       }
     } catch (err) {
       reportError(err, "Couldn't send the setup link");

@@ -76,21 +76,46 @@ describe("AdminBooklet restricted-access filtering", () => {
     // Preview content settles once the fetched partners land.
     await waitFor(() => expect(getPreviewHtml()).toContain("Open Missionary"));
 
-    // Restricted-access defaults to checked (includeRestricted starts
-    // true) -- both restricted entries print until the admin unchecks it.
-    expect(getPreviewHtml()).toContain("Restricted Missionary");
-    expect(getPreviewHtml()).toContain("Restricted Org");
-
-    fireEvent.click(screen.getByRole("checkbox", { name: "Restricted-access" }));
-
-    await waitFor(() => expect(getPreviewHtml()).not.toContain("Restricted Missionary"));
+    // Restricted-access is unticked when the page opens: neither restricted entry prints until it is ticked.
+    expect(screen.getByRole("checkbox", { name: "Restricted-access" })).not.toBeChecked();
+    expect(getPreviewHtml()).not.toContain("Restricted Missionary");
     // Guards the restricted-organization leak: the organizations filter never checked
     // isRestricted, so this line printed anyway.
     expect(getPreviewHtml()).not.toContain("Restricted Org");
+    expect(screen.queryByText(/restricted-access partners? (is|are) included/)).toBeNull();
 
-    // Unaffected entries keep printing either way.
+    // Unaffected entries print either way.
     expect(getPreviewHtml()).toContain("Open Missionary");
     expect(getPreviewHtml()).toContain("Open Org");
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Restricted-access" }));
+    await waitFor(() => expect(getPreviewHtml()).toContain("Restricted Missionary"));
+    expect(getPreviewHtml()).toContain("Restricted Org");
+    expect(getPreviewHtml()).toContain("Open Missionary");
+  });
+
+  it("says how many restricted partners are included, with a caution, once ticked", async () => {
+    fetchPartners.mockResolvedValue([
+      RESTRICTED_MISSIONARY,
+      { ...RESTRICTED_MISSIONARY, id: "m-restricted-archived", archived: true },
+      OPEN_MISSIONARY,
+      RESTRICTED_ORG,
+    ]);
+    render(<AdminBooklet />);
+    await waitFor(() => expect(getPreviewHtml()).toContain("Open Missionary"));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Restricted-access" }));
+    // The archived one is not counted while Archived is unticked.
+    expect(await screen.findByText(/2 restricted-access partners are included\./)).toBeInTheDocument();
+    expect(screen.getByText(/real names and details/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Archived" }));
+    expect(await screen.findByText(/3 restricted-access partners are included\./)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Local & National Organizations" }));
+    expect(await screen.findByText(/2 restricted-access partners are included\./)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Restricted-access" }));
+    expect(screen.queryByText(/restricted-access partners? (is|are) included/)).toBeNull();
   });
 });
 

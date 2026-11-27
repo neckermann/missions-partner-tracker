@@ -1,7 +1,12 @@
 // The one function every channel (GroupMe, WhatsApp, admin and public email
 // dispatch) calls to decide whether a recorded DispatchRecord row belongs in its send now.
 const prisma = require("../prismaClient");
-const { PUBLIC_EMAIL_DISPATCH_TYPES, REVIEW_GATED_TYPES, CARE_DISPATCH_TYPES } = require("./dispatchBlurbs");
+const {
+  PUBLIC_EMAIL_DISPATCH_TYPES,
+  REVIEW_GATED_TYPES,
+  CARE_DISPATCH_TYPES,
+  isEverydayPrayer,
+} = require("./dispatchBlurbs");
 
 // Shared wrapper over the ChurchSettings lookup every dispatch file needs.
 function getChurchSettings() {
@@ -40,6 +45,9 @@ function needsReview(row, partner) {
 // send. hasEligibleRecipient is computed by the caller per channel (chat: true
 // once the shared schedule fired; email: a subscriber on this tier following this partner).
 function isEligibleForChannel(row, channel, partner, settings, hasEligibleRecipient) {
+  // Rule 0, every channel and every path (scheduled, urgent, approved): an "Everyday" prayer request is staff
+  // only and never leaves the app, however it got here and whatever has been reviewed.
+  if (isEverydayPrayer(row)) return false;
   // Rule 1, every channel: a restricted partner's content is never eligible until
   // reviewed, or at all if restricted-partner dispatch is off. The review-wait
   // excludes a restricted newsletter because buildBlurb() already suppresses it.

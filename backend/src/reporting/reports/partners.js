@@ -26,6 +26,7 @@ const baseWhere = (p) => ({
 });
 const archivedField = { name: "includeArchived", label: "Include archived partners", type: "checkbox" };
 const kindField = { name: "kind", label: "Partner type", type: "select", options: kindOptions };
+const SUPPORT_ENTRY_SELECT = { select: { amount: true, effectiveDate: true, createdAt: true } };
 const person = (a) => [a.firstName, a.lastName].filter(Boolean).join(" ") || "Family member";
 
 const keyDates = {
@@ -161,7 +162,10 @@ const whereWeServe = {
   id: "where-we-serve",
   group: "coverage",
   label: "Where we serve",
-  question: "Which countries are our partners in, and how much support goes where?",
+  question: (isEnabled) =>
+    isEnabled("monthlySupport")
+      ? "Which countries are our partners in, and how much support goes where?"
+      : "Which countries are our partners in?",
   requiresFeature: null,
   params: z.object({
     asOf: optionalDay,
@@ -177,43 +181,52 @@ const whereWeServe = {
     type: "currency",
     title: "Committed monthly support by country",
     limit: 10,
+    requiresFeature: "monthlySupport",
   },
   columns: [
     { key: "country", label: "Country" },
     { key: "partners", label: "Partners", type: "number" },
-    { key: "monthly", label: "Committed ($/mo)", type: "currency" },
-    { key: "share", label: "Share of support (%)", type: "number" },
+    { key: "monthly", label: "Committed ($/mo)", type: "currency", requiresFeature: "monthlySupport" },
+    { key: "share", label: "Share of support (%)", type: "number", requiresFeature: "monthlySupport" },
   ],
-  fetch: (params, { prisma }) =>
+  fetch: (params, { prisma, isEnabled = () => true }) =>
     prisma.partner.findMany({
       where: baseWhere(params),
       select: {
         addresses: { select: { country: true, type: true } },
-        supportEntries: { select: { amount: true, effectiveDate: true, createdAt: true } },
+        ...(isEnabled("monthlySupport") ? { supportEntries: SUPPORT_ENTRY_SELECT } : {}),
       },
     }),
-  compute(partners, params, { today }) {
+  // With Monthly support off the amounts are neither added up nor used to order the countries.
+  compute(partners, params, { today, isEnabled = () => true }) {
     const asOf = params.asOf || today;
+    const withSupport = isEnabled("monthlySupport");
     const map = new Map();
     for (const p of partners) {
       const c = countryOf(p);
-      const row = map.get(c) || { country: c, partners: 0, monthly: 0 };
+      const row = map.get(c) || { country: c, partners: 0, ...(withSupport ? { monthly: 0 } : {}) };
       row.partners += 1;
-      row.monthly += monthlySupportAsOf(p.supportEntries, asOf);
+      if (withSupport) row.monthly += monthlySupportAsOf(p.supportEntries, asOf);
       map.set(c, row);
     }
     const rows = [...map.values()];
-    const total = rows.reduce((s, r) => s + r.monthly, 0);
-    rows.forEach((r) => (r.share = total ? Math.round((r.monthly / total) * 100) : 0));
+    const total = withSupport ? rows.reduce((s, r) => s + r.monthly, 0) : 0;
+    if (withSupport) rows.forEach((r) => (r.share = total ? Math.round((r.monthly / total) * 100) : 0));
     rows.sort(
-      (a, b) => b.monthly - a.monthly || b.partners - a.partners || a.country.localeCompare(b.country)
+      (a, b) =>
+        (b.monthly || 0) - (a.monthly || 0) || b.partners - a.partners || a.country.localeCompare(b.country)
     );
     return {
       rows,
       summary: [
         { label: "Countries", value: rows.filter((r) => r.country !== "Unknown").length },
         { label: "Partners", value: partners.length },
-        { label: "Committed per month", value: total, type: "currency" },
+        {
+          label: "Committed per month",
+          value: total,
+          type: "currency",
+          requiresFeature: "monthlySupport",
+        },
       ],
       notes: [
         "A partner is counted in the country of its physical address (or its first address). 'Unknown' means no address.",
@@ -240,10 +253,10 @@ const partnerRoster = {
     { key: "country", label: "Country" },
     { key: "since", label: "Partnering since", type: "date" },
     { key: "sentByUs", label: "Sent by us" },
-    { key: "monthly", label: "Committed ($/mo)", type: "currency" },
+    { key: "monthly", label: "Committed ($/mo)", type: "currency", requiresFeature: "monthlySupport" },
     { key: "status", label: "Status" },
   ],
-  fetch: (params, { prisma }) =>
+  fetch: (params, { prisma, isEnabled = () => true }) =>
     prisma.partner.findMany({
       where: baseWhere(params),
       select: {
@@ -254,11 +267,12 @@ const partnerRoster = {
         supportingSince: true,
         sentByOurChurch: true,
         addresses: { select: { country: true, type: true } },
-        supportEntries: { select: { amount: true, effectiveDate: true, createdAt: true } },
+        ...(isEnabled("monthlySupport") ? { supportEntries: SUPPORT_ENTRY_SELECT } : {}),
       },
     }),
-  compute(partners, params, { today }) {
+  compute(partners, params, { today, isEnabled = () => true }) {
     const asOf = params.asOf || today;
+    const withSupport = isEnabled("monthlySupport");
     const rows = partners.map((p) => ({
       partnerName: p.displayName,
       kind: p.kind,
@@ -266,7 +280,7 @@ const partnerRoster = {
       since: ymd(p.supportingSince),
       years: p.supportingSince ? Math.floor(daysBetween(asOf, p.supportingSince) / 365.25) : null,
       sentByUs: p.sentByOurChurch ? "Yes" : "",
-      monthly: monthlySupportAsOf(p.supportEntries, asOf),
+      ...(withSupport ? { monthly: monthlySupportAsOf(p.supportEntries, asOf) } : {}),
       status: p.archived ? "Archived" : "Active",
       _restricted: p.isRestricted,
     }));

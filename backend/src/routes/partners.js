@@ -334,6 +334,9 @@ router.get("/reachable", async (req, res, next) => {
 // to the partners they reach, and without the one thing they never see:
 // money (the current monthly support amount, and "supporting since").
 const { supportEntries: _s, supportingSince: _ss, ...guestSummarySelect } = partnerSummarySelect;
+// With Monthly support switched off nobody is sent the amounts: the list would otherwise hand every partner's
+// current figure to admins, editors and viewers of a church that chose not to keep them in view.
+const { supportEntries: _se, ...summarySelectWithoutSupport } = partnerSummarySelect;
 
 // GET /api/partners/sending-churches -- the options for the "Sending church" filter
 // used on every list about partners (ours first, then each other church, with
@@ -409,9 +412,16 @@ router.get("/", requireRole("admin", "editor", "viewer", "guest"), async (req, r
       return res.json(full.map(shapePartner));
     }
 
+    const listSettings = await prisma.churchSettings.findUnique({
+      where: { id: "singleton" },
+      select: { enabledFeatures: true },
+    });
+    const staffSelect = isFeatureEnabled(listSettings?.enabledFeatures, "monthlySupport")
+      ? partnerSummarySelect
+      : summarySelectWithoutSupport;
     const records = await prisma.partner.findMany({
       where,
-      select: reachable ? guestSummarySelect : partnerSummarySelect,
+      select: reachable ? guestSummarySelect : staffSelect,
       orderBy: { displayName: "asc" },
     });
     // When each partner (or any section of it) was last changed -- staff only; a

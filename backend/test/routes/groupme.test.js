@@ -282,7 +282,7 @@ describe("prayer request creation enqueues a DispatchRecord instead of posting l
         method: "POST",
         body: {
           partnerId,
-          category: "situational",
+          category: "strategic",
           requestText: `${FIXTURE_TAG} enqueues, doesn't post live`,
           dateReceived: "2026-01-01",
         },
@@ -313,7 +313,7 @@ describe("prayer request creation enqueues a DispatchRecord instead of posting l
         method: "POST",
         body: {
           partnerId,
-          category: "situational",
+          category: "strategic",
           requestText: `${FIXTURE_TAG} still recorded despite the GroupMe mute`,
           dateReceived: "2026-01-01",
         },
@@ -354,7 +354,7 @@ describe("prayer request creation enqueues a DispatchRecord instead of posting l
         method: "POST",
         body: {
           partnerId: restrictedPartner.body.id,
-          category: "situational",
+          category: "strategic",
           requestText: `${FIXTURE_TAG} never recorded, restricted and opted out`,
           dateReceived: "2026-01-01",
         },
@@ -440,7 +440,7 @@ describe("recording a prayer request's answer enqueues, same transition-only rul
   async function createOngoing(requestText) {
     const res = await admin("/api/prayer-requests", {
       method: "POST",
-      body: { partnerId, category: "situational", requestText, dateReceived: "2026-01-01" },
+      body: { partnerId, category: "strategic", requestText, dateReceived: "2026-01-01" },
     });
     assert.equal(res.status, 201);
     return res.body.id;

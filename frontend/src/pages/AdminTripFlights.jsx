@@ -6,6 +6,8 @@ import { mapServerErrorMessage } from "../utils/friendlyError.js";
 import RecordList from "../components/admin/RecordList.jsx";
 import QuickActionModal from "../components/shared/QuickActionModal.jsx";
 import Field from "../components/admin/Field.jsx";
+import { useSettings } from "../context/SettingsContext.jsx";
+import { formatChurchDateTime, toChurchDateTimeInputValue, churchZoneName } from "../utils/churchTime.js";
 
 const emptyFlightForm = {
   participantIds: [],
@@ -17,7 +19,7 @@ const emptyFlightForm = {
   arrivalAt: "",
 };
 
-function FlightFields({ form, setForm, participants }) {
+function FlightFields({ form, setForm, participants, zoneName }) {
   function set(field, value) {
     setForm((f) => ({ ...f, [field]: value }));
   }
@@ -62,6 +64,9 @@ function FlightFields({ form, setForm, participants }) {
           value={form.departureAt}
           onChange={(e) => set("departureAt", e.target.value)}
         />
+        {zoneName && (
+          <small style={{ display: "block", color: "var(--muted)" }}>Your church's time ({zoneName}).</small>
+        )}
       </label>
       <label>
         Arrival airport
@@ -74,6 +79,9 @@ function FlightFields({ form, setForm, participants }) {
           value={form.arrivalAt}
           onChange={(e) => set("arrivalAt", e.target.value)}
         />
+        {zoneName && (
+          <small style={{ display: "block", color: "var(--muted)" }}>Your church's time ({zoneName}).</small>
+        )}
       </label>
     </div>
   );
@@ -81,6 +89,7 @@ function FlightFields({ form, setForm, participants }) {
 
 export default function AdminTripFlights() {
   const { trip, reload, confirmDialog, canWrite } = useOutletContext();
+  const { timezone } = useSettings();
   const [error, setError] = useState("");
   const [segModal, setSegModal] = useState(null); // null | { id: null|segId, form }
 
@@ -93,16 +102,20 @@ export default function AdminTripFlights() {
   }
 
   function openEdit(seg) {
+    const departureAt = toChurchDateTimeInputValue(seg.departureAt, timezone);
+    const arrivalAt = toChurchDateTimeInputValue(seg.arrivalAt, timezone);
     setSegModal({
       id: seg.id,
+      // What the boxes were filled with: an untouched time is left out of the save, so it is stored unchanged.
+      loaded: { departureAt, arrivalAt },
       form: {
         participantIds: (seg.participants || []).map((p) => p.id),
         airline: seg.airline || "",
         flightNumber: seg.flightNumber || "",
         departureAirport: seg.departureAirport || "",
-        departureAt: seg.departureAt ? seg.departureAt.slice(0, 16) : "",
+        departureAt,
         arrivalAirport: seg.arrivalAirport || "",
-        arrivalAt: seg.arrivalAt ? seg.arrivalAt.slice(0, 16) : "",
+        arrivalAt,
       },
     });
   }
@@ -121,8 +134,14 @@ export default function AdminTripFlights() {
       arrivalAirport: segModal.form.arrivalAirport.trim() || null,
       arrivalAt: segModal.form.arrivalAt || null,
     };
-    if (segModal.id == null) await addTripFlightSegment(trip.id, patch);
-    else await updateTripFlightSegment(segModal.id, patch);
+    if (segModal.id == null) {
+      await addTripFlightSegment(trip.id, patch);
+    } else {
+      for (const field of ["departureAt", "arrivalAt"]) {
+        if (segModal.form[field] === segModal.loaded?.[field]) delete patch[field];
+      }
+      await updateTripFlightSegment(segModal.id, patch);
+    }
     reload();
   }
 
@@ -185,17 +204,14 @@ export default function AdminTripFlights() {
             />
             <Field
               label="Departs"
-              value={[
-                seg.departureAirport,
-                seg.departureAt ? new Date(seg.departureAt).toLocaleString() : null,
-              ]
+              value={[seg.departureAirport, formatChurchDateTime(seg.departureAt, timezone)]
                 .filter(Boolean)
                 .join(" · ")}
               showEmpty
             />
             <Field
               label="Arrives"
-              value={[seg.arrivalAirport, seg.arrivalAt ? new Date(seg.arrivalAt).toLocaleString() : null]
+              value={[seg.arrivalAirport, formatChurchDateTime(seg.arrivalAt, timezone)]
                 .filter(Boolean)
                 .join(" · ")}
               showEmpty
@@ -211,7 +227,12 @@ export default function AdminTripFlights() {
           onSubmit={submitSegModal}
           onDelete={segModal.id != null ? () => handleDeleteFlightSegment(segModal) : undefined}
         >
-          <FlightFields form={segModal.form} setForm={setSegModalForm} participants={participants} />
+          <FlightFields
+            form={segModal.form}
+            setForm={setSegModalForm}
+            participants={participants}
+            zoneName={churchZoneName(timezone)}
+          />
         </QuickActionModal>
       )}
     </div>

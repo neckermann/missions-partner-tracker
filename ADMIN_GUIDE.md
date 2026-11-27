@@ -1126,6 +1126,36 @@ selectable on their picker even after an admin disables it — an
 admin's own Account Settings only, since the public forms are
 new-subscriber-only and have no existing choice to preserve.
 
+### Alerts when a channel is on but cannot send
+
+Switching a channel on is not the same as it being able to send. Until
+the rest is filled in, updates wait in the queue or are skipped, and
+nothing used to say so. Admins (only admins) now get an alert on the
+bell and the Home page for each of these states, and each alert opens
+the page that fixes it:
+
+| Alert | When it shows | Where it takes you |
+|---|---|---|
+| **Email isn't finished setting up** | Email (Sending) is on, but there is no mail account or From address yet. | Settings → Email |
+| **Update emails have no schedule, so none will go out** | Email can send, but the Email Schedule has no day and no time. | Settings → Sending Updates |
+| **The email schedule is only half set** | A rhythm is ticked with no day for it (Biweekly needs a weekday; Monthly and Quarterly need a day of the month), or a day is set with no time. | Settings → Sending Updates |
+| **GroupMe isn't finished setting up** | GroupMe is on, but there is no access token, or no group has been chosen. | Settings → GroupMe |
+| **WhatsApp isn't finished setting up** | WhatsApp is on, but no phone has been linked, or no community has been chosen to post in. | Settings → WhatsApp |
+| **Chat posts have no send time, so none will go out** | GroupMe or WhatsApp is on, but the daily posting time is not set. | Settings → Sending Updates |
+
+An alert stays listed until the thing is fixed (or the channel is
+switched off); opening the bell only stops it counting as new. The
+email schedule alerts wait until email itself is set up, so you are
+told about one thing at a time. A WhatsApp number that was linked and
+has since dropped its connection is a separate alert, **WhatsApp
+connection dropped**.
+
+**Send Test Email** (Settings → Email) is greyed out while sending is
+switched off, with a line saying why; it used to answer "Not found".
+
+These alerts only report. They do not add a default schedule or change
+who is subscribed.
+
 ### Urgent dispatch
 
 An admin or editor can mark a prayer request or one-time need **urgent**

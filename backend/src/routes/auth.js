@@ -7,14 +7,19 @@ const { phoneSchema } = require("../utils/contactFormat");
 const { generateSecret, generateURI, verify: verifyOtp } = require("otplib");
 const QRCode = require("qrcode");
 const prisma = require("../prismaClient");
-const { requireAuth, requireAuthOrMfaSetup } = require("../middleware/requireAuth");
+const { requireAuth, requireAuthAllowPaused, requireAuthOrMfaSetup } = require("../middleware/requireAuth");
 const { setSessionCookie, clearSessionCookie } = require("../utils/jwt");
 const { encryptField, decryptField } = require("../utils/crypto");
 const { appBaseUrl } = require("../utils/dispatchBlurbs");
 const { escapeHtml } = require("../utils/emailDispatchShell");
 const { findValidSetupToken, hashToken, RESET_COOLDOWN_MS } = require("../utils/passwordSetup");
 const { sendWelcomeEmail, sendPasswordResetEmail } = require("../utils/welcomeEmails");
-const { listTripGrants, isCareTeamEnabled } = require("../utils/guestAccess");
+const {
+  listTripGrants,
+  isCareTeamEnabled,
+  isTripsEnabled,
+  resolveGuestReach,
+} = require("../utils/guestAccess");
 const { passwordSchema } = require("../utils/password");
 const { recordAuditSafe } = require("../utils/auditLog");
 const { isTwoFactorRequired } = require("../utils/twoFactor");
@@ -393,7 +398,7 @@ router.post("/mfa/login-verify", async (req, res, next) => {
 
 // Looked up fresh from the DB, not echoed from the JWT claims, so mfaEnabled
 // reflects changes since the token was issued.
-router.get("/me", requireAuth, async (req, res, next) => {
+router.get("/me", requireAuthAllowPaused, async (req, res, next) => {
   try {
     const user = await prisma.user.findUnique({ where: { id: req.user.id } });
     // Check `active`, not just existence: a deactivated account must not be told who it is.
@@ -943,7 +948,7 @@ async function renderUnsubscribePage(message) {
   const body = typeof message === "function" ? message(highlightColor) : message;
 
   return `<!doctype html>
-<html><head><meta charset="utf-8"><title>Email notifications</title></head>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Email notifications</title></head>
 <body style="font-family:${escapeHtml(fontFamily)};background:#f7f5f0;margin:0;padding:40px 16px;">
 <div style="max-width:420px;margin:0 auto;background:#ffffff;border-radius:10px;overflow:hidden;">
   <div style="background-color:${headerColor};padding:28px 24px;text-align:center;">
@@ -1043,8 +1048,13 @@ async function sanitizeUser(user) {
   // [{ id, label, isLead }] for the partners this login is on the care team of,
   // for every role. Empty while the careTeam feature is off (seats are ignored).
   let careTeamSeats = [];
+  // The features a guest's access depends on that the church has switched off (see resolveGuestReach): the app
+  // shows them a plain "paused" page instead of what they were given.
+  let pausedFeatures = [];
   if (user.role === "guest") {
-    const grants = (await listTripGrants(user.id)).filter((g) => g.active);
+    pausedFeatures = (await resolveGuestReach(user.id)).pausedFeatures;
+    // Trip access is tied to the trips switch, like a care team seat to care teams.
+    const grants = (await isTripsEnabled()) ? (await listTripGrants(user.id)).filter((g) => g.active) : [];
     const partners = await prisma.partner.findMany({
       where: { id: { in: grants.map((g) => g.trip.partnerId).filter(Boolean) } },
       select: { id: true, displayName: true, fieldDisplayName: true },
@@ -1080,7 +1090,7 @@ async function sanitizeUser(user) {
   let guestReadTripIds = [];
   if (user.role === "guest") {
     const ids = new Set(guestTrips.map((t) => t.id));
-    if (careTeamSeats.length > 0) {
+    if (careTeamSeats.length > 0 && (await isTripsEnabled())) {
       const viaSeats = await prisma.trip.findMany({
         where: { partnerId: { in: careTeamSeats.map((s) => s.id) } },
         select: { id: true },
@@ -1111,6 +1121,7 @@ async function sanitizeUser(user) {
     guestTrips,
     guestReadTripIds,
     careTeamSeats,
+    pausedFeatures,
   };
 }
 

@@ -2819,7 +2819,7 @@ button.report-summary-item[aria-pressed="true"] {
 }
 
 /* A labelled phone field (components/shared/PhoneField.jsx): the label above, then the country picker and the box
-   side by side, then the hint. The picker shows a compact "US +1" over a native select that is laid on top of
+   side by side, then the hint. The picker shows the country's name and code ("Kenya +254") over a native select that is laid on top of
    it and made see-through, so the long country list and a phone's own picker still work. */
 .phone-field {
   display: flex;
@@ -2849,6 +2849,18 @@ button.report-summary-item[aria-pressed="true"] {
   outline: 2px solid var(--accent, #2a5d3c);
   outline-offset: 1px;
 }
+.phone-country-shown {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  white-space: pre;
+}
+.phone-country-name {
+  max-width: 9rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-right: 0.3rem;
+}
 .phone-country-caret {
   color: var(--muted);
   font-size: 0.75rem;
@@ -2870,9 +2882,16 @@ button.report-summary-item[aria-pressed="true"] {
   font-size: 0.85rem;
   font-weight: normal;
 }
+/* Long enough to save, but it doesn't fit the country picked: a question, not an error. */
+.phone-warning {
+  color: var(--warn);
+}
 @media (max-width: 480px) {
   .phone-input {
     grid-template-columns: 1fr;
+  }
+  .phone-country-name {
+    max-width: none;
   }
   .phone-country {
     min-height: 2.4rem;

@@ -46,6 +46,19 @@ async function setFeatures(patch) {
   });
 }
 
+const ALL_ON = { publicPrayerDigest: true, publicDirectory: true, outboundEmail: true };
+const FEATURES_OFF = [
+  ["the public prayer digest", { publicPrayerDigest: false }],
+  ["the public directory", { publicDirectory: false }],
+  ["both, and email,", { publicPrayerDigest: false, publicDirectory: false, outboundEmail: false }],
+];
+
+// A click from an email must land on a page, never on raw JSON such as {"error":"Not found"}.
+function assertHtmlPage(res) {
+  assert.match(String(res.body), /^<!doctype html>/i);
+  assert.doesNotMatch(String(res.body), /"error"/);
+}
+
 let admin;
 let anon;
 
@@ -336,6 +349,36 @@ describe("GET and POST /api/public/subscribe/confirm", () => {
       await setFeatures({ outboundEmail: true });
     }
   });
+
+  // A link from an email already sent must keep working, and keep showing a page, whatever the church has
+  // switched off since. publicPrayerDigest needs publicDirectory, so either switch used to break it.
+  for (const [name, off] of FEATURES_OFF) {
+    test(`the confirm link still works, as a page, with ${name} off`, async () => {
+      const row = await prisma.publicSubscriber.create({
+        data: { email: `route-test-sub-confirm-${name.replace(/\W+/g, "-")}@example.test` },
+      });
+      const token = jwt.sign({ id: row.id, subscriberConfirm: true }, process.env.SESSION_SECRET);
+      await setFeatures(off);
+      try {
+        const page = await anon(`/api/public/subscribe/confirm?token=${encodeURIComponent(token)}`);
+        assert.equal(page.status, 200);
+        assertHtmlPage(page);
+        assert.match(String(page.body), /Confirm my subscription/);
+
+        const res = await postConfirm(token);
+        assert.equal(res.status, 200);
+        assertHtmlPage(res);
+        const after = await prisma.publicSubscriber.findUnique({ where: { id: row.id } });
+        assert.ok(after.confirmedAt, "the subscription is confirmed");
+
+        const bad = await anon("/api/public/subscribe/confirm?token=garbage");
+        assert.equal(bad.status, 400);
+        assertHtmlPage(bad);
+      } finally {
+        await setFeatures(ALL_ON);
+      }
+    });
+  }
 });
 
 describe("GET/POST /api/public/unsubscribe", () => {
@@ -400,13 +443,57 @@ describe("GET/POST /api/public/unsubscribe", () => {
     assert.ok(after, "must not have been deleted by the wrong token type");
   });
 
-  test("404s when publicPrayerDigest is off", async () => {
-    await setFeatures({ publicPrayerDigest: false });
-    try {
-      const res = await anon("/api/public/unsubscribe?token=garbage");
-      assert.equal(res.status, 404);
-    } finally {
-      await setFeatures({ publicPrayerDigest: true });
-    }
+  for (const [name, off] of FEATURES_OFF) {
+    test(`the unsubscribe link still works, as a page, with ${name} off`, async () => {
+      const row = await prisma.publicSubscriber.create({
+        data: {
+          email: `route-test-sub-unsub-${name.replace(/\W+/g, "-")}@example.test`,
+          confirmedAt: new Date(),
+        },
+      });
+      const token = jwt.sign({ id: row.id, subscriberUnsubscribe: true }, process.env.SESSION_SECRET);
+      await setFeatures(off);
+      try {
+        const page = await anon(`/api/public/unsubscribe?token=${encodeURIComponent(token)}`);
+        assert.equal(page.status, 200);
+        assertHtmlPage(page);
+        assert.match(String(page.body), /Confirm unsubscribe/);
+
+        const res = await anon("/api/public/unsubscribe", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: `token=${encodeURIComponent(token)}`,
+        });
+        assert.equal(res.status, 200);
+        assertHtmlPage(res);
+        assert.equal(await prisma.publicSubscriber.findUnique({ where: { id: row.id } }), null);
+
+        const bad = await anon("/api/public/unsubscribe?token=garbage");
+        assert.equal(bad.status, 400, "a bad link is a page saying so, not a JSON 404");
+        assertHtmlPage(bad);
+      } finally {
+        await setFeatures(ALL_ON);
+      }
+    });
+  }
+
+  test('the page after unsubscribing does not say "you can unsubscribe anytime"', async () => {
+    const row = await prisma.publicSubscriber.create({
+      data: { email: "route-test-sub-unsub-wording@example.test", confirmedAt: new Date() },
+    });
+    const token = jwt.sign({ id: row.id, subscriberUnsubscribe: true }, process.env.SESSION_SECRET);
+    const res = await anon("/api/public/unsubscribe", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: `token=${encodeURIComponent(token)}`,
+    });
+    assert.equal(res.status, 200);
+    assert.match(String(res.body), /You(&#39;|')ve been unsubscribed/);
+    assert.doesNotMatch(String(res.body), /unsubscribe anytime/);
+  });
+
+  test("the pages are readable on a phone (viewport meta)", async () => {
+    const res = await anon("/api/public/unsubscribe?token=garbage");
+    assert.match(String(res.body), /<meta name="viewport" content="width=device-width, initial-scale=1">/);
   });
 });

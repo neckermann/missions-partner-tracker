@@ -74,7 +74,8 @@ before(async () => {
     select: { enabledFeatures: true },
   });
   originalEnabledFeatures = settings?.enabledFeatures ?? {};
-  await setFeatures({ careTeam: true, reports: true, outboundEmail: true });
+  // trips on: a trip leader's access is tied to that switch, and some tests below use one as the outsider.
+  await setFeatures({ careTeam: true, trips: true, reports: true, outboundEmail: true });
   partnerA = (
     await admin("/api/partners", {
       method: "POST",
@@ -281,11 +282,20 @@ describe("care team: guests", () => {
   test("turning the feature off ignores the seat for access, and turning it on restores it", async () => {
     await setFeatures({ careTeam: false });
     try {
-      assert.equal((await (await g.login())("/api/auth/me")).status, 401);
+      const guest = await g.login();
+      // Refused everywhere but /me, which says why (the app then shows its "paused" page).
+      const refused = await guest(`/api/partners/${partnerA.id}`);
+      assert.equal(refused.status, 403);
+      assert.equal(refused.body.code, "feature_paused");
+      const who = await guest("/api/auth/me");
+      assert.equal(who.status, 200);
+      assert.deepEqual(who.body.user.pausedFeatures, ["careTeam"]);
     } finally {
       await setFeatures({ careTeam: true });
     }
-    assert.equal((await (await g.login())("/api/auth/me")).status, 200);
+    const back = await (await g.login())("/api/auth/me");
+    assert.equal(back.status, 200);
+    assert.deepEqual(back.body.user.pausedFeatures, []);
   });
 
   test("removing the guest's last seat deactivates the account", async () => {
@@ -457,7 +467,7 @@ describe("care team: submitting prayer requests and needs", () => {
 
   const prayerBody = (extra = {}) => ({
     partnerId: partnerA.id,
-    category: "situational",
+    category: "strategic",
     requestText: "care team prayer",
     dateReceived: "2026-01-01",
     ...extra,
@@ -503,7 +513,7 @@ describe("care team: submitting prayer requests and needs", () => {
     );
   });
 
-  test("a member can make a request public like an editor, but urgent and pre-approve are ignored", async () => {
+  test("a member cannot make a request public or put it in the booklet, and urgent and pre-approve are ignored", async () => {
     const m = await member.login();
     const res = await m("/api/prayer-requests", {
       method: "POST",
@@ -518,8 +528,8 @@ describe("care team: submitting prayer requests and needs", () => {
     });
     assert.equal(res.status, 201);
     records.prayers.push(res.body.id);
-    assert.equal(res.body.isPublic, true, "editor parity: they may make it public");
-    assert.equal(res.body.includeInBooklet, true);
+    assert.equal(res.body.isPublic, false, "only staff decide what is shown: the flag is dropped");
+    assert.equal(res.body.includeInBooklet, false);
     assert.equal(res.body.isUrgent, false, "urgent would send ahead of review");
     const row = await prisma.dispatchRecord.findFirst({
       where: { type: "prayerRequestCreated", partnerId: partnerA.id },
@@ -573,7 +583,7 @@ describe("care team: submitting prayer requests and needs", () => {
     assert.equal(res.status, 200);
     const row = await prisma.prayerRequest.findUnique({ where: { id } });
     assert.equal(row.requestText, "still reworded");
-    assert.equal(row.isPublic, true, "editor parity");
+    assert.equal(row.isPublic, false, "isPublic is staff-only, so it is ignored");
     assert.equal(row.isUrgent, false, "urgent is ignored");
     assert.equal(
       (await m(`/api/prayer-requests/${id}`, { method: "PUT", body: { partnerId: partnerB.id } })).status,
@@ -772,8 +782,10 @@ describe("care team: submitting prayer requests and needs", () => {
     await setFeatures({ careTeam: false });
     try {
       const m = await member.login();
-      // their seat no longer counts, so they can't even sign in as a guest
-      assert.equal((await m("/api/prayer-requests", { method: "POST", body: prayerBody() })).status, 401);
+      // their seat no longer counts, so they reach nothing: refused as paused, not as signed out
+      const refused = await m("/api/prayer-requests", { method: "POST", body: prayerBody() });
+      assert.equal(refused.status, 403);
+      assert.equal(refused.body.code, "feature_paused");
     } finally {
       await setFeatures({ careTeam: true });
     }

@@ -32,6 +32,8 @@ router.get("/", async (req, res, next) => {
       currency: settings?.currency || "USD",
       // The country a phone number typed without a "+" is read in (utils/phoneCountry.js).
       defaultPhoneCountry: settings?.defaultPhoneCountry || "US",
+      // Trip meeting and flight times are shown in the church's own zone to everyone (frontend utils/churchTime.js).
+      timezone: settings?.timezone || "America/Chicago",
       publicTagline: settings?.publicTagline || null,
       aboutText: settings?.aboutText || null,
       // Shown above the public Subscribe form only when the church has set one (#508).

@@ -123,6 +123,21 @@ trip's logistics without a full account on everything else. See
 [SPEC.md § 5.1](SPEC.md#51-guest--a-scoped-login-not-a-4th-full-role)
 for the full access list.
 
+**When the feature a guest's access comes from is switched off.** A
+trip leader's access belongs to **Trips**, and a care team member's to
+**Care teams**. While the church has that feature switched off in
+[Enabled Features](ADMIN_GUIDE.md#feature-toggles), the guest's access
+stops on the server (they cannot open the trip or its partner by typing
+an address either), and a guest with nothing else to open sees a plain
+page saying their church has paused it ("Trips are paused" or "Care
+teams are paused"), not the sign-in page and not an instruction to
+change a setting, which they cannot reach. A guest with both kinds of
+access keeps the one that is still on. Nothing is removed: the trip
+grants and care team seats are kept, and switching the feature back on
+restores the access exactly as it was. Turning **Care teams** or
+**Trips** off therefore takes any guest who depends on it out of the
+app until it is back on, so tell them first.
+
 If something you expect to see isn't there (a nav link, a button), it's
 almost always a role thing, not a bug — check with whoever manages users
 at your church.
@@ -277,6 +292,18 @@ not just what topic they fall under:
     child (Name, Birthday).
   - **Languages Spoken** — a free-text tag list.
   - **Emergency Contact** — Name, Phone, Email.
+  - **Typing a phone number.** Every phone box has a country beside
+    it, shown by name ("Kenya +254"). Pick the country, then type the
+    number the way people there write it (`0712 345678`); it is saved
+    in full international form (`+254712345678`), so Call and WhatsApp
+    reach the right place. For a partner's adults and an
+    organization's contact person the country starts on **the country
+    the partner serves in** (from the Location address); everywhere
+    else, including the emergency contact and sending church, it
+    starts on your church's country. If a number doesn't fit the
+    country picked, a note appears when you leave the box ("This
+    doesn't look like a United States number. Is the country right?").
+    It is only a question: you can still save.
 - **Location & Contact**:
   - **Serving Location** — Field/Region Display Name (shown publicly
     even for a restricted partner, so keep it broad — "East Africa," not
@@ -520,8 +547,27 @@ or leave it as "None."
   or calling — church planting, discipleship, language study, funding —
   can optionally be shown on that partner's public profile via **Show on
   public profile**) or **Everyday** (whatever came up — health,
-  travel, family needs, paperwork; admin-only, never shown publicly
-  regardless of any setting).
+  travel, family needs, paperwork; staff only). An Everyday request is
+  **never shared by any route**: it is not posted to GroupMe or
+  WhatsApp, not included in any email update (staff or public), not
+  sent as an urgent update, never shown on the public site, the Sunday
+  prayer sheet or the booklet, and it never appears on Updates to
+  Share. The form hides **Mark as urgent** and **Review and approve
+  now** for it, and says so under the Category box. If you change a
+  Ministry request to Everyday while its update is still waiting to go
+  out, the waiting update is removed. (Changing it back later does not
+  send it: only a new Ministry request makes an update.)
+- **What a care team member can and cannot set.** Anyone who isn't an
+  admin or editor (a Guest on a partner's care team, or a Viewer who is
+  on that partner's care team) can add and edit prayer requests for that
+  partner, but cannot choose what is shown: the **Show on public
+  profile** and **Include in printed booklet** boxes are not on their
+  form, and the server ignores them if they are sent, on adding and on
+  editing. They also cannot mark a request urgent or approve it. When
+  they save, the form says "Your request has gone to the missions team
+  for review" (using your church's name for that group), and it waits
+  for staff on **Updates to Share**. Staff decide later whether it is
+  shown publicly or printed. Admins and editors are unchanged.
 - A ministry request marked **Show on public profile** can also be
   checked **Include in printed booklet** — a separate setting, since a
   partner can build up more public strategic requests over time than
@@ -679,13 +725,24 @@ covered below.
   login needed), and participants get a day-before reminder too, both
   showing the agenda and join link. Changing the time or join link
   resends the invite automatically; **Resend invite** sends it again on
-  demand with no change needed. Someone added to the team after a
+  demand with no change needed. Saving a meeting without changing its
+  time, place or link emails nobody. **Meeting and flight times are
+  always your church's own time**, with the zone named beside them (for
+  example "6:00 PM Central Time"), whoever is looking and wherever they
+  are, so a leader who is travelling reads and types the same hour as
+  the office does. The zone is the one set under **Settings → About &
+  Branding → Church Info**. Someone added to the team after a
   meeting's already scheduled gets that meeting's invite the moment
   they join — nobody has to remember to resend it for them. Changing
   the trip's own start or end date resends everyone the updated
   calendar invite too. **Cancel** calls a meeting off and emails
   everyone who was invited — the meeting stays listed, crossed out, as
-  a record that it happened and was called off.
+  a record that it happened and was called off. **With email off**
+  nothing here claims an email goes out: scheduling, changing or
+  cancelling a meeting shows each team member's own trip page link for
+  you to pass on, the cancel question says nobody is told automatically,
+  **Resend invite** becomes **Show links to pass on**, and the
+  Requirements tab says no reminders are sent.
 - **Budget** (if turned on in Trips Settings) tracks estimated
   whole-team costs against what's been raised — admin-only, never
   shown to applicants or participants.
@@ -861,7 +918,13 @@ decorative shapes, bold accent rules, and a rectangular photo) — choose
 who's included (archived, restricted-access, organizations), and what
 shows on each page (photo, overview, location, address, family info,
 sending church/org, and an optional facing **Notes & Prayer Page** with
-ruled lines for the reader's own handwritten notes). Both templates'
+ruled lines for the reader's own handwritten notes). **Restricted-access
+partners are left out until you tick the box** (it is unticked when
+the page opens); once ticked, the page says how many restricted
+partners are included and cautions that they print with their real
+names and details, so hand that booklet only to people who may see
+them. The booklet is the church's own document and otherwise prints
+partners whether or not they are on the public site. Both templates'
 accent color defaults to your church's own brand color (**Primary
 Color** in [Church Settings](#church-settings-admin-only)); an instance
 that hasn't set one falls back to a fixed four-color rotation instead.
@@ -927,7 +990,11 @@ The current reports, by group:
 
 A report tied to a feature that's turned off (see
 [ADMIN_GUIDE.md § Feature toggles](ADMIN_GUIDE.md#feature-toggles))
-simply doesn't appear in the hub.
+simply doesn't appear in the hub. With **Monthly support** turned off,
+the two reports that stay (**Where we serve** and **Partner roster &
+tenure**) also leave out their committed-amount columns, totals and
+chart, on screen, in the CSV and in a scheduled email, so no support
+amount shows anywhere while that feature is off.
 
 **Saved views** on a report's own page let you save a set of filters by
 name — **private** (only you see it) or **shared** (everyone with access
@@ -1183,9 +1250,17 @@ role (Admin, Editor, Viewer, or Guest — pick at least one trip for a
 Guest), then how they'll get access — **Send a welcome email** (on
 by default) emails them a one-time "Choose your password" link so you
 never type or see their password; **Require two-factor authentication at
-first sign-in** can be turned on at the same time. If outbound email
-isn't set up, the setup link is shown right there on the page instead, to
-copy and send however you like. Turn the welcome email off to set a
+first sign-in** can be turned on at the same time. **With email off**
+(or switched on but not finished setting up) the page never offers to
+send anything: the tick box reads **Give me a setup link to pass on**,
+the note under it says nothing is emailed, and when you save, the
+one-time setup link is shown right there to copy and send however you
+like (a text, your own email, in person). **Send setup link** on a row
+in Manage Users works the same way, and only ever says "Setup link
+sent" when an email really went out. If there is no link to show
+either (the site has not been told its own web address, `APP_BASE_URL`),
+the message says so and tells you to set a password for the person
+from **Edit**. Turn the tick box off to set a
 password yourself (or leave it blank and use **Send setup link** on their
 row in Manage Users later) — either way, every account is still email +
 password once set up, per [Logging in](#logging-in) above. A setup link
@@ -1890,7 +1965,8 @@ entirely by what you check in the admin dashboard:
   goes out to an address nobody confirmed, and a mail program that merely
   opens the link does not confirm it), and every
   digest they get after that carries its own one-click unsubscribe
-  link. This public digest is **prayer requests only** — never a
+  link. Those confirm and unsubscribe links keep working even if you
+  later turn the public digest or the public directory off. This public digest is **prayer requests only** — never a
   one-time need, never a newsletter or a link back to one — unlike the
   digest an admin can opt into from their own [Account
   Settings](#your-account-settings), which still includes both. A

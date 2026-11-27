@@ -56,6 +56,30 @@ know about:
   predates it, and on for a brand-new install. See
   [ADMIN_GUIDE.md § Authentication setup](ADMIN_GUIDE.md#authentication-setup).
 
+## What stops happening after an upgrade
+
+A fix can make the app do **less** than it did, because it was doing something
+it said it would not. Check the *Fixed* entries in [CHANGELOG.md](CHANGELOG.md);
+the ones to know about:
+
+- **"Everyday" prayer requests are no longer shared.** The prayer request form
+  has always called Everyday requests (health, travel, family, paperwork)
+  "staff only", but they were being posted to GroupMe and WhatsApp, included in
+  staff email digests and, with the public prayer digest on, emailed to public
+  subscribers. They are now never posted, emailed or sent urgently, and a
+  request changed from Ministry to Everyday is pulled back if its update is
+  still waiting. Expect **fewer posts and fewer digest items** than before: only
+  Ministry requests are shared. Everyday requests that were already sent stay
+  sent; nothing already waiting is released.
+- **The printed booklet no longer includes restricted partners unless you tick
+  the box.** On Print Booklet, **Restricted-access** used to be ticked when the
+  page opened, so a restricted partner printed with their real name and details
+  unless someone remembered to untick it. It now starts unticked; tick it to
+  include them, and the page says how many are included. Nothing else about who
+  the booklet includes changed: it still prints partners whether or not they are
+  on the public site. A booklet you print the same way as before will have
+  **fewer partners** until you tick the box.
+
 ## The easy way: GitHub's "Sync fork" button
 
 **Read the box at the top first.** On Render, clicking **Sync fork** is enough on

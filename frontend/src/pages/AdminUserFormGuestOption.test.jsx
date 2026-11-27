@@ -10,6 +10,7 @@ import AdminUserForm from "./AdminUserForm.jsx";
 let features;
 vi.mock("../api/client.js", () => ({
   createUser: vi.fn(),
+  fetchCurrentUser: vi.fn().mockResolvedValue({ id: "a", role: "admin", emailReady: true }),
   fetchTrips: vi.fn().mockResolvedValue([]),
   fetchReachablePartners: vi.fn().mockResolvedValue([]),
 }));

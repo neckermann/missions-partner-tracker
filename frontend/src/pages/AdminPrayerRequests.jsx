@@ -25,6 +25,7 @@ import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
 import useChurchSettings from "../hooks/useChurchSettings.js";
 import useUrgentApprovalGate from "../hooks/useUrgentApprovalGate.jsx";
 import { useSettings } from "../context/SettingsContext.jsx";
+import { sentForReviewNote } from "../utils/heldForReview.js";
 import LoadMoreButton from "../components/LoadMoreButton.jsx";
 import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
 import FilterBar from "../components/shared/FilterBar.jsx";
@@ -60,7 +61,7 @@ const emptyNewRequest = {
 // stays a card layout, not <Table>: each row has a variable-height request, an inline edit
 // form and an inline "Record Answer" form that don't fit table cells.
 export default function AdminPrayerRequests() {
-  const { enabledFeatures } = useSettings();
+  const { enabledFeatures, ownerGroupName } = useSettings();
   // Whether any channel exists to deliver a recorded event; see hasEnabledChannel in
   // PrayerRequestSection.jsx. Shared precondition for "Mark as urgent" and canApproveNow.
   const hasEnabledChannel =
@@ -383,7 +384,12 @@ export default function AdminPrayerRequests() {
       <LoadMoreButton hasMore={hasMore} remaining={remaining} onClick={showMore} />
 
       {activeModal === "add" && (
-        <QuickActionModal title="Add Prayer Request" onClose={closeModal} onSubmit={submitAddRequest}>
+        <QuickActionModal
+          title="Add Prayer Request"
+          onClose={closeModal}
+          onSubmit={submitAddRequest}
+          savedNote={limited ? sentForReviewNote(ownerGroupName) : undefined}
+        >
           <PrayerRequestFormFields
             form={newRequest}
             setForm={setNewRequest}
@@ -435,7 +441,12 @@ export default function AdminPrayerRequests() {
       {activeModal === "view" &&
         requestDetail &&
         (canEditRow({ partnerId: requestDetail.form.partnerId, ...requestDetail.form }) ? (
-          <QuickActionModal title="Prayer Request" onClose={closeModal} onSubmit={submitRequestDetail}>
+          <QuickActionModal
+            title="Prayer Request"
+            onClose={closeModal}
+            onSubmit={submitRequestDetail}
+            savedNote={limited ? sentForReviewNote(ownerGroupName) : undefined}
+          >
             <PartnerLinkButton partnerId={requestDetail.form.partnerId} partners={partners} />
             {!isGuest && <LastEdited name={requestDetail.lastEditedByName} at={requestDetail.lastEditedAt} />}
             <PrayerRequestFormFields

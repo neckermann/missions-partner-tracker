@@ -23,7 +23,11 @@ export default function TripDetailLayout() {
     isGuest,
     canAccessTrip,
     loading: userLoading,
+    user: currentUser,
   } = useCurrentUser();
+  // Whether this site can send email. While it can't, the trip pages say what happens in its place (links to
+  // pass on) and never promise an email. Unknown while loading is treated as able.
+  const emailOff = currentUser ? !currentUser.emailReady : false;
   // A guest's global canWrite is false, but on a trip they hold a grant for they have
   // editor-equivalent write access (the backend's requireTripScope enforces it per route).
   const canWrite = globalCanWrite || canAccessTrip(id);
@@ -179,6 +183,7 @@ export default function TripDetailLayout() {
             id,
             canWrite,
             isAdmin,
+            emailOff,
           }}
         />
       </div>

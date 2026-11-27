@@ -26,6 +26,10 @@ const CATEGORY_GROUP = {
   adminMfaDisabled: "System",
   onlyOneAdmin: "System",
   emailNotFinished: "System",
+  emailScheduleNotSet: "Communications",
+  groupmeNotFinished: "Communications",
+  whatsappNotFinished: "Communications",
+  chatTimeNotSet: "Communications",
   timeToCheckBackups: "System",
   whatsappConnectionDrop: "System",
 };

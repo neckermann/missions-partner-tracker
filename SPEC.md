@@ -563,7 +563,13 @@ wins over the derived date in both directions (`utils/tripAccessRules.js`).
 `requireAuth.js` reads a guest's grants fresh on every request; a guest
 with **no active grant** gets the same 401 as `!active` — the row is kept,
 so extending access moves a date instead of recreating the account. Care
-team seats (#289) will not expire.
+team seats (#289) will not expire. **Each kind of grant also depends on its
+feature switch:** a trip grant counts only while `trips` is on, a seat only
+while `careTeam` is on (`resolveGuestReach`). A guest whose grants are all
+switched off by their feature is not signed out: every route answers `403
+{ code: "feature_paused", features }` except `GET /api/auth/me`, which
+returns `pausedFeatures` so the app shows a plain "paused" page. Nothing is
+deleted, so turning the feature back on restores access unchanged.
 
 Removing a guest's **last** grant deactivates the account (`active:
 false`, sessions ended), never deletes it, and an admin granting access

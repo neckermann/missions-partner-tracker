@@ -6,8 +6,9 @@ import { urgentSendDescription } from "../../utils/urgentSend.js";
 // Renders only the form-grid body; callers keep their own onSubmit and buttons.
 // `mode="create"` adds the untracked/isUrgent/approveNow blocks (one-time decisions an edit
 // shouldn't redo); the default "edit" omits them. `limited` is a care team member who isn't staff:
-// urgent and "approve now" are left out because their dispatch is always held for staff review
-// (the server ignores both from them regardless). `partnerPicker`, when given, renders first.
+// urgent, "approve now", "Show on public profile" and "Include in printed booklet" are left out: their
+// request is always held for staff review and only staff decide what is shown (the server ignores all
+// four from them regardless). `partnerPicker`, when given, renders first.
 export default function PrayerRequestFormFields({
   form,
   setForm,
@@ -24,11 +25,35 @@ export default function PrayerRequestFormFields({
       {partnerPicker}
       <label>
         Category
-        <select value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}>
+        <select
+          value={form.category}
+          onChange={(e) => {
+            const category = e.target.value;
+            // Everyday is staff only: nothing about it is shared, so anything that asks for sharing is cleared.
+            setForm((f) =>
+              category === "situational"
+                ? {
+                    ...f,
+                    category,
+                    isPublic: false,
+                    includeInBooklet: false,
+                    isUrgent: false,
+                    approveNow: false,
+                  }
+                : { ...f, category }
+            );
+          }}
+        >
           <option value="strategic">Ministry (their work and calling — can be shared publicly)</option>
           <option value="situational">Everyday (health, travel, family, paperwork — staff only)</option>
         </select>
       </label>
+      {form.category === "situational" && (
+        <p style={{ gridColumn: "1 / -1", margin: 0, color: "var(--muted)", fontSize: "0.85rem" }}>
+          Everyday requests stay with your staff. They are never posted to a chat, emailed in an update, or
+          shown on the public site.
+        </p>
+      )}
       <label>
         Date Received
         <input
@@ -47,7 +72,7 @@ export default function PrayerRequestFormFields({
           required
         />
       </label>
-      {form.category === "strategic" && (
+      {form.category === "strategic" && !limited && (
         <div className="admin-checkbox-row" style={{ gridColumn: mode === "edit" ? "1 / -1" : undefined }}>
           <label title="Shows on this partner's public profile page, if the public site is enabled.">
             <input
@@ -87,7 +112,7 @@ export default function PrayerRequestFormFields({
               Not tracking this one for a specific answer
             </label>
           </div>
-          {!limited && hasEnabledChannel && (
+          {!limited && hasEnabledChannel && form.category !== "situational" && (
             <div style={{ gridColumn: "1 / -1" }}>
               <div className="admin-checkbox-row">
                 <label>
@@ -104,7 +129,7 @@ export default function PrayerRequestFormFields({
               </p>
             </div>
           )}
-          {!limited && canApproveNow && (
+          {!limited && canApproveNow && form.category !== "situational" && (
             <div style={{ gridColumn: "1 / -1" }}>
               <div className="admin-checkbox-row">
                 <label>

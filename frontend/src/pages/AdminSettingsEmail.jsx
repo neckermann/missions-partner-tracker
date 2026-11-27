@@ -108,7 +108,8 @@ export default function AdminSettingsEmail() {
               type="button"
               className="btn secondary small"
               onClick={handleTestSend}
-              disabled={testing || !settings.outboundConfigured}
+              disabled={testing || !settings.sendEnabled || !settings.outboundConfigured}
+              title={!settings.sendEnabled ? "Turn sending on first" : undefined}
             >
               {testing ? "Sending..." : "Send Test Email"}
             </button>
@@ -128,6 +129,11 @@ export default function AdminSettingsEmail() {
               </p>
             )}
             <p style={{ color: "var(--muted)" }}>From: {v.fromAddress || "Not set"}</p>
+            {!v.sendEnabled && settings.outboundConfigured && (
+              <p style={{ color: "var(--muted)" }}>
+                Sending is switched off, so a test email can't be sent. Turn sending on to try one.
+              </p>
+            )}
             {testResult && <p style={{ color: "var(--muted)" }}>{testResult}</p>}
           </>
         )}

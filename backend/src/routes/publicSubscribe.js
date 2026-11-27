@@ -13,15 +13,14 @@ const router = express.Router();
 
 const CADENCES = ["biweekly", "monthly", "quarterly"];
 
-// Public and anonymous subscription (#202): the visibility gate is the feature flag, not auth.
-// publicDirectory/outboundEmail are additionally required for POST / only (see
-// requireSubscribeDependencies).
-router.use(requireFeature(["publicPrayerDigest"]));
+// Public and anonymous subscription (#202): the visibility gate is the feature flag, not auth. Only
+// POST / (signing up) is gated. The confirm routes below are behind no feature switch at all: a link in
+// an email already sent has to keep working, and keep showing a page, after the church turns the
+// digest, the public directory or email off. Do not move requireFeature back onto the whole router.
+const requireDigestFeature = requireFeature(["publicPrayerDigest"]);
 
-// Only POST / needs publicDirectory and outboundEmail: no public site to follow partners from
-// without the first, no way to send a confirmation without the second. GET /confirm deliberately
-// requires neither, so an existing subscriber can confirm a link already in their inbox even if
-// the church later turns public browsing or email off; publicPrayerDigest alone gates it.
+// POST / also needs publicDirectory and outboundEmail: no public site to follow partners from
+// without the first, no way to send a confirmation without the second.
 async function requireSubscribeDependencies(req, res, next) {
   const settings = await prisma.churchSettings.findUnique({
     where: { id: "singleton" },
@@ -97,54 +96,60 @@ async function applySubscription(existing, email, data, fallbackCadence) {
 // generic message whatever the outcome (new, still-unconfirmed, already-confirmed): the
 // no-enumeration discipline of routes/auth.js's login. An already-confirmed row is NOT sent a
 // fresh confirmation email, which would reveal "this address is already subscribed" via the inbox.
-router.post("/", subscribeLimiter, requireSubscribeDependencies, async (req, res, next) => {
-  try {
-    const parsed = subscribeSchema.safeParse(req.body);
-    if (!parsed.success) return res.status(400).json({ error: "A valid email is required" });
-    const email = parsed.data.email.trim().toLowerCase();
+router.post(
+  "/",
+  subscribeLimiter,
+  requireDigestFeature,
+  requireSubscribeDependencies,
+  async (req, res, next) => {
+    try {
+      const parsed = subscribeSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ error: "A valid email is required" });
+      const email = parsed.data.email.trim().toLowerCase();
 
-    let partnerIds = [];
-    if (parsed.data.partnerIds?.length) {
-      const validPartners = await prisma.partner.findMany({
-        where: { id: { in: parsed.data.partnerIds }, isPublic: true, archived: false },
-        select: { id: true },
-      });
-      partnerIds = validPartners.map((p) => p.id);
+      let partnerIds = [];
+      if (parsed.data.partnerIds?.length) {
+        const validPartners = await prisma.partner.findMany({
+          where: { id: { in: parsed.data.partnerIds }, isPublic: true, archived: false },
+          select: { id: true },
+        });
+        partnerIds = validPartners.map((p) => p.id);
+      }
+
+      const existing = await prisma.publicSubscriber.findUnique({ where: { email } });
+
+      // #327 Finding 11: nothing proves the caller owns an already-confirmed subscriber's address, so
+      // nothing is written for that case: the proposed change travels in a confirm-change link
+      // (buildSubscriberConfirmChangeToken) and is applied only when it is clicked. A new or
+      // still-unconfirmed row is not live yet, so applying the latest draft immediately is harmless.
+      if (existing?.confirmedAt) {
+        await sendConfirmChangeEmail(existing, {
+          cadence: parsed.data.cadence,
+          allPartners: parsed.data.allPartners,
+          partnerIds,
+        }).catch((err) => console.error("Confirm-change email failed:", err));
+        return res.json({ message: "Check your email to confirm your subscription." });
+      }
+
+      const subscriber = await applySubscription(
+        existing,
+        email,
+        {
+          cadence: parsed.data.cadence,
+          allPartners: parsed.data.allPartners,
+          partnerIds,
+        },
+        await defaultCadenceTier()
+      );
+
+      await sendConfirmEmail(subscriber).catch((err) => console.error("Confirm email failed:", err));
+
+      res.json({ message: "Check your email to confirm your subscription." });
+    } catch (err) {
+      next(err);
     }
-
-    const existing = await prisma.publicSubscriber.findUnique({ where: { email } });
-
-    // #327 Finding 11: nothing proves the caller owns an already-confirmed subscriber's address, so
-    // nothing is written for that case: the proposed change travels in a confirm-change link
-    // (buildSubscriberConfirmChangeToken) and is applied only when it is clicked. A new or
-    // still-unconfirmed row is not live yet, so applying the latest draft immediately is harmless.
-    if (existing?.confirmedAt) {
-      await sendConfirmChangeEmail(existing, {
-        cadence: parsed.data.cadence,
-        allPartners: parsed.data.allPartners,
-        partnerIds,
-      }).catch((err) => console.error("Confirm-change email failed:", err));
-      return res.json({ message: "Check your email to confirm your subscription." });
-    }
-
-    const subscriber = await applySubscription(
-      existing,
-      email,
-      {
-        cadence: parsed.data.cadence,
-        allPartners: parsed.data.allPartners,
-        partnerIds,
-      },
-      await defaultCadenceTier()
-    );
-
-    await sendConfirmEmail(subscriber).catch((err) => console.error("Confirm email failed:", err));
-
-    res.json({ message: "Check your email to confirm your subscription." });
-  } catch (err) {
-    next(err);
   }
-});
+);
 
 // The confirmation link in the email. GET /confirm?token= only checks the token and shows a button (a plain
 // <form method="POST">, which works without JavaScript); POST /confirm does the work. Acting on the GET would let a

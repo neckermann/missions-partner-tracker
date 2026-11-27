@@ -33,11 +33,27 @@ async function isCareTeamEnabled() {
   return isFeatureEnabled(settings?.enabledFeatures, "careTeam");
 }
 
+// Whether trips are on. A guest's trip access is tied to this switch exactly as a care team seat is tied to care
+// teams: while it is off the grant rows are kept, but they reach nothing (server-side, not only on screen).
+async function isTripsEnabled() {
+  const settings = await prisma.churchSettings.findUnique({
+    where: { id: "singleton" },
+    select: { enabledFeatures: true },
+  });
+  return isFeatureEnabled(settings?.enabledFeatures, "trips");
+}
+
 // What requireAuth attaches for a guest: the trips and partners their active
-// grants reach. A grant is an unlapsed TripAccess row or, with care teams on, a
-// care team seat (reaches that one partner, never expires).
+// grants reach. A grant is an unlapsed TripAccess row (while trips is on) or, with care teams on, a
+// care team seat (reaches that one partner, never expires). `pausedFeatures` lists the switched-off
+// features that a grant the guest holds depends on, so they can be told "your church has paused this"
+// rather than bounced to sign-in; access returns unchanged when the switch is turned back on.
 async function resolveGuestReach(userId, now = new Date()) {
-  const grants = (await listTripGrants(userId, now)).filter((g) => g.active);
+  const tripsOn = await isTripsEnabled();
+  const activeGrants = (await listTripGrants(userId, now)).filter((g) => g.active);
+  const grants = tripsOn ? activeGrants : [];
+  const pausedFeatures = [];
+  if (!tripsOn && activeGrants.length > 0) pausedFeatures.push("trips");
   const tripIds = grants.map((g) => g.tripId);
   const partnerIds = new Set(grants.map((g) => g.trip.partnerId).filter(Boolean));
   let seatCount = 0;
@@ -46,12 +62,14 @@ async function resolveGuestReach(userId, now = new Date()) {
   const readTripIds = new Set(tripIds);
   // Partners reached through a care team seat: a wider view than a trip grant (one-time needs, list pages).
   const careTeamPartnerIds = new Set();
-  if (await isCareTeamEnabled()) {
-    const seats = await prisma.careTeamMember.findMany({ where: { userId }, select: { partnerId: true } });
+  const careOn = await isCareTeamEnabled();
+  const seats = await prisma.careTeamMember.findMany({ where: { userId }, select: { partnerId: true } });
+  if (!careOn && seats.length > 0) pausedFeatures.push("careTeam");
+  if (careOn) {
     seatCount = seats.length;
     seats.forEach((s) => partnerIds.add(s.partnerId));
     seats.forEach((s) => careTeamPartnerIds.add(s.partnerId));
-    if (seats.length > 0) {
+    if (seats.length > 0 && tripsOn) {
       const partnerTrips = await prisma.trip.findMany({
         where: { partnerId: { in: seats.map((s) => s.partnerId) } },
         select: { id: true },
@@ -65,6 +83,7 @@ async function resolveGuestReach(userId, now = new Date()) {
     partnerIds: [...partnerIds],
     careTeamPartnerIds: [...careTeamPartnerIds],
     hasActiveGrant: grants.length > 0 || seatCount > 0,
+    pausedFeatures,
   };
 }
 
@@ -144,6 +163,7 @@ module.exports = {
   listTripGrants,
   resolveGuestReach,
   isCareTeamEnabled,
+  isTripsEnabled,
   isOnCareTeamFor,
   deactivateGuestIfNoGrants,
   readablePartnerIds,
