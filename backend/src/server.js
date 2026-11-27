@@ -68,6 +68,7 @@ const publicTripApplicationRoutes = require("./routes/publicTripApplications");
 const publicTripParticipantRoutes = require("./routes/publicTripParticipants");
 const prisma = require("./prismaClient");
 const { backgroundJobsEnabled, startBackgroundJobs, stopBackgroundJobs } = require("./utils/backgroundJobs");
+const { requireAuth } = require("./middleware/requireAuth");
 const { assertSchemaMatches } = require("./utils/schemaCheck");
 const { applyChurchTimezone } = require("./utils/timezone");
 const { readTrustProxy, trustProxySetting, describeTrustProxy } = require("./utils/trustProxy");
@@ -118,9 +119,17 @@ app.use(morgan(process.env.NODE_ENV === "production" ? "combined" : "dev"));
 // mounted first: express.json() skips a body an earlier instance consumed.
 app.use("/api/inbound-email/postmark", express.json({ limit: "15mb" })); // entire email, base64, attachments included
 app.use("/api/template-packs", express.json({ limit: "1mb" })); // a pasted or uploaded pack (admin only)
-app.use("/api/public/survey-uploads", express.json({ limit: "7mb" })); // base64 photo from a survey link
+app.use("/api/public/survey-uploads", express.json({ limit: "24mb" })); // base64 photo from a survey link (15 MB of photo is about 21 MB)
 app.use("/api/public/trips/participants/sign", express.json({ limit: "7mb" })); // base64 signature image
-app.use("/api/public/trips/participants/self-service", express.json({ limit: "7mb" })); // base64 participant photo
+app.use("/api/public/trips/participants/self-service", express.json({ limit: "24mb" })); // base64 participant photo
+// Staff saving a participant's photo send it as a base64 data URL in the update body. Only a signed-in person gets
+// the larger body (the check runs first, so an anonymous caller is refused before anything large is read).
+app.put(
+  "/api/trips/participants/:participantId",
+  cookieParser(),
+  requireAuth,
+  express.json({ limit: "24mb" })
+);
 app.use(express.json({ limit: "100kb" })); // everything else -- small form-field-sized payloads
 app.use(cookieParser());
 

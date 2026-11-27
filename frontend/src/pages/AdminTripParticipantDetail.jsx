@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
+import { prepareImage } from "../utils/prepareImage.js";
 import EmailInput from "../components/shared/EmailInput.jsx";
 import PhoneField from "../components/shared/PhoneField.jsx";
 import { formatPhone } from "../utils/phone.js";
@@ -28,6 +29,8 @@ import RecordUnavailable, { loadErrorStatus } from "../components/shared/RecordU
 import GiveGuestAccessModal from "../components/admin/GiveGuestAccessModal.jsx";
 import CopyButton from "../components/shared/CopyButton.jsx";
 
+const PARTICIPANT_PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
+
 function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -54,6 +57,7 @@ export default function AdminTripParticipantDetail() {
   const [loadError, setLoadError] = useState(null); // 404/403 when the trip can't be shown
   const [settings, setSettings] = useState(null);
   const [error, setError] = useState("");
+  const [photoProblem, setPhotoProblem] = useState("");
   const [manualAccessLink, setManualAccessLink] = useState(null); // { email?, url } | null
   const [showGuestAccess, setShowGuestAccess] = useState(false);
   const [docFile, setDocFile] = useState(null);
@@ -682,12 +686,25 @@ export default function AdminTripParticipantDetail() {
                       accept="image/jpeg,image/png,image/webp"
                       aria-label={`Photo of ${participant.firstName} ${participant.lastName}`}
                       onChange={async (e) => {
-                        const file = e.target.files[0];
-                        if (!file) return;
-                        set("photoDataUrl", await readFileAsDataUrl(file));
-                        set("photoContentType", file.type);
+                        const input = e.target;
+                        const picked = input.files[0];
+                        if (!picked) return;
+                        setPhotoProblem("");
+                        const prepared = await prepareImage(picked, { allowed: PARTICIPANT_PHOTO_TYPES });
+                        if (prepared.error) {
+                          setPhotoProblem(prepared.error);
+                          input.value = "";
+                          return;
+                        }
+                        set("photoDataUrl", await readFileAsDataUrl(prepared.file));
+                        set("photoContentType", prepared.file.type);
                       }}
                     />
+                    {photoProblem && (
+                      <p className="form-error" role="alert" style={{ margin: "0.3rem 0 0" }}>
+                        {photoProblem}
+                      </p>
+                    )}
                   </div>
                 </div>
                 <label style={{ display: "block", marginTop: "0.6rem" }}>

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { prepareImage } from "../utils/prepareImage.js";
 import { useParams } from "react-router-dom";
 import PublicSiteHeader from "../components/PublicSiteHeader.jsx";
 import DemoBanner from "../components/DemoBanner.jsx";
@@ -43,13 +44,19 @@ export default function PublicSurvey() {
     setBusy(true);
     setError("");
     try {
+      // Checked and shrunk here, before anything is sent (a phone photo can be 12 MB).
+      const prepared = await prepareImage(file);
+      if (prepared.error) {
+        setError(prepared.error);
+        return;
+      }
       const base64 = await new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(String(reader.result).split(",")[1] || "");
         reader.onerror = () => reject(new Error("read"));
-        reader.readAsDataURL(file);
+        reader.readAsDataURL(prepared.file);
       });
-      await uploadPublicSurveyPhoto(token, questionId, file.type, base64);
+      await uploadPublicSurveyPhoto(token, questionId, prepared.file.type, base64);
       setPhotos((p) => [...new Set([...p, questionId])]);
     } catch (err) {
       setError(err.response?.data?.error || "That photo couldn't be sent. Please try another.");

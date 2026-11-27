@@ -18,6 +18,7 @@ const FEATURE_SPECS = [
   "public-trip-application",
   "support-preferences",
   "surveys",
+  "photo-shrink",
   "trip-detail-subpages",
   "trip-team-table-modal",
   "two-factor-requirement",
