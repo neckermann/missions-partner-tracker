@@ -153,19 +153,43 @@ function soonWindow() {
   return { now, soonBy };
 }
 
+// One alert for trips starting within 30 days. When some of them still have a requirement nobody has met, the
+// label says how many, and the link goes straight to that trip's requirements when there is just the one.
 async function tripsDepartingSoon(_opts, scopeTripIds) {
   const { now, soonBy } = soonWindow();
-  const rows = await prisma.trip.findMany({
+  const trips = await prisma.trip.findMany({
     where: {
       status: { not: "completed" },
       startDate: { gt: now, lte: soonBy },
       ...(scopeTripIds ? { id: { in: scopeTripIds } } : {}),
     },
-    select: { id: true, startDate: true },
+    include: {
+      participants: { select: { id: true } },
+      requirements: { include: { requirementStatuses: true, documents: true } },
+    },
   });
+  const incomplete = trips.filter((trip) =>
+    trip.participants.some((participant) =>
+      trip.requirements.some(
+        (req) => !isRequirementFulfilledForParticipant(req, participant.id, req.documents)
+      )
+    )
+  );
   // Link straight to the trip when exactly one is responsible; otherwise the list.
-  const linkTo = rows.length === 1 ? `/admin/trips/${rows[0].id}` : undefined;
-  return { count: rows.length, latest: latestOf(rows, (r) => r.startDate), linkTo };
+  let linkTo;
+  if (trips.length === 1) {
+    linkTo =
+      incomplete.length === 1 ? `/admin/trips/${trips[0].id}/requirements` : `/admin/trips/${trips[0].id}`;
+  } else if (incomplete.length === 1) {
+    linkTo = `/admin/trips/${incomplete[0].id}/requirements`;
+  }
+  return {
+    count: trips.length,
+    latest: latestOf(trips, (r) => r.startDate),
+    linkTo,
+    label:
+      incomplete.length > 0 ? `Trips departing soon (${incomplete.length} missing something)` : undefined,
+  };
 }
 
 // A trip whose end date has passed and isn't marked completed. For a trip leader
@@ -219,30 +243,6 @@ function isRequirementFulfilledForParticipant(requirement, participantId, docume
     return !!status?.completedAt;
   }
   return documents.some((d) => d.participantId === participantId);
-}
-
-async function tripsDepartingSoonIncomplete(_opts, scopeTripIds) {
-  const { now, soonBy } = soonWindow();
-  const trips = await prisma.trip.findMany({
-    where: {
-      status: { not: "completed" },
-      startDate: { gt: now, lte: soonBy },
-      ...(scopeTripIds ? { id: { in: scopeTripIds } } : {}),
-    },
-    include: {
-      participants: { select: { id: true } },
-      requirements: { include: { requirementStatuses: true, documents: true } },
-    },
-  });
-  const incomplete = trips.filter((trip) =>
-    trip.participants.some((participant) =>
-      trip.requirements.some(
-        (req) => !isRequirementFulfilledForParticipant(req, participant.id, req.documents)
-      )
-    )
-  );
-  const linkTo = incomplete.length === 1 ? `/admin/trips/${incomplete[0].id}/requirements` : undefined;
-  return { count: incomplete.length, latest: latestOf(incomplete, (t) => t.startDate), linkTo };
 }
 
 async function overdueTripRequirements(_opts, scopeTripIds) {
@@ -502,17 +502,6 @@ const CATEGORIES = [
     resolve: tripsWrappedUp,
   },
   {
-    key: "tripsDepartingSoonIncomplete",
-    requiresAny: ["trips"],
-    label: "Trips departing soon, incomplete",
-    icon: "⏳",
-    linkTo: "/admin/trips",
-    adminOnly: false,
-    perUser: false,
-    tripScoped: true,
-    resolve: tripsDepartingSoonIncomplete,
-  },
-  {
     key: "overdueTripRequirements",
     requiresAny: ["trips"],
     label: "Overdue trip requirements",
@@ -641,7 +630,7 @@ async function resolveNotificationSummary({ userId, role, scopeTripIds = null, s
   });
   const results = await Promise.all(
     visible.map(async (c) => {
-      const { count, latest, linkTo } = await c.resolve({ userId }, scopeTripIds, scopePartnerIds);
+      const { count, latest, linkTo, label } = await c.resolve({ userId }, scopeTripIds, scopePartnerIds);
       let isNew;
       if (c.perUser) {
         // The count is already "new since this user looked".
@@ -650,7 +639,15 @@ async function resolveNotificationSummary({ userId, role, scopeTripIds = null, s
         const seenAt = await getSeenAt(userId, c.key);
         isNew = !!latest && (!seenAt || latest > seenAt);
       }
-      return { key: c.key, label: c.label, icon: c.icon, linkTo: linkTo || c.linkTo, count, latest, isNew };
+      return {
+        key: c.key,
+        label: label || c.label,
+        icon: c.icon,
+        linkTo: linkTo || c.linkTo,
+        count,
+        latest,
+        isNew,
+      };
     })
   );
   return results;
