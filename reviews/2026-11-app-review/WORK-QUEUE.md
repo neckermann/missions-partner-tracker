@@ -149,7 +149,7 @@ A6's PR is #515.
 | 36c | H1 "Sign out of all devices" button in My Account (`POST /api/auth/logout-all`) | merged to dev | #584 |
 | 36d | #579 menu label case: Title Case everywhere, rule in STYLE-GUIDE, guard test | merged to dev | #585 |
 | 36e | #549 sign-in deep dive and #552 test suite review: reports [6](6-signin-deep-dive.md) and [7](7-test-suite-review.md); follow-up issues #586-#604 filed | done | #549, #552 |
-| 36f | #544 restricted initials from all adults ("T.S. and S.S."; owner chose the format) | open, CI running (route suite 1,259/1,259 locally) | #616 |
+| 36f | #544 restricted initials from all adults ("T.S. and S.S."; owner chose the format) | merged to dev (route suite 1,259/1,259; leak tests in every place a name can appear) | #616 |
 | 37 | #578 "Go to partner" link style | merged to dev | #606 |
 | 37a | #545 key-date numbers on the key-date card; "Timing" renamed "Quiet partners" | merged to dev | #607 |
 | 37b | #587 second-admin nudge (bell and Home), install-guide step, plain recovery path, and recovery straight in the database (SQL). The emailed unlock for a sole admin was dropped: the owner pointed out the database route works | merged to dev | #609 |
