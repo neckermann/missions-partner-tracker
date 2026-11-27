@@ -40,6 +40,12 @@ site can't send email, the link isn't offered: ask an administrator for a new
 setup link (**Settings → Manage Users**). It's not available on the public demo
 or while passwordless sign-in is on.
 
+The sign-in page has two short steps. If you have a passkey, press **Sign in with
+a passkey** (or pick it from the list your browser offers in the email box);
+your fingerprint, face or screen lock signs you in alone. Otherwise type your
+email and press **Continue**, then your password. The page never says whether
+an email has an account.
+
 If your account has two-factor authentication enabled, you'll be prompted
 for a 6-digit code from your authenticator app, or to **Use a passkey**
 (your fingerprint, face or screen lock), after your password. If
@@ -50,9 +56,8 @@ you can do anything else. If your church turns the requirement on while you're s
 next click takes you back to sign-in, and you set it up then.
 
 If your church has turned on **passwordless sign-in**, there is no password
-box. **Sign in with a passkey** signs you in with your fingerprint, face or
-screen lock alone (it counts as both factors). If you haven't added a passkey
-yet, **Email me a sign-in link** sends a one-time link that works once and
+box. A passkey signs you in alone (it counts as both factors). If you haven't
+added a passkey yet, typing your email and pressing **Continue** sends a one-time link that works once and
 expires in 15 minutes; it signs you in and then walks you through adding a
 passkey. Lost your passkey? Ask an admin to **Reset MFA** on your account;
 they'll hand you a fresh way in.

@@ -326,9 +326,8 @@ module.exports = function passkeyRoutes({ completeLogin }) {
     }
   });
 
-  // The passkey is the whole sign-in: no password, no pending token. Available when the church allows it
-  // (allowPasskeySignIn, offered beside the password form) or passwordless mode is on (which removes
-  // the password form). User verification is required, so it is as strong as password plus a second step. No email is asked for, so
+  // The passkey is the whole sign-in: no password, no pending token. Always available (the first thing on the
+  // sign-in page) except on a public demo. User verification is required, so it is as strong as password plus a second step. No email is asked for, so
   // nothing here reveals which addresses have accounts: the browser offers the passkeys it holds
   // for this site and the answer names the credential.
 

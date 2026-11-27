@@ -1,5 +1,10 @@
 import axios from "axios";
-import { startRegistration, startAuthentication, browserSupportsWebAuthn } from "@simplewebauthn/browser";
+import {
+  startRegistration,
+  startAuthentication,
+  browserSupportsWebAuthn,
+  browserSupportsWebAuthnAutofill,
+} from "@simplewebauthn/browser";
 
 // Same-origin "/api": Vite proxies it in dev (vite.config.js), Express serves both in production.
 export const api = axios.create({
@@ -1039,6 +1044,18 @@ export async function signInWithPasskeyOnly() {
   return data;
 }
 
+// The same passkey sign-in, offered by the browser itself from the email box (its autofill list), so a person with a
+// passkey taps it without pressing anything. Waits until one is picked; starting any other passkey request cancels it.
+export async function signInWithPasskeyAutofill() {
+  const { data: begin } = await api.post("/auth/passkeys/passwordless/options");
+  const response = await startAuthentication({ optionsJSON: begin.options, useBrowserAutofill: true });
+  const { data } = await api.post("/auth/passkeys/passwordless/verify", {
+    challengeToken: begin.challengeToken,
+    response,
+  });
+  return data;
+}
+
 export async function requestSignInLink(email) {
   const { data } = await api.post("/auth/passwordless/email-link", { email });
   return data;
@@ -1049,7 +1066,7 @@ export async function redeemSignInLink(token) {
   return data;
 }
 
-export { browserSupportsWebAuthn };
+export { browserSupportsWebAuthn, browserSupportsWebAuthnAutofill };
 
 export async function logout() {
   // The session is an httpOnly cookie JS can't clear, so this is a real request.

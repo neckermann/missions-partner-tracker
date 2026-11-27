@@ -17,6 +17,8 @@ vi.mock("../api/client.js", () => ({
   registerPasskey: vi.fn(),
   browserSupportsWebAuthn: vi.fn(() => true),
   signInWithPasskeyOnly: vi.fn(),
+  signInWithPasskeyAutofill: vi.fn(),
+  browserSupportsWebAuthnAutofill: vi.fn().mockResolvedValue(false),
   requestSignInLink: vi.fn(),
 }));
 const navigate = vi.fn();
@@ -28,8 +30,10 @@ async function signIn() {
       <Login />
     </MemoryRouter>
   );
+  // Two short steps: the email, then the password.
   fireEvent.change(screen.getByLabelText("Email"), { target: { value: "a@example.test" } });
-  fireEvent.change(screen.getByLabelText("Password"), { target: { value: "pw" } });
+  fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+  fireEvent.change(await screen.findByLabelText("Password"), { target: { value: "pw" } });
   fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
 }
 
@@ -37,6 +41,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   client.browserSupportsWebAuthn.mockReturnValue(true);
   client.fetchSetupStatus.mockResolvedValue({ needed: false });
+  client.browserSupportsWebAuthnAutofill.mockResolvedValue(false);
 });
 
 describe("second step", () => {
@@ -112,101 +117,144 @@ describe("forced enrolment", () => {
   });
 });
 
-describe("a passkey beside the password form", () => {
-  const renderLogin = () =>
-    render(
-      <MemoryRouter>
-        <Login />
-      </MemoryRouter>
-    );
+const renderLogin = () =>
+  render(
+    <MemoryRouter>
+      <Login />
+    </MemoryRouter>
+  );
+const typeEmailAndContinue = (email = "a@example.test") => {
+  fireEvent.change(screen.getByLabelText("Email"), { target: { value: email } });
+  fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+};
 
-  test("is offered when the church allows it, and signs in with it alone", async () => {
+describe("the sign-in page: the passkey first, then the email", () => {
+  test("the passkey button is first, and signs in with it alone", async () => {
     client.fetchSetupStatus.mockResolvedValue({ needed: false, passwordless: false, passkeySignIn: true });
     client.signInWithPasskeyOnly.mockResolvedValue({ user: {} });
     renderLogin();
-    expect(screen.getByLabelText("Password")).toBeInTheDocument();
     fireEvent.click(await screen.findByRole("button", { name: "Sign in with a passkey" }));
     await waitFor(() => expect(client.signInWithPasskeyOnly).toHaveBeenCalled());
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith("/admin"));
   });
 
-  test("is not shown when the church hasn't allowed it, or the browser can't use one", async () => {
+  test("a device with no passkey (or a cancelled prompt) gets one plain message pointing to the email box", async () => {
+    client.fetchSetupStatus.mockResolvedValue({ needed: false, passwordless: false, passkeySignIn: true });
+    client.signInWithPasskeyOnly.mockRejectedValue({ name: "NotAllowedError" });
+    renderLogin();
+    fireEvent.click(await screen.findByRole("button", { name: "Sign in with a passkey" }));
+    expect(await screen.findByText(/no passkey for this site/)).toBeInTheDocument();
+    expect(screen.getByLabelText("Email")).toBeInTheDocument();
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
+  test("the browser's own passkey list starts when it can, and signing in with one goes on to the site", async () => {
+    client.fetchSetupStatus.mockResolvedValue({ needed: false, passwordless: false, passkeySignIn: true });
+    client.browserSupportsWebAuthnAutofill.mockResolvedValue(true);
+    client.signInWithPasskeyAutofill.mockResolvedValue({ user: {} });
+    renderLogin();
+    await waitFor(() => expect(client.signInWithPasskeyAutofill).toHaveBeenCalled());
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith("/admin"));
+    expect(screen.getByLabelText("Email")).toHaveAttribute("autocomplete", "username webauthn");
+  });
+
+  test("the passkey button is not shown where the server doesn't offer it (a demo) or the browser can't", async () => {
     client.fetchSetupStatus.mockResolvedValue({ needed: false, passwordless: false, passkeySignIn: false });
     const { unmount } = renderLogin();
-    await screen.findByLabelText("Password");
+    await screen.findByLabelText("Email");
+    await waitFor(() => expect(client.fetchSetupStatus).toHaveBeenCalledTimes(1));
     expect(screen.queryByRole("button", { name: "Sign in with a passkey" })).not.toBeInTheDocument();
     unmount();
     client.fetchSetupStatus.mockResolvedValue({ needed: false, passwordless: false, passkeySignIn: true });
     client.browserSupportsWebAuthn.mockReturnValue(false);
     renderLogin();
-    await screen.findByLabelText("Password");
+    await screen.findByLabelText("Email");
     await waitFor(() => expect(client.fetchSetupStatus).toHaveBeenCalledTimes(2));
     expect(screen.queryByRole("button", { name: "Sign in with a passkey" })).not.toBeInTheDocument();
     client.browserSupportsWebAuthn.mockReturnValue(true);
+  });
+
+  test("Continue goes straight to the password for any email, looking nothing up", async () => {
+    renderLogin();
+    await screen.findByLabelText("Email");
+    typeEmailAndContinue("anyone@example.test");
+    expect(await screen.findByRole("heading", { name: "Enter your password" })).toBeInTheDocument();
+    expect(screen.getByText("anyone@example.test")).toBeInTheDocument();
+    // Nothing was sent to the server by the email step.
+    expect(client.login).not.toHaveBeenCalled();
+    expect(client.requestSignInLink).not.toHaveBeenCalled();
+    // And there is no passkey button on the password page.
+    expect(screen.queryByRole("button", { name: "Sign in with a passkey" })).not.toBeInTheDocument();
+  });
+
+  test("'Use a different email, or a passkey' goes back to the first step", async () => {
+    client.fetchSetupStatus.mockResolvedValue({ needed: false, passwordless: false, passkeySignIn: true });
+    renderLogin();
+    await screen.findByLabelText("Email");
+    typeEmailAndContinue();
+    fireEvent.click(await screen.findByRole("button", { name: "Use a different email, or a passkey" }));
+    expect(await screen.findByRole("button", { name: "Sign in with a passkey" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Email")).toBeInTheDocument();
   });
 });
 
 describe("passwordless sign-in (#386 Layer 2)", () => {
   async function renderPasswordless() {
-    client.fetchSetupStatus.mockResolvedValue({ needed: false, passwordless: true });
-    render(
-      <MemoryRouter>
-        <Login />
-      </MemoryRouter>
-    );
-    await screen.findByRole("button", { name: "Email me a sign-in link" });
+    client.fetchSetupStatus.mockResolvedValue({ needed: false, passwordless: true, passkeySignIn: true });
+    renderLogin();
+    await screen.findByRole("button", { name: "Continue" });
   }
 
-  test("offers a passkey and an emailed link, not a password", async () => {
+  test("offers a passkey first and an email, not a password", async () => {
     await renderPasswordless();
     expect(screen.queryByLabelText("Password")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Sign in with a passkey" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Sign in with a passkey" })).toBeInTheDocument();
   });
 
   test("signs in with a passkey alone", async () => {
     client.signInWithPasskeyOnly.mockResolvedValue({ user: {} });
     await renderPasswordless();
-    fireEvent.click(screen.getByRole("button", { name: "Sign in with a passkey" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Sign in with a passkey" }));
     await waitFor(() => expect(client.signInWithPasskeyOnly).toHaveBeenCalled());
     await waitFor(() => expect(navigate).toHaveBeenCalledWith("/admin"));
   });
 
-  test("asks for an emailed link and says the same thing whoever it is for", async () => {
+  test("Continue asks for an emailed link and says the same thing whoever it is for", async () => {
     client.requestSignInLink.mockResolvedValue({ ok: true });
     await renderPasswordless();
-    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "a@example.test" } });
-    fireEvent.click(screen.getByRole("button", { name: "Email me a sign-in link" }));
+    typeEmailAndContinue();
     await waitFor(() => expect(client.requestSignInLink).toHaveBeenCalledWith("a@example.test"));
-    expect(await screen.findByText(/If that email has an account/)).toBeInTheDocument();
+    expect(await screen.findByText(/has an account here, a sign-in link is on its way/)).toBeInTheDocument();
   });
 
-  test("hides the passkey button where the browser can't do passkeys, leaving the emailed link", async () => {
+  test("hides the passkey button where the browser can't do passkeys, leaving the email", async () => {
     client.browserSupportsWebAuthn.mockReturnValue(false);
     await renderPasswordless();
     expect(screen.queryByRole("button", { name: "Sign in with a passkey" })).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Email")).toBeInTheDocument();
   });
 });
 
 describe("Forgot your password?", () => {
-  const renderLogin = () =>
-    render(
-      <MemoryRouter>
-        <Login />
-      </MemoryRouter>
-    );
-
-  test("is offered when the site can email a link", async () => {
+  test("is offered on the password page when the site can email a link", async () => {
     client.fetchSetupStatus.mockResolvedValue({ needed: false, passwordless: false, passwordReset: true });
     renderLogin();
+    await screen.findByLabelText("Email");
+    await waitFor(() => expect(client.fetchSetupStatus).toHaveBeenCalled());
+    typeEmailAndContinue();
     const link = await screen.findByRole("link", { name: "Forgot your password?" });
     expect(link).toHaveAttribute("href", "/forgot-password");
   });
 
-  test("is not offered when it can't (email off, a demo, or passwordless)", async () => {
+  test("a site that can't email says to ask an administrator instead (email off, a demo)", async () => {
     client.fetchSetupStatus.mockResolvedValue({ needed: false, passwordless: false, passwordReset: false });
     renderLogin();
-    await screen.findByLabelText("Password");
+    await screen.findByLabelText("Email");
     await waitFor(() => expect(client.fetchSetupStatus).toHaveBeenCalled());
+    typeEmailAndContinue();
+    await screen.findByLabelText("Password");
     expect(screen.queryByRole("link", { name: "Forgot your password?" })).not.toBeInTheDocument();
+    expect(screen.getByText(/Ask an administrator to set a new one/)).toBeInTheDocument();
   });
 });
 
