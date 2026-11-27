@@ -85,6 +85,7 @@ import { truncate } from "../utils/truncate.js";
 import { useSettings } from "../context/SettingsContext.jsx";
 import { getFipsCode } from "../utils/countryFipsCodes.js";
 import { isoCountryCode } from "../utils/countryIsoCodes.js";
+import { sentForReviewNote } from "../utils/heldForReview.js";
 import {
   formatDateLong,
   formatDate,
@@ -185,7 +186,7 @@ export default function AdminPartnerDetail() {
     languages: [],
     tripTypes: [],
   });
-  const { churchName, enabledFeatures } = useSettings();
+  const { churchName, enabledFeatures, ownerGroupName } = useSettings();
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
   const { settings: churchSettings } = useChurchSettings();
   const confirmBeforeCreate = useUrgentApprovalGate({ confirmDialog, enabledFeatures });
@@ -1807,7 +1808,12 @@ export default function AdminPartnerDetail() {
       </div>
 
       {activeModal === "add-prayer" && (
-        <QuickActionModal title="Add Prayer Request" onClose={closeModal} onSubmit={submitAddPrayerRequest}>
+        <QuickActionModal
+          title="Add Prayer Request"
+          onClose={closeModal}
+          onSubmit={submitAddPrayerRequest}
+          savedNote={limited ? sentForReviewNote(ownerGroupName) : undefined}
+        >
           <PrayerRequestFormFields
             form={prayerForm}
             setForm={setPrayerForm}
@@ -1847,7 +1853,12 @@ export default function AdminPartnerDetail() {
       {activeModal === "view-prayer" &&
         prayerDetail &&
         (canEditPrayer(prayerDetail.form) ? (
-          <QuickActionModal title="Prayer Request" onClose={closeModal} onSubmit={submitPrayerDetail}>
+          <QuickActionModal
+            title="Prayer Request"
+            onClose={closeModal}
+            onSubmit={submitPrayerDetail}
+            savedNote={limited ? sentForReviewNote(ownerGroupName) : undefined}
+          >
             <PrayerRequestFormFields
               form={prayerDetail.form}
               setForm={setPrayerDetailForm}

@@ -542,6 +542,17 @@ or leave it as "None."
   Ministry request to Everyday while its update is still waiting to go
   out, the waiting update is removed. (Changing it back later does not
   send it: only a new Ministry request makes an update.)
+- **What a care team member can and cannot set.** Anyone who isn't an
+  admin or editor (a Guest on a partner's care team, or a Viewer who is
+  on that partner's care team) can add and edit prayer requests for that
+  partner, but cannot choose what is shown: the **Show on public
+  profile** and **Include in printed booklet** boxes are not on their
+  form, and the server ignores them if they are sent, on adding and on
+  editing. They also cannot mark a request urgent or approve it. When
+  they save, the form says "Your request has gone to the missions team
+  for review" (using your church's name for that group), and it waits
+  for staff on **Updates to Share**. Staff decide later whether it is
+  shown publicly or printed. Admins and editors are unchanged.
 - A ministry request marked **Show on public profile** can also be
   checked **Include in printed booklet** — a separate setting, since a
   partner can build up more public strategic requests over time than

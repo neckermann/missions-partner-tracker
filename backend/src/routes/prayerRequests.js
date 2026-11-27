@@ -108,14 +108,16 @@ router.get("/", allowGuestPartnerList, async (req, res, next) => {
   }
 });
 
-// A care team member who isn't staff (#289) has what an editor has on their own
-// partner -- every field, including the public/booklet toggles -- except what
-// would send something out ahead of review: isUrgent and approveNow are
-// dropped (their dispatch is always held for staff review instead), and
-// deleting stays admin-only. Anything else in the body is applied as for an
-// editor.
-const careTeamPrayerCreateSchema = prayerRequestSchema.omit({ isUrgent: true, approveNow: true });
-const careTeamPrayerUpdateSchema = prayerRequestSchema.omit({ isUrgent: true, approveNow: true }).partial();
+// A care team member who isn't staff (#289) -- a limited guest, or a viewer who can write only because they
+// sit on this partner's care team -- has what an editor has on their own partner, except whatever would put
+// something in front of people ahead of review. isUrgent and approveNow are dropped (their dispatch is always
+// held for staff review instead), and so are isPublic and includeInBooklet: the public profile and the
+// printed Sunday sheet read those two flags with no review check of their own, so only staff may set them.
+// They are removed from the body, not defaulted: a request they edit keeps whatever staff chose. Deleting
+// stays admin-only. Anything else in the body is applied as for an editor.
+const NEEDS_STAFF = { isUrgent: true, approveNow: true, isPublic: true, includeInBooklet: true };
+const careTeamPrayerCreateSchema = prayerRequestSchema.omit(NEEDS_STAFF);
+const careTeamPrayerUpdateSchema = prayerRequestSchema.omit(NEEDS_STAFF).partial();
 
 const isStaff = (user) => user.role === "admin" || user.role === "editor";
 const FORBIDDEN = { error: "Insufficient permissions" };

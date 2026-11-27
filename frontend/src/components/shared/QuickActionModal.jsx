@@ -5,7 +5,8 @@ import Modal from "../Modal.jsx";
 // "Saved ✓" confirmation, submit-button states. `onSubmit` does the API call (and may show further
 // confirmations, e.g. useUrgentApprovalGate); nothing resource-specific lives here. `onDelete` (an
 // existing record only) adds a Delete button: it does its own confirmation and resolves true once the
-// record is gone, which closes the popup.
+// record is gone, which closes the popup. `savedNote`, when given, is shown with "Saved ✓" and keeps the
+// popup open a little longer so it can be read (e.g. "it has gone to the missions team for review").
 export default function QuickActionModal({
   title,
   onClose,
@@ -15,6 +16,7 @@ export default function QuickActionModal({
   submitDisabled = false,
   maxWidth,
   onDelete,
+  savedNote,
 }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -32,7 +34,7 @@ export default function QuickActionModal({
         return;
       }
       setJustSaved(true);
-      setTimeout(onClose, 900);
+      setTimeout(onClose, savedNote ? 3000 : 900);
     } catch (err) {
       setError(err.response?.data?.error || err.message || "Something went wrong");
     } finally {
@@ -58,7 +60,9 @@ export default function QuickActionModal({
         {children}
         {error && <p style={{ color: "var(--danger)", marginTop: "0.75rem" }}>{error}</p>}
         {justSaved && !error && (
-          <p style={{ color: "var(--brand-color-safe, #2a5d3c)", marginTop: "0.75rem" }}>Saved ✓</p>
+          <p style={{ color: "var(--brand-color-safe, #2a5d3c)", marginTop: "0.75rem" }} role="status">
+            Saved ✓{savedNote ? ` ${savedNote}` : ""}
+          </p>
         )}
         <div style={{ marginTop: "1rem", display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
           <button type="submit" className="btn" disabled={saving || justSaved || submitDisabled}>

@@ -503,7 +503,7 @@ describe("care team: submitting prayer requests and needs", () => {
     );
   });
 
-  test("a member can make a request public like an editor, but urgent and pre-approve are ignored", async () => {
+  test("a member cannot make a request public or put it in the booklet, and urgent and pre-approve are ignored", async () => {
     const m = await member.login();
     const res = await m("/api/prayer-requests", {
       method: "POST",
@@ -518,8 +518,8 @@ describe("care team: submitting prayer requests and needs", () => {
     });
     assert.equal(res.status, 201);
     records.prayers.push(res.body.id);
-    assert.equal(res.body.isPublic, true, "editor parity: they may make it public");
-    assert.equal(res.body.includeInBooklet, true);
+    assert.equal(res.body.isPublic, false, "only staff decide what is shown: the flag is dropped");
+    assert.equal(res.body.includeInBooklet, false);
     assert.equal(res.body.isUrgent, false, "urgent would send ahead of review");
     const row = await prisma.dispatchRecord.findFirst({
       where: { type: "prayerRequestCreated", partnerId: partnerA.id },
@@ -573,7 +573,7 @@ describe("care team: submitting prayer requests and needs", () => {
     assert.equal(res.status, 200);
     const row = await prisma.prayerRequest.findUnique({ where: { id } });
     assert.equal(row.requestText, "still reworded");
-    assert.equal(row.isPublic, true, "editor parity");
+    assert.equal(row.isPublic, false, "isPublic is staff-only, so it is ignored");
     assert.equal(row.isUrgent, false, "urgent is ignored");
     assert.equal(
       (await m(`/api/prayer-requests/${id}`, { method: "PUT", body: { partnerId: partnerB.id } })).status,
