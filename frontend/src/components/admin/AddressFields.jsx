@@ -1,6 +1,7 @@
-import React from "react";
+import React, { useState } from "react";
 import SuggestInput from "../SuggestInput.jsx";
 import { COUNTRY_CONTINENTS } from "../../utils/countryContinents.js";
+import { streetHint } from "../../utils/webAddress.js";
 
 const COUNTRY_NAMES = Object.keys(COUNTRY_CONTINENTS).sort();
 
@@ -11,7 +12,18 @@ export function roundGps(n) {
   return Math.round(Number(n) * 1e5) / 1e5;
 }
 
-export default function AddressFields({ value, onChange, showMailFlags = false, showGps = false }) {
+// `mailing` marks a mailing address (letters and parcels go there), whose first line must be a street address or a
+// PO box: when you leave the box a short note appears if it is neither. Never for a serving location, which is
+// often a village with no street. Only a hint; it never blocks saving.
+export default function AddressFields({
+  value,
+  onChange,
+  showMailFlags = false,
+  showGps = false,
+  mailing = false,
+}) {
+  const [lineTouched, setLineTouched] = useState(false);
+  const line1Hint = mailing && lineTouched ? streetHint(value.addressLine1) : "";
   function update(field, val) {
     onChange({ ...value, [field]: val });
   }
@@ -20,7 +32,17 @@ export default function AddressFields({ value, onChange, showMailFlags = false, 
     <div className="form-grid">
       <label>
         Address Line 1
-        <input value={value.addressLine1 || ""} onChange={(e) => update("addressLine1", e.target.value)} />
+        <input
+          value={value.addressLine1 || ""}
+          onChange={(e) => update("addressLine1", e.target.value)}
+          onBlur={() => setLineTouched(true)}
+          aria-invalid={line1Hint ? "true" : undefined}
+        />
+        {line1Hint && (
+          <span role="status" style={{ display: "block", color: "var(--danger)", fontSize: "0.85rem" }}>
+            {line1Hint}
+          </span>
+        )}
       </label>
       <label>
         Address Line 2

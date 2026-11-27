@@ -1,10 +1,11 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   describeSupportAnswer,
   groupMenu,
   parseSupportAnswer,
   setSupportAnswer,
 } from "../utils/supportAnswer.js";
+import { streetHint } from "../utils/webAddress.js";
 import { ADDRESS_PARTS, addressToValue, parseAddressValue, formatAddressValue } from "../utils/address.js";
 import { formatPhone } from "../utils/phone.js";
 import PhoneField from "./shared/PhoneField.jsx";
@@ -30,6 +31,23 @@ const LINE = { type: "text", autoComplete: "off", inputMode: "text" };
 
 // The questions of a survey as a form, used on the partner's own page and when staff fill one in
 // for them. `answers` is { [questionId]: { value, values, other } }; `onChange(questionId, patch)`.
+// One box of the survey's mailing address. The first line (the street) gets a short note, when you leave it, if it
+// is neither a street address nor a PO box; only a hint, it never blocks the answer.
+function AddressPartInput({ streetLine, ...rest }) {
+  const [touched, setTouched] = useState(false);
+  const hint = streetLine && touched ? streetHint(rest.value) : "";
+  return (
+    <>
+      <input type="text" {...rest} onBlur={() => setTouched(true)} aria-invalid={hint ? "true" : undefined} />
+      {hint && (
+        <span role="status" style={{ display: "block", color: "var(--danger)", fontSize: "0.85rem" }}>
+          {hint}
+        </span>
+      )}
+    </>
+  );
+}
+
 export default function SurveyQuestions({
   questions,
   answers,
@@ -174,8 +192,8 @@ export default function SurveyQuestions({
               {ADDRESS_PARTS.map((part) => (
                 <label key={part.key} style={{ display: "block", fontWeight: "normal" }}>
                   {part.label}
-                  <input
-                    type="text"
+                  <AddressPartInput
+                    streetLine={part.key === "line1"}
                     autoComplete={part.autoComplete}
                     disabled={disabled}
                     value={parts[part.key] || ""}

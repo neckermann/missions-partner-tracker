@@ -2,6 +2,7 @@ import React from "react";
 import EmailInput from "../../components/shared/EmailInput.jsx";
 import PhoneField from "../../components/shared/PhoneField.jsx";
 import AddressFields from "./AddressFields.jsx";
+import WebAddressInput from "../shared/WebAddressInput.jsx";
 
 // `checkbox` is optional, used by the Sending Church instance to fold the "sent by our own
 // church" toggle into the same box.
@@ -59,11 +60,18 @@ export default function SendingPartySection({ title, value, onChange, checkbox }
         />
         <label style={{ gridColumn: "1 / -1" }}>
           Website
-          <input value={value.websiteLink || ""} onChange={(e) => update("websiteLink", e.target.value)} />
+          <WebAddressInput
+            value={value.websiteLink || ""}
+            onChange={(e) => update("websiteLink", e.target.value)}
+          />
         </label>
       </div>
       <h4>Mailing Address</h4>
-      <AddressFields value={value.mailingAddress || {}} onChange={(addr) => update("mailingAddress", addr)} />
+      <AddressFields
+        value={value.mailingAddress || {}}
+        onChange={(addr) => update("mailingAddress", addr)}
+        mailing
+      />
     </div>
   );
 }

@@ -67,6 +67,7 @@ import Breadcrumb from "../components/shared/Breadcrumb.jsx";
 import LastEdited from "../components/shared/LastEdited.jsx";
 import EditableSection from "../components/admin/EditableSection.jsx";
 import AddressFields, { roundGps } from "../components/admin/AddressFields.jsx";
+import WebAddressInput from "../components/shared/WebAddressInput.jsx";
 import PresetOrCustomSelect from "../components/admin/PresetOrCustomSelect.jsx";
 import { TRIP_TYPE_PRESETS } from "../components/admin/TripFormFields.jsx";
 import QuickActionModal from "../components/shared/QuickActionModal.jsx";
@@ -1285,7 +1286,12 @@ export default function AdminPartnerDetail() {
                   )}
                 </div>
                 <div style={{ marginTop: "1rem" }}>
-                  <AddressFields value={d.address} onChange={(addr) => set("address", addr)} showMailFlags />
+                  <AddressFields
+                    value={d.address}
+                    onChange={(addr) => set("address", addr)}
+                    showMailFlags
+                    mailing
+                  />
                 </div>
               </>
             )}
@@ -1406,13 +1412,17 @@ export default function AdminPartnerDetail() {
                       />
                       <label>
                         Website
-                        <input value={d.websiteLink} onChange={(e) => set("websiteLink", e.target.value)} />
+                        <WebAddressInput
+                          value={d.websiteLink}
+                          onChange={(e) => set("websiteLink", e.target.value)}
+                        />
                       </label>
                     </div>
                     <h4 style={{ marginTop: "1rem" }}>Mailing Address</h4>
                     <AddressFields
                       value={d.mailingAddress}
                       onChange={(addr) => set("mailingAddress", addr)}
+                      mailing
                     />
                   </>
                 )}
@@ -2244,7 +2254,7 @@ export default function AdminPartnerDetail() {
             </label>
             <label>
               URL
-              <input
+              <WebAddressInput
                 value={linkCrud.form.url}
                 onChange={(e) => linkCrud.setForm((f) => ({ ...f, url: e.target.value }))}
                 placeholder="https://..."

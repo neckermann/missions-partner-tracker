@@ -6,6 +6,7 @@ import { formatPhone } from "../utils/phone.js";
 import { updateChurchSettings, syncAllSendingChurch, uploadChurchLogo } from "../api/client.js";
 import { useSettings } from "../context/SettingsContext.jsx";
 import AddressFields from "../components/admin/AddressFields.jsx";
+import WebAddressInput from "../components/shared/WebAddressInput.jsx";
 import SettingsPageHeader from "../components/admin/SettingsPageHeader.jsx";
 import EditableSection from "../components/admin/EditableSection.jsx";
 import useChurchSettings from "../hooks/useChurchSettings.js";
@@ -233,7 +234,10 @@ export default function AdminSettingsAbout() {
               </label>
               <label>
                 Website
-                <input value={d.websiteLink || ""} onChange={(e) => set("websiteLink", e.target.value)} />
+                <WebAddressInput
+                  value={d.websiteLink || ""}
+                  onChange={(e) => set("websiteLink", e.target.value)}
+                />
               </label>
               <label>
                 Timezone
@@ -298,6 +302,7 @@ export default function AdminSettingsAbout() {
               onChange={(addr) => {
                 Object.entries(addr).forEach(([key, val]) => set(key, val));
               }}
+              mailing
             />
           </>
         )}
