@@ -58,8 +58,9 @@ organization partners.
 **[Render](https://render.com) is the recommended way to run this for your
 own church**: one click, no terminal, no GitHub account, no database to
 manage. You need a Render account with a payment card (the web service and
-the database are paid plans, about **$13/mo** together) and a phone with an
-authenticator app (two-factor sign-in is required from the first sign-in).
+the database are paid plans, about **$13/mo** together) and a phone or computer
+that can make a passkey, or a phone with an authenticator app (two-factor
+sign-in is required from the first sign-in).
 See [ADMIN_GUIDE.md § Getting your church running (Render)](ADMIN_GUIDE.md#getting-your-church-running-render)
 for the full walkthrough; other hosting options exist too (see
 [ADMIN_GUIDE.md § Deploying to production](ADMIN_GUIDE.md#deploying-to-production))
