@@ -260,10 +260,10 @@ describe("ContactCard editing", () => {
 });
 
 describe("ContactCard: not this season (C8)", () => {
+  // A yyyy-mm-dd string n days from today, worked out from the same string the card compares against.
   const future = (n) => {
-    const d = new Date();
-    d.setDate(d.getDate() + n);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const [y, m, d] = todayInputValue().split("-").map(Number);
+    return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10);
   };
 
   it("says so while the snooze is still ahead", () => {
