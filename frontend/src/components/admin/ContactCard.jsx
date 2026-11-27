@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { formatPhone } from "../../utils/phone.js";
 import { contactActions, primaryContactOf } from "../../utils/contactActions.js";
 import { contactLevelOf, methodLabel } from "../../utils/contactMethods.js";
 import { formatDateLong, todayInputValue, toDateInputValue } from "../../utils/format.js";
@@ -147,7 +148,9 @@ export default function ContactCard({
                 )}
                 {(partner.contactViaPhone || partner.contactViaEmail) && (
                   <div style={{ fontSize: "0.9rem", color: "var(--muted)" }}>
-                    {[partner.contactViaPhone, partner.contactViaEmail].filter(Boolean).join(" · ")}
+                    {[formatPhone(partner.contactViaPhone), partner.contactViaEmail]
+                      .filter(Boolean)
+                      .join(" · ")}
                   </div>
                 )}
                 <ActionButtons actions={viaActions} />
@@ -164,7 +167,7 @@ export default function ContactCard({
             </div>
             {!hidden && (person.phone || person.email) && (
               <div style={{ fontSize: "0.9rem", color: "var(--muted)" }}>
-                {[person.phone, person.email].filter(Boolean).join(" · ")}
+                {[formatPhone(person.phone), person.email].filter(Boolean).join(" · ")}
               </div>
             )}
           </div>

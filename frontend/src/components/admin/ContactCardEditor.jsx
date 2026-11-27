@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { formatPhone } from "../../utils/phone.js";
 import Modal from "../Modal.jsx";
 import { updateAdult, updatePartner } from "../../api/client.js";
 import { toDateInputValue } from "../../utils/format.js";
@@ -26,7 +27,7 @@ export default function ContactCardEditor({ partner, adults, canEditCare, onClos
   const [via, setVia] = useState({
     name: partner.contactViaName || "",
     role: partner.contactViaRole || "",
-    phone: partner.contactViaPhone || "",
+    phone: formatPhone(partner.contactViaPhone),
     email: partner.contactViaEmail || "",
   });
   // "Not this season": the partner is not called quiet until this day (yyyy-mm-dd, blank = no snooze).
@@ -210,6 +211,8 @@ export default function ContactCardEditor({ partner, adults, canEditCare, onClos
                 <label>
                   Their phone
                   <input
+                    type="tel"
+                    inputMode="tel"
                     value={via.phone}
                     onChange={(e) => setVia({ ...via, phone: e.target.value })}
                     maxLength={100}

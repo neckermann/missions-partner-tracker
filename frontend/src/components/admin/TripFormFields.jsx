@@ -126,7 +126,12 @@ export default function TripFormFields({ form, setForm, partnerPicker }) {
             </label>
             <label>
               Phone
-              <input value={p.phone || ""} onChange={(e) => updateParticipant(i, "phone", e.target.value)} />
+              <input
+                type="tel"
+                inputMode="tel"
+                value={p.phone || ""}
+                onChange={(e) => updateParticipant(i, "phone", e.target.value)}
+              />
             </label>
             <label>
               Email

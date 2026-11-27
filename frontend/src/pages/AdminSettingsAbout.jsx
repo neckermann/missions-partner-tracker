@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { formatPhone } from "../utils/phone.js";
 import { updateChurchSettings, syncAllSendingChurch, uploadChurchLogo } from "../api/client.js";
 import { useSettings } from "../context/SettingsContext.jsx";
 import AddressFields from "../components/admin/AddressFields.jsx";
@@ -130,7 +131,7 @@ export default function AdminSettingsAbout() {
         title="Church Info"
         value={{
           churchName: form.churchName,
-          phone: form.phone,
+          phone: formatPhone(form.phone),
           contactFirstName: form.contactFirstName,
           contactLastName: form.contactLastName,
           contactEmail: form.contactEmail,
@@ -154,7 +155,7 @@ export default function AdminSettingsAbout() {
             <p style={{ color: "var(--muted)" }}>
               {[v.contactFirstName, v.contactLastName].filter(Boolean).join(" ") || "No contact set"}
               {v.contactEmail ? ` · ${v.contactEmail}` : ""}
-              {v.phone ? ` · ${v.phone}` : ""}
+              {v.phone ? ` · ${formatPhone(v.phone)}` : ""}
             </p>
             <p style={{ color: "var(--muted)" }}>{v.websiteLink || "No website set"}</p>
             <p style={{ color: "var(--muted)" }}>Timezone: {v.timezone}</p>
@@ -197,6 +198,8 @@ export default function AdminSettingsAbout() {
               <label>
                 Phone
                 <input
+                  type="tel"
+                  inputMode="tel"
                   value={d.phone || ""}
                   onChange={(e) => set("phone", e.target.value)}
                   autoComplete="off"

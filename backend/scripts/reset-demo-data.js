@@ -215,7 +215,7 @@ async function resetDemoData() {
     contactFirstName: "Alex",
     contactLastName: "Morgan",
     contactEmail: "missions@example.org",
-    phone: "(309) 555-0100",
+    phone: "+13095550100",
     websiteLink: "https://missions.example.org",
     addressLine1: "100 Fellowship Way",
     city: "Rock Island",

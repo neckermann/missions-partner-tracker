@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
+import { formatPhone } from "../utils/phone.js";
 import { applicationAnswerList } from "../utils/applicationAnswers.js";
 import { useParams, Link } from "react-router-dom";
 import {
@@ -277,7 +278,7 @@ export default function AdminTripParticipantDetail() {
           firstName: participant.firstName || "",
           lastName: participant.lastName || "",
           email: participant.email || "",
-          phone: participant.phone || "",
+          phone: formatPhone(participant.phone),
           role: participant.role || "",
           addressLine1: participant.addressLine1 || "",
           addressLine2: participant.addressLine2 || "",
@@ -287,13 +288,13 @@ export default function AdminTripParticipantDetail() {
           country: participant.country || "",
           emergencyContactFirstName: participant.emergencyContactFirstName || "",
           emergencyContactLastName: participant.emergencyContactLastName || "",
-          emergencyContactPhone: participant.emergencyContactPhone || "",
+          emergencyContactPhone: formatPhone(participant.emergencyContactPhone),
           emergencyContactEmail: participant.emergencyContactEmail || "",
           dateOfBirth: participant.dateOfBirth ? participant.dateOfBirth.slice(0, 10) : "",
           parentGuardianFirstName: participant.parentGuardianFirstName || "",
           parentGuardianLastName: participant.parentGuardianLastName || "",
           parentGuardianRelationship: participant.parentGuardianRelationship || "",
-          parentGuardianPhone: participant.parentGuardianPhone || "",
+          parentGuardianPhone: formatPhone(participant.parentGuardianPhone),
           parentGuardianEmail: participant.parentGuardianEmail || "",
         }}
         onSave={(draft) =>
@@ -407,7 +408,12 @@ export default function AdminTripParticipantDetail() {
               </label>
               <label>
                 Phone
-                <input value={draft.phone} onChange={(e) => set("phone", e.target.value)} />
+                <input
+                  type="tel"
+                  inputMode="tel"
+                  value={draft.phone}
+                  onChange={(e) => set("phone", e.target.value)}
+                />
               </label>
               <label>
                 Role
@@ -467,6 +473,8 @@ export default function AdminTripParticipantDetail() {
               <label>
                 Phone
                 <input
+                  type="tel"
+                  inputMode="tel"
                   value={draft.emergencyContactPhone}
                   onChange={(e) => set("emergencyContactPhone", e.target.value)}
                 />
@@ -517,6 +525,8 @@ export default function AdminTripParticipantDetail() {
               <label>
                 Parent/guardian phone
                 <input
+                  type="tel"
+                  inputMode="tel"
                   value={draft.parentGuardianPhone}
                   onChange={(e) => set("parentGuardianPhone", e.target.value)}
                 />

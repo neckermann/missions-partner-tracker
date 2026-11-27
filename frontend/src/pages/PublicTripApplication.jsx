@@ -153,7 +153,12 @@ export default function PublicTripApplication() {
             </label>
             <label>
               Phone
-              <input value={values.phone} onChange={(e) => setValue("phone", e.target.value)} />
+              <input
+                type="tel"
+                inputMode="tel"
+                value={values.phone}
+                onChange={(e) => setValue("phone", e.target.value)}
+              />
             </label>
           </div>
           {/* A real field, always required: the minor determination that shows the Parent/guardian step depends on it. */}
@@ -249,6 +254,8 @@ export default function PublicTripApplication() {
                 <label>
                   Phone
                   <input
+                    type="tel"
+                    inputMode="tel"
                     value={values.emergencyContactPhone}
                     onChange={(e) => setValue("emergencyContactPhone", e.target.value)}
                   />
@@ -301,6 +308,8 @@ export default function PublicTripApplication() {
                 <label>
                   Phone
                   <input
+                    type="tel"
+                    inputMode="tel"
                     required
                     value={values.parentGuardianPhone}
                     onChange={(e) => setValue("parentGuardianPhone", e.target.value)}

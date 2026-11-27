@@ -127,7 +127,7 @@ test.describe("Public trip application wizard", () => {
     await page.getByLabel("First Name", { exact: true }).nth(1).fill("Jamie");
     await page.getByLabel("Last Name", { exact: true }).nth(1).fill("Chen");
     await page.getByLabel("Relationship").fill("Mother");
-    await page.getByLabel("Phone", { exact: true }).nth(1).fill("555-0100");
+    await page.getByLabel("Phone", { exact: true }).nth(1).fill("(555) 555-0100");
     // Emergency contact's own email field is labeled "Email (optional)",
     // not an exact match for "Email" -- the parent/guardian one (plain
     // "Email") is the only exact match, so no .nth() needed here.

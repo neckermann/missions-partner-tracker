@@ -567,7 +567,7 @@ describe("the contact card: how to reach a partner", () => {
         contactChannels: [],
         contactViaName: "Mission office",
         contactViaRole: "Sending organization",
-        contactViaPhone: "555-0100",
+        contactViaPhone: "(555) 555-0100",
         contactViaEmail: "office@example.org",
       },
     });

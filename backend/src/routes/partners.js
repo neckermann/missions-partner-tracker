@@ -1,6 +1,7 @@
 const express = require("express");
 const { webAddress, optionalWebAddress } = require("../utils/webAddress");
 const { z } = require("zod");
+const { phoneSchema, emailSchema } = require("../utils/contactFormat");
 const { CONTACT_METHODS, CONTACT_LEVELS } = require("../utils/contactMethods");
 const prisma = require("../prismaClient");
 const { recordAudit, recordRestrictedView } = require("../utils/auditLog");
@@ -136,7 +137,7 @@ const sendingPartySchema = z
     name: z.string().optional().nullable(),
     contactFirstName: z.string().optional().nullable(),
     contactLastName: z.string().optional().nullable(),
-    contactEmail: z.string().optional().nullable(),
+    contactEmail: emailSchema(z),
     websiteLink: optionalWebAddress(),
     mailingAddress: addressFieldsSchema
       .pick({
@@ -149,7 +150,7 @@ const sendingPartySchema = z
       })
       .optional()
       .nullable(),
-    phone: z.string().optional().nullable(),
+    phone: phoneSchema(z),
   })
   .optional();
 
@@ -194,8 +195,8 @@ const partnerSchema = z.object({
   orgType: z.string().optional().nullable(),
   contactFirstName: z.string().optional().nullable(),
   contactLastName: z.string().optional().nullable(),
-  contactPhone: z.string().optional().nullable(),
-  contactEmail: z.string().optional().nullable(),
+  contactPhone: phoneSchema(z),
+  contactEmail: emailSchema(z),
   contactMethod: z.enum(CONTACT_METHODS).optional().nullable(),
   contactMethodNote: z.string().trim().max(200).optional().nullable(),
 
@@ -206,15 +207,15 @@ const partnerSchema = z.object({
   contactInstructions: z.string().trim().max(2000).optional().nullable(),
   contactViaName: z.string().trim().max(200).optional().nullable(),
   contactViaRole: z.string().trim().max(200).optional().nullable(),
-  contactViaPhone: z.string().trim().max(100).optional().nullable(),
-  contactViaEmail: z.string().trim().max(200).optional().nullable(),
+  contactViaPhone: phoneSchema(z),
+  contactViaEmail: emailSchema(z),
   // "Not this season": blank clears it.
   contactSnoozedUntil: z.preprocess((v) => (v === "" ? null : v), z.coerce.date().nullable()).optional(),
   sentByOurChurch: z.boolean().optional(),
   anniversary: z.coerce.date().optional().nullable(),
   emergencyContactName: z.string().optional().nullable(),
-  emergencyContactPhone: z.string().optional().nullable(),
-  emergencyContactEmail: z.string().optional().nullable(),
+  emergencyContactPhone: phoneSchema(z),
+  emergencyContactEmail: emailSchema(z),
   sendingChurch: sendingPartySchema,
   sendingOrg: sendingPartySchema,
 
@@ -225,9 +226,9 @@ const partnerSchema = z.object({
 const adultSchema = z.object({
   firstName: z.string(),
   lastName: z.string().optional().nullable(),
-  phone1: z.string().optional().nullable(),
-  phone2: z.string().optional().nullable(),
-  email: z.string().optional().nullable(),
+  phone1: phoneSchema(z),
+  phone2: phoneSchema(z),
+  email: emailSchema(z),
   birthday: z.coerce.date().optional().nullable(),
 });
 const childSchema = z.object({

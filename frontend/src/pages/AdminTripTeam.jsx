@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { formatPhone } from "../utils/phone.js";
 import { useOutletContext } from "react-router-dom";
 import { updateTrip, generateApplicationLink, addTripParticipant } from "../api/client.js";
 import { isMinorForTrip, formatCurrency } from "../utils/format.js";
@@ -111,7 +112,7 @@ export default function AdminTripTeam() {
     {
       key: "reach",
       label: "Phone / Email",
-      render: (p) => [p.phone, p.email].filter(Boolean).join(" · ") || "—",
+      render: (p) => [formatPhone(p.phone), p.email].filter(Boolean).join(" · ") || "—",
     },
     {
       key: "support",

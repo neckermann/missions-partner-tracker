@@ -48,7 +48,12 @@ export default function SendingPartySection({ title, value, onChange, checkbox }
         </label>
         <label>
           Phone
-          <input value={value.phone || ""} onChange={(e) => update("phone", e.target.value)} />
+          <input
+            type="tel"
+            inputMode="tel"
+            value={value.phone || ""}
+            onChange={(e) => update("phone", e.target.value)}
+          />
         </label>
         <label style={{ gridColumn: "1 / -1" }}>
           Website

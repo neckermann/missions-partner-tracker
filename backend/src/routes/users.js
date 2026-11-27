@@ -1,6 +1,7 @@
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const { z } = require("zod");
+const { phoneSchema } = require("../utils/contactFormat");
 const prisma = require("../prismaClient");
 const { requireRole } = require("../middleware/requireAuth");
 const { sendWelcomeEmail } = require("../utils/welcomeEmails");
@@ -97,7 +98,7 @@ const createUserSchema = z.object({
   email: z.string().email(),
   firstName: z.string().optional().nullable(),
   lastName: z.string().optional().nullable(),
-  phone: z.string().trim().max(40).optional().nullable(),
+  phone: phoneSchema(z),
   profile: z.string().trim().max(1000).optional().nullable(),
   // On the church's missions team (looks after partners with no care team). Ignored for a guest.
   onMissionsTeam: z.boolean().optional(),
@@ -129,7 +130,7 @@ const createUserSchema = z.object({
 const updateUserSchema = z.object({
   firstName: z.string().optional().nullable(),
   lastName: z.string().optional().nullable(),
-  phone: z.string().trim().max(40).optional().nullable(),
+  phone: phoneSchema(z),
   profile: z.string().trim().max(1000).optional().nullable(),
   onMissionsTeam: z.boolean().optional(),
   role: ROLE_ENUM.optional(),
