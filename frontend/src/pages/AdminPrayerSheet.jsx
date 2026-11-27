@@ -71,7 +71,7 @@ export default function AdminPrayerSheet() {
   return (
     <div className="admin-shell prayer-sheet-page">
       <div className="no-print">
-        <h2>Prayer sheet</h2>
+        <h2>Prayer Sheet</h2>
         <p style={{ color: "var(--muted)" }}>
           A page to print for Sunday, or slides for the screen. It shows only what your public site may show:
           public {term} and their public prayer requests, never private ones. The sheets rotate through your{" "}
@@ -121,7 +121,7 @@ export default function AdminPrayerSheet() {
         )}
       </div>
 
-      <article className="prayer-sheet" aria-label="Prayer sheet">
+      <article className="prayer-sheet" aria-label="Prayer Sheet">
         <header className="prayer-sheet-header">
           {churchName && <div className="prayer-sheet-church">{churchName}</div>}
           <h1>Praying for our {partnerTermPlural || "Missionaries"}</h1>

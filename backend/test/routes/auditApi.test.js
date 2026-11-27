@@ -1,4 +1,4 @@
-// The Audit log page's API: admin-only and flag-gated, filters and paging, deleted accounts
+// The Audit Log page's API: admin-only and flag-gated, filters and paging, deleted accounts
 // flagged, the CSV export (formula-safe, same filters), and the retention setting.
 const { test, describe, before, after, beforeEach } = require("node:test");
 const assert = require("node:assert/strict");

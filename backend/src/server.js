@@ -57,6 +57,7 @@ const versionRoutes = require("./routes/version");
 const systemInfoRoutes = require("./routes/systemInfo");
 const backupCheckRoutes = require("./routes/backupCheck");
 const backupsRoutes = require("./routes/backups");
+const { refuseWritesDuringRestore } = require("./utils/restoreLock");
 const inboundEmailRoutes = require("./routes/inboundEmail");
 const dispatchRoutes = require("./routes/dispatches");
 const notificationRoutes = require("./routes/notifications");
@@ -189,6 +190,9 @@ app.use("/api/auth/passkeys", (req, res, next) =>
 
 // Generous: the public pages fire many requests per visitor; this only blunts scraping.
 app.use("/api/public", rateLimit({ windowMs: 60 * 1000, max: 120 }));
+
+// While an in-app restore runs, every other write is refused (utils/restoreLock.js).
+app.use("/api", refuseWritesDuringRestore);
 
 // (The backup routes limit themselves, inside routes/backups.js, after the admin check: counted per admin account
 // rather than per address, so requests from anyone else never use up an admin's allowance.)

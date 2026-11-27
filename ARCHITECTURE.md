@@ -52,7 +52,7 @@ place on purpose: use it, don't re-derive it.
   a route asks it instead of checking `role` itself. Staff on a care team
   keep their full role and gain only the care-team features. Details:
   [SPEC.md § 5.1-5.2](SPEC.md).
-- **Audit log** (`utils/auditLog.js`, `middleware/auditSettings.js`,
+- **Audit Log** (`utils/auditLog.js`, `middleware/auditSettings.js`,
   `utils/auditPruneScheduler.js`). `recordAudit` / `recordAuditSafe` write an
   event (who, what, which record, IP); settings changes are diffed and
   recorded by the settings middleware, with secrets stored as "changed",

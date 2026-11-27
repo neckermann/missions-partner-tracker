@@ -28,7 +28,7 @@ const EMAIL_SENDERS = {
   },
   "utils/emailDispatchDelivery.js": {
     whenOff: "handOver",
-    note: "Queued updates stay on Updates to share, which offers Copy the updates that are ready.",
+    note: "Queued updates stay on Updates to Share, which offers Copy the updates that are ready.",
   },
   "utils/keyDateReminderScheduler.js": {
     whenOff: "handOver",

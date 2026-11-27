@@ -28,6 +28,7 @@ import useCurrentUser from "../hooks/useCurrentUser.js";
 import RecordUnavailable, { loadErrorStatus } from "../components/shared/RecordUnavailable.jsx";
 import GiveGuestAccessModal from "../components/admin/GiveGuestAccessModal.jsx";
 import CopyButton from "../components/shared/CopyButton.jsx";
+import CopyValue from "../components/shared/CopyValue.jsx";
 
 const PARTICIPANT_PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
@@ -363,8 +364,8 @@ export default function AdminTripParticipantDetail() {
             <div className="form-grid">
               <ViewField label="First name" value={v.firstName} />
               <ViewField label="Last name" value={v.lastName} />
-              <ViewField label="Email" value={v.email} />
-              <ViewField label="Phone" value={v.phone} />
+              <ViewField label="Email" value={v.email} copy="email" whose={v.firstName} />
+              <ViewField label="Phone" value={v.phone} copy="phone" whose={v.firstName} />
               <ViewField label="Role" value={v.role} />
             </div>
             <h4 style={{ margin: "0.75rem 0 0.4rem" }}>Address</h4>
@@ -380,8 +381,18 @@ export default function AdminTripParticipantDetail() {
             <div className="form-grid">
               <ViewField label="First Name" value={v.emergencyContactFirstName} />
               <ViewField label="Last Name" value={v.emergencyContactLastName} />
-              <ViewField label="Phone" value={v.emergencyContactPhone} />
-              <ViewField label="Email" value={v.emergencyContactEmail} />
+              <ViewField
+                label="Phone"
+                value={v.emergencyContactPhone}
+                copy="phone"
+                whose={v.emergencyContactFirstName}
+              />
+              <ViewField
+                label="Email"
+                value={v.emergencyContactEmail}
+                copy="email"
+                whose={v.emergencyContactFirstName}
+              />
             </div>
             <h4 style={{ margin: "0.75rem 0 0.4rem" }}>Date of birth</h4>
             <div className="form-grid">
@@ -392,8 +403,18 @@ export default function AdminTripParticipantDetail() {
               <ViewField label="Parent/guardian first name" value={v.parentGuardianFirstName} />
               <ViewField label="Parent/guardian last name" value={v.parentGuardianLastName} />
               <ViewField label="Relationship" value={v.parentGuardianRelationship} />
-              <ViewField label="Parent/guardian phone" value={v.parentGuardianPhone} />
-              <ViewField label="Parent/guardian email" value={v.parentGuardianEmail} />
+              <ViewField
+                label="Parent/guardian phone"
+                value={v.parentGuardianPhone}
+                copy="phone"
+                whose={v.parentGuardianFirstName}
+              />
+              <ViewField
+                label="Parent/guardian email"
+                value={v.parentGuardianEmail}
+                copy="email"
+                whose={v.parentGuardianFirstName}
+              />
             </div>
           </div>
         )}
@@ -827,11 +848,24 @@ export default function AdminTripParticipantDetail() {
   );
 }
 
-function ViewField({ label, value }) {
+// `copy` ("phone" or "email") adds a copy button beside the value; `whose` names the person for its label.
+function ViewField({ label, value, copy, whose }) {
   return (
     <div>
       <div style={{ fontSize: "0.75rem", color: "var(--muted)", fontWeight: 600 }}>{label}</div>
-      <div>{value || "—"}</div>
+      <div>
+        {value ? (
+          copy ? (
+            <CopyValue kind={copy} value={String(value)} whose={whose}>
+              {value}
+            </CopyValue>
+          ) : (
+            value
+          )
+        ) : (
+          "—"
+        )}
+      </div>
     </div>
   );
 }

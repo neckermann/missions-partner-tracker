@@ -312,7 +312,7 @@ export default function AdminSettingsWhatsApp() {
       <p style={{ color: "var(--muted)" }}>
         Posts new prayer requests, one-time needs, and newsletters (and, when turned on, partner care posts
         such as coming key dates) to your WhatsApp community groups, on the same daily schedule as GroupMe
-        (set under <a href="/admin/settings/dispatches">Sending updates</a>).
+        (set under <a href="/admin/settings/dispatches">Sending Updates</a>).
       </p>
       <div className="field-warning">
         This links a phone number to the app the same way WhatsApp Web does. It is not an official WhatsApp

@@ -1,8 +1,11 @@
 import React from "react";
+import CopyValue from "../shared/CopyValue.jsx";
 
 // A label+value pair for read-only views (EditableSection `view` renderers, the viewer-role Modal
 // fallback). `showEmpty: false` (default) hides the field when empty; `true` shows "—".
-export default function Field({ label, value, showEmpty = false }) {
+// `copy` ("phone" or "email") puts a copy button beside the value (shared/CopyValue.jsx); `whose` names whose it is
+// for the button's label. Leave it off wherever the value may be withheld.
+export default function Field({ label, value, showEmpty = false, copy, whose }) {
   const isEmpty = value === null || value === undefined || value === "";
   if (isEmpty && !showEmpty) return null;
   // minWidth: 0 and overflowWrap: a long unbreakable value (an email address, a URL) wraps
@@ -20,7 +23,15 @@ export default function Field({ label, value, showEmpty = false }) {
         {label}
       </div>
       <div style={{ overflowWrap: "anywhere", ...(isEmpty ? { color: "var(--muted)" } : null) }}>
-        {isEmpty ? "—" : value}
+        {isEmpty ? (
+          "—"
+        ) : copy ? (
+          <CopyValue kind={copy} value={String(value)} whose={whose}>
+            {value}
+          </CopyValue>
+        ) : (
+          value
+        )}
       </div>
     </div>
   );
