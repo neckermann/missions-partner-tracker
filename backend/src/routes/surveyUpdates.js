@@ -4,7 +4,7 @@ const prisma = require("../prismaClient");
 const { requireAuth, requireRole } = require("../middleware/requireAuth");
 const { requireFeature } = require("../middleware/requireFeature");
 const { recordAuditSafe } = require("../utils/auditLog");
-const { PHOTO, loadContext, applyField } = require("../utils/surveyFields");
+const { PHOTO, loadContext, applyField, presentation, problemWithAnswer } = require("../utils/surveyFields");
 const { describeSupportValue, FIELD: SUPPORT_FIELD } = require("../utils/surveySupport");
 
 // #419: the changes survey answers suggest to a partner's record. A person approves (optionally
@@ -30,6 +30,10 @@ const shape = (p) => ({
   proposedValue: p.proposedValue,
   appliedValue: p.appliedValue,
   photoUploadId: p.uploadId,
+  inputType: presentation(p.field).inputType || null,
+  // Why this suggestion can't be approved as it stands (null when it can).
+  problem:
+    p.uploadId || p.field === "supportPreferences" ? null : problemWithAnswer(p.field, p.proposedValue),
   createdAt: p.createdAt,
   decidedAt: p.decidedAt,
   decidedByName: p.decidedByName,

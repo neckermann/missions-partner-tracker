@@ -59,8 +59,8 @@ async function proposeFromResponse(responseId) {
       current = diff.current;
       if (!proposed) continue;
     }
-    if (sameValue(current, proposed)) continue;
-    if (decided.some((d) => d.questionId === q.id && sameValue(d.proposedValue, proposed))) continue;
+    if (sameValue(current, proposed, q.field)) continue;
+    if (decided.some((d) => d.questionId === q.id && sameValue(d.proposedValue, proposed, q.field))) continue;
     await prisma.surveyProposal.create({
       data: { ...base, currentValue: current || null, proposedValue: proposed },
     });

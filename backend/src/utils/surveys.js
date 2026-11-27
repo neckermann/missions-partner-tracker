@@ -4,7 +4,7 @@
 const { generateToken, hashToken } = require("./passwordSetup");
 const { appBaseUrl } = require("./dispatchBlurbs");
 const { emailBlockReason, surveyEmailFor } = require("./contactReach");
-const { fieldFitsKind, PHOTO, normalizeAddress } = require("./surveyFields");
+const { fieldFitsKind, PHOTO, normalizeAddress, presentation } = require("./surveyFields");
 const { normalizeSupportAnswer, FIELD: SUPPORT_FIELD, KIND: SUPPORT_KIND } = require("./surveySupport");
 
 const KINDS = [
@@ -97,8 +97,9 @@ function buildSurveyUrl(token) {
 // store ({ choices, allowOther, field }) or { error }. Shared by the builder and pack import.
 function shapeQuestion(q) {
   const isChoice = CHOICE_KINDS.includes(q.kind);
-  const choices = isChoice ? [...new Set(q.choices || [])] : [];
-  const allowOther = isChoice ? q.allowOther === true : false;
+  const fixed = q.field ? presentation(q.field) : {};
+  const choices = fixed.choices ? fixed.choices : isChoice ? [...new Set(q.choices || [])] : [];
+  const allowOther = fixed.choices ? false : isChoice ? q.allowOther === true : false;
   if (isChoice && choices.length === 0 && !allowOther) {
     return { error: `"${q.label}" needs at least one choice, or an “other” box` };
   }

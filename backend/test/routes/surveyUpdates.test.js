@@ -176,7 +176,7 @@ describe("survey packs and updates", () => {
     const approved = await editor(`/api/survey-updates/${phone.id}/approve`, { method: "POST", body: {} });
     assert.equal(approved.status, 200);
     const adult = await prisma.adult.findFirst({ where: { partnerId: partner.id } });
-    assert.equal(adult.phone1, "(337) 555-0100");
+    assert.equal(adult.phone1, "+13375550100");
     assert.ok(adult.lastEditedByName, "credited to the approver");
     assert.equal(
       (await editor(`/api/survey-updates/${phone.id}/approve`, { method: "POST", body: {} })).status,
@@ -516,5 +516,158 @@ describe("survey packs and updates", () => {
     assert.match(again.proposedDisplay, /Wed/);
 
     await prisma.supportOption.deleteMany({ where: { group } });
+  });
+
+  test("a linked question gets the right input, takes only what its field accepts, and saves one form (#548)", async () => {
+    const made = (await editor("/api/surveys", { method: "POST", body: { title: `${FIXTURE_TAG} Formats` } }))
+      .body;
+    const saved = await editor(`/api/surveys/${made.id}/questions`, {
+      method: "PUT",
+      body: {
+        questions: [
+          { kind: "text", label: "Phone", field: "primaryPhone" },
+          { kind: "text", label: "Email", field: "primaryEmail" },
+          {
+            kind: "single",
+            label: "Reach you by",
+            field: "contactMethod",
+            choices: ["Call me", "Ping me"],
+            allowOther: true,
+          },
+          { kind: "text", label: "Contact name", field: "emergencyContactName" },
+          { kind: "text", label: "Anything else" },
+        ],
+      },
+    });
+    assert.equal(saved.status, 200);
+    const qid = Object.fromEntries(saved.body.questions.map((q) => [q.label, q.id]));
+    const method = saved.body.questions.find((q) => q.label === "Reach you by");
+    assert.deepEqual(method.choices, ["call", "text", "email", "whatsapp", "signal", "messenger", "other"]);
+    assert.equal(method.allowOther, false, "a contact method keeps the fixed list, not what was typed");
+    await editor(`/api/surveys/${made.id}`, { method: "PUT", body: { status: "open" } });
+
+    const { token, tokenHash, expiresAt } = newInviteToken();
+    await prisma.surveyInvite.create({
+      data: { surveyId: made.id, partnerId: partner.id, tokenHash, expiresAt, sentAt: new Date() },
+    });
+
+    // The page is told which input each question needs.
+    const view = await anon(`/api/public/surveys/${token}`);
+    const by = Object.fromEntries(view.body.questions.map((q) => [q.label, q]));
+    assert.equal(by.Phone.inputType, "tel");
+    assert.equal(by.Email.inputType, "email");
+    assert.equal(by["Contact name"].inputType, "line");
+    assert.equal(by["Contact name"].maxLength, 120);
+    assert.equal(by["Anything else"].inputType, null);
+    assert.equal(by["Reach you by"].inputType, "contactMethod");
+    assert.equal(by["Reach you by"].labels.call, "Phone call");
+    assert.equal(by["Reach you by"].labels.whatsapp, "WhatsApp");
+    assert.equal(by.Phone.field, undefined, "the record's field name is never sent to the partner");
+
+    // Junk is refused with the question's name, and nothing is kept.
+    const put = (answers) => anon(`/api/public/surveys/${token}`, { method: "PUT", body: { answers } });
+    const junkPhone = await put([{ questionId: qid.Phone, value: "dsafdsfsadf" }]);
+    assert.equal(junkPhone.status, 400);
+    assert.match(junkPhone.body.error, /^Phone: That doesn't look like a phone number/);
+    const junkEmail = await put([{ questionId: qid.Email, value: "not an email" }]);
+    assert.equal(junkEmail.status, 400);
+    assert.match(junkEmail.body.error, /^Email: That doesn't look like an email address/);
+    const longName = await put([{ questionId: qid["Contact name"], value: "x".repeat(121) }]);
+    assert.equal(longName.status, 400);
+    assert.match(longName.body.error, /120 characters/);
+    assert.equal(await prisma.surveyAnswer.count({ where: { response: { surveyId: made.id } } }), 0);
+
+    // Staff filling it in for the partner go through the same check.
+    const staff = await editor(`/api/surveys/${made.id}/partner/${partner.id}`, {
+      method: "PUT",
+      body: { answers: [{ questionId: qid.Phone, value: "12" }] },
+    });
+    assert.equal(staff.status, 400);
+    assert.match(staff.body.error, /phone number/);
+
+    // Typed loosely, it is saved in the one form, and what is on file is compared by number.
+    const ok = await put([
+      { questionId: qid.Phone, value: "(337) 555 0100" },
+      { questionId: qid.Email, value: " OLD@Example.TEST " },
+      { questionId: qid["Reach you by"], value: "signal" },
+      { questionId: qid["Contact name"], value: "  Sam Doe  " },
+    ]);
+    assert.equal(ok.status, 200);
+    const stored = await prisma.surveyAnswer.findMany({ where: { response: { surveyId: made.id } } });
+    const valueOf = (label) => stored.find((a) => a.label === label)?.value;
+    assert.equal(valueOf("Phone"), "+13375550100");
+    assert.equal(valueOf("Email"), "old@example.test");
+    assert.equal(valueOf("Contact name"), "Sam Doe");
+    const badChoice = await put([{ questionId: qid["Reach you by"], value: "Ping me" }]);
+    assert.equal(badChoice.status, 400, "a choice that was typed into the question is not offered");
+
+    const submit = await anon(`/api/public/surveys/${token}/submit`, {
+      method: "POST",
+      body: { answers: [] },
+    });
+    assert.equal(submit.status, 200);
+    // Only this survey's suggestions: earlier tests leave their own waiting on the same partner.
+    const ours = async () => (await pending()).filter((u) => u.surveyTitle === `${FIXTURE_TAG} Formats`);
+    const proposed = (await ours()).map((u) => u.field).sort();
+    assert.deepEqual(
+      proposed,
+      ["contactMethod", "emergencyContactName"],
+      "the same phone and email on file in another spelling propose nothing"
+    );
+    const row = (await ours()).find((u) => u.field === "contactMethod");
+    assert.equal(row.inputType, "contactMethod");
+    assert.equal(row.problem, null);
+    await editor(`/api/survey-updates/${row.id}/reject`, { method: "POST" });
+    await editor(`/api/survey-updates/${(await ours())[0].id}/reject`, { method: "POST" });
+  });
+
+  test("a suggestion that is not a real value says why and cannot be approved (#548)", async () => {
+    const response = await prisma.surveyResponse.findFirst({
+      where: { partnerId: partner.id, survey: { title: `${FIXTURE_TAG} Formats` } },
+    });
+    const junk = await prisma.surveyProposal.create({
+      data: {
+        surveyId: response.surveyId,
+        responseId: response.id,
+        partnerId: partner.id,
+        field: "primaryPhone",
+        fieldLabel: "Primary contact's phone",
+        currentValue: "+13375550100",
+        proposedValue: "dsafdsfsadf",
+      },
+    });
+    const fine = await prisma.surveyProposal.create({
+      data: {
+        surveyId: response.surveyId,
+        responseId: response.id,
+        partnerId: partner.id,
+        field: "primaryEmail",
+        fieldLabel: "Primary contact's email",
+        currentValue: "old@example.test",
+        proposedValue: "new@example.test",
+      },
+    });
+    const list = (await pending()).filter((u) => [junk.id, fine.id].includes(u.id));
+    const bad = list.find((u) => u.id === junk.id);
+    assert.match(bad.problem, /doesn't look like a phone number/);
+    assert.equal(bad.inputType, "tel");
+    assert.equal(list.find((u) => u.id === fine.id).problem, null);
+
+    const refused = await editor(`/api/survey-updates/${junk.id}/approve`, { method: "POST", body: {} });
+    assert.equal(refused.status, 400);
+    assert.match(refused.body.error, /phone number/);
+    assert.equal(
+      (await prisma.adult.findFirst({ where: { partnerId: partner.id } })).phone1,
+      "+13375550100",
+      "the good number on file is untouched"
+    );
+    // A person can still fix it by hand while approving.
+    const fixed = await editor(`/api/survey-updates/${junk.id}/approve`, {
+      method: "POST",
+      body: { value: "(337) 555 0199" },
+    });
+    assert.equal(fixed.status, 200);
+    assert.equal((await prisma.adult.findFirst({ where: { partnerId: partner.id } })).phone1, "+13375550199");
+    await editor(`/api/survey-updates/${fine.id}/reject`, { method: "POST" });
   });
 });
