@@ -19,6 +19,7 @@ const countryInfoRoutes = require("./routes/countryInfo");
 const supportNeedRoutes = require("./routes/supportNeeds");
 const supportEntryRoutes = require("./routes/supportEntries");
 const prayerRequestRoutes = require("./routes/prayerRequests");
+const prayerSheetRoutes = require("./routes/prayerSheet");
 const adultRoutes = require("./routes/adults");
 const childRoutes = require("./routes/children");
 const furloughRoutes = require("./routes/furloughs");
@@ -179,13 +180,8 @@ app.use("/api/auth/passkeys", (req, res, next) =>
 // Generous: the public pages fire many requests per visitor; this only blunts scraping.
 app.use("/api/public", rateLimit({ windowMs: 60 * 1000, max: 120 }));
 
-// The backup file is the heaviest request and the most sensitive output (see
-// routes/backups.js); this stops a compromised admin session pulling it in a loop.
-// Wrong passwords count too. Relaxed under test, like the sign-in limiter.
-app.use(
-  "/api/backups",
-  rateLimit({ windowMs: 15 * 60 * 1000, max: process.env.NODE_ENV === "test" ? 1000 : 5 })
-);
+// (The backup routes limit themselves, inside routes/backups.js, after the admin check: counted per admin account
+// rather than per address, so requests from anyone else never use up an admin's allowance.)
 
 // Each call is a billable Anthropic API request (utils/extraction.js). Scoped to
 // the path so normal document CRUD is unaffected.
@@ -205,6 +201,7 @@ app.use("/api/public/country-info", countryInfoRoutes); // open (Joshua Project 
 app.use("/api/support-needs", supportNeedRoutes); // protected (admin) — session required
 app.use("/api/support-entries", supportEntryRoutes); // protected (admin) — session required
 app.use("/api/prayer-requests", prayerRequestRoutes); // protected (admin) — session required
+app.use("/api/prayer-sheet", prayerSheetRoutes); // protected (staff) — the Sunday prayer sheet, public-safe content only
 app.use("/api/adults", adultRoutes); // protected (admin) — session required
 app.use("/api/children", childRoutes); // protected (admin) — session required
 app.use("/api/furloughs", furloughRoutes); // protected (admin) — session required
