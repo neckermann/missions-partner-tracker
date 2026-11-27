@@ -80,18 +80,20 @@ function RequirementTemplateEditor({ items, onChange }) {
                   className="btn-remove"
                   disabled={index === 0}
                   onClick={() => move(index, -1)}
-                  title="Move up"
+                  title="Move this requirement up"
+                  aria-label={`Move ${item.label || "this requirement"} up`}
                 >
-                  ▲
+                  ▲ Up
                 </button>
                 <button
                   type="button"
                   className="btn-remove"
                   disabled={index === items.length - 1}
                   onClick={() => move(index, 1)}
-                  title="Move down"
+                  title="Move this requirement down"
+                  aria-label={`Move ${item.label || "this requirement"} down`}
                 >
-                  ▼
+                  ▼ Down
                 </button>
               </div>
               <input
@@ -120,8 +122,14 @@ function RequirementTemplateEditor({ items, onChange }) {
                 />
                 Minors only
               </label>
-              <button type="button" className="btn-remove" onClick={() => remove(index)}>
-                ✕
+              <button
+                type="button"
+                className="btn-remove"
+                onClick={() => remove(index)}
+                title="Remove this requirement from the list"
+                aria-label={`Remove ${item.label || "this requirement"}`}
+              >
+                Remove
               </button>
             </div>
             {item.kind === "esignature" && (

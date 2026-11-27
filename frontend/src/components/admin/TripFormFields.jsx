@@ -98,8 +98,14 @@ export default function TripFormFields({ form, setForm, partnerPicker }) {
       <h4 style={{ marginTop: "1rem" }}>Participants</h4>
       {form.participants.map((p, i) => (
         <div className="repeatable-row" key={i} style={{ background: "white" }}>
-          <button type="button" className="btn-remove" onClick={() => removeParticipant(i)} title="Remove">
-            ✕
+          <button
+            type="button"
+            className="btn-remove"
+            onClick={() => removeParticipant(i)}
+            title="Remove this participant"
+            aria-label={`Remove ${[p.firstName, p.lastName].filter(Boolean).join(" ") || "this participant"}`}
+          >
+            Remove
           </button>
           <div className="form-grid">
             <label>

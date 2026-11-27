@@ -135,6 +135,7 @@ export default function SavedViewsBar({ reportId, queryValues, onApply, isAdmin 
               className="summary-item-link"
               onClick={() => remove(v)}
               aria-label={`Delete ${v.name}`}
+              title={`Delete the saved view ${v.name}`}
             >
               ✕
             </button>
