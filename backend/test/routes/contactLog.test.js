@@ -379,6 +379,13 @@ describe("contact log: My partners", () => {
 
     let row = (await s("/api/contact-log/assigned")).body[0];
     assert.equal(row.daysSinceContact, null, "never contacted");
+    assert.equal(row.quiet, false, "just added to the list: the quiet clock has not run yet");
+    // Once they have been on the list longer than the quiet threshold, never contacted means quiet.
+    await prisma.careTeamMember.updateMany({
+      where: { partnerId: partner.id },
+      data: { createdAt: new Date(Date.now() - 100 * 86400000) },
+    });
+    row = (await s("/api/contact-log/assigned")).body[0];
     assert.equal(row.quiet, true);
 
     const todayStr = new Date().toISOString().slice(0, 10);
@@ -609,10 +616,13 @@ describe("contact log: needs-attention notification and the Last heard from repo
         body: { kind: "missionary", displayName: `${FIXTURE_TAG} logNotify` },
       })
     ).body;
-    await prisma.careTeamMember.create({ data: { partnerId: partner.id, userId: who.user.id } });
+    // On the list for longer than the quiet threshold (a partner just added is not quiet yet).
+    await prisma.careTeamMember.create({
+      data: { partnerId: partner.id, userId: who.user.id, createdAt: new Date(Date.now() - 100 * 86400000) },
+    });
     const g = await who.login();
 
-    // never contacted: quiet; a guest sees this category
+    // never contacted, and on the list for 100 days: quiet; a guest sees this category
     let cat = find(await g("/api/notifications/summary"));
     assert.ok(cat, "a care team guest sees the category");
     assert.equal(cat.count, 1);

@@ -72,6 +72,9 @@ export default function ContactCard({
     return !m || d > m ? d : m;
   }, null);
   const days = last ? daysBetweenInputs(todayInputValue(), last) : null;
+  // Only while it is still in the future; an old date means nothing.
+  const snoozeValue = partner.contactSnoozedUntil ? toDateInputValue(partner.contactSnoozedUntil) : "";
+  const snoozedUntil = snoozeValue && snoozeValue > todayInputValue() ? snoozeValue : "";
 
   // Who else is in the family, and how they like to be reached.
   const others = isOrg || hidden ? [] : adults.filter((a) => a.id !== person?.adultId && a.contactMethod);
@@ -193,6 +196,11 @@ export default function ContactCard({
             {last
               ? `Last contact: ${days === 0 ? "today" : days === 1 ? "yesterday" : `${days} days ago`} (${formatDateLong(last)})`
               : "No contact logged yet."}
+          </div>
+        )}
+        {snoozedUntil && (
+          <div style={{ marginTop: "0.4rem", fontSize: "0.9rem", color: "var(--muted)" }}>
+            Not this season: not called quiet until {formatDateLong(snoozedUntil)}.
           </div>
         )}
       </div>

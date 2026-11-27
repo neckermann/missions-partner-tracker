@@ -1186,6 +1186,11 @@ every amount. Amounts stay whole numbers with no currency of their own; the sett
 written (`utils/money.js` on the server for announcements and report headings, `utils/format.js` in the browser,
 which `SettingsContext` keeps in step). Nothing is converted when it changes.
 
+`Partner.contactSnoozedUntil` ("not this season") keeps a partner out of "quiet" until that day (`contactLogQueries.js`,
+`careChatDispatch.js`); a partner nobody has contacted counts quiet from the day they joined the person's list
+(the care seat's `createdAt`), not from the first minute. A follow-up date still counts while snoozed. Staff-only;
+never on the public site.
+
 `SupportNeed.handledBy` (who has taken a need on) and `SupportNeed.metDate` (the day it was covered) are
 independent of the funding decision (`approvedAmount`/`approvedDate`): a need can be met with no decision, or
 declined and met elsewhere. A met need is not counted as awaiting a decision (`contactLogQueries.js`) and the

@@ -957,6 +957,8 @@ A **trip leader** (a Guest given a trip) has a smaller view: their trips, and th
 
 It works with the [Contact log](#contact-log): logging a contact is what resets a partner's quiet days.
 
+A partner nobody has contacted yet is not called quiet straight away: their quiet days count from the day they joined your list, so a new install (or a partner you just added) is not instantly all overdue. For a partner in a busy or private season, open **Edit contact** and set **Not this season**: until that day they are left out of "quiet" on My partners, the bell and the care chat posts, and My partners shows "Not this season until ...". A follow-up date you set on purpose still shows. Clear the date to bring them back.
+
 ### Contact log
 
 With **Contact log** turned on in [Enabled Features](ADMIN_GUIDE.md#feature-toggles), every partner page gets a **Contact** card and a **Contact Log**.

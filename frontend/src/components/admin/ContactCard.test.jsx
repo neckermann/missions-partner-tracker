@@ -258,3 +258,61 @@ describe("ContactCard editing", () => {
     expect(screen.getByRole("dialog")).toBeTruthy();
   });
 });
+
+describe("ContactCard: not this season (C8)", () => {
+  // A yyyy-mm-dd string n days from today, worked out from the same string the card compares against.
+  const future = (n) => {
+    const [y, m, d] = todayInputValue().split("-").map(Number);
+    return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10);
+  };
+
+  it("says so while the snooze is still ahead", () => {
+    render(
+      <ContactCard partner={{ ...base, contactSnoozedUntil: future(20) }} adults={adults} entries={[]} />
+    );
+    expect(screen.getByText(/Not this season: not called quiet until/)).toBeTruthy();
+  });
+
+  it("says nothing once the date has passed, or when there is none", () => {
+    const { rerender } = render(
+      <ContactCard partner={{ ...base, contactSnoozedUntil: future(-3) }} adults={adults} entries={[]} />
+    );
+    expect(screen.queryByText(/Not this season/)).toBeNull();
+    rerender(<ContactCard partner={base} adults={adults} entries={[]} />);
+    expect(screen.queryByText(/Not this season/)).toBeNull();
+  });
+
+  it("saves a snooze date from Edit contact, and clears it with a blank", async () => {
+    updatePartner.mockResolvedValue({});
+    updateAdult.mockResolvedValue({});
+    const date = future(40);
+    const { unmount } = render(<ContactCard partner={base} adults={adults} entries={[]} canEdit />);
+    fireEvent.click(screen.getByRole("button", { name: "Edit contact" }));
+    fireEvent.change(screen.getByLabelText(/Don't call them quiet until/), { target: { value: date } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(updatePartner).toHaveBeenCalledWith("p1", { contactSnoozedUntil: date }));
+    unmount();
+
+    updatePartner.mockClear();
+    render(
+      <ContactCard partner={{ ...base, contactSnoozedUntil: date }} adults={adults} entries={[]} canEdit />
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Edit contact" }));
+    fireEvent.change(screen.getByLabelText(/Don't call them quiet until/), { target: { value: "" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(updatePartner).toHaveBeenCalledWith("p1", { contactSnoozedUntil: null }));
+  });
+
+  it("does not touch the snooze when it was not changed", async () => {
+    updatePartner.mockResolvedValue({});
+    updateAdult.mockResolvedValue({});
+    render(<ContactCard partner={base} adults={adults} entries={[]} canEdit />);
+    fireEvent.click(screen.getByRole("button", { name: "Edit contact" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(updateAdult).toHaveBeenCalled());
+    expect(updatePartner).not.toHaveBeenCalledWith(
+      "p1",
+      expect.objectContaining({ contactSnoozedUntil: expect.anything() })
+    );
+  });
+});
