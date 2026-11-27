@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import PhoneField from "./PhoneField.jsx";
-import { phoneHint } from "./PhoneInput.jsx";
+import { phoneHint, phoneCountryWarning } from "./PhoneInput.jsx";
 
 function Box({ onSeen, initial = "", ...rest }) {
   const [value, setValue] = useState(initial);
@@ -188,6 +188,67 @@ describe("PhoneField", () => {
     render(<Box disabled />);
     expect(screen.getByLabelText("Phone")).toBeDisabled();
     expect(picker()).toBeDisabled();
+  });
+});
+
+describe("PhoneField for a partner abroad", () => {
+  it("names the country in the picker, not just its code", () => {
+    render(<Box country="KE" />);
+    expect(screen.getByText("Kenya").closest(".phone-country-shown")).toHaveTextContent("Kenya +254");
+  });
+
+  it("starts on the partner's country, so a number typed the local way is saved as that country's", () => {
+    const seen = vi.fn();
+    render(<Box country="KE" onSeen={seen} />);
+    expect(picker()).toHaveValue("KE");
+    fireEvent.change(screen.getByLabelText("Phone"), { target: { value: "0712345678" } });
+    expect(seen).toHaveBeenLastCalledWith("+254712345678");
+  });
+
+  it("falls back to the church's country when the partner's country isn't one it knows", () => {
+    render(<Box country="ZZ" />);
+    expect(picker()).toHaveValue("US");
+  });
+
+  it("warns, without blocking, when the number doesn't fit the country picked", () => {
+    const seen = vi.fn();
+    render(<Box onSeen={seen} />);
+    const box = screen.getByLabelText("Phone");
+    fireEvent.change(box, { target: { value: "0712345678" } });
+    expect(screen.queryByRole("status")).toBeNull();
+    fireEvent.blur(box);
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "This doesn't look like a United States number. Is the country right?"
+    );
+    expect(box).not.toHaveAttribute("aria-invalid");
+    expect(seen).toHaveBeenLastCalledWith("+10712345678");
+
+    fireEvent.change(picker(), { target: { value: "KE" } });
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(seen).toHaveBeenLastCalledWith("+254712345678");
+  });
+
+  it("keeps a saved +1 number on the church's country even when the partner serves elsewhere", () => {
+    render(<Box country="KE" initial="+15065550259" />);
+    expect(picker()).toHaveValue("US");
+    expect(screen.getByLabelText("Phone")).toHaveValue("(506) 555-0259");
+  });
+});
+
+describe("phoneCountryWarning", () => {
+  it("is quiet for a blank box, a number that fits, and one that can't be a number at all", () => {
+    expect(phoneCountryWarning("")).toBe("");
+    expect(phoneCountryWarning("(506) 555-0259")).toBe("");
+    expect(phoneCountryWarning("0712 345678", "KE")).toBe("");
+    expect(phoneCountryWarning("12345")).toBe("");
+    expect(phoneCountryWarning("dsafdsfsadf")).toBe("");
+  });
+
+  it("asks about the country when a number is the right length but not that country's", () => {
+    expect(phoneCountryWarning("0712345678", "US")).toBe(
+      "This doesn't look like a United States number. Is the country right?"
+    );
+    expect(phoneCountryWarning("5065550259", "KE")).toMatch(/Kenya number/);
   });
 });
 

@@ -11,15 +11,18 @@ import { PHONE_COUNTRIES } from "../../utils/phoneCountries.js";
 // A phone box with a country picker, that helps while you type and tells you when a number can't be
 // right. Use it through <PhoneField> (components/shared/PhoneField.jsx), which adds the label.
 //
-// - The picker beside the box says which country the number is in; it starts on the church's country
-//   (settings), or on the number's own country when it already has one. Type the number the way people
+// - The picker beside the box names the country the number is in; it starts on `country` when the caller gives
+//   one (the country a partner serves in), else on the church's country (settings), or on the number's own
+//   country when it already has one. Type the number the way people
 //   there write it ("0712 345678" in Kenya) and the value passed on is the full international number
 //   (+254712345678), so it never depends on any default. Typing a number that starts with + switches the
 //   picker to that number's country.
 // - Digits shape themselves as you type at the end of the box: 5065550259 becomes (506) 555-0259.
 //   Deleting, or typing in the middle of a number, leaves it exactly as typed so the cursor never jumps.
-// - When you leave the box, a short note appears if the number can't be one. It never blocks saving: the
-//   server checks again (backend/src/utils/contactFormat.js), and a blank box is always fine.
+// - When you leave the box, a short note appears if the number can't be one, and a gentler one if it is the
+//   right length but doesn't fit the country picked (a Kenyan mobile typed with the picker on the United
+//   States). Neither blocks saving: the server checks again (backend/src/utils/contactFormat.js), and a blank
+//   box is always fine.
 //
 // `value` and `onChange(event)` work like an <input>'s, except the event's target.value is the international
 // number as soon as it is a complete one (and the shaped text before that). Every other prop (required,
@@ -44,14 +47,30 @@ export function phoneHint(value, country = DEFAULT_COUNTRY) {
   return "That doesn't look like a phone number. Include the area code, or start with + and the country code.";
 }
 
-// The country a number belongs in: its own when it starts with + (kept as `fallback` when they share a
-// calling code, so a +1 number stays on the church's North American country), else `fallback`.
-function countryFor(value, fallback) {
+const REGION_NAMES = new Intl.DisplayNames(["en"], { type: "region" });
+const countryName = (country) => REGION_NAMES.of(country) || country;
+
+// A note, not an error, for a number that is long enough to save but doesn't fit the country picked: the usual
+// cause is a number from abroad typed with the picker left on another country. "" when the number fits, is
+// blank, or can't be a number at all (phoneHint covers that).
+export function phoneCountryWarning(value, country = DEFAULT_COUNTRY) {
+  const text = typeof value === "string" ? value.trim() : "";
+  if (!text || /[a-z]/i.test(text)) return "";
+  const parsed = parsePhoneNumberFromString(text, country);
+  if (!parsed || !parsed.isPossible() || parsed.isValid()) return "";
+  return `This doesn't look like a ${countryName(country)} number. Is the country right?`;
+}
+
+// The country a number belongs in: its own when it starts with + (kept as `fallback`, or failing that as the
+// church's `home` country, when they share a calling code, so a +1 number stays on the church's North American
+// country), else `fallback`.
+function countryFor(value, fallback, home = fallback) {
   const text = typeof value === "string" ? value.trim() : "";
   if (!text.startsWith("+")) return fallback;
   const parsed = parsePhoneNumberFromString(text);
   if (!parsed) return fallback;
   if (parsed.countryCallingCode === callingCode(fallback)) return fallback;
+  if (parsed.countryCallingCode === callingCode(home)) return home;
   return (
     parsed.country || getCountries().find((c) => callingCode(c) === parsed.countryCallingCode) || fallback
   );
@@ -84,10 +103,11 @@ function valueFor(text, country) {
 
 export default function PhoneInput({ value, onChange, onBlur, country: countryProp, disabled, ...rest }) {
   const settings = useSettings() || {};
-  const where = countryProp || settings.defaultPhoneCountry || DEFAULT_COUNTRY;
+  const home = settings.defaultPhoneCountry || DEFAULT_COUNTRY;
+  const where = countryProp && callingCode(countryProp) ? countryProp : home;
   const current = value ?? "";
-  const [country, setCountry] = useState(() => countryFor(current, where));
-  const [text, setText] = useState(() => localText(current, countryFor(current, where)));
+  const [country, setCountry] = useState(() => countryFor(current, where, home));
+  const [text, setText] = useState(() => localText(current, countryFor(current, where, home)));
   const [touched, setTouched] = useState(false);
   const lastPassedOn = useRef(current);
   const choseCountry = useRef(false);
@@ -97,16 +117,17 @@ export default function PhoneInput({ value, onChange, onBlur, country: countryPr
   useEffect(() => {
     if (current === lastPassedOn.current) return;
     lastPassedOn.current = current;
-    const c = countryFor(current, choseCountry.current ? country : where);
+    const c = countryFor(current, choseCountry.current ? country : where, home);
     setCountry(c);
     setText(localText(current, c));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only a new `value` should reset the box
   }, [current]);
 
-  // The church's country arrives after the page loads; an empty box that nobody has touched follows it.
+  // The church's country (and a partner's) arrives after the page loads; an empty box that nobody has touched
+  // follows it.
   useEffect(() => {
     if (!choseCountry.current && !current) setCountry(where);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- follow the church's country only
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- follow the starting country only
   }, [where]);
 
   function pass(nextText, nextCountry, name) {
@@ -123,7 +144,7 @@ export default function PhoneInput({ value, onChange, onBlur, country: countryPr
     // Shape only what is being added at the end; a delete or an edit in the middle is left as typed.
     const shaped =
       inputType.startsWith("insert") && atEnd && typed ? new AsYouType(country).input(typed) : typed;
-    const nextCountry = countryFor(shaped, country);
+    const nextCountry = countryFor(shaped, country, home);
     if (nextCountry !== country) setCountry(nextCountry);
     setText(shaped);
     pass(shaped, nextCountry, el.name);
@@ -148,13 +169,16 @@ export default function PhoneInput({ value, onChange, onBlur, country: countryPr
   }
 
   const hint = touched ? phoneHint(text, country) : "";
+  const warning = touched && !hint ? phoneCountryWarning(text, country) : "";
   const code = callingCode(country);
+  const noteId = hint || warning ? hintId : rest["aria-describedby"];
 
   return (
     <span className="phone-input">
       <span className="phone-country">
         <span className="phone-country-shown" aria-hidden="true">
-          {country} +{code} <span className="phone-country-caret">▾</span>
+          <span className="phone-country-name">{countryName(country)}</span> +{code}{" "}
+          <span className="phone-country-caret">▾</span>
         </span>
         <select
           aria-label="Country for this phone number"
@@ -182,11 +206,16 @@ export default function PhoneInput({ value, onChange, onBlur, country: countryPr
           onBlur?.(e);
         }}
         aria-invalid={hint ? "true" : undefined}
-        aria-describedby={hint ? hintId : rest["aria-describedby"]}
+        aria-describedby={noteId}
       />
       {hint && (
         <span id={hintId} role="status" className="phone-hint">
           {hint}
+        </span>
+      )}
+      {warning && (
+        <span id={hintId} role="status" className="phone-hint phone-warning">
+          {warning}
         </span>
       )}
     </span>

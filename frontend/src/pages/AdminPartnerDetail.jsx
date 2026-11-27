@@ -84,6 +84,7 @@ import { supportNeedStatus } from "../utils/supportNeedStatus.js";
 import { truncate } from "../utils/truncate.js";
 import { useSettings } from "../context/SettingsContext.jsx";
 import { getFipsCode } from "../utils/countryFipsCodes.js";
+import { isoCountryCode } from "../utils/countryIsoCodes.js";
 import {
   formatDateLong,
   formatDate,
@@ -701,6 +702,9 @@ export default function AdminPartnerDetail() {
 
   const physical = addressByType(p.addresses, "physical") || {};
   const mailing = addressByType(p.addresses, "mailing") || {};
+  // Where a new phone number for this partner's own people most likely belongs: the country they serve in.
+  // Unknown or blank leaves the picker on the church's country.
+  const servingCountry = isoCountryCode(physical.country) || undefined;
 
   // Addresses are replaced as a pair on the server, so a section editing one
   // of them has to send the other back untouched or it would be deleted.
@@ -1272,6 +1276,7 @@ export default function AdminPartnerDetail() {
                       <PhoneField
                         label="Contact Phone"
                         inputMode="tel"
+                        country={servingCountry}
                         value={d.contactPhone}
                         onChange={(e) => set("contactPhone", e.target.value)}
                       />
@@ -2073,12 +2078,14 @@ export default function AdminPartnerDetail() {
             <PhoneField
               label="Phone 1"
               inputMode="tel"
+              country={servingCountry}
               value={adultCrud.form.phone1}
               onChange={(e) => adultCrud.setForm((f) => ({ ...f, phone1: e.target.value }))}
             />
             <PhoneField
               label="Phone 2"
               inputMode="tel"
+              country={servingCountry}
               value={adultCrud.form.phone2}
               onChange={(e) => adultCrud.setForm((f) => ({ ...f, phone2: e.target.value }))}
             />

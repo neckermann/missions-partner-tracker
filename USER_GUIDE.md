@@ -277,6 +277,18 @@ not just what topic they fall under:
     child (Name, Birthday).
   - **Languages Spoken** — a free-text tag list.
   - **Emergency Contact** — Name, Phone, Email.
+  - **Typing a phone number.** Every phone box has a country beside
+    it, shown by name ("Kenya +254"). Pick the country, then type the
+    number the way people there write it (`0712 345678`); it is saved
+    in full international form (`+254712345678`), so Call and WhatsApp
+    reach the right place. For a partner's adults and an
+    organization's contact person the country starts on **the country
+    the partner serves in** (from the Location address); everywhere
+    else, including the emergency contact and sending church, it
+    starts on your church's country. If a number doesn't fit the
+    country picked, a note appears when you leave the box ("This
+    doesn't look like a United States number. Is the country right?").
+    It is only a question: you can still save.
 - **Location & Contact**:
   - **Serving Location** — Field/Region Display Name (shown publicly
     even for a restricted partner, so keep it broad — "East Africa," not
