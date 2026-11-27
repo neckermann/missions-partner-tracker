@@ -51,7 +51,7 @@ know about:
   changes, settings changes, restricted-partner views), kept for 30, 60 or
   90 days (default 90), and the scheduled jobs prune older entries every night. Turn
   it off under Settings → Enabled Features if you would rather not keep it.
-  See [USER_GUIDE.md § Audit log](USER_GUIDE.md#audit-log-admin-only).
+  See [USER_GUIDE.md § Audit Log](USER_GUIDE.md#audit-log-admin-only).
 - **The church-wide two-factor requirement** is off on an install that
   predates it, and on for a brand-new install. See
   [ADMIN_GUIDE.md § Authentication setup](ADMIN_GUIDE.md#authentication-setup).

@@ -44,7 +44,7 @@ describe("AdminSettingsEmail -- review of inbound mail", () => {
   it("says every message waits when the review is on (the default)", async () => {
     fetchEmailSettings.mockResolvedValue(base);
     renderIt();
-    expect(await screen.findByText(/Every message waits in Emails to sort/)).toBeInTheDocument();
+    expect(await screen.findByText(/Every message waits in Emails to Sort/)).toBeInTheDocument();
   });
 
   it("says what skipping the review does when it is on", async () => {

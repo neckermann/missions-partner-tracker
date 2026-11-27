@@ -20,3 +20,13 @@ export function formatPhone(value, country = DEFAULT_COUNTRY) {
   }
   return parsed.formatInternational();
 }
+
+// What a copy button puts on the clipboard for a phone: the international form ("+15065550259"), which dials from
+// any phone and in any app. A number shown as "(506) 555-0259" is turned back into that form; anything that is not a number is copied as it is.
+export function copyablePhone(value) {
+  const text = typeof value === "string" ? value.trim() : "";
+  if (!text) return "";
+  if (/^\+[1-9]\d{6,14}$/.test(text)) return text;
+  const parsed = parsePhoneNumberFromString(text, DEFAULT_COUNTRY);
+  return parsed && parsed.isPossible() ? parsed.number : text;
+}

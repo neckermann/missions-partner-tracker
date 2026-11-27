@@ -113,9 +113,9 @@ at your church.
 The sidebar (and the Home page's card grid, which mirrors it) lists:
 **Home**, [**Partners**](#the-partners-list) (or your church's custom
 term, e.g. "Go Team Partners," if enabled in Branding),
-[**Emails to sort**](#receiving) (inbound email only — see
+[**Emails to Sort**](#receiving) (inbound email only — see
 [Email](#email-admin-only) below),
-[**Updates to share**](#updates-to-share) (GroupMe and/or
+[**Updates to Share**](#updates-to-share) (GroupMe and/or
 email sending only),
 [**Monthly Support**](#financial-support--one-time-needs),
 [**One-Time Needs**](#financial-support--one-time-needs),
@@ -140,10 +140,10 @@ that only appear once their own features are on:
 - **Communications** — [**Email**](#email-admin-only),
   [**GroupMe**](#groupme-dispatch-admin-only),
   [**WhatsApp**](#whatsapp-dispatch-admin-only), and
-  [**Sending updates**](#sending-updates-admin-only) (schedules,
+  [**Sending Updates**](#sending-updates-admin-only) (schedules,
   GroupMe's content-type mutes, the restricted-partner safety gate,
   digest appearance, and subscriber counts — the queue itself is
-  [**Updates to share**](#updates-to-share) in the main menu).
+  [**Updates to Share**](#updates-to-share) in the main menu).
 - **Integrations** — [**AI Features**](#ai-features-admin-only) and
   [**Joshua Project**](#joshua-project-admin-only).
 
@@ -368,7 +368,7 @@ edit happens — each section's own **Edit** button, not a separate form
 
 #### Who last edited a record
 
-Partner, trip, trip-participant and trip-application pages show "Last edited by Dana Whitfield on 11/24/2026" under the name. A trip's page also says when it was added, on the same line ("Added 11/10/2026 · Last edited by …"), and that date never changes when the trip is edited. This is separate from the admin-only [Audit log](#audit-log-admin-only): it is kept for good, and it is stamped on the record itself, not recorded as an event.
+Partner, trip, trip-participant and trip-application pages show "Last edited by Dana Whitfield on 11/24/2026" under the name. A trip's page also says when it was added, on the same line ("Added 11/10/2026 · Last edited by …"), and that date never changes when the trip is edited. This is separate from the admin-only [Audit Log](#audit-log-admin-only): it is kept for good, and it is stamped on the record itself, not recorded as an event.
 
 On a partner or trip that line covers the sections on its page too — a partner's family, addresses, links, visits, support and photos; a trip's team, meetings, requirements, documents and money — so it answers "when did anyone last touch this record?" even when the change was inside a section. The **Trips** list also has a sortable **Added** column, so you can find the newest trips. The **Partners** and **Trips** lists have a sortable **Last updated** column with the same date and name, so you can sort to find the records nobody has looked after in a while (blank means no signed-in person has changed it). Prayer requests, needs, newsletters and contact-log entries are not folded in; they have their own pages. A prayer request or one-time need shows its own line when you open it. None of this is shown to Guests or on the public site. The **Data completeness** report has **Last edited by** and **Last edited** columns too, so you can see which partner records nobody has touched in a while and who to ask. It is stamped on every record an admin, editor or care team member changes, and not by background jobs or a public form, so a record nobody has edited shows no line. The name is a snapshot, so it still reads after that person's account is deleted.
 
@@ -475,7 +475,7 @@ leave it as "None." A need pointed at a source this way, or added
 automatically by [AI Features](#ai-features-admin-only), shows a
 "From: ..." link back to that file, rendered the same either way. For
 marking a new need urgent, or (for a restricted partner) approving it at
-creation instead of from Updates to share, see [Marking something
+creation instead of from Updates to Share, see [Marking something
 urgent](#marking-something-urgent).
 
 ![The One-Time Needs page, with status pills per need](docs/assets/screenshots/one-time-needs.png)
@@ -540,7 +540,7 @@ been answered so far. A request pointed at a source this way, or added
 automatically by [AI Features](#ai-features-admin-only),
 shows a "From: ..." link back to that file, rendered the same either
 way. For marking a new request urgent, or (for a restricted partner)
-approving it at creation instead of from Updates to share, see
+approving it at creation instead of from Updates to Share, see
 [Marking something urgent](#marking-something-urgent).
 
 ![The central Prayer Requests page, newest first across every partner](docs/assets/screenshots/prayer-requests-list.png)
@@ -813,9 +813,9 @@ flag.
 
 ![The central Newsletters & Docs page, listing uploads across every partner with their Kind](docs/assets/screenshots/partner-files.png)
 
-### Prayer sheet
+### Prayer Sheet
 
-**Prayer sheet** (under Prayer Requests in the menu) makes something ready for
+**Prayer Sheet** (under Prayer Requests in the menu) makes something ready for
 Sunday: a one-page, printable list of what to pray for, or the same thing as
 slides for the screen at church (**Show as slides**: one partner per slide,
 arrow keys or the buttons to move, Escape to close). Pick how often you make a
@@ -931,13 +931,13 @@ The team shows as one line on the partner's **Contact** card ("Care team: Pat (l
 
 A care team member uses the same app as everyone, and for **their own partner** they can do what an editor can: edit the partner's profile, family, contact details, links and photos; add and edit prayer requests (and record answers) and one-time needs; and upload and edit newsletters and documents. They can also see that partner's trips, read-only. Three things are different:
 
-- **What they enter is saved immediately, but isn't sent to the church** by email, GroupMe or WhatsApp **until an admin or editor approves it** in [Updates to share](#updates-to-share). They can't mark anything urgent or use "approve now".
+- **What they enter is saved immediately, but isn't sent to the church** by email, GroupMe or WhatsApp **until an admin or editor approves it** in [Updates to Share](#updates-to-share). They can't mark anything urgent or use "approve now".
 - **They can't approve or decline a one-time need** or record a decision on it. That stays with the committee or board.
 - **They never see monthly support** — its amount, how long it has run, or its history.
 
 They also can't create or delete partners, or delete records, and they can't use the AI scan of a newsletter (it sends the letter to an outside service, so it is for admins and editors only). If you're an admin or editor yourself, being on a team doesn't limit you or hold your entries; it just adds the care-team features.
 
-![Updates to share, where an entry from a care team member is held for staff to approve](docs/assets/screenshots/pending-dispatches-care-team.png)
+![Updates to Share, where an entry from a care team member is held for staff to approve](docs/assets/screenshots/pending-dispatches-care-team.png)
 
 A **Guest**, whether on a care team, given a trip, or both, sees one plain **Partners** list of every partner they can reach, with no tabs. Staff who are on a care team still land on All and switch to the **My partners** tab when they want it.
 
@@ -1139,7 +1139,7 @@ someone loses their authenticator, **Reset MFA** on their row sends them
 through enrollment again. It only turns on for an admin who has set up
 two-factor on their own account first, so it can't lock you out, and it
 can't be turned on for the public demo. It's off by default. Turning it
-on or off is recorded in the [Audit log](#audit-log-admin-only).
+on or off is recorded in the [Audit Log](#audit-log-admin-only).
 
 Below it, **Passwordless sign-in** takes passwords away church-wide: people
 with a passkey sign in with it alone, and everyone else gets an emailed
@@ -1238,9 +1238,9 @@ shows a connection string or any credential.
 
 ![The top of the About App page: app, runtime, database, and deployment details](docs/assets/screenshots/system-info.png)
 
-### Audit log (Admin only)
+### Audit Log (Admin only)
 
-The **Audit log** is on by default (turn it off in [Enabled Features](ADMIN_GUIDE.md#feature-toggles) if you'd rather not keep it), and admins get **Settings → Audit log**: who did what, and when, for the actions that matter if you ever need to ask "who changed that?".
+The **Audit Log** is on by default (turn it off in [Enabled Features](ADMIN_GUIDE.md#feature-toggles) if you'd rather not keep it), and admins get **Settings → Audit Log**: who did what, and when, for the actions that matter if you ever need to ask "who changed that?".
 
 - **What is recorded:** sign-ins (and failed ones, with the reason and where from), password and two-factor changes, accounts created, changed or deleted, a guest's trip access given, changed or removed, care team changes, every change to church settings (a feature turned on or off, an API key changed), partners and trips deleted, backups downloaded, a partner being marked restricted, and **each person's first look at a restricted partner each day**.
 - **What isn't:** routine work — a new prayer request, an edited overview, a logged contact. Those are already visible on the record itself.
@@ -1250,7 +1250,7 @@ The **Audit log** is on by default (turn it off in [Enabled Features](ADMIN_GUID
 - **Deleted accounts stay readable.** An entry keeps the name and email of who did it and who it was done to, so it still reads after either account is deleted, and is tagged "(deleted account)".
 - **How long it is kept:** 30, 60 or 90 days (default 90), set on the same page. Older entries are deleted each night.
 
-![The Audit log page: who did what, with filters, an export button and the retention setting](docs/assets/screenshots/audit-log.png)
+![The Audit Log page: who did what, with filters, an export button and the retention setting](docs/assets/screenshots/audit-log.png)
 
 For who last changed one record (kept for good, and shown on the record itself), see [Who last edited a record](#who-last-edited-a-record).
 
@@ -1267,10 +1267,10 @@ in [Enabled Features](ADMIN_GUIDE.md#feature-toggles) once it's set up
 here.
 
 These don't post the instant they happen — GroupMe has its own daily
-batch time (set on the Sending updates page), and an item marked
+batch time (set on the Sending Updates page), and an item marked
 **urgent** posts right away regardless of that schedule — see [Marking
-something urgent](#marking-something-urgent). See [Updates to share](#updates-to-share) for the queue itself, and
-[Sending updates](#sending-updates-admin-only) for the
+something urgent](#marking-something-urgent). See [Updates to Share](#updates-to-share) for the queue itself, and
+[Sending Updates](#sending-updates-admin-only) for the
 schedule.
 
 Setup, on the **GroupMe** page under Settings, builds up in
@@ -1331,7 +1331,7 @@ unofficial connection and you'll want a dedicated phone number for it.
 
 WhatsApp sends once a day, at an admin-set hour, and has its own three
 content-type mutes (Prayer Requests / One-Time Needs / Newsletters) —
-both set on the [Sending updates](#sending-updates-admin-only)
+both set on the [Sending Updates](#sending-updates-admin-only)
 page. Beside those three, **partner care posts** (a coming key date, a
 partner nobody has heard from, and news to pass on to a partner) have
 their own switches, **off until you turn them on**, and share one
@@ -1381,10 +1381,10 @@ group with new and decided needs:
 ![The Prayer Requests group showing new and answered prayer requests](docs/assets/screenshots/whatsapp-prayer-requests-group.png)
 ![The One-Time Needs group showing new and decided one-time needs](docs/assets/screenshots/whatsapp-one-time-needs-group.png)
 
-### Updates to share
+### Updates to Share
 
-The **Updates to share** page (in the main menu, alongside If Email (Sending), GroupMe and WhatsApp are all off, nothing goes out on its own: the page offers **Copy the updates that are ready** (grouped by partner, leaving out anything still held for review) so you can share them yourself, then clear them.
-Emails to sort) is where every prayer request, one-time need, and
+The **Updates to Share** page (in the main menu, alongside If Email (Sending), GroupMe and WhatsApp are all off, nothing goes out on its own: the page offers **Copy the updates that are ready** (grouped by partner, leaving out anything still held for review) so you can share them yourself, then clear them.
+Emails to Sort) is where every prayer request, one-time need, and
 newsletter queues before going out — the shared review-and-send queue
 behind both GroupMe dispatch above and email digests below. Only
 shows up once GroupMe dispatch or Email (Sending) is turned on —
@@ -1392,7 +1392,7 @@ no point reviewing a queue neither channel will ever read. Visible to
 any logged-in role; only an admin or editor can actually edit, approve,
 or clear an item. For the schedules, GroupMe's content-type mutes, the
 restricted-partner safety gate, and email dispatch appearance, see
-[Sending updates](#sending-updates-admin-only) below.
+[Sending Updates](#sending-updates-admin-only) below.
 
 The list shows everything currently queued, grouped by partner, with a
 prayer request or need that came from a newsletter nested right under
@@ -1401,7 +1401,7 @@ that newsletter instead of repeated separately. There's no manual
 go out right away, check **urgent** on it when you create it instead,
 see [Marking something urgent](#marking-something-urgent).
 
-![The Updates to share page: a regular partner's prayer requests and one-time needs (new and answered/decided), grouped with a restricted partner's already-reviewed items below](docs/assets/screenshots/pending-dispatches.png)
+![The Updates to Share page: a regular partner's prayer requests and one-time needs (new and answered/decided), grouped with a restricted partner's already-reviewed items below](docs/assets/screenshots/pending-dispatches.png)
 
 Items a [care team member](#care-teams) enters are held here for review whatever the partner — nothing goes out until an admin or editor approves it, the same way a restricted partner's items are held.
 
@@ -1487,20 +1487,20 @@ only skips waiting for a schedule, never either of those safety rules.
 second checkbox appears alongside "Mark as urgent": **Review and
 approve now**. Checking it confirms, right then, that the text you just
 typed is safe to send out exactly as written — the same confirmation
-[Updates to share](#updates-to-share)'s own **Approve** does,
+[Updates to Share](#updates-to-share)'s own **Approve** does,
 just at creation time instead of a second visit later. It clears the
 review hold; it doesn't by itself make anything send immediately — that
 still needs "Mark as urgent" too, or whatever channel's own regular
 schedule picks the item up next.
 
-### Sending updates (Admin only)
+### Sending Updates (Admin only)
 
-The **Sending updates** page under Settings → Communications
+The **Sending Updates** page under Settings → Communications
 holds every schedule, the chat channels' (GroupMe and WhatsApp) shared
 content-type mutes, the one restricted-partner safety gate, and the
 email dispatch's own appearance —
 separate from the actual queue above, same split Email already has
-between its own settings page and Emails to sort. Top to bottom:
+between its own settings page and Emails to Sort. Top to bottom:
 
 #### Who gets update emails
 
@@ -1516,13 +1516,13 @@ only — no email addresses, here or anywhere else an admin can see.
 One checkbox, off by default: turned on, a restricted-access partner's
 prayer requests and one-time needs are recorded and can reach GroupMe,
 WhatsApp, and both email digests, subject to the review requirement described in
-[Updates to share](#updates-to-share) above. Left off (the
+[Updates to Share](#updates-to-share) above. Left off (the
 default), their events are never recorded in the first place, for any
 type — nothing to hold, nothing to review, because nothing's queued.
 Turning it on takes on that review responsibility in exchange for
 restricted partners' content reaching every channel like anyone else's.
 
-![The Sending updates page: subscriber counts, the Restricted Partners gate, digest customization, email schedule, and the GroupMe/WhatsApp chat schedule](docs/assets/screenshots/dispatch-settings.png)
+![The Sending Updates page: subscriber counts, the Restricted Partners gate, digest customization, email schedule, and the GroupMe/WhatsApp chat schedule](docs/assets/screenshots/dispatch-settings.png)
 
 #### How the update email looks
 
@@ -1621,7 +1621,7 @@ the digest doesn't need Receiving on, and vice versa.
 #### Sending
 
 Once turned on, this is the email half of the
-[Updates to share](#updates-to-share) queue above — an
+[Updates to Share](#updates-to-share) queue above — an
 opted-in user gets one digest email covering everything currently
 queued, instead of one email per item. Setup builds up in steps:
 
@@ -1667,7 +1667,7 @@ email arrives:
 
 - If the sender's address matches **exactly one** partner — either that
   organization's own Contact Email, or any household adult's email on a
-  missionary's record — it waits in **Emails to sort** for a quick look
+  missionary's record — it waits in **Emails to Sort** for a quick look
   (a sender address can be forged, so nothing is filed or announced on its
   own). An admin or editor assigns it to that partner as a **Newsletter**
   (title = the email's subject, the original `.eml` as the file), and it
@@ -1680,10 +1680,10 @@ email arrives:
   without review**. It is off by default.)
 - If the sender's address matches **no partner, or more than one** (two
   partners happen to share a household-adult email, for instance),
-  there's no safe guess to make — it lands in the **Emails to sort**
+  there's no safe guess to make — it lands in the **Emails to Sort**
   queue instead, visible to any logged-in role.
 
-**Emails to sort** (its own nav item, next to Partners) lists what's
+**Emails to Sort** (its own nav item, next to Partners) lists what's
 waiting: From, Subject, Received. **View raw** opens the original email.
 **Assign** (editor or admin) picks the right partner _and_ what kind of
 file it actually is — Newsletter, Survey Response, Signed Policy, Email
@@ -1700,9 +1700,9 @@ participant (grouped by trip) and, if it fulfills one, which document
 requirement. Useful for a signed waiver or passport photo that arrives
 by email rather than through the participant's own self-service page.
 
-![The Emails to sort queue, waiting on review](docs/assets/screenshots/unmatched-emails.png)
+![The Emails to Sort queue, waiting on review](docs/assets/screenshots/unmatched-emails.png)
 
-![The Emails to sort queue, waiting on review](docs/assets/screenshots/unmatched-emails.png)
+![The Emails to Sort queue, waiting on review](docs/assets/screenshots/unmatched-emails.png)
 
 ## Integrations
 
@@ -1795,7 +1795,7 @@ your passkeys along with your authenticator app.
 If [Email (Sending)](#email-admin-only) is turned on for the church,
 there's also an **Email updates** section here: a cadence (no
 automatic digest by default, or one of whichever of biweekly, monthly,
-and quarterly the admin has chosen to offer — see [Sending updates](#sending-updates-admin-only)) and, once a cadence is
+and quarterly the admin has chosen to offer — see [Sending Updates](#sending-updates-admin-only)) and, once a cadence is
 picked, a choice of what it covers: **the partners you look after** (the
 default: your care team seats, plus, if you're on the missions team, the
 partners that have no care team of their own), **all partners**, or **only
@@ -1810,7 +1810,7 @@ still includes prayer requests, one-time needs, and newsletters, same
 as before — picking a cadence and scope here doesn't narrow what you
 get, just when and for whom. It sends on whatever [Email
 Schedule](#sending-updates-admin-only) the admin set up at Site
-Administration → Sending updates. You can also turn it off directly from
+Administration → Sending Updates. You can also turn it off directly from
 the unsubscribe link in any digest email, without logging in. Besides
 your chosen cadence, you may occasionally get an item right away
 outside that schedule — see [Marking something
@@ -1913,6 +1913,6 @@ whatever's marked public in the admin dashboard.
 The app ships no church-specific content in its code. Starting points (survey questions, a support menu, trip requirement documents, trip application questions, email update wording) are **template packs**: small JSON files you import from the page where that content lives. Example packs are in the project's [`examples/template-packs`](https://github.com/neckermann/missions-partner-tracker/tree/main/examples/template-packs) folder, and the public demo imports them so it shows everything.
 
 - **Import** (admins): open the page, press **Import…**, choose the file or paste its text, **Check this pack** to see what it would do, then **Import**. Importing only adds: nothing you have is deleted, a duplicate (same name) is skipped, and importing the same pack twice does nothing the second time. A survey arrives as a draft. Email update wording is the one exception: it replaces the subject line, sign-off and layout the pack contains, and the preview says so.
-- **Where:** surveys under **Settings → Surveys**, the support menu under **Settings → Support Preferences**, trip requirements and application questions under **Settings → Trips**, wording under **Settings → Sending updates**.
+- **Where:** surveys under **Settings → Surveys**, the support menu under **Settings → Support Preferences**, trip requirements and application questions under **Settings → Trips**, wording under **Settings → Sending Updates**.
 - **Export:** each of those pages has an **Export** button that saves what you have as a pack, so a church can share its own.
 - **A new install starts empty** in each of these areas, with a prompt to import an example or start blank. Existing installs keep everything they have.
