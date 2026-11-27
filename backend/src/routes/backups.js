@@ -1,4 +1,5 @@
 const express = require("express");
+const rateLimit = require("express-rate-limit");
 const bcrypt = require("bcryptjs");
 const { z } = require("zod");
 const prisma = require("../prismaClient");
@@ -7,8 +8,21 @@ const { requireRole } = require("../middleware/requireAuth");
 const { buildBackup } = require("../utils/backup");
 const { MIN_PASSPHRASE_LENGTH, encryptBackup } = require("../utils/backupCrypto");
 
+// The backup file is the heaviest request and the most sensitive output; this stops a compromised admin session
+// pulling it in a loop. Wrong passwords count too. It sits AFTER the admin check and counts per admin account, not
+// per address: it used to run first, keyed by address, so five anonymous requests from the same address (a shared
+// office network, a scanner) locked the real admin out for 15 minutes. Relaxed under test, like the sign-in limiter.
+function createBackupLimiter(max = process.env.NODE_ENV === "test" ? 1000 : 5) {
+  return rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max,
+    keyGenerator: (req) => `backups:${req.user.id}`,
+  });
+}
+
 const router = express.Router();
 router.use(requireRole("admin"));
+router.use(createBackupLimiter());
 
 const downloadSchema = z.object({
   // The signed-in admin's own password, asked for again: a stolen session alone must not be enough.
@@ -24,7 +38,7 @@ const downloadSchema = z.object({
 //
 // The file contains unmasked data for every partner (including restricted ones) and every user's password
 // hash and encrypted MFA secret -- the most sensitive export this app can produce. So: POST (a link or a
-// prefetch can't trigger it), the admin's password again, an optional passphrase, rate-limited in server.js
+// prefetch can't trigger it), the admin's password again, an optional passphrase, rate-limited per admin account
 // (wrong passwords count against that limit too), and an audit entry either way. The UI carries its own
 // warning since nothing here stops an admin sharing the file.
 router.post("/download", async (req, res, next) => {
@@ -64,3 +78,4 @@ router.post("/download", async (req, res, next) => {
 });
 
 module.exports = router;
+module.exports.createBackupLimiter = createBackupLimiter;
