@@ -7,6 +7,10 @@ const { appBaseUrl } = require("./dispatchBlurbs");
 const PRIVACY_LINE =
   "Your email is used only to send these updates -- we never share it with anyone else, and you can unsubscribe anytime.";
 
+// Under "You've been unsubscribed": the privacy line would tell someone who has just left that they can
+// unsubscribe anytime.
+const UNSUBSCRIBED_LINE = "Your email address has been removed. We won't send you these updates again.";
+
 function escapeHtml(str) {
   return String(str).replace(
     /[&<>"']/g,
@@ -45,7 +49,7 @@ async function renderSubscriberPage(message, footerLine = PRIVACY_LINE, title = 
     : "";
   const body = typeof message === "function" ? message(highlightColor) : message;
   return `<!doctype html>
-<html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title></head>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeHtml(title)}</title></head>
 <body style="font-family:${escapeHtml(fontFamily)};background:#f7f5f0;margin:0;padding:40px 16px;">
 <div style="max-width:420px;margin:0 auto;background:#ffffff;border-radius:10px;overflow:hidden;">
   <div style="background-color:${headerColor};padding:28px 24px;text-align:center;">
@@ -60,4 +64,4 @@ async function renderSubscriberPage(message, footerLine = PRIVACY_LINE, title = 
 </body></html>`;
 }
 
-module.exports = { renderSubscriberPage, escapeHtml, PRIVACY_LINE };
+module.exports = { renderSubscriberPage, escapeHtml, PRIVACY_LINE, UNSUBSCRIBED_LINE };

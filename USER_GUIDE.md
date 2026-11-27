@@ -1908,7 +1908,8 @@ entirely by what you check in the admin dashboard:
   goes out to an address nobody confirmed, and a mail program that merely
   opens the link does not confirm it), and every
   digest they get after that carries its own one-click unsubscribe
-  link. This public digest is **prayer requests only** — never a
+  link. Those confirm and unsubscribe links keep working even if you
+  later turn the public digest or the public directory off. This public digest is **prayer requests only** — never a
   one-time need, never a newsletter or a link back to one — unlike the
   digest an admin can opt into from their own [Account
   Settings](#your-account-settings), which still includes both. A
