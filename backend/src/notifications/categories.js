@@ -26,6 +26,7 @@ const {
 const { loadOpenKeyDatesFor } = require("../utils/keyDateQueries");
 const { careTimings } = require("../utils/careSettings");
 const { READY_SELECT, isOutboundEmailUnfinished } = require("../utils/emailReady");
+const { isDemoDeployment } = require("../utils/demoMode");
 
 const SOON_DAYS = 30;
 const BACKUP_REMIND_AGAIN_AFTER_MS = 30 * 24 * 60 * 60 * 1000;
@@ -347,6 +348,18 @@ async function adminMfaDisabled() {
   return { count: rows.length, latest: latestOf(rows, (r) => r.createdAt) };
 }
 
+// One administrator is one lost phone away from a lock-out only a server command can fix (ADMIN_GUIDE, "Locked out
+// of two-factor"), so a church with a single active admin is nudged, on the bell and Home, to add a second. Not on
+// a public demo, whose shared logins are not a real church's.
+async function onlyOneAdmin() {
+  if (isDemoDeployment()) return { count: 0, latest: null };
+  const admins = await prisma.user.findMany({
+    where: { role: "admin", active: true },
+    select: { createdAt: true },
+  });
+  return admins.length === 1 ? { count: 1, latest: admins[0].createdAt } : { count: 0, latest: null };
+}
+
 // Inverted semantics: due when time has elapsed, not when something changed.
 // Reuses BackupReminder.jsx's detection (provider + backupReminderDisabled), with
 // the snooze stored per user in NotificationSeen so it follows them across devices.
@@ -578,6 +591,16 @@ const CATEGORIES = [
     perUser: false,
     tripScoped: false,
     resolve: adminMfaDisabled,
+  },
+  {
+    key: "onlyOneAdmin",
+    label: "You are the only administrator",
+    icon: "🧑‍🤝‍🧑",
+    linkTo: "/admin/settings/users",
+    adminOnly: true,
+    perUser: false,
+    tripScoped: false,
+    resolve: onlyOneAdmin,
   },
   {
     key: "timeToCheckBackups",

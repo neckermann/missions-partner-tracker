@@ -93,6 +93,12 @@ Postgres database in a single step.
 6. The first time you reach the admin area you are asked, once, whether to
    show your partners on a public website. "Not yet" is fine, and you can
    change it any time under Settings → Privacy and Safety.
+7. **Add a second administrator** (Settings → Manage Users → Add User, role
+   Admin) as soon as someone else you trust can take the role. One
+   administrator who loses a phone has no way back in from inside the app, and
+   the way back is a server command most volunteers cannot run. With two, each
+   can reset the other's two-factor in a click (Manage Users → Reset MFA). Until
+   you do, the bell and the Home page say "You are the only administrator".
 
 **The region is Oregon, and cannot be changed afterwards.** Render won't move
 an existing service, so a church that wants a different region (`ohio`,
@@ -696,6 +702,16 @@ suspect the value has leaked — do it, then have everyone log back in.
 There's no partial/soft rotation; it's all-or-nothing by design.
 
 ### Locked out of two-factor
+
+**The short version, for a church with one administrator who lost their phone:**
+
+1. First try your **recovery codes** (you were shown ten when you set up two-factor): on the sign-in page choose
+   "Use a recovery code".
+2. No codes? **Ask your second administrator** to open Manage Users, click your name and choose **Reset MFA**. You
+   sign in with your password and set two-factor up again. This is why a second administrator matters.
+3. No second administrator? Someone who can open the server's shell (on Render, your web service's **Shell** tab)
+   runs the command below. If nobody at the church can do that, it is the one place this app needs a developer;
+   write down who that would be now, while nothing is wrong.
 
 Someone who has lost their authenticator app, their passkeys and their recovery codes needs two-factor
 cleared. Another admin does it from **Manage Users → Reset MFA**. If the person locked out is the only admin,
