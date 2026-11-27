@@ -45,3 +45,52 @@ describe("the one-time 'show your partners publicly?' question", () => {
     expect(screen.getByText("ADMIN HOME")).toBeInTheDocument();
   });
 });
+
+describe("the second-administrator screen comes first on a brand-new site", () => {
+  async function loadWith(users) {
+    vi.resetModules();
+    vi.doMock("../api/client.js", () => ({
+      fetchChurchSettings: vi.fn().mockResolvedValue({ enabledFeatures: {} }),
+      fetchUsers: vi.fn().mockResolvedValue(users),
+    }));
+    return (await import("./usePublicSiteChoiceRedirect.js")).default;
+  }
+  function Home({ hook }) {
+    hook(true);
+    return <div>ADMIN HOME</div>;
+  }
+  async function renderWith(hook) {
+    render(
+      <MemoryRouter initialEntries={["/admin"]}>
+        <Routes>
+          <Route path="/admin" element={<Home hook={hook} />} />
+          <Route path="/admin/add-administrator" element={<div>ADD ADMIN PAGE</div>} />
+          <Route path="/admin/public-site" element={<div>CHOICE PAGE</div>} />
+        </Routes>
+      </MemoryRouter>
+    );
+  }
+
+  beforeEach(() => localStorage.clear());
+
+  it("shows the step when there is only one administrator", async () => {
+    await renderWith(await loadWith([{ role: "admin", active: true }]));
+    expect(await screen.findByText("ADD ADMIN PAGE")).toBeInTheDocument();
+  });
+
+  it("skips it when there are already two administrators", async () => {
+    await renderWith(
+      await loadWith([
+        { role: "admin", active: true },
+        { role: "admin", active: true },
+      ])
+    );
+    expect(await screen.findByText("CHOICE PAGE")).toBeInTheDocument();
+  });
+
+  it("skips it once it has been answered or skipped in this browser", async () => {
+    localStorage.setItem("addAdministratorAsked", "1");
+    await renderWith(await loadWith([{ role: "admin", active: true }]));
+    expect(await screen.findByText("CHOICE PAGE")).toBeInTheDocument();
+  });
+});

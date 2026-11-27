@@ -930,9 +930,11 @@ export async function fetchSetupStatus() {
   return data; // { needed, passwordless, passwordReset: booleans }
 }
 
-export async function completeSetup(email, password) {
-  const { data } = await api.post("/auth/setup", { email, password });
-  return data; // { user } — the backend also sets the session cookie, same as login
+// First-run account creation. `method` is "password" or "passkey" (no password); either way the reply holds an
+// enrolment token the page uses to add the second factor, and adding it opens the session.
+export async function completeSetup(email, password, method = "password") {
+  const { data } = await api.post("/auth/setup", { email, password, method });
+  return data; // { ok, mfaSetupRequired, setupToken }
 }
 
 export async function login(email, password) {
