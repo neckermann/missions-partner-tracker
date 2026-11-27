@@ -12,6 +12,7 @@ const { isFeatureEnabled } = require("../utils/features");
 const { requireAuth, requireRole, requirePartnerWriter } = require("../middleware/requireAuth");
 const { canReadPartner, readablePartnerIds } = require("../utils/guestAccess");
 const { withPhotoUrls } = require("../utils/photoUrls");
+const { makeDisplayCopy } = require("../utils/photoCopies");
 const { geocodeAddress } = require("../utils/geocode");
 const { matchesFileSignature } = require("../utils/fileSignature");
 const heicConvert = require("heic-convert");
@@ -572,7 +573,7 @@ router.post(
           receivedDate,
           contentType,
           fileSize,
-          bytesRow: { create: { bytes } },
+          bytesRow: { create: { bytes, displayBytes: await makeDisplayCopy(bytes) } },
         },
       });
 

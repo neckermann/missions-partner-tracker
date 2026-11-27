@@ -47,12 +47,12 @@ model Partner {
   //   "caution"   -- reachable, but follow contactInstructions (and only the ticked contactChannels, when any);
   //   "no_direct" -- don't contact them directly: the Contact card hides their number and email and
   //                  shows contactVia* and contactInstructions instead.
-  contactLevel        String   @default("normal")
+  contactLevel        String    @default("normal")
   // "caution" only: the ways it is ok to reach them ("call", "text", "email", "whatsapp",
   // "signal", "messenger", "other"). Empty means any.
-  contactChannels     String[] @default([])
+  contactChannels     String[]  @default([])
   // Shown for "caution" and "no_direct". Free text, staff-facing.
-  contactInstructions String?  @db.Text
+  contactInstructions String?   @db.Text
   // "no_direct" only: the person to go through instead.
   contactViaName      String?
   contactViaRole      String?
@@ -63,7 +63,7 @@ model Partner {
   contactSnoozedUntil DateTime? @db.Date
   // Missionary-only: this church is the sending church. Distinct from SendingParty, which
   // describes whichever church sends them.
-  sentByOurChurch     Boolean  @default(false)
+  sentByOurChurch     Boolean   @default(false)
   // Organization-only: the person to reach at the organization (a missionary is their own
   // contact, so null for that kind).
   contactFirstName    String?
@@ -370,9 +370,11 @@ model TripParticipant {
 // Split off from TripParticipant so plain queries never load the image. Shares its primary key
 // with the parent (one-to-one).
 model TripParticipantPhoto {
-  id          String          @id
-  participant TripParticipant @relation(fields: [id], references: [id], onDelete: Cascade)
-  photo       Bytes
+  id           String          @id
+  participant  TripParticipant @relation(fields: [id], references: [id], onDelete: Cascade)
+  photo        Bytes
+  // The copy pages show (JPEG, at most 800px); null when the photo was small enough to show as it is. See utils/photoCopies.js.
+  displayBytes Bytes?
 }
 
 // A submitted application to a trip accepting applications. Answers are TripApplicationAnswer
@@ -1212,9 +1214,11 @@ model Photo {
 }
 
 model PhotoBytes {
-  id    String @id
-  photo Photo  @relation(fields: [id], references: [id], onDelete: Cascade)
-  bytes Bytes
+  id           String @id
+  photo        Photo  @relation(fields: [id], references: [id], onDelete: Cascade)
+  bytes        Bytes
+  // The copy pages show (JPEG, at most 800px); null when the photo was small enough to show as it is. See utils/photoCopies.js.
+  displayBytes Bytes?
 }
 
 // Single-row table describing the church running this instance: white-labels the app and
@@ -1244,25 +1248,25 @@ model ChurchSettings {
   // edited).
   usePartnerTermInAdmin Boolean @default(false)
 
-  publicTagline   String? // short subtitle under the public map/directory header
-  aboutText       String?             @db.Text // optional blurb shown on the public directory
+  publicTagline          String? // short subtitle under the public map/directory header
+  aboutText              String?             @db.Text // optional blurb shown on the public directory
   // A passage of Scripture shown above the public Subscribe form, and where it is from ("Ephesians 6:18, ESV").
   // Empty (nothing shown) until a church sets one; the app ships no passage of its own, since the church picks
   // the translation and the text may be under a licence.
-  subscribePassage       String? @db.Text
+  subscribePassage       String?             @db.Text
   subscribePassageSource String?
   // Three brand colors: primaryColor is the ACCENT (buttons, links, headings, letterhead),
   // headerColor the header and admin sidebar background, highlightColor
   // hover/focus/active/selected feedback.
-  primaryColor    String? // hex, overrides --brand-color; ACCENT role
-  headerColor     String? // hex, overrides --brand-header-color; header + admin sidebar background
-  highlightColor  String? // hex, overrides --brand-highlight-color; hover/focus/active/selected feedback
-  brandFont       String? // literal CSS font-family stack (not an abstract key), overrides --brand-font; curated choices offered in AdminSettingsBranding.jsx
+  primaryColor           String? // hex, overrides --brand-color; ACCENT role
+  headerColor            String? // hex, overrides --brand-header-color; header + admin sidebar background
+  highlightColor         String? // hex, overrides --brand-highlight-color; hover/focus/active/selected feedback
+  brandFont              String? // literal CSS font-family stack (not an abstract key), overrides --brand-font; curated choices offered in AdminSettingsBranding.jsx
   // The site logo's bytes live in ChurchSettingsLogo. Public, served unauthenticated at GET
   // /api/public/settings/logo/raw; API responses synthesize `logo: { url } | null` instead of
   // returning bytes.
-  logoContentType String?
-  logoRow         ChurchSettingsLogo?
+  logoContentType        String?
+  logoRow                ChurchSettingsLogo?
 
   // GroupMe integration (utils/groupmeChannel.js). The user's own personal access token, not a
   // bot: Topics are subgroups addressed by their own id through the ordinary messages
@@ -1452,11 +1456,11 @@ model ChurchSettings {
 
   // Days ahead a key date is raised (bell and daily email agree), and days without a logged
   // contact before a partner is "quiet".
-  keyDateLeadDays  Int @default(7)
+  keyDateLeadDays    Int   @default(7)
   // Earlier heads-ups for a key date, in days before it (default 90 and 30). They ride in the email digest;
   // the final one (keyDateLeadDays) goes out on its own when the next digest would come too late.
   keyDateAdvanceDays Int[] @default([90, 30])
-  contactStaleDays Int @default(90)
+  contactStaleDays   Int   @default(90)
 
   // Email dispatch customization; null subject/signature means the built-in default
   // (DEFAULT_SUBJECT_TEMPLATE in emailDispatchShell.js). Shared by the admin and public

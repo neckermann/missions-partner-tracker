@@ -72,7 +72,7 @@ export default function PublicPartnerDetail() {
                 className="partner-detail-photo"
               />
             ) : (
-              <a href={partner.photo} target="_blank" rel="noreferrer">
+              <a href={partner.photoFull || partner.photo} target="_blank" rel="noreferrer">
                 <PhotoTile
                   src={partner.photo}
                   alt={name}

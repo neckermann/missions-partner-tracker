@@ -35,6 +35,7 @@ const {
 } = require("../utils/tripEmails");
 const { decodePhotoDataUrl } = require("../utils/participantPhoto");
 const { participantSchema, defaultParticipantGoal } = require("../utils/tripParticipantSchema");
+const { makeDisplayCopy } = require("../utils/photoCopies");
 
 const router = express.Router();
 router.use(requireAuth);
@@ -335,7 +336,10 @@ router.put(
       const data = { ...rest };
       if (photo) {
         const decoded = decodePhotoDataUrl(photo, photoContentType);
-        data.photoBytesRow = { upsert: { create: { photo: decoded }, update: { photo: decoded } } };
+        const displayBytes = await makeDisplayCopy(decoded);
+        data.photoBytesRow = {
+          upsert: { create: { photo: decoded, displayBytes }, update: { photo: decoded, displayBytes } },
+        };
       }
       if (photo && photoContentType) data.photoContentType = photoContentType;
 

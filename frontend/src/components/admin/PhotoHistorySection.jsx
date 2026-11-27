@@ -189,7 +189,12 @@ export default function PhotoHistorySection({
                   </div>
                 </div>
                 <div className="table-actions">
-                  <a href={p.url} target="_blank" rel="noreferrer" className="btn secondary small">
+                  <a
+                    href={p.rawUrl || p.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="btn secondary small"
+                  >
                     View
                   </a>
                   {canDelete && (

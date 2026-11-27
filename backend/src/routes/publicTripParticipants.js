@@ -26,6 +26,7 @@ const { buildMeetingIcs } = require("../utils/tripEmails");
 const { isMinorForTrip } = require("../utils/tripParticipantSchema");
 const { getSettings, partnerFieldLabel, tripPartnerSelect } = require("../utils/publicTripShared");
 const crypto = require("crypto");
+const { makeDisplayCopy } = require("../utils/photoCopies");
 
 // Shared with the admin TripDocument upload route (trips.js): same allowlist and size cap.
 const upload = tripDocumentUpload();
@@ -450,7 +451,10 @@ router.put("/participants/self-service", requireFeature("trips"), async (req, re
     if (story !== undefined) data.story = story?.trim() || null;
     if (photo) {
       const decoded = decodePhotoDataUrl(photo, photoContentType);
-      data.photoBytesRow = { upsert: { create: { photo: decoded }, update: { photo: decoded } } };
+      const displayBytes = await makeDisplayCopy(decoded);
+      data.photoBytesRow = {
+        upsert: { create: { photo: decoded, displayBytes }, update: { photo: decoded, displayBytes } },
+      };
     }
     if (photo && photoContentType) data.photoContentType = photoContentType;
 
@@ -468,20 +472,31 @@ router.put("/participants/self-service", requireFeature("trips"), async (req, re
 // and admin-authenticated to download. Serves the self-service <img>,
 // the public <img>, and the admin's own preview -- one shared route,
 // not one per audience.
-router.get("/participants/:id/photo", requireFeature("trips"), async (req, res, next) => {
+// The copy pages show (a JPEG at most 800px, or the full photo when it was small enough); /photo/raw is the full photo.
+const sendParticipantPhoto = (wantFull) => async (req, res, next) => {
   try {
     const participant = await prisma.tripParticipant.findUnique({
       where: { id: req.params.id },
-      select: { photoContentType: true, photoBytesRow: { select: { photo: true } } },
+      select: {
+        photoContentType: true,
+        photoBytesRow: { select: wantFull ? { photo: true } : { photo: true, displayBytes: true } },
+      },
     });
     if (!participant?.photoBytesRow) return res.status(404).json({ error: "Not found" });
-    res.set("Content-Type", participant.photoContentType || "application/octet-stream");
+    const row = participant.photoBytesRow;
+    const display = !wantFull && row.displayBytes;
+    res.set(
+      "Content-Type",
+      display ? "image/jpeg" : participant.photoContentType || "application/octet-stream"
+    );
     res.set("Cache-Control", "public, max-age=3600");
-    res.send(participant.photoBytesRow.photo);
+    res.send(display ? row.displayBytes : row.photo);
   } catch (err) {
     next(err);
   }
-});
+};
+router.get("/participants/:id/photo", requireFeature("trips"), sendParticipantPhoto(false));
+router.get("/participants/:id/photo/raw", requireFeature("trips"), sendParticipantPhoto(true));
 
 const RSVP_RESPONSES = new Set(["yes", "no", "maybe"]);
 const RSVP_PAGE_LABELS = { yes: "attending", no: "not attending", maybe: "a maybe" };
