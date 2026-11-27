@@ -21,8 +21,10 @@ export default function CopyValue({ kind, value, whose, children }) {
   const stop = (e) => e.stopPropagation();
   return (
     // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
-    <span className="copy-value" onClick={stop} onKeyDown={stop} style={{ whiteSpace: "nowrap" }}>
-      {children ?? (isPhone ? formatPhone(raw) : raw)}{" "}
+    <span className="copy-value" onClick={stop} onKeyDown={stop}>
+      {/* The text may wrap anywhere (a long email address must not push the page wider than a phone screen);
+          the button follows it and may drop to the next line rather than overflow. */}
+      <span style={{ overflowWrap: "anywhere" }}>{children ?? (isPhone ? formatPhone(raw) : raw)}</span>{" "}
       <CopyButton
         text={text}
         label={label}
