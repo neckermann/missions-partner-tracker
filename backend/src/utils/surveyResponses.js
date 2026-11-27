@@ -107,7 +107,8 @@ async function saveSurveyAnswers({ survey, partnerId, answers, submit = false, e
 }
 
 const PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
-const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
+// The browser shrinks a photo before sending it (frontend/src/utils/prepareImage.js), so this is the safety net.
+const MAX_PHOTO_BYTES = 15 * 1024 * 1024;
 
 // Stores a photo sent for a photo question (replacing an earlier one for it) and records it as the
 // answer. The type and the file's real signature are both checked; HEIC is stored as JPEG, which
@@ -119,7 +120,7 @@ async function saveSurveyPhoto({ survey, partnerId, questionId, contentType, buf
   if (!question) return { error: "That isn't a photo question" };
   if (!PHOTO_TYPES.includes(contentType)) return { error: "Please choose a JPEG, PNG, WebP or HEIC photo" };
   if (!buffer?.length || buffer.length > MAX_PHOTO_BYTES)
-    return { error: "Please choose a photo under 5 MB" };
+    return { error: "Please choose a photo under 15 MB" };
   const isHeic = contentType === "image/heic" || contentType === "image/heif";
   if (!matchesFileSignature(buffer, contentType)) {
     return { error: "That file doesn't look like the kind of photo it says it is" };

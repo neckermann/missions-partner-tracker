@@ -46,7 +46,7 @@ const resolveImageExt = makeExtResolver(IMAGE_MIME_TO_EXT, [
 ]);
 
 const upload = uploadFilteredBy(resolveImageExt, {
-  maxFileSize: 5 * 1024 * 1024,
+  maxFileSize: 15 * 1024 * 1024, // the browser shrinks a photo first (frontend/src/utils/prepareImage.js); this is the safety net
   message: "Only JPEG, PNG, WebP, or HEIC/HEIF images are allowed",
 });
 

@@ -26,6 +26,9 @@ export default function PhotoTile({
     <img
       src={src}
       alt={alt}
+      // Below the first screen it isn't fetched until it is about to be seen, and it is decoded off the main thread.
+      loading="lazy"
+      decoding="async"
       className={className}
       style={style}
       onError={(e) => {

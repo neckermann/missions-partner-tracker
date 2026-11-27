@@ -127,7 +127,7 @@ uploadRouter.post("/:token/:questionId", async (req, res, next) => {
     const invite = await loadInvite(req.params.token);
     if (!invite) return res.status(404).json(NOT_AVAILABLE);
     const { contentType, data } = z
-      .object({ contentType: z.string().max(40), data: z.string().max(7 * 1024 * 1024) })
+      .object({ contentType: z.string().max(40), data: z.string().max(24 * 1024 * 1024) })
       .parse(req.body);
     const result = await saveSurveyPhoto({
       survey: invite.survey,
