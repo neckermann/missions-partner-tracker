@@ -1412,6 +1412,12 @@ model ChurchSettings {
   // existing amount reads, it does not convert anything. Validated against Intl.supportedValuesOf("currency").
   currency String @default("USD")
 
+  // The country a phone number typed without a "+" is read in (an ISO 3166-1 code such as "US" or "GB").
+  // Phones are saved in international form (utils/contactFormat.js), so this only decides how a number
+  // typed without a country code is understood; it never changes a saved number. Validated against the
+  // codes libphonenumber knows (utils/phoneCountry.js).
+  defaultPhoneCountry String @default("US")
+
   // Content-type mutes for the chat channels only (GroupMe, WhatsApp); email dispatches
   // include every content type they are allowed to. Default true.
   chatDispatchPrayerRequests     Boolean @default(true)

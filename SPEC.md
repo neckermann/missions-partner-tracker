@@ -1181,6 +1181,12 @@ code — it reads the same `groupmeText` field GroupMe does (see 6.2a).
 
 ### 6.4 Urgent dispatch
 
+`ChurchSettings.defaultPhoneCountry` (an ISO 3166-1 code, default `US`, validated against libphonenumber's list) is the country a
+phone number typed without a `+` is read in (`utils/phoneCountry.js`, kept in memory, loaded at start-up and refreshed when the setting is saved;
+served on `GET /api/public/settings` so `PhoneInput` can shape numbers the same way). Phones are saved in international form and emails in lower case by
+`utils/contactFormat.js`, and 28 CHECK constraints at the end of the baseline migration make the database refuse any other value in those columns
+(`User.email`, the login, and newsletter signups are not constrained).
+
 `ChurchSettings.currency` (an ISO 4217 code, default `USD`, validated against `Intl`) is the one currency for
 every amount. Amounts stay whole numbers with no currency of their own; the setting only decides how they are
 written (`utils/money.js` on the server for announcements and report headings, `utils/format.js` in the browser,

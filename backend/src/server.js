@@ -69,6 +69,7 @@ const publicTripParticipantRoutes = require("./routes/publicTripParticipants");
 const prisma = require("./prismaClient");
 const { backgroundJobsEnabled, startBackgroundJobs, stopBackgroundJobs } = require("./utils/backgroundJobs");
 const { assertSchemaMatches } = require("./utils/schemaCheck");
+const { loadPhoneCountry } = require("./utils/phoneCountry");
 const { applyChurchTimezone } = require("./utils/timezone");
 const { readTrustProxy, trustProxySetting, describeTrustProxy } = require("./utils/trustProxy");
 
@@ -287,6 +288,8 @@ if (require.main === module) {
         select: { timezone: true },
       });
       applyChurchTimezone(settings?.timezone);
+      // The country phone numbers typed without a "+" are read in; the checks that use it are synchronous.
+      await loadPhoneCountry(prisma);
     } catch (err) {
       console.error("Couldn't read ChurchSettings.timezone at startup, defaulting to UTC:", err);
       process.env.TZ = process.env.TZ || "UTC";

@@ -23,6 +23,8 @@ const DEFAULTS = {
   subscribePassageSource: null,
   // The one currency every amount is shown in (utils/format.js, routes/publicSettings.js).
   currency: "USD",
+  // The country a phone number typed without a "+" is read in (utils/phone.js, components/shared/PhoneInput.jsx).
+  defaultPhoneCountry: "US",
   // Demo banner fields (routes/publicSettings.js). null/false, not omitted, so DemoBanner is correct
   // before the first fetch resolves.
   isDemo: false,
