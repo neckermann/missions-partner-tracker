@@ -710,8 +710,10 @@ There's no partial/soft rotation; it's all-or-nothing by design.
 2. No codes? **Ask your second administrator** to open Manage Users, click your name and choose **Reset MFA**. You
    sign in with your password and set two-factor up again. This is why a second administrator matters.
 3. No second administrator? Someone who can open the server's shell (on Render, your web service's **Shell** tab)
-   runs the command below. If nobody at the church can do that, it is the one place this app needs a developer;
-   write down who that would be now, while nothing is wrong.
+   runs the command below. **Or, with no shell at all, anyone who can open the database** (on Render, the
+   database's page → **Connect** → the `psql` command, or any SQL tool with the same connection string) can do the
+   same thing by hand, see "Straight in the database" below. If nobody at the church can do either, it is the one
+   place this app needs a developer; write down who that would be now, while nothing is wrong.
 
 Someone who has lost their authenticator app, their passkeys and their recovery codes needs two-factor
 cleared. Another admin does it from **Manage Users → Reset MFA**. If the person locked out is the only admin,
@@ -726,6 +728,25 @@ It removes that account's authenticator secret, passkeys and recovery codes and 
 everywhere; nothing else about the account changes. The next password sign-in goes straight to setting
 two-factor up again and shows a new set of recovery codes. The action is recorded in the audit log.
 If the password is lost too, use `node prisma/createAdmin.js <email> "<new password>"` first.
+
+**Straight in the database** (no shell, no command): whoever can run SQL against the app's database can make the
+same change by hand. This is the same thing `clear-two-factor` does, in one transaction, so nothing is left
+half done. Replace the email, run it, then sign in with the password and set two-factor up again:
+
+```sql
+BEGIN;
+DELETE FROM "UserPasskey"      WHERE "userId" = (SELECT "id" FROM "User" WHERE "email" = 'you@yourchurch.org');
+DELETE FROM "UserRecoveryCode" WHERE "userId" = (SELECT "id" FROM "User" WHERE "email" = 'you@yourchurch.org');
+UPDATE "User"
+   SET "mfaEnabled" = false, "mfaSecret" = NULL, "mfaLastTimeStep" = NULL,
+       "sessionVersion" = "sessionVersion" + 1
+ WHERE "email" = 'you@yourchurch.org';
+COMMIT;
+```
+
+It signs the account out everywhere (the session number goes up). This route does not write the audit-log entry
+the command does. If the password is lost too, a new one needs a bcrypt hash (cost 12) of the new password
+in `"User"."passwordHash"`; it is simpler to use `createAdmin.js` above, or have a second admin reset it.
 
 ### Rotating FIELD_ENCRYPTION_KEY
 
