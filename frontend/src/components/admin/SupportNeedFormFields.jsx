@@ -2,6 +2,7 @@ import React from "react";
 import SourcePicker from "./SourcePicker.jsx";
 import { urgentSendDescription } from "../../utils/urgentSend.js";
 
+import { currencySymbol } from "../../utils/format.js";
 // The one-time-need field set shared by PartnerFinancialSection.jsx (fixed partnerId, add and
 // decide only) and AdminOneTimeNeeds.jsx. Like PrayerRequestFormFields.jsx: form-grid body only,
 // `mode` controls the create-only isUrgent/approveNow blocks, `partnerPicker` is injected when
@@ -34,7 +35,7 @@ export default function SupportNeedFormFields({
         />
       </label>
       <label>
-        Requested Amount ($, optional)
+        Requested Amount ({currencySymbol()}, optional)
         <input
           type="number"
           min="0"

@@ -23,6 +23,7 @@ const emptyForm = {
   contactEmail: "",
   websiteLink: "",
   timezone: "UTC",
+  currency: "USD",
   ...emptyAddress,
   partnerTermSingular: "",
   partnerTermPlural: "",
@@ -39,6 +40,15 @@ const emptyForm = {
 };
 
 const TIMEZONES = Intl.supportedValuesOf("timeZone");
+
+// Every currency this browser knows, labelled "USD - US Dollar" so a church can find its own.
+const CURRENCIES = (() => {
+  const names = new Intl.DisplayNames(["en"], { type: "currency" });
+  return Intl.supportedValuesOf("currency").map((code) => ({
+    code,
+    label: `${code} - ${names.of(code) || code}`,
+  }));
+})();
 
 const FONT_OPTIONS = [
   { value: "", label: "System Default" },
@@ -80,6 +90,8 @@ export default function AdminSettingsAbout() {
   async function saveChurchInfo(draft) {
     const updated = await updateChurchSettings(draft);
     setShowSyncPrompt((updated?.sentByOurChurchCount || 0) > 0);
+    // Every amount in the app follows the currency, so the shared settings are fetched again.
+    refreshSettings();
   }
 
   async function handleSyncAll() {
@@ -124,6 +136,7 @@ export default function AdminSettingsAbout() {
           contactEmail: form.contactEmail,
           websiteLink: form.websiteLink,
           timezone: form.timezone,
+          currency: form.currency,
           addressLine1: form.addressLine1,
           addressLine2: form.addressLine2,
           city: form.city,
@@ -145,6 +158,7 @@ export default function AdminSettingsAbout() {
             </p>
             <p style={{ color: "var(--muted)" }}>{v.websiteLink || "No website set"}</p>
             <p style={{ color: "var(--muted)" }}>Timezone: {v.timezone}</p>
+            <p style={{ color: "var(--muted)" }}>Currency: {v.currency || "USD"}</p>
             {showSyncPrompt && sentByOurChurchCount > 0 && (
               // Not interactive: stops clicks/keydowns on the inner button bubbling to the card's open handler.
               // eslint-disable-next-line jsx-a11y/no-static-element-interactions
@@ -220,7 +234,22 @@ export default function AdminSettingsAbout() {
                   ))}
                 </select>
               </label>
+              <label>
+                Currency
+                <select value={d.currency || "USD"} onChange={(e) => set("currency", e.target.value)}>
+                  {CURRENCIES.map((c) => (
+                    <option key={c.code} value={c.code}>
+                      {c.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
             </div>
+            <p style={{ color: "var(--muted)", fontSize: "0.85rem", marginTop: "0.5rem" }}>
+              Currency is how every amount in the app is written (monthly support, one-time needs, trip money,
+              reports and announcements). It only changes the symbol: amounts already saved are not converted,
+              so a church that changes it should check its existing figures.
+            </p>
             <p style={{ color: "var(--muted)", fontSize: "0.85rem", marginTop: "0.5rem" }}>
               Timezone drives every scheduled send in this app (email digests, GroupMe) so "send at 9"
               actually means 9am here, not UTC. Changing this takes effect the next time the app restarts, not

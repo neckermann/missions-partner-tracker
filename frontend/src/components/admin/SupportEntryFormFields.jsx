@@ -1,5 +1,6 @@
 import React from "react";
 
+import { getChurchCurrency } from "../../utils/format.js";
 // The "Add Support Entry" field set shared by PartnerFinancialSection.jsx and
 // AdminMonthlySupport.jsx. No edit mode: support entries have no update route (correct one by
 // deleting and re-adding). `partnerPicker`, when given, renders first.
@@ -8,7 +9,7 @@ export default function SupportEntryFormFields({ form, setForm, partnerPicker })
     <div className="form-grid">
       {partnerPicker}
       <label>
-        Monthly Amount (USD)
+        Monthly Amount ({getChurchCurrency()})
         <input
           type="number"
           min="0"

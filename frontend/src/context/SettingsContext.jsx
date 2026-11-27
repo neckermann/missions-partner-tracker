@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { fetchPublicSettings } from "../api/client.js";
+import { setChurchCurrency } from "../utils/format.js";
 
 // The one piece of global state: read by nearly every page (sidebar, public header). Always reads
 // the public endpoint, whose contact fields are withheld server-side (routes/publicSettings.js),
@@ -20,6 +21,8 @@ const DEFAULTS = {
   aboutText: null,
   subscribePassage: null,
   subscribePassageSource: null,
+  // The one currency every amount is shown in (utils/format.js, routes/publicSettings.js).
+  currency: "USD",
   // Demo banner fields (routes/publicSettings.js). null/false, not omitted, so DemoBanner is correct
   // before the first fetch resolves.
   isDemo: false,
@@ -110,9 +113,13 @@ export function SettingsProvider({ children }) {
     }
   }, [settings.churchName, settings.partnerTermPlural]);
 
+  // Set during render, before any child reads it. Keyed on the currency so the app below is built again when
+  // it changes (once at load for a church not on dollars, or when an admin changes it): amounts and labels are
+  // written by plain functions that do not re-run on a context change by themselves.
+  setChurchCurrency(settings.currency);
   return (
     <SettingsContext.Provider value={{ ...settings, refreshSettings: loadSettings }}>
-      {children}
+      <React.Fragment key={settings.currency}>{children}</React.Fragment>
     </SettingsContext.Provider>
   );
 }

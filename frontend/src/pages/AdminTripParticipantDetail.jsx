@@ -12,7 +12,7 @@ import {
   updateTripParticipant,
   tripParticipantPhotoUrl,
 } from "../api/client.js";
-import { formatDate, isMinorForTrip } from "../utils/format.js";
+import { formatDate, isMinorForTrip, currencySymbol } from "../utils/format.js";
 import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
 import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
 import EditableSection from "../components/admin/EditableSection.jsx";
@@ -624,7 +624,7 @@ export default function AdminTripParticipantDetail() {
         )}
         edit={(draft, set) => (
           <label style={{ maxWidth: 220 }}>
-            Support-raising goal ($)
+            Support-raising goal ({currencySymbol()})
             <input
               type="number"
               value={draft.supportRaisingGoal}

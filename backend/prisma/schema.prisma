@@ -1404,6 +1404,11 @@ model ChurchSettings {
   // next restart, since changing TZ mid-process is unreliable.
   timezone String @default("America/Chicago")
 
+  // The one currency every money amount in the app is shown in (an ISO 4217 code such as "USD" or "EUR").
+  // Amounts are stored as whole numbers with no currency of their own, so changing this changes how every
+  // existing amount reads, it does not convert anything. Validated against Intl.supportedValuesOf("currency").
+  currency String @default("USD")
+
   // Content-type mutes for the chat channels only (GroupMe, WhatsApp); email dispatches
   // include every content type they are allowed to. Default true.
   chatDispatchPrayerRequests     Boolean @default(true)

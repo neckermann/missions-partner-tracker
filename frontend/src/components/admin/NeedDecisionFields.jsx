@@ -1,5 +1,6 @@
 import React from "react";
 
+import { currencySymbol } from "../../utils/format.js";
 // The fields of a one-time need's Record Decision form, shared by the One-Time Needs page and a partner's
 // own page. "Decline" is a first-class choice: it records $0 approved (the status then reads Declined), so
 // nobody has to know that typing 0 means no. `decision` is { approvedAmount, approvedDate, decisionNote },
@@ -22,7 +23,7 @@ export default function NeedDecisionFields({ decision, setDecision, noteAsTextar
       </div>
       <div style={{ display: "flex", gap: "0.75rem", alignItems: "flex-end", flexWrap: "wrap" }}>
         <label>
-          Approved Amount ($)
+          Approved Amount ({currencySymbol()})
           <input
             type="number"
             min="0"

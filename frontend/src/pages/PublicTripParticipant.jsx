@@ -13,7 +13,7 @@ import {
   tripMeetingIcsUrl,
   tripMeetingRsvpUrl,
 } from "../api/client.js";
-import { formatDate, formatFileSize } from "../utils/format.js";
+import { formatDate, formatFileSize, formatCurrency } from "../utils/format.js";
 import SignatureCapture from "../components/SignatureCapture.jsx";
 import { buildCalendarLinks, meetingDescription } from "../utils/calendarLinks.js";
 import CopyButton from "../components/shared/CopyButton.jsx";
@@ -242,7 +242,7 @@ export default function PublicTripParticipant() {
               )}
             </span>
             <span style={{ color: "var(--muted)", fontWeight: 400 }}>
-              {data.supportRaisingGoal ? `of $${data.supportRaisingGoal} goal` : ""}
+              {data.supportRaisingGoal ? `of ${formatCurrency(data.supportRaisingGoal)} goal` : ""}
             </span>
           </div>
           <div

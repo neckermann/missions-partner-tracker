@@ -819,6 +819,7 @@ CREATE TABLE "ChurchSettings" (
     "lastGroupmeChatDispatchSentAt" TIMESTAMP(3),
     "lastWhatsappChatDispatchSentAt" TIMESTAMP(3),
     "timezone" TEXT NOT NULL DEFAULT 'America/Chicago',
+    "currency" TEXT NOT NULL DEFAULT 'USD',
     "chatDispatchPrayerRequests" BOOLEAN NOT NULL DEFAULT true,
     "chatDispatchOneTimeNeeds" BOOLEAN NOT NULL DEFAULT true,
     "chatDispatchNewsletters" BOOLEAN NOT NULL DEFAULT true,

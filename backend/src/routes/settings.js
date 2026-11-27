@@ -10,6 +10,7 @@ const { isTwoFactorRequired } = require("../utils/twoFactor");
 const { isPasswordlessOn, passwordlessBlocker } = require("../utils/passwordless");
 const { isDemoDeployment, refuseOnGuardedDemo } = require("../utils/demoMode");
 const { applyChurchTimezone } = require("../utils/timezone");
+const { isValidCurrency } = require("../utils/money");
 
 const noIntegrationChangesOnDemo = refuseOnGuardedDemo("Changing integration settings");
 const { makeExtResolver, uploadFilteredBy } = require("../utils/upload");
@@ -139,6 +140,13 @@ const settingsSchema = z.object({
     .string()
     .refine((tz) => Intl.supportedValuesOf("timeZone").includes(tz), "Not a valid IANA timezone")
     .optional(),
+  // The church-wide currency (see schema.prisma): a code Intl knows, so a typo can never reach a message.
+  currency: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .refine(isValidCurrency, "Not a currency code this server knows (for example USD, EUR, CAD)")
+    .optional(),
 });
 
 // GET /api/settings (any logged-in role) — null if never configured yet.
@@ -176,6 +184,7 @@ router.get("/", async (req, res, next) => {
           contactLastName: true,
           contactEmail: true,
           timezone: true,
+          currency: true,
           brandFont: true,
           headerColor: true,
           highlightColor: true,

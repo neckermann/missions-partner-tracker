@@ -10,6 +10,7 @@
 // "details withheld" line and no file link. isRestricted is read fresh from the
 // partner, not the payload snapshot, because the flag can change after recording.
 const { maskedDisplayName } = require("./maskData");
+const { formatMoney } = require("./money");
 const { keyDateWhat, when: whenKeyDate } = require("./keyDateText");
 
 const RESTRICTED_NOTICE =
@@ -146,7 +147,9 @@ function buildBlurb(row, partner, settings) {
       // Restricted masking still applies to name/description. Guards a missing
       // requestedAmount (non-nullable in the schema, but fixtures may omit it) to avoid "$NaN".
       // A need can be saved with no amount (stored as 0): say nothing about money rather than "$0".
-      const amount = payload.requestedAmount ? `$${Number(payload.requestedAmount).toLocaleString()}` : null;
+      const amount = payload.requestedAmount
+        ? formatMoney(payload.requestedAmount, settings?.currency)
+        : null;
       return {
         id: row.id,
         type,
@@ -172,7 +175,7 @@ function buildBlurb(row, partner, settings) {
     case "supportNeedDecided": {
       const label = supportNeedOutcomeLabel(payload);
       // A decline (approved $0) says "Declined" and no amount, rather than "Approved: $0".
-      const amount = payload.approvedAmount ? `$${Number(payload.approvedAmount).toLocaleString()}` : null;
+      const amount = payload.approvedAmount ? formatMoney(payload.approvedAmount, settings?.currency) : null;
       const approvedLine = amount ? `\n\nApproved: ${amount}` : "";
       const bodyText = row.dispatchReviewedAt
         ? row.dispatchReviewedText
