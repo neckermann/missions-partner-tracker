@@ -1175,8 +1175,8 @@ create their login in one step.
 
 Editing an existing user (from their row in Manage Users) lets you change
 role, deactivate, require two-factor for just that account, or reset a
-password. **Reset MFA** clears a locked-out user's two-factor setup so
-they can log back in and re-enroll (with just their password, or straight
+password. **Reset MFA** clears a locked-out user's two-factor setup (their
+recovery codes included) so they can log back in and re-enroll (with just their password, or straight
 into enrollment if the church requires two-factor) — for your own account,
 use **Disable Two-Factor Authentication** on [Your account settings](#your-account-settings)
 instead (not available while the church requires it), which requires your

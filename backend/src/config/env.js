@@ -56,24 +56,21 @@ function validateEnv(env = process.env) {
     );
   }
 
-  // Not fatal: a bad key makes crypto.js throw at first use, so every reversibly
-  // encrypted secret (MFA enrollment and the Postmark, GroupMe, Joshua Project and
-  // WhatsApp credentials) fails loudly and nothing is written under a weak key.
-  // Refusing to boot would take a deployment offline to protect a feature that already fails closed.
+  // Fatal, like SESSION_SECRET: two-factor is required from the first sign-in, and enrolling needs this key,
+  // so without it the very first admin could not get in. It also protects every stored integration credential
+  // (Postmark, GroupMe, Joshua Project, WhatsApp). Refusing to start is kinder than a "Server error" later.
   const key = env.FIELD_ENCRYPTION_KEY;
   if (!key || !String(key).trim()) {
-    warnings.push(
-      "FIELD_ENCRYPTION_KEY is not set. Two-factor authentication and every " +
-        "integration that stores a credential (Postmark, GroupMe, Joshua " +
-        "Project, WhatsApp) will fail until it is. Generate one with " +
-        "`npm run generate-secrets`."
+    fatal.push(
+      "FIELD_ENCRYPTION_KEY is not set. Two-factor sign-in and every integration that stores a " +
+        "credential (Postmark, GroupMe, Joshua Project, WhatsApp) need it, and the first admin cannot " +
+        "sign in without it. Generate one with `npm run generate-secrets`, and keep it: losing or " +
+        "changing it locks out everyone who uses an authenticator app."
     );
   } else if (isPlaceholder(key) || Buffer.from(String(key), "base64").length !== 32) {
-    warnings.push(
-      "FIELD_ENCRYPTION_KEY does not decode to exactly 32 bytes, so it is not a " +
-        "usable key. Two-factor authentication and every integration that " +
-        "stores a credential (Postmark, GroupMe, Joshua Project, WhatsApp) " +
-        "will fail until it is fixed. Generate one with `npm run generate-secrets`."
+    fatal.push(
+      "FIELD_ENCRYPTION_KEY does not decode to exactly 32 bytes, so it is not a usable key. " +
+        "Generate one with `npm run generate-secrets`."
     );
   }
 

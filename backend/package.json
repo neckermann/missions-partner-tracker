@@ -19,7 +19,8 @@
     "preview:digest": "node scripts/preview-digest.js",
     "test": "node --test test/*.test.js",
     "test:routes": "node --test --test-concurrency=1 test/routes/*.test.js",
-    "generate-secrets": "node scripts/generate-secrets.js"
+    "generate-secrets": "node scripts/generate-secrets.js",
+    "clear-two-factor": "node scripts/clear-two-factor.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.12.0",

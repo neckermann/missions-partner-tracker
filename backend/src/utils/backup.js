@@ -80,6 +80,7 @@ const MODELS = [
   "user",
   "tripAccess", // -> user, trip
   "userPasskey", // -> user
+  "userRecoveryCode", // -> user (hashes only)
   "careTeamMember", // -> partner, user
   "contactLog", // -> partner, user
   "keyDateReminder", // -> partner, user

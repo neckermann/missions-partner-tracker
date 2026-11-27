@@ -908,9 +908,19 @@ export async function login(email, password) {
   return data;
 }
 
-export async function verifyMfaLogin(pendingToken, token) {
-  const { data } = await api.post("/auth/mfa/login-verify", { pendingToken, token });
+// `code` is the 6-digit authenticator code, or, with `{ recovery: true }`, a one-time recovery code.
+export async function verifyMfaLogin(pendingToken, code, { recovery = false } = {}) {
+  const { data } = await api.post(
+    "/auth/mfa/login-verify",
+    recovery ? { pendingToken, recoveryCode: code } : { pendingToken, token: code }
+  );
   return data;
+}
+
+// A fresh set of recovery codes (the old ones stop working). Needs the current password.
+export async function regenerateRecoveryCodes(password) {
+  const { data } = await api.post("/auth/mfa/recovery-codes", { password });
+  return data; // { recoveryCodes }
 }
 
 export async function setupMfa() {

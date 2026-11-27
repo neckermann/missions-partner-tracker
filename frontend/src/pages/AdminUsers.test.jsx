@@ -187,3 +187,27 @@ describe("AdminUsers -- promote to guest with a care team seat (#289)", () => {
     expect(dialog).toBeTruthy();
   });
 });
+
+describe("AdminUsers -- a sole administrator", () => {
+  it("is told to add a second administrator", async () => {
+    renderPage();
+    expect(await screen.findByText(/You are the only administrator/)).toBeInTheDocument();
+  });
+
+  it("is not nagged once there are two active administrators", async () => {
+    fetchUsers.mockResolvedValue([
+      ...USERS,
+      {
+        ...base,
+        id: "b",
+        email: "second-admin@example.test",
+        role: "admin",
+        tripAccess: [],
+        inactiveReason: null,
+      },
+    ]);
+    renderPage();
+    await screen.findByText("second-admin@example.test");
+    expect(screen.queryByText(/You are the only administrator/)).not.toBeInTheDocument();
+  });
+});

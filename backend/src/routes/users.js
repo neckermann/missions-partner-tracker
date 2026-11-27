@@ -671,6 +671,7 @@ router.post("/:id/mfa/reset", async (req, res, next) => {
     // every unenrolled account to enrolment; nothing per-account needs setting here.
     // #386: their passkeys go too, so a lost phone or key is cleared in one step.
     await prisma.userPasskey.deleteMany({ where: { userId: req.params.id } });
+    await prisma.userRecoveryCode.deleteMany({ where: { userId: req.params.id } });
     const updated = await prisma.user.update({
       where: { id: req.params.id },
       data: { mfaEnabled: false, mfaSecret: null, sessionVersion: { increment: 1 } },

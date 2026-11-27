@@ -56,6 +56,9 @@ test.describe("Two-factor requirement", () => {
       .first()
       .fill(await totpCode(secret));
     await page.getByRole("button", { name: /Confirm/ }).click();
+    // Recovery codes are shown once; the way on stays closed until the person says they saved them.
+    await page.getByLabel(/I have saved these codes/).check();
+    await page.getByRole("button", { name: "Continue to the site" }).click();
     await page.waitForURL(/\/admin/);
   }
 
