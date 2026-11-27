@@ -44,9 +44,18 @@ after(async () => {
   await stopServer();
 });
 
+// These two need a database with no accounts but the test fixtures. On a developer's database that may not be so,
+// and they say so and skip. In CI the database is built to be empty at this point (ci.yml creates the e2e admin
+// AFTER the route tests), so a skip there means the suite is silently not testing first-run setup: that is a failure.
+function cannotRun(t) {
+  const why = "this database holds accounts that are not test fixtures";
+  if (process.env.CI) assert.fail(`first-run setup could not run in CI: ${why}`);
+  return t.skip(why);
+}
+
 describe("first-run setup", () => {
   test("three requests at the same moment create exactly one admin", async (t) => {
-    if (!canRun) return t.skip("this database holds accounts that are not test fixtures");
+    if (!canRun) return cannotRun(t);
     assert.equal((await anon("/api/auth/setup-status")).body.needed, true);
 
     const results = await Promise.all(
@@ -66,7 +75,7 @@ describe("first-run setup", () => {
   });
 
   test("once an account exists, setup is refused and says what to do", async (t) => {
-    if (!canRun) return t.skip("this database holds accounts that are not test fixtures");
+    if (!canRun) return cannotRun(t);
     const res = await anon("/api/auth/setup", {
       method: "POST",
       body: { email: "late@example.test", password: "A-Long-Passw0rd-For-Tests!" },

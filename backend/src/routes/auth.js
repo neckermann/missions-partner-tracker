@@ -30,6 +30,7 @@ const {
   refuseOnGuardedDemo,
 } = require("../utils/demoMode");
 const accountLoginLimiter = require("../utils/accountLoginLimiter");
+const { configuredOrigin } = require("../utils/passkeys");
 
 const noPasswordChangeOnDemo = refuseOnGuardedDemo("Changing the password");
 const {
@@ -408,6 +409,9 @@ router.get("/me", requireAuth, async (req, res, next) => {
             })
           )?.allowPasskeySignIn === true,
         emailReady: await isEmailReady(),
+        // The address the site is set to (APP_BASE_URL), for the admin banner shown when the browser is at another
+        // one: passkeys only work at this address. Admins only; null when none is set.
+        configuredSiteOrigin: user.role === "admin" ? configuredOrigin() : null,
       },
     });
   } catch (err) {
