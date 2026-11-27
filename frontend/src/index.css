@@ -2878,3 +2878,16 @@ button.report-summary-item[aria-pressed="true"] {
     min-height: 2.4rem;
   }
 }
+
+/* The copy button beside a phone number or email: small, but a real tap target on a phone. */
+.copy-value .copy-value-btn {
+  padding: 0.1rem 0.35rem;
+  min-height: 1.6rem;
+  vertical-align: middle;
+}
+@media (max-width: 600px) {
+  .copy-value .copy-value-btn {
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+  }
+}
