@@ -24,6 +24,7 @@ const CATEGORY_GROUP = {
   newPrayerRequests: "Partner Care",
   newOneTimeNeeds: "Partner Care",
   adminMfaDisabled: "System",
+  onlyOneAdmin: "System",
   emailNotFinished: "System",
   timeToCheckBackups: "System",
   whatsappConnectionDrop: "System",
