@@ -6,6 +6,7 @@ const {
   currentText,
   sameValue,
   applyField,
+  FIELDS,
   presentation,
   presentQuestion,
   pageQuestion,
@@ -127,4 +128,30 @@ test("a typed answer is checked by the field its question is linked to", () => {
   assert.equal(problemWithAnswer("primaryPhone", ""), null, "blank is never a problem here");
   assert.equal(problemWithAnswer("photo", "anything"), null);
   assert.equal(problemWithAnswer(null, "anything"), null);
+});
+
+test("every field a survey can update has a check and an input, so a new one cannot skip them (#548)", () => {
+  for (const [key, field] of Object.entries(FIELDS)) {
+    if (field.photo || field.support) continue;
+    assert.equal(
+      typeof field.normalize,
+      "function",
+      `${key} needs a normalize(value) that returns { value } or { error }`
+    );
+    assert.ok(
+      field.inputType,
+      `${key} needs an inputType (tel, email, line, contactMethod) for the survey page`
+    );
+    assert.ok(field.write, `${key} needs a write`);
+    // Junk the check must refuse for the kinds of value it takes; anything may be blank.
+    assert.equal(field.normalize("").error, undefined, `${key}: blank is not an error`);
+  }
+  for (const key of ["primaryPhone", "emergencyContactPhone"]) {
+    assert.ok(FIELDS[key].normalize("dsafdsfsadf").error, `${key} refuses a value that is not a phone`);
+  }
+  for (const key of ["primaryEmail", "emergencyContactEmail"]) {
+    assert.ok(FIELDS[key].normalize("not an email").error, `${key} refuses a value that is not an email`);
+  }
+  assert.ok(FIELDS.contactMethod.normalize("carrier pigeon").error);
+  assert.ok(FIELDS.mailingAddress.normalize("not json").error);
 });

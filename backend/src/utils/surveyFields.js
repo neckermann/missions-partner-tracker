@@ -110,11 +110,13 @@ const FIELDS = {
   mailingAddress: {
     label: "Mailing address",
     kinds: ["address"],
+    inputType: "address",
     read: ({ addresses }) => addressToValue((addresses || []).find((a) => a.type === "mailing")),
     normalize: (v) => {
       const a = normalizeAddress(v);
       if (a.error) return { error: a.error };
-      if (!a.value || !JSON.parse(a.value).line1) return { error: "Add a street address" };
+      if (!a.value) return { value: null };
+      if (!JSON.parse(a.value).line1) return { error: "Add a street address" };
       return { value: a.value };
     },
     write: async (tx, { partner }, v) => {
