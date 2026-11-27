@@ -57,10 +57,17 @@ before(async () => {
     where: { id: "singleton" },
     select: { contactStaleDays: true, enabledFeatures: true },
   });
+  // A fresh install has care teams and the public directory off, so switch on what this file needs.
+  const enabledFeatures = {
+    ...(originalSettings?.enabledFeatures || {}),
+    careTeam: true,
+    contactLog: true,
+    publicDirectory: true,
+  };
   await prisma.churchSettings.upsert({
     where: { id: "singleton" },
-    update: { contactStaleDays: 90 },
-    create: { id: "singleton", contactStaleDays: 90 },
+    update: { contactStaleDays: 90, enabledFeatures },
+    create: { id: "singleton", contactStaleDays: 90, enabledFeatures },
   });
   const email = "route-test-snooze-user@example.test";
   user = await prisma.user.upsert({
@@ -83,7 +90,10 @@ after(async () => {
   if (originalSettings) {
     await prisma.churchSettings.update({
       where: { id: "singleton" },
-      data: { contactStaleDays: originalSettings.contactStaleDays ?? 90 },
+      data: {
+        contactStaleDays: originalSettings.contactStaleDays ?? 90,
+        enabledFeatures: originalSettings.enabledFeatures ?? {},
+      },
     });
   }
   await stopServer();
