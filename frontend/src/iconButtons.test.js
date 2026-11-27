@@ -1,11 +1,12 @@
 import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 // A button that is only a symbol (✕, ▲, ▼, ✉...) doesn't say what it does. Row-level actions (remove, move up,
 // move down, delete) must carry a word; a small dismiss or clear symbol is allowed only when it has BOTH an
 // accessible name and a hover title that say what it acts on. This scans the source so a new bare ✕ can't slip in.
-const SRC = path.join(__dirname);
+const SRC = path.dirname(fileURLToPath(import.meta.url));
 const BUTTON = /<button\b([^>]*)>([\s\S]*?)<\/button>/g;
 
 function sourceFiles(dir) {
@@ -32,7 +33,7 @@ describe("icon-only buttons", () => {
       const [, attrs, inner] = m;
       const words = visibleWords(inner);
       // Only buttons that really are a symbol: some symbol character, and no word.
-      if (/[A-Za-z]{3,}/.test(words) || !/[✕✖×▲▼✉⟨⟩☰⋯✎🗑+−]/.test(words)) continue;
+      if (/[A-Za-z]{3,}/.test(words) || !/[✕✖×▲▼✉⟨⟩☰⋯✎+−]|🗑/u.test(words)) continue;
       const where = `${path.relative(SRC, file)}:${text.slice(0, m.index).split("\n").length}`;
       if (/className="btn-remove"/.test(attrs)) offenders.rowAction.push(`${where} (${words})`);
       if (!/aria-label/.test(attrs) || !/title=/.test(attrs)) offenders.unnamed.push(`${where} (${words})`);
