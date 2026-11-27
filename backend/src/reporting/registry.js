@@ -1,6 +1,7 @@
 // The report catalog. Each module in ./reports exports `reports`, an array of
 // { id, group, label, question, params, fields, columns, fetch, compute }. Add a
 // report there and the route and frontend pick it up.
+const { MASK_NAME_SELECT, restrictedInitials } = require("../utils/maskData");
 const { applyMasking } = require("./masking");
 const { currencySymbol } = require("../utils/money");
 
@@ -84,6 +85,21 @@ function localizeColumns(columns, currency) {
   return columns.map((c) => (c.type === "currency" ? { ...c, label: c.label.replace(/\$/g, symbol) } : c));
 }
 
+// The initials each restricted partner is shown as in a report that leaves the app, keyed by display name (a report
+// row carries only the name). Built from the adults' names, here and nowhere else, only for the shared audience and
+// only when some row is restricted. Two restricted partners with the very same display name would share the first
+// one's initials, which is the safe direction: still initials, never a real name.
+async function restrictedInitialsByName(prisma, rows) {
+  if (!rows.some((r) => r._restricted)) return new Map();
+  const partners = await prisma.partner.findMany({
+    where: { isRestricted: true },
+    select: { displayName: true, kind: true, ...MASK_NAME_SELECT },
+  });
+  const byName = new Map();
+  for (const p of partners) if (!byName.has(p.displayName)) byName.set(p.displayName, restrictedInitials(p));
+  return byName;
+}
+
 // Parse, fetch, compute, then mask in one place. `audience` is "admin" for the
 // signed-in app; anything leaving it must pass "shared" with `settings` (decides
 // whether a restricted partner's masked name is initials or a generic label).
@@ -99,7 +115,13 @@ async function runReport(report, query, { prisma, today, audience = "admin", set
   const columns = localizeColumns(report.columns, church?.currency);
   return {
     columns,
-    rows: applyMasking(result.rows, columns, audience, settings),
+    rows: applyMasking(
+      result.rows,
+      columns,
+      audience,
+      settings,
+      audience === "shared" ? await restrictedInitialsByName(prisma, result.rows) : undefined
+    ),
     summary: result.summary || [],
     chart: report.chart || null,
     notes: result.notes || [],

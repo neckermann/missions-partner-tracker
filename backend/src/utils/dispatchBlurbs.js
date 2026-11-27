@@ -9,7 +9,19 @@
 // restricted partner gets a masked name (maskedDisplayName()), a generic
 // "details withheld" line and no file link. isRestricted is read fresh from the
 // partner, not the payload snapshot, because the flag can change after recording.
-const { maskedDisplayName } = require("./maskData");
+const { maskedDisplayName, MASK_NAME_SELECT } = require("./maskData");
+
+// The partner fields every channel loads before calling buildBlurb(): what eligibility needs, and the adults, so a
+// restricted household is named by its adults' initials (maskedDisplayName). One select for all channels, so none
+// can forget the adults.
+const DISPATCH_PARTNER_SELECT = {
+  id: true,
+  displayName: true,
+  fieldDisplayName: true,
+  isRestricted: true,
+  isPublic: true,
+  ...MASK_NAME_SELECT,
+};
 const { formatMoney } = require("./money");
 const { keyDateWhat, when: whenKeyDate } = require("./keyDateText");
 
@@ -308,6 +320,7 @@ function buildBlurb(row, partner, settings) {
 }
 
 module.exports = {
+  DISPATCH_PARTNER_SELECT,
   buildBlurb,
   appBaseUrl,
   REVIEW_GATED_TYPES,
