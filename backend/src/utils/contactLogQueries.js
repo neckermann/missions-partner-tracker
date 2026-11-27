@@ -48,7 +48,8 @@ async function loadAssignedPartners(userId, today = new Date()) {
     children: { select: { firstName: true, birthday: true } },
     contactLogs: { select: { id: true, contactDate: true, followUpDate: true, createdAt: true } },
     prayerRequests: { where: { status: "ongoing" }, select: { id: true } },
-    needRequests: { where: { approvedAmount: null }, select: { id: true } },
+    // Awaiting a decision; one already met (metDate) needs none.
+    needRequests: { where: { approvedAmount: null, metDate: null }, select: { id: true } },
   };
   // The partners this login looks after (utils/ownership.js): its care team seats, plus, on the missions
   // team, every partner with no team of its own.

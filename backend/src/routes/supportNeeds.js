@@ -33,6 +33,14 @@ const supportNeedSchema = z.object({
   approvedAmount: z.coerce.number().int().nonnegative().optional().nullable(),
   approvedDate: z.coerce.date().optional().nullable(),
   decisionNote: z.string().optional().nullable(),
+  // Who has taken the need on, and the day it was met (apart from the funding decision). Blank clears.
+  handledBy: z
+    .preprocess(
+      (v) => (typeof v === "string" && v.trim() === "" ? null : v),
+      z.string().trim().max(120).nullable()
+    )
+    .optional(),
+  metDate: z.preprocess((v) => (v === "" ? null : v), z.coerce.date().nullable()).optional(),
   // Admin/editor-set at creation; see maybeBroadcastUrgent in dispatchRecording.js.
   isUrgent: z.boolean().optional(),
   // Not a SupportNeed column (stripped before create). Inline "approve now", as in prayerRequests.js.

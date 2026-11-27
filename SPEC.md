@@ -1180,6 +1180,11 @@ code — it reads the same `groupmeText` field GroupMe does (see 6.2a).
 
 ### 6.4 Urgent dispatch
 
+`SupportNeed.handledBy` (who has taken a need on) and `SupportNeed.metDate` (the day it was covered) are
+independent of the funding decision (`approvedAmount`/`approvedDate`): a need can be met with no decision, or
+declined and met elsewhere. A met need is not counted as awaiting a decision (`contactLogQueries.js`) and the
+One-Time Needs report has a "Where it stands" column.
+
 `PrayerRequest.isUrgent`/`SupportNeed.isUrgent` (admin/editor-settable at
 creation) trigger `sendUrgentDispatch()` — an immediate, cadence-
 bypassing send across all four channels for that one row (GroupMe and

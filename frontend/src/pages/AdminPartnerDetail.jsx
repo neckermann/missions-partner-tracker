@@ -595,6 +595,8 @@ export default function AdminPartnerDetail() {
         approvedAmount: item.approvedAmount,
         approvedDate: item.approvedDate,
         decisionNote: item.decisionNote,
+        handledBy: item.handledBy || "",
+        metDate: item.metDate ? String(item.metDate).slice(0, 10) : "",
       },
     });
     setActiveModal("view-need");
@@ -611,6 +613,8 @@ export default function AdminPartnerDetail() {
       requestDate: needDetail.form.requestDate,
       notes: needDetail.form.notes || null,
       sourceFileId: needDetail.form.sourceFileId,
+      handledBy: needDetail.form.handledBy || null,
+      metDate: needDetail.form.metDate || null,
     });
     await reload();
   }
@@ -1927,6 +1931,11 @@ export default function AdminPartnerDetail() {
               showEmpty
             />
             <Field label="Decision Note" value={needDetail.form.decisionNote} />
+            <Field label="Someone's on it" value={needDetail.form.handledBy} />
+            <Field
+              label="Met on"
+              value={needDetail.form.metDate ? formatDateLong(needDetail.form.metDate) : ""}
+            />
           </Modal>
         ))}
 
