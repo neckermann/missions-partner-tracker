@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from "react";
 import EmailInput from "../components/shared/EmailInput.jsx";
-import PhoneInput from "../components/shared/PhoneInput.jsx";
+import PhoneField from "../components/shared/PhoneField.jsx";
 import { formatPhone } from "../utils/phone.js";
 import { applicationAnswerList } from "../utils/applicationAnswers.js";
 import { useParams, Link } from "react-router-dom";
@@ -408,14 +408,12 @@ export default function AdminTripParticipantDetail() {
                 Email
                 <EmailInput value={draft.email} onChange={(e) => set("email", e.target.value)} />
               </label>
-              <label>
-                Phone
-                <PhoneInput
-                  inputMode="tel"
-                  value={draft.phone}
-                  onChange={(e) => set("phone", e.target.value)}
-                />
-              </label>
+              <PhoneField
+                label="Phone"
+                inputMode="tel"
+                value={draft.phone}
+                onChange={(e) => set("phone", e.target.value)}
+              />
               <label>
                 Role
                 <input
@@ -471,14 +469,12 @@ export default function AdminTripParticipantDetail() {
                   onChange={(e) => set("emergencyContactLastName", e.target.value)}
                 />
               </label>
-              <label>
-                Phone
-                <PhoneInput
-                  inputMode="tel"
-                  value={draft.emergencyContactPhone}
-                  onChange={(e) => set("emergencyContactPhone", e.target.value)}
-                />
-              </label>
+              <PhoneField
+                label="Phone"
+                inputMode="tel"
+                value={draft.emergencyContactPhone}
+                onChange={(e) => set("emergencyContactPhone", e.target.value)}
+              />
               <label>
                 Email
                 <EmailInput
@@ -522,14 +518,12 @@ export default function AdminTripParticipantDetail() {
                   onChange={(e) => set("parentGuardianRelationship", e.target.value)}
                 />
               </label>
-              <label>
-                Parent/guardian phone
-                <PhoneInput
-                  inputMode="tel"
-                  value={draft.parentGuardianPhone}
-                  onChange={(e) => set("parentGuardianPhone", e.target.value)}
-                />
-              </label>
+              <PhoneField
+                label="Parent/guardian phone"
+                inputMode="tel"
+                value={draft.parentGuardianPhone}
+                onChange={(e) => set("parentGuardianPhone", e.target.value)}
+              />
               <label>
                 Parent/guardian email
                 <EmailInput
