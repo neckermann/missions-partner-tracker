@@ -3,6 +3,7 @@ import Modal from "../Modal.jsx";
 import { createPrayerRequest, createSupportNeed } from "../../api/client.js";
 import { useSettings } from "../../context/SettingsContext.jsx";
 
+import { currencySymbol } from "../../utils/format.js";
 // `scan` is the extractFromPartnerFile call (passed in so this component knows nothing about the
 // file); it runs once on mount. Nothing is written until the admin clicks Add on a card.
 // sourceFileId rides along on save so the created row links back to the file. `onChange` fires
@@ -226,7 +227,7 @@ export default function ExtractionReviewModal({
                 style={{ width: "100%" }}
               />
               <label style={{ display: "block", marginTop: "0.5rem", fontWeight: "normal" }}>
-                Amount ($, optional)
+                Amount ({currencySymbol()}, optional)
                 <input
                   type="number"
                   min="1"

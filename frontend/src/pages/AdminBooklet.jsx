@@ -1,5 +1,6 @@
 import { methodLabel } from "../utils/contactMethods.js";
 import React, { useEffect, useMemo, useState } from "react";
+import { formatPhone } from "../utils/phone.js";
 import { fetchPartners } from "../api/client.js";
 import "../styles/booklet.css";
 import { useSettings } from "../context/SettingsContext.jsx";
@@ -68,7 +69,7 @@ function renderFamilyBlock(m, fields) {
       );
     }
     (m.adults || []).forEach((a) => {
-      const parts = withhold ? [] : [a.phone1, a.email].filter(Boolean).map(escapeHtml);
+      const parts = withhold ? [] : [formatPhone(a.phone1), a.email].filter(Boolean).map(escapeHtml);
       const name = [a.firstName, a.lastName].filter(Boolean).join(" ");
       rows.push(`<p>${escapeHtml(name)}${parts.length ? ` — ${parts.join(" · ")}` : ""}</p>`);
     });
@@ -118,7 +119,9 @@ function renderSendingPartyBlock(m, withhold = false) {
   if (m.sendingChurch?.name) {
     const bits = withhold
       ? []
-      : [contactFullName(m.sendingChurch), m.sendingChurch.phone].filter(Boolean).map(escapeHtml);
+      : [contactFullName(m.sendingChurch), formatPhone(m.sendingChurch.phone)]
+          .filter(Boolean)
+          .map(escapeHtml);
     parts.push(
       `<p><strong>Sending Church:</strong> ${escapeHtml(m.sendingChurch.name)}${bits.length ? ` — ${bits.join(" · ")}` : ""}</p>`
     );
@@ -126,7 +129,7 @@ function renderSendingPartyBlock(m, withhold = false) {
   if (m.sendingOrg?.name) {
     const bits = withhold
       ? []
-      : [contactFullName(m.sendingOrg), m.sendingOrg.phone].filter(Boolean).map(escapeHtml);
+      : [contactFullName(m.sendingOrg), formatPhone(m.sendingOrg.phone)].filter(Boolean).map(escapeHtml);
     parts.push(
       `<p><strong>Sending Org:</strong> ${escapeHtml(m.sendingOrg.name)}${bits.length ? ` — ${bits.join(" · ")}` : ""}</p>`
     );
@@ -139,7 +142,7 @@ function renderOrgContactBlock(o) {
   const rows = [];
   const contactName = contactFullName(o);
   if (contactName) rows.push(`<p><strong>Contact:</strong> ${escapeHtml(contactName)}</p>`);
-  if (o.contactPhone) rows.push(`<p><strong>Phone:</strong> ${escapeHtml(o.contactPhone)}</p>`);
+  if (o.contactPhone) rows.push(`<p><strong>Phone:</strong> ${escapeHtml(formatPhone(o.contactPhone))}</p>`);
   if (o.contactEmail) rows.push(`<p><strong>Email:</strong> ${escapeHtml(o.contactEmail)}</p>`);
   const website = (o.links || []).find((l) => l.type === "website")?.url;
   if (website) rows.push(`<p><strong>Website:</strong> ${escapeHtml(website)}</p>`);
@@ -245,7 +248,7 @@ function buildMissionaryPageHtml(m, accent, fields) {
     <section class="booklet-page" style="--accent:${accent}">
       <div class="booklet-shape shape-a"></div>
       <div class="booklet-shape shape-b"></div>
-      ${fields.showPhoto && m.photos?.[0]?.url ? `<img class="booklet-photo" src="${escapeHtml(m.photos[0].url)}" alt="" />` : ""}
+      ${fields.showPhoto && m.photos?.[0]?.url ? `<img class="booklet-photo" src="${escapeHtml(m.photos[0].rawUrl || m.photos[0].url)}" alt="" />` : ""}
       <p class="booklet-eyebrow">${escapeHtml(m.fieldDisplayName || "")}</p>
       <h2 class="booklet-name">${escapeHtml(m.displayName)}</h2>
       ${fields.showOverview && m.overview ? `<div class="booklet-callout"><p>${escapeHtml(m.overview)}</p></div>` : ""}

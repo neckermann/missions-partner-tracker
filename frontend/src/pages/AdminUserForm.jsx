@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import PhoneField from "../components/shared/PhoneField.jsx";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { createUser, fetchTrips, fetchReachablePartners } from "../api/client.js";
 import { useSettings } from "../context/SettingsContext.jsx";
@@ -132,15 +133,12 @@ export default function AdminUserForm() {
               Last Name
               <input value={values.lastName} onChange={(e) => setValue("lastName", e.target.value)} />
             </label>
-            <label>
-              Phone (optional)
-              <input
-                type="tel"
-                value={values.phone}
-                onChange={(e) => setValue("phone", e.target.value)}
-                maxLength={40}
-              />
-            </label>
+            <PhoneField
+              label="Phone (optional)"
+              value={values.phone}
+              onChange={(e) => setValue("phone", e.target.value)}
+              maxLength={40}
+            />
             <label>
               Role
               <select value={values.role} onChange={(e) => setValue("role", e.target.value)}>

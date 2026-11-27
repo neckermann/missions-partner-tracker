@@ -6,6 +6,9 @@ import {
   setSupportAnswer,
 } from "../utils/supportAnswer.js";
 import { ADDRESS_PARTS, addressToValue, parseAddressValue, formatAddressValue } from "../utils/address.js";
+import { formatPhone } from "../utils/phone.js";
+import PhoneField from "./shared/PhoneField.jsx";
+import EmailInput from "./shared/EmailInput.jsx";
 
 // A checkbox or radio next to its label. Inline: the global label and input rules would otherwise
 // stack and centre it.
@@ -19,6 +22,11 @@ export const choiceRowStyle = {
   textAlign: "left",
 };
 export const choiceInputStyle = { width: "auto", flexShrink: 0 };
+
+// The box for a question linked to a field of the record (the server says which in `inputType`).
+// A phone and an email use the shared boxes (they shape the number as you type and say so when you leave
+// the box if it can't be one); a short line is a plain one-line input.
+const LINE = { type: "text", autoComplete: "off", inputMode: "text" };
 
 // The questions of a survey as a form, used on the partner's own page and when staff fill one in
 // for them. `answers` is { [questionId]: { value, values, other } }; `onChange(questionId, patch)`.
@@ -181,20 +189,51 @@ export default function SurveyQuestions({
           );
         }
         if (q.kind === "text") {
+          // A question linked to a phone, an email or a short line of the record gets the box that
+          // fits it (a phone keypad, an email keyboard, one line); anything else is a free text area.
+          const box = {
+            value: a.value || "",
+            disabled,
+            onChange: (e) => onChange(q.id, { value: e.target.value }),
+          };
+          if (q.inputType === "tel") {
+            // A phone question owns its label (the picker and the box are separate controls).
+            return (
+              <PhoneField
+                key={q.id}
+                label={label}
+                style={{ marginBottom: "1rem" }}
+                {...box}
+                maxLength={q.maxLength || 40}
+              />
+            );
+          }
           return (
             <label key={q.id} style={{ display: "block", marginBottom: "1rem" }}>
               {label}
-              <textarea
-                rows={3}
-                value={a.value || ""}
-                disabled={disabled}
-                onChange={(e) => onChange(q.id, { value: e.target.value })}
-              />
+              {q.inputType === "email" ? (
+                <EmailInput {...box} maxLength={q.maxLength || 200} />
+              ) : q.inputType === "line" ? (
+                <input
+                  type={LINE.type}
+                  autoComplete={LINE.autoComplete}
+                  inputMode={LINE.inputMode}
+                  maxLength={q.maxLength || 200}
+                  {...box}
+                />
+              ) : (
+                <textarea
+                  rows={3}
+                  value={a.value || ""}
+                  disabled={disabled}
+                  onChange={(e) => onChange(q.id, { value: e.target.value })}
+                />
+              )}
             </label>
           );
         }
         const choices = q.kind === "yesno" ? ["yes", "no"] : q.choices;
-        const shown = (c) => (q.kind === "yesno" ? (c === "yes" ? "Yes" : "No") : c);
+        const shown = (c) => (q.kind === "yesno" ? (c === "yes" ? "Yes" : "No") : q.labels?.[c] || c);
         return (
           <fieldset key={q.id} style={{ border: "none", padding: 0, margin: "0 0 1rem" }}>
             <legend style={{ fontWeight: 600, marginBottom: "0.25rem" }}>{label}</legend>
@@ -260,12 +299,14 @@ export function answersFromSaved(saved = []) {
   );
 }
 
-// One saved answer as a line of text.
-export function describeSavedAnswer(a, supportMenu = []) {
+// One saved answer as a line of text. `question` (optional) is the survey question it answers: a
+// phone is shown the way it is usually written, and a contact method in words.
+export function describeSavedAnswer(a, supportMenu = [], question = null) {
   if (a.kind === "support") return describeSupportAnswer(a.value, supportMenu);
   if (a.kind === "address") return formatAddressValue(a.value);
+  const word = (v) => (question?.inputType === "tel" ? formatPhone(v) : question?.labels?.[v] || v);
   const parts = [
-    a.value && (a.kind === "yesno" ? (a.value === "yes" ? "Yes" : "No") : a.value),
+    a.value && (a.kind === "yesno" ? (a.value === "yes" ? "Yes" : "No") : word(a.value)),
     ...(a.values || []),
     a.other,
   ];

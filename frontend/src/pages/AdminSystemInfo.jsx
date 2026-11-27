@@ -150,8 +150,8 @@ export default function AdminSystemInfo() {
         <h4 style={{ marginTop: "1.5rem" }}>Restore from a backup</h4>
         <p style={{ color: "var(--muted)" }}>
           Put a downloaded backup back. This replaces everything on the site with the backup's contents, so it
-          asks for your password and a typed confirmation, and downloads a copy of what is here now first so
-          you can undo it.
+          first downloads a copy of what is here now so you can undo it, then asks for your password and a
+          typed confirmation.
         </p>
         <button type="button" className="btn danger" onClick={() => setRestoring(true)}>
           Restore from a backup…

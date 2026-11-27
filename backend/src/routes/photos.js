@@ -5,7 +5,8 @@ const { requireAuth } = require("../middleware/requireAuth");
 
 const router = express.Router();
 
-// GET /api/photos/:id/raw
+// GET /api/photos/:id      the copy pages show: a JPEG at most 800px, or the full copy when it was small enough
+// GET /api/photos/:id/raw  the full copy as uploaded (booklet, "open full size"); same access rules
 //
 // A photo is served to anyone only while its partner is shown on the public site (isPublic) and is not
 // restricted. A photo of a partner who is not public, or who is restricted (the public site never carries
@@ -13,17 +14,28 @@ const router = express.Router();
 // longer enough. Signed-in staff and guests still see it, since the admin screens load it with their cookie.
 // The email digests link to photos too, and mail clients cannot sign in, so they only ever use a public
 // partner's photo (emailDispatchShell.js partnerTileDetails) and fall back to a silhouette otherwise.
-router.get("/:id/raw", async (req, res, next) => {
+router.get("/:id", (req, res, next) => serve(req, res, next, false));
+router.get("/:id/raw", (req, res, next) => serve(req, res, next, true));
+
+async function serve(req, res, next, wantFull) {
   try {
-    const photo = await prisma.photo.findUnique({
+    let photo = await prisma.photo.findUnique({
       where: { id: req.params.id },
       select: {
         contentType: true,
-        bytesRow: { select: { bytes: true } },
+        bytesRow: { select: wantFull ? { bytes: true } : { bytes: true, displayBytes: true } },
         partner: { select: { isPublic: true, isRestricted: true } },
       },
     });
     if (!photo?.bytesRow) return res.status(404).end();
+    // The display copy is always a JPEG; without one the full copy is what is shown.
+    if (!wantFull && photo.bytesRow.displayBytes) {
+      photo = {
+        contentType: "image/jpeg",
+        bytesRow: { bytes: photo.bytesRow.displayBytes },
+        partner: photo.partner,
+      };
+    }
 
     const openToAnyone = Boolean(photo.partner?.isPublic) && !photo.partner?.isRestricted;
     if (openToAnyone) return send(photo, res, true);
@@ -32,7 +44,7 @@ router.get("/:id/raw", async (req, res, next) => {
   } catch (err) {
     next(err);
   }
-});
+}
 
 function send(photo, res, isPublic) {
   // helmet()'s global Cross-Origin-Resource-Policy: same-origin would stop webmail clients
@@ -41,7 +53,12 @@ function send(photo, res, isPublic) {
   res.set("Cross-Origin-Resource-Policy", "cross-origin");
   // A photo row is never updated in place, so its bytes are immutable for this id: safe to cache. A
   // non-public photo is cached only by the signed-in person's own browser, never by a shared cache.
-  res.set("Cache-Control", isPublic ? "public, max-age=31536000, immutable" : "private, max-age=3600");
+  // A photo that is not public is only ever cached by the signed-in person's own browser ("private"), and it is just as
+  // immutable, so it is kept for the year too (it used to be re-downloaded every hour, full size).
+  res.set(
+    "Cache-Control",
+    isPublic ? "public, max-age=31536000, immutable" : "private, max-age=31536000, immutable"
+  );
   // Same VERIFIED_INLINE_TYPES allowlist partner files use (utils/fileResponse.js) rather than
   // trusting the stored contentType; defense-in-depth against a future upload-path bug.
   const contentType = VERIFIED_INLINE_TYPES.has(photo.contentType)

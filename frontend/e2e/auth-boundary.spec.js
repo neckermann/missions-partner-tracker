@@ -218,6 +218,12 @@ test.describe("two-factor authentication", () => {
       const enrollCode = await generateTotp({ secret });
       await page.getByLabel(/6-digit code/i).fill(enrollCode);
       await page.getByRole("button", { name: "Confirm & Enable" }).click();
+      // Recovery codes are shown once, and the person has to say they saved them to carry on.
+      await expect(page.getByRole("heading", { name: "Save your recovery codes" })).toBeVisible();
+      await expect(page.getByRole("list", { name: "Recovery codes" }).getByRole("listitem")).toHaveCount(10);
+      await expect(page.getByRole("button", { name: "Done" })).toBeDisabled();
+      await page.getByLabel(/I have saved these codes/).check();
+      await page.getByRole("button", { name: "Done" }).click();
       await expect(mfaSection(page).locator(".status-pill")).toHaveText("Enabled");
 
       // Sign out and back in: a second factor is now required.

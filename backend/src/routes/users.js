@@ -1,6 +1,7 @@
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const { z } = require("zod");
+const { phoneSchema } = require("../utils/contactFormat");
 const prisma = require("../prismaClient");
 const { requireRole } = require("../middleware/requireAuth");
 const { sendWelcomeEmail } = require("../utils/welcomeEmails");
@@ -97,7 +98,7 @@ const createUserSchema = z.object({
   email: z.string().email(),
   firstName: z.string().optional().nullable(),
   lastName: z.string().optional().nullable(),
-  phone: z.string().trim().max(40).optional().nullable(),
+  phone: phoneSchema(z),
   profile: z.string().trim().max(1000).optional().nullable(),
   // On the church's missions team (looks after partners with no care team). Ignored for a guest.
   onMissionsTeam: z.boolean().optional(),
@@ -129,7 +130,7 @@ const createUserSchema = z.object({
 const updateUserSchema = z.object({
   firstName: z.string().optional().nullable(),
   lastName: z.string().optional().nullable(),
-  phone: z.string().trim().max(40).optional().nullable(),
+  phone: phoneSchema(z),
   profile: z.string().trim().max(1000).optional().nullable(),
   onMissionsTeam: z.boolean().optional(),
   role: ROLE_ENUM.optional(),
@@ -671,6 +672,7 @@ router.post("/:id/mfa/reset", async (req, res, next) => {
     // every unenrolled account to enrolment; nothing per-account needs setting here.
     // #386: their passkeys go too, so a lost phone or key is cleared in one step.
     await prisma.userPasskey.deleteMany({ where: { userId: req.params.id } });
+    await prisma.userRecoveryCode.deleteMany({ where: { userId: req.params.id } });
     const updated = await prisma.user.update({
       where: { id: req.params.id },
       data: { mfaEnabled: false, mfaSecret: null, sessionVersion: { increment: 1 } },

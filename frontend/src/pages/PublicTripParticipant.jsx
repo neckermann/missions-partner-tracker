@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { prepareImage } from "../utils/prepareImage.js";
 import { useParams, useSearchParams } from "react-router-dom";
 import PublicSiteHeader from "../components/PublicSiteHeader.jsx";
 import DemoBanner from "../components/DemoBanner.jsx";
@@ -13,7 +14,7 @@ import {
   tripMeetingIcsUrl,
   tripMeetingRsvpUrl,
 } from "../api/client.js";
-import { formatDate, formatFileSize } from "../utils/format.js";
+import { formatDate, formatFileSize, formatCurrency } from "../utils/format.js";
 import SignatureCapture from "../components/SignatureCapture.jsx";
 import { buildCalendarLinks, meetingDescription } from "../utils/calendarLinks.js";
 import CopyButton from "../components/shared/CopyButton.jsx";
@@ -150,9 +151,16 @@ export default function PublicTripParticipant() {
 
   async function handleDraftPhotoChange(file) {
     if (!file) return;
-    const dataUrl = await readFileAsDataUrl(file);
+    // Checked and shrunk before it is read, so a phone photo isn't sent at full size.
+    setPageSaveError("");
+    const prepared = await prepareImage(file, { allowed: ["image/jpeg", "image/png", "image/webp"] });
+    if (prepared.error) {
+      setPageSaveError(prepared.error);
+      return;
+    }
+    const dataUrl = await readFileAsDataUrl(prepared.file);
     setPageDraftPhotoDataUrl(dataUrl);
-    setPageDraftPhotoContentType(file.type);
+    setPageDraftPhotoContentType(prepared.file.type);
   }
 
   async function handleSavePage(e) {
@@ -242,7 +250,7 @@ export default function PublicTripParticipant() {
               )}
             </span>
             <span style={{ color: "var(--muted)", fontWeight: 400 }}>
-              {data.supportRaisingGoal ? `of $${data.supportRaisingGoal} goal` : ""}
+              {data.supportRaisingGoal ? `of ${formatCurrency(data.supportRaisingGoal)} goal` : ""}
             </span>
           </div>
           <div

@@ -65,7 +65,13 @@ export default function SurveysCard({ partnerId }) {
               {viewing.response.answers.map((a) => (
                 <div key={a.id} style={{ marginBottom: "0.5rem" }}>
                   <dt style={{ color: "var(--muted)", fontSize: "0.9rem" }}>{a.label}</dt>
-                  <dd style={{ margin: 0 }}>{describeSavedAnswer(a, data.supportMenu) || "—"}</dd>
+                  <dd style={{ margin: 0 }}>
+                    {describeSavedAnswer(
+                      a,
+                      data.supportMenu,
+                      viewing.questions?.find((q) => q.id === a.questionId)
+                    ) || "—"}
+                  </dd>
                 </div>
               ))}
             </dl>

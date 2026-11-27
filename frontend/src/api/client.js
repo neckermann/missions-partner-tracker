@@ -172,24 +172,22 @@ export async function downloadBackup({ password, passphrase }) {
   return saveResponseFile(res, "backup.ndjson.gz");
 }
 
-// Restores a backup file, REPLACING everything on the site. On success the server answers with a safety copy
-// of what was there just before, which is saved automatically; its name is returned. On any failure nothing
-// was changed and the thrown error carries the server's plain message.
-export async function restoreBackup({ file, password, confirmation, passphrase, safetyPassphrase }) {
+// Restores a backup file, REPLACING everything on the site. The caller must have downloaded a copy of the
+// current data in the last 15 minutes (downloadBackup above); the server refuses otherwise. Returns
+// { restored, rows }. On any failure nothing was changed and the thrown error carries the server's plain message.
+export async function restoreBackup({ file, password, confirmation, passphrase }) {
   const form = new FormData();
   form.append("file", file);
   form.append("password", password);
   form.append("confirmation", confirmation);
   if (passphrase) form.append("passphrase", passphrase);
-  if (safetyPassphrase) form.append("safetyPassphrase", safetyPassphrase);
-  let res;
   try {
-    // Can take a minute or two on a large backup.
-    res = await api.post("/backups/restore", form, { responseType: "blob", timeout: 10 * 60 * 1000 });
+    // Can take several minutes on a large backup.
+    const { data } = await api.post("/backups/restore", form, { timeout: 30 * 60 * 1000 });
+    return data;
   } catch (err) {
-    throw await blobErrorMessage(err);
+    throw new Error(err.response?.data?.error || "The restore didn't go through. Nothing was changed.");
   }
-  return saveResponseFile(res, "before-restore.ndjson.gz");
 }
 
 export async function fetchBackupCheck() {
@@ -871,6 +869,12 @@ export async function fetchPrayerRequests(params = {}) {
   return data;
 }
 
+// The Sunday prayer sheet: { date, cadence, group, totalPartners, partners } (backend/src/utils/prayerSheet.js).
+export async function fetchPrayerSheet({ date, cadence, perPartner } = {}) {
+  const { data } = await api.get("/prayer-sheet", { params: { date, cadence, perPartner } });
+  return data;
+}
+
 export async function createPrayerRequest(payload) {
   const { data } = await api.post("/prayer-requests", payload);
   return data;
@@ -933,9 +937,19 @@ export async function login(email, password) {
   return data;
 }
 
-export async function verifyMfaLogin(pendingToken, token) {
-  const { data } = await api.post("/auth/mfa/login-verify", { pendingToken, token });
+// `code` is the 6-digit authenticator code, or, with `{ recovery: true }`, a one-time recovery code.
+export async function verifyMfaLogin(pendingToken, code, { recovery = false } = {}) {
+  const { data } = await api.post(
+    "/auth/mfa/login-verify",
+    recovery ? { pendingToken, recoveryCode: code } : { pendingToken, token: code }
+  );
   return data;
+}
+
+// A fresh set of recovery codes (the old ones stop working). Needs the current password.
+export async function regenerateRecoveryCodes(password) {
+  const { data } = await api.post("/auth/mfa/recovery-codes", { password });
+  return data; // { recoveryCodes }
 }
 
 export async function setupMfa() {

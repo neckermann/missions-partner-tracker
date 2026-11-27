@@ -3,6 +3,7 @@ const { isOutboundEmailReady, READY_SELECT } = require("../utils/emailReady");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { z } = require("zod");
+const { phoneSchema } = require("../utils/contactFormat");
 const { generateSecret, generateURI, verify: verifyOtp } = require("otplib");
 const QRCode = require("qrcode");
 const prisma = require("../prismaClient");
@@ -17,6 +18,11 @@ const { listTripGrants, isCareTeamEnabled } = require("../utils/guestAccess");
 const { passwordSchema } = require("../utils/password");
 const { recordAuditSafe } = require("../utils/auditLog");
 const { isTwoFactorRequired } = require("../utils/twoFactor");
+const {
+  issueRecoveryCodes,
+  consumeRecoveryCode,
+  countUnusedRecoveryCodes,
+} = require("../utils/recoveryCodes");
 const {
   isDemoDeployment,
   isGuardedDemo,
@@ -302,9 +308,9 @@ router.post("/passwordless/link/redeem", async (req, res, next) => {
 // valid TOTP code for a session.
 router.post("/mfa/login-verify", async (req, res, next) => {
   try {
-    const { pendingToken, token } = req.body;
-    if (!pendingToken || !token) {
-      return res.status(400).json({ error: "pendingToken and token are required" });
+    const { pendingToken, token, recoveryCode } = req.body;
+    if (!pendingToken || (!token && !recoveryCode)) {
+      return res.status(400).json({ error: "pendingToken and a code are required" });
     }
 
     let decoded;
@@ -333,28 +339,43 @@ router.post("/mfa/login-verify", async (req, res, next) => {
       }
     }
 
-    const { valid, timeStep } = await verifyOtp({
-      secret: decryptField(user.mfaSecret),
-      token: String(token),
-      // Refuse a code already used: a TOTP code is valid for its whole window,
-      // so without this an observed code could be replayed until it expires.
-      afterTimeStep: user.mfaLastTimeStep ?? undefined,
-    });
+    // A recovery code stands in for the authenticator app, so it shares the wrong-code limit above.
+    let valid = false;
+    let timeStep;
+    if (recoveryCode) {
+      valid = await consumeRecoveryCode(user.id, recoveryCode);
+    } else {
+      ({ valid, timeStep } = await verifyOtp({
+        secret: decryptField(user.mfaSecret),
+        token: String(token),
+        // Refuse a code already used: a TOTP code is valid for its whole window,
+        // so without this an observed code could be replayed until it expires.
+        afterTimeStep: user.mfaLastTimeStep ?? undefined,
+      }));
+    }
     if (!valid) {
       if (!limitMfa) accountLoginLimiter.recordFailure("mfa", user.email);
       await recordAuditSafe(null, {
         action: "auth.login_failed",
         target: user,
         req,
-        details: { reason: "wrong_two_factor_code" },
+        details: { reason: recoveryCode ? "wrong_recovery_code" : "wrong_two_factor_code" },
       });
-      return res.status(401).json({ error: "Invalid code" });
+      return res.status(401).json({
+        error: recoveryCode ? "That recovery code is not valid or was already used" : "Invalid code",
+      });
     }
 
     accountLoginLimiter.clearFailures("mfa", user.email);
-    await prisma.user.update({ where: { id: user.id }, data: { mfaLastTimeStep: timeStep } });
+    if (recoveryCode) {
+      await recordAuditSafe(null, { action: "auth.recovery_code_used", actor: user, req });
+    } else {
+      await prisma.user.update({ where: { id: user.id }, data: { mfaLastTimeStep: timeStep } });
+    }
 
-    res.json(await completeLogin(res, user, req));
+    const result = await completeLogin(res, user, req);
+    if (recoveryCode) result.recoveryCodesRemaining = await countUnusedRecoveryCodes(user.id);
+    res.json(result);
   } catch (err) {
     next(err);
   }
@@ -612,17 +633,21 @@ router.post("/mfa/verify-setup", requireAuthOrMfaSetup, async (req, res, next) =
 
     // completeLogin re-issues the cookie from this updated row, so only sessions
     // opened before enrolment are invalidated.
-    const updated = await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        mfaEnabled: true,
-        mfaSetupRequired: false,
-        mfaLastTimeStep: timeStep,
-        ...endOtherSessions(),
-      },
+    const { updated, recoveryCodes } = await prisma.$transaction(async (tx) => {
+      const row = await tx.user.update({
+        where: { id: user.id },
+        data: {
+          mfaEnabled: true,
+          mfaSetupRequired: false,
+          mfaLastTimeStep: timeStep,
+          ...endOtherSessions(),
+        },
+      });
+      return { updated: row, recoveryCodes: await issueRecoveryCodes(user.id, tx) };
     });
     await recordAuditSafe(null, { action: "auth.mfa_enabled", actor: updated, req });
-    res.json(await completeLogin(res, updated, req));
+    // The codes come back once, here; the screen makes the person confirm they've saved them.
+    res.json({ ...(await completeLogin(res, updated, req)), recoveryCodes });
   } catch (err) {
     next(err);
   }
@@ -657,9 +682,34 @@ router.post("/mfa/disable", requireAuth, async (req, res, next) => {
         ...endOtherSessions(),
       },
     });
+    await prisma.userRecoveryCode.deleteMany({ where: { userId: user.id } });
     setSessionCookie(res, updated);
     await recordAuditSafe(null, { action: "auth.mfa_disabled", actor: updated, req });
     res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// A fresh set of recovery codes, retiring every older one. Needs the current password for the same reason
+// disabling does, and only an account that has an authenticator app has any use for them.
+router.post("/mfa/recovery-codes", requireAuth, async (req, res, next) => {
+  try {
+    const { password } = req.body;
+    if (!password) return res.status(400).json({ error: "Current password is required" });
+    const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+    if (!user || !user.passwordHash) return res.status(400).json({ error: "Invalid account" });
+    if (!user.mfaEnabled || !user.mfaSecret) {
+      return res
+        .status(400)
+        .json({ error: "Recovery codes go with an authenticator app. Set one up first." });
+    }
+    if (!(await bcrypt.compare(password, user.passwordHash))) {
+      return res.status(401).json({ error: "Current password is incorrect" });
+    }
+    const recoveryCodes = await issueRecoveryCodes(user.id);
+    await recordAuditSafe(null, { action: "auth.recovery_codes_regenerated", actor: user, req });
+    res.json({ recoveryCodes });
   } catch (err) {
     next(err);
   }
@@ -756,7 +806,7 @@ router.put("/profile", requireAuth, async (req, res, next) => {
   try {
     const data = z
       .object({
-        phone: z.string().trim().max(40).nullable().optional(),
+        phone: phoneSchema(z),
         profile: z.string().trim().max(1000).nullable().optional(),
       })
       .parse(req.body);
@@ -938,6 +988,8 @@ async function sanitizeUser(user) {
     mfaEnabled: user.mfaEnabled,
     authenticatorApp: Boolean(user.mfaEnabled && user.mfaSecret),
     passkeyCount: await prisma.userPasskey.count({ where: { userId: user.id } }),
+    recoveryCodesRemaining:
+      user.mfaEnabled && user.mfaSecret ? await countUnusedRecoveryCodes(user.id) : null,
     cadence: user.cadence,
     digestScope: user.role === "guest" ? "owned" : user.digestScope,
     followedPartnerIds: partnerIds,

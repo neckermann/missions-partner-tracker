@@ -458,7 +458,13 @@ has made a call (tick **Decline this request** to record a no), plus an
 optional **Decision Note** for why it came out that way (a reason for
 declining, or for funding less than what was asked). The requested
 amount is optional: leave it blank when a letter names no figure, and the
-need shows "No amount". The requested amount (when there is one) and the
+need shows "No amount". Separately from the decision, open a need to
+record **Someone's on it** (who has taken it on: a person or a group) and
+**Met on** (the day it was covered, by your church or anyone else). An
+undecided need with someone on it reads "Someone's on it: …" instead of
+Pending Decision, and a met need reads **Met** whatever was decided;
+neither sends anything, and a met need no longer counts as waiting for a
+decision. The requested amount (when there is one) and the
 approved amount/decision note (once decided) show up in the GroupMe post and the
 admin email digest for that need — one-time needs never reach the
 public digest, so there's no reason to hold that detail back from the
@@ -807,6 +813,23 @@ flag.
 
 ![The central Newsletters & Docs page, listing uploads across every partner with their Kind](docs/assets/screenshots/partner-files.png)
 
+### Prayer sheet
+
+**Prayer sheet** (under Prayer Requests in the menu) makes something ready for
+Sunday: a one-page, printable list of what to pray for, or the same thing as
+slides for the screen at church (**Show as slides**: one partner per slide,
+arrow keys or the buttons to move, Escape to close). Pick how often you make a
+sheet, **every week**, **every two weeks** or **once a month**, and the sheets
+rotate through your partners so each comes round about once a month: weekly
+shows a quarter of your partners on each sheet, every two weeks shows half, and
+monthly shows all of them on one. The same Sunday always gives the same sheet.
+Your choice of rhythm is remembered in your browser.
+
+Because it is handed out, it shows only what your public site may show: a
+partner that is public, not archived and not restricted, and only its prayer
+requests marked as ministry and public that are still ongoing. Private
+requests, restricted partners and answered requests never appear.
+
 ### Printable partner booklet
 
 **Print Booklet** builds a print-formatted directory: pick a **Look &
@@ -933,6 +956,8 @@ A **trip leader** (a Guest given a trip) has a smaller view: their trips, and th
 **Partners to reach out to**, on the bell and the Home page, counts your partners that are quiet or have a follow-up due.
 
 It works with the [Contact log](#contact-log): logging a contact is what resets a partner's quiet days.
+
+A partner nobody has contacted yet is not called quiet straight away: their quiet days count from the day they joined your list, so a new install (or a partner you just added) is not instantly all overdue. For a partner in a busy or private season, open **Edit contact** and set **Not this season**: until that day they are left out of "quiet" on My partners, the bell and the care chat posts, and My partners shows "Not this season until ...". A follow-up date you set on purpose still shows. Clear the date to bring them back.
 
 ### Contact log
 
@@ -1062,7 +1087,10 @@ either take effect immediately, everywhere, with no code changes
 needed:
 
 - **About Church** — Church Info: name, phone, contact name/email,
-  website, and address. This is also what auto-fills "Sent by our church"
+  website, timezone, **currency** (how every amount in the app is written:
+  monthly support, one-time needs, trip money, reports and announcements;
+  it changes only the symbol and converts nothing, so check existing
+  figures if you change it), and address. This is also what auto-fills "Sent by our church"
   on the missionary form. Right after saving a change here, if any
   partners are marked "Sent by our church," a prompt appears showing how
   many and offering to **update them all with this info** — a one-click
@@ -1070,7 +1098,9 @@ needed:
   keeping everyone in sync after an address or contact change. It's
   deliberate, not automatic: saving About Church alone never touches any
   partner on its own.
-- **Branding** — Public Site (tagline, about text, three independent
+- **Branding** — Public Site (tagline, about text, an optional Scripture
+  passage and its source shown above the Subscribe form (empty by default,
+  so you choose the translation and check its licence), three independent
   colors, plus a font choice), Logo, and Partner Terminology (swap
   "Missionary" for whatever your church calls them, and optionally use
   that term in the admin nav too). Each color controls a different part
@@ -1158,8 +1188,8 @@ create their login in one step.
 
 Editing an existing user (from their row in Manage Users) lets you change
 role, deactivate, require two-factor for just that account, or reset a
-password. **Reset MFA** clears a locked-out user's two-factor setup so
-they can log back in and re-enroll (with just their password, or straight
+password. **Reset MFA** clears a locked-out user's two-factor setup (their
+recovery codes included) so they can log back in and re-enroll (with just their password, or straight
 into enrollment if the church requires two-factor) — for your own account,
 use **Disable Two-Factor Authentication** on [Your account settings](#your-account-settings)
 instead (not available while the church requires it), which requires your
@@ -1644,7 +1674,10 @@ email arrives:
   then notifies the same way a manually-uploaded newsletter does
   (GroupMe/email digest, if those are on; [AI Features](#ai-features-admin-only)
   can scan it the same as any other newsletter). Nothing in the queue is ever deleted
-  automatically; only an admin can discard a message.
+  automatically; only an admin can discard a message. (An admin can switch
+  the review off for a sender that matches one partner and passes the sender
+  check: **Settings → Email → Receiving → File mail from a verified partner
+  without review**. It is off by default.)
 - If the sender's address matches **no partner, or more than one** (two
   partners happen to share a household-adult email, for instance),
   there's no safe guess to make — it lands in the **Emails to sort**
@@ -1830,8 +1863,10 @@ entirely by what you check in the admin dashboard:
   quarterly an admin has chosen to offer, pre-selected to monthly when
   it's available), and either every partner or several specific ones
   picked from a checklist. A visitor clicks a
-  link in a confirmation email before anything actually sends (double
-  opt-in — nothing goes out to an address nobody confirmed), and every
+  link in a confirmation email, then presses **Confirm my subscription** on
+  the page it opens, before anything actually sends (double opt-in — nothing
+  goes out to an address nobody confirmed, and a mail program that merely
+  opens the link does not confirm it), and every
   digest they get after that carries its own one-click unsubscribe
   link. This public digest is **prayer requests only** — never a
   one-time need, never a newsletter or a link back to one — unlike the

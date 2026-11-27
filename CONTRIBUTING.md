@@ -284,6 +284,17 @@ Two rules for new models and lists (see
   `ChurchSettings.enabledFeatures` (so a fork adds a feature flag without a
   migration). Say why in a comment on the column. Don't store JSON or
   comma-separated values in a `String` column either.
+- **A new phone or email column uses the one shared rule (#548).** In the
+  route's Zod schema write `phoneSchema(z)` or `emailSchema(z)` (or
+  `requiredEmailSchema(z)`) from `backend/src/utils/contactFormat.js`, never a
+  bare `z.string()`: the value is refused in plain words when it isn't a
+  phone or email, saved in one form (a phone as `+15065550259`, an email in
+  lower case), blank becomes `null`, and a field a request leaves out is left
+  alone. Show a phone with `formatPhone` (`frontend/src/utils/phone.js`) and
+  use `PhoneField` (`components/shared/PhoneField.jsx`: the label, a country picker, a box that shapes the digits as you type, and a hint when you leave it) for a phone, or `EmailInput` for an email, never a bare `<input>`. A survey field needs a `normalize` and an
+  `inputType` in `utils/surveyFields.js` (a test fails without them), and any
+  script that writes the column directly (the demo seed) must write the saved
+  form.
 - **A new list about partners, or about things that belong to a partner,
   takes the `sendingChurch` filter** (`withSendingChurch` in
   `backend/src/utils/sendingChurch.js`, and the shared `FilterBar` field),
@@ -300,6 +311,15 @@ a new column, a one-time data transformation), hand-add that SQL to the
 generated file afterward. Mention in your PR that it needs
 `npx prisma migrate deploy` (or the equivalent for whoever's running it)
 — there's no CI step that applies migrations automatically.
+
+**Pre-1.0 the migration is a single squashed baseline, named `<timestamp>_init`**
+(for example `20261127000000_init`); you edit it rather than adding a new
+folder (see [SPEC.md § 8.3](SPEC.md#83-migration-strategy-pre-10)). The
+timestamp already says when it was cut, so the label stays `init`. **Before
+1.0.0, settle the migration naming format for everything after it** (the
+baseline stops being edited; each change becomes its own descriptively named
+migration, for example `YYYYMMDDHHMMSS_short_description`) and write it here.
+That is a standing item on the 1.0.0 checklist below.
 
 ## Branches and releasing
 
@@ -365,6 +385,11 @@ steps and means something:
   (see [SPEC.md § 8.3](SPEC.md#83-migration-strategy-pre-10)). Until then a
   release that changes the baseline says so under *Upgrading* in the
   CHANGELOG.
+  Before cutting it, confirm: (1) the **migration naming format** going forward
+  is decided and written in [§ Database migrations](#database-migrations) (the
+  pre-1.0 baseline is `<timestamp>_init`); (2) the baseline is frozen and the
+  squash convention is removed from SPEC § 8.3; (3) UPGRADING.md describes an
+  upgrade that never needs a reset.
 - **Order** follows SemVer: `0.1.0-beta.2 < 0.1.0-beta.10 < 0.1.0 < 0.1.1 <
   0.2.0-beta.1`. `versionCheck.js` implements it, so an instance running a
   beta is told to update once its final release is out, and not before.

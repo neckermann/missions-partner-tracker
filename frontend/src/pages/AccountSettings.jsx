@@ -1,9 +1,12 @@
 import React, { useEffect, useState } from "react";
+import PhoneField from "../components/shared/PhoneField.jsx";
+import { formatPhone } from "../utils/phone.js";
 import {
   fetchCurrentUser,
   changePassword,
   setupMfa,
   verifyMfaSetup,
+  regenerateRecoveryCodes,
   disableMfa,
   updateNotifyByEmail,
   setKeyDateEmailOptOut,
@@ -20,6 +23,7 @@ import { useSettings } from "../context/SettingsContext.jsx";
 import EditableSection from "../components/admin/EditableSection.jsx";
 import MfaAppGuide from "../components/MfaAppGuide.jsx";
 import ThemeToggle from "../components/shared/ThemeToggle.jsx";
+import RecoveryCodesPanel from "../components/RecoveryCodesPanel.jsx";
 import CopyButton from "../components/shared/CopyButton.jsx";
 
 const emptyPasswordDraft = { currentPassword: "", newPassword: "", confirmPassword: "" };
@@ -139,7 +143,7 @@ function ProfileSection({ user, onChange }) {
   return (
     <EditableSection
       title="Your details"
-      value={{ phone: user.phone || "", profile: user.profile || "" }}
+      value={{ phone: formatPhone(user.phone), profile: user.profile || "" }}
       onSave={async (draft) => {
         await updateMyProfile({ phone: draft.phone, profile: draft.profile });
         await onChange();
@@ -152,15 +156,12 @@ function ProfileSection({ user, onChange }) {
       )}
       edit={(draft, set) => (
         <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-          <label>
-            Phone
-            <input
-              type="tel"
-              value={draft.phone}
-              maxLength={40}
-              onChange={(e) => set("phone", e.target.value)}
-            />
-          </label>
+          <PhoneField
+            label="Phone"
+            value={draft.phone}
+            maxLength={40}
+            onChange={(e) => set("phone", e.target.value)}
+          />
           <label>
             About you
             <textarea
@@ -542,6 +543,25 @@ function MfaSection({ user, onChange }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  // Recovery codes on show: just made at enrolment, or a new set asked for. Shown once.
+  const [shownCodes, setShownCodes] = useState(null);
+  const [codesPassword, setCodesPassword] = useState("");
+
+  async function handleNewCodes(e) {
+    e.preventDefault();
+    setError("");
+    setBusy(true);
+    try {
+      const { recoveryCodes } = await regenerateRecoveryCodes(codesPassword);
+      setCodesPassword("");
+      setShownCodes(recoveryCodes);
+      await onChange();
+    } catch (err) {
+      setError(err.response?.data?.error || "Couldn't make new recovery codes");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function handleStartSetup() {
     setError("");
@@ -561,7 +581,8 @@ function MfaSection({ user, onChange }) {
     setError("");
     setBusy(true);
     try {
-      await verifyMfaSetup(code);
+      const result = await verifyMfaSetup(code);
+      if (result?.recoveryCodes?.length) setShownCodes(result.recoveryCodes);
       setSetupData(null);
       setCode("");
       setSuccess("Two-factor authentication is now enabled.");
@@ -596,7 +617,9 @@ function MfaSection({ user, onChange }) {
       {error && <p style={{ color: "var(--danger)" }}>{error}</p>}
       {success && <p style={{ color: "var(--brand-color-safe, #2a5d3c)" }}>{success}</p>}
 
-      {user.mfaEnabled && !user.authenticatorApp ? (
+      {shownCodes ? (
+        <RecoveryCodesPanel codes={shownCodes} onDone={() => setShownCodes(null)} doneLabel="Done" />
+      ) : user.mfaEnabled && !user.authenticatorApp ? (
         <>
           <p>
             <span className="status-pill good">Enabled with passkeys</span>
@@ -613,6 +636,37 @@ function MfaSection({ user, onChange }) {
           <p style={{ color: "var(--muted)" }}>
             Your account requires a code from your authenticator app at login.
           </p>
+          <p style={{ color: "var(--muted)" }}>
+            Recovery codes left: <strong>{user.recoveryCodesRemaining ?? 0}</strong>.{" "}
+            {(user.recoveryCodesRemaining ?? 0) <= 2
+              ? "Make a new set soon so you can still get in if you lose your phone."
+              : "Each works once if you lose your phone."}
+          </p>
+          <form
+            onSubmit={handleNewCodes}
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "0.75rem",
+              maxWidth: 320,
+              marginBottom: "1rem",
+            }}
+          >
+            <label>
+              Your password, to make new recovery codes
+              <input
+                type="password"
+                value={codesPassword}
+                onChange={(e) => setCodesPassword(e.target.value)}
+                required
+              />
+            </label>
+            <div>
+              <button type="submit" className="btn secondary" disabled={busy}>
+                Make a new set of recovery codes
+              </button>
+            </div>
+          </form>
           {user.twoFactorRequired && !user.passkeyCount ? (
             <p style={{ color: "var(--muted)" }}>
               Your church requires two-factor authentication for everyone, so it can't be turned off here. If

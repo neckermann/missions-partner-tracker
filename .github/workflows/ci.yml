@@ -215,7 +215,6 @@ jobs:
           cd backend
           npx prisma migrate deploy
           npm run seed
-          node prisma/createAdmin.js "$E2E_ADMIN_EMAIL" "$E2E_ADMIN_PASSWORD"
 
       # Runs here rather than in the backend-tests job because these boot
       # the real app against a real database -- that job deliberately has
@@ -223,6 +222,13 @@ jobs:
       # fails fast, without waiting on Playwright.
       - name: Run backend route tests
         run: cd backend && npm run test:routes
+
+      # The e2e admin is created AFTER the route tests on purpose: the first-run
+      # setup tests (firstAdminSetup.test.js) need a database with no accounts but
+      # their own fixtures, and skip themselves otherwise. SEED_DEMO_EXTRAS=false
+      # above means the seed creates no users, so this is the only account.
+      - name: Create the e2e admin
+        run: cd backend && node prisma/createAdmin.js "$E2E_ADMIN_EMAIL" "$E2E_ADMIN_PASSWORD"
 
       # The public directory and map are off by default too (a new install
       # publishes nothing until the church chooses), but the e2e suite drives the

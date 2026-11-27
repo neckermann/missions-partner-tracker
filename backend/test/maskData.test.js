@@ -188,7 +188,8 @@ describe("toPublicPartner — missionary", () => {
   // same "strips everything identifying" list).
   test("public, non-restricted: exposes only the current photo, not history", () => {
     const result = toPublicPartner(baseMissionary());
-    assert.equal(result.photo, "/api/photos/p2/raw");
+    assert.equal(result.photo, "/api/photos/p2");
+    assert.equal(result.photoFull, "/api/photos/p2/raw");
   });
 
   test("public, non-restricted: photo is null when no photos exist", () => {
@@ -198,7 +199,7 @@ describe("toPublicPartner — missionary", () => {
 
   test("restricted: never exposes their real photo, current or otherwise — gets a generic silhouette instead", () => {
     const result = toPublicPartner(baseMissionary({ isRestricted: true, photos: [{ id: "p1" }] }));
-    assert.notEqual(result.photo, "/api/photos/p1/raw");
+    assert.notEqual(result.photo, "/api/photos/p1");
     assert.equal(isSilhouetteDataUri(result.photo), true);
   });
 
@@ -367,12 +368,12 @@ describe("toPublicPartner — organization", () => {
   // equivalent toPublicPartner tests above.
   test("public, non-restricted: exposes only the current photo, not history", () => {
     const result = toPublicPartner(baseOrganization());
-    assert.equal(result.photo, "/api/photos/p2/raw");
+    assert.equal(result.photo, "/api/photos/p2");
   });
 
   test("restricted: never exposes its real photo, current or otherwise — gets a generic silhouette instead", () => {
     const result = toPublicPartner(baseOrganization({ isRestricted: true }));
-    assert.notEqual(result.photo, "/api/photos/p2/raw");
+    assert.notEqual(result.photo, "/api/photos/p2");
     assert.equal(isSilhouetteDataUri(result.photo), true);
   });
 });

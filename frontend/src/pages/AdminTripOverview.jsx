@@ -4,7 +4,7 @@ import { updateTrip } from "../api/client.js";
 import EditableSection from "../components/admin/EditableSection.jsx";
 import ManualSendNotice from "../components/shared/ManualSendNotice.jsx";
 import { DEBRIEF_PROMPTS } from "./AdminTripWrapUp.jsx";
-import { formatDate } from "../utils/format.js";
+import { formatDate, formatCurrency } from "../utils/format.js";
 
 export default function AdminTripOverview() {
   const { trip, setTrip, enableTripBudgeting, canWrite } = useOutletContext();
@@ -73,7 +73,7 @@ export default function AdminTripOverview() {
               />
               <Field
                 label="Support-raising goal"
-                value={v.supportRaisingGoal ? `$${v.supportRaisingGoal}/person` : "—"}
+                value={v.supportRaisingGoal ? `${formatCurrency(v.supportRaisingGoal)}/person` : "—"}
               />
             </div>
             <Field label="Description" value={v.description || "—"} />

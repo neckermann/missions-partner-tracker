@@ -375,6 +375,8 @@ function toPublicPartner(p, settings) {
     links: (p.links || []).map((l) => ({ type: l.type, url: l.url })),
     // Only the current photo (`take: 1` in publicPartners.js), never upload history, and never for a restricted record.
     photo: p.photos?.[0] ? withPhotoUrl(p.photos[0]).url : null,
+    // The full copy, for the link on the detail page.
+    photoFull: p.photos?.[0] ? withPhotoUrl(p.photos[0]).rawUrl : null,
     // --- Missionary-only below ---
     ...(isOrg
       ? {}

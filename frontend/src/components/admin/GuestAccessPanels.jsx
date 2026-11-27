@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
+import { formatPhone } from "../../utils/phone.js";
 import { Link } from "react-router-dom";
 import {
   fetchUserTripAccess,
@@ -189,7 +190,7 @@ export function TripGuestsPanel({ tripId }) {
       <TripAccessList
         grants={rows}
         busy={actions.busy}
-        labelFor={(g) => [guestName(g.user), g.user.phone].filter(Boolean).join(" · ")}
+        labelFor={(g) => [guestName(g.user), formatPhone(g.user.phone)].filter(Boolean).join(" · ")}
         onExtend={actions.onExtend}
         onResetDate={actions.onResetDate}
         onEndNow={actions.onEndNow}

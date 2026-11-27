@@ -8,22 +8,31 @@ import QuickActionModal from "../components/shared/QuickActionModal.jsx";
 import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
 import { formatDate } from "../utils/format.js";
 import { ADDRESS_PARTS, addressToValue, parseAddressValue, formatAddressValue } from "../utils/address.js";
+import { formatPhone } from "../utils/phone.js";
+import { CONTACT_METHODS, methodLabel } from "../utils/contactMethods.js";
 
 const MAILING = "mailingAddress";
 // A stored address is one JSON line; everything else is plain text.
 const SUPPORT = "supportPreferences";
+// A value the way a person reads it, and the same way for what is on file and what was suggested so
+// the two line up: a phone as it is usually written, a contact method in words.
+function readable(u, value) {
+  if (u.inputType === "tel") return formatPhone(value);
+  if (u.inputType === "contactMethod") return methodLabel(value);
+  return value;
+}
 const showNow = (u) =>
   u.field === SUPPORT
     ? u.currentDisplay
     : u.field === MAILING
       ? formatAddressValue(u.currentValue)
-      : u.currentValue;
+      : readable(u, u.currentValue);
 const showSuggested = (u) =>
   u.field === SUPPORT
     ? u.proposedDisplay
     : u.field === MAILING
       ? formatAddressValue(u.proposedValue)
-      : u.proposedValue;
+      : readable(u, u.proposedValue);
 
 // What partners' survey answers suggest changing on their record. Nothing here has been applied:
 // a person approves it (optionally editing the value first), or rejects it and the record stays
@@ -86,8 +95,10 @@ export default function AdminSurveyUpdates() {
   }
 
   // Applies a decision to every change in a group, stopping at the first that can't be applied so
-  // the person sees why (the rest stay waiting).
+  // the person sees why (the rest stay waiting). Approving leaves out any suggestion that isn't a
+  // real value (a phone number that isn't one): those wait to be edited or rejected.
   async function decideAll(group, decision) {
+    const items = decision === "approve" ? group.items.filter((u) => !u.problem) : group.items;
     if (decision === "reject") {
       const ok = await confirmDialog({
         title: `Reject all ${group.items.length} changes?`,
@@ -99,7 +110,7 @@ export default function AdminSurveyUpdates() {
     }
     setError("");
     try {
-      for (const u of group.items) {
+      for (const u of items) {
         if (decision === "approve") await approveSurveyUpdate(u.id);
         else await rejectSurveyUpdate(u.id);
       }
@@ -147,9 +158,13 @@ export default function AdminSurveyUpdates() {
               </h3>
               {g.items.length > 1 && (
                 <div style={{ display: "flex", gap: "0.5rem" }}>
-                  <button type="button" className="btn small" onClick={() => decideAll(g, "approve")}>
-                    Approve all {g.items.length}
-                  </button>
+                  {g.items.filter((u) => !u.problem).length > 0 && (
+                    <button type="button" className="btn small" onClick={() => decideAll(g, "approve")}>
+                      {g.items.some((u) => u.problem)
+                        ? `Approve the ${g.items.filter((u) => !u.problem).length} that are ready`
+                        : `Approve all ${g.items.length}`}
+                    </button>
+                  )}
                   <button type="button" className="btn danger small" onClick={() => decideAll(g, "reject")}>
                     Reject all
                   </button>
@@ -179,10 +194,16 @@ export default function AdminSurveyUpdates() {
                       </>
                     )}
                   </div>
+                  {u.problem && (
+                    <p className="form-error" role="alert" style={{ margin: "0.25rem 0 0" }}>
+                      Can&apos;t be approved as it is: {u.problem}. Edit it to a real value, or reject it.
+                    </p>
+                  )}
                   <div className="survey-change-actions">
                     <button
                       type="button"
                       className="btn small"
+                      disabled={Boolean(u.problem)}
                       onClick={() => act(() => approveSurveyUpdate(u.id))}
                     >
                       Approve
@@ -264,10 +285,29 @@ export default function AdminSurveyUpdates() {
                 </label>
               ))}
             </fieldset>
+          ) : editing.inputType === "contactMethod" ? (
+            <label>
+              Value to put on their record
+              <select value={value} onChange={(e) => setValue(e.target.value)}>
+                <option value="">Choose…</option>
+                {CONTACT_METHODS.map((m) => (
+                  <option key={m.value} value={m.value}>
+                    {m.label}
+                  </option>
+                ))}
+              </select>
+            </label>
           ) : (
             <label>
               Value to put on their record
-              <input value={value} onChange={(e) => setValue(e.target.value)} />
+              <input
+                type={
+                  editing.inputType === "tel" || editing.inputType === "email" ? editing.inputType : "text"
+                }
+                inputMode={editing.inputType === "tel" ? "tel" : undefined}
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+              />
             </label>
           )}
         </QuickActionModal>

@@ -14,6 +14,7 @@ import {
 } from "../api/client.js";
 import MfaAppGuide from "../components/MfaAppGuide.jsx";
 import CopyButton from "../components/shared/CopyButton.jsx";
+import RecoveryCodesPanel from "../components/RecoveryCodesPanel.jsx";
 import { passkeyErrorMessage } from "../utils/passkeyError.js";
 
 // Where to land after login. `next` (from requireAuth's redirect, an /api path) and `from` (from
@@ -39,6 +40,10 @@ export default function Login() {
   const [mfaCode, setMfaCode] = useState("");
   const [setupToken, setSetupToken] = useState(null);
   const [setupData, setSetupData] = useState(null); // { secret, qrCode }
+  // Recovery codes handed out right after enrolment; the screen waits until they are saved.
+  const [newCodes, setNewCodes] = useState(null);
+  // The second step is a one-time recovery code instead of an authenticator code.
+  const [useRecovery, setUseRecovery] = useState(false);
   const [error, setError] = useState("");
   // The church signs in without passwords.
   const [passwordless, setPasswordless] = useState(false);
@@ -135,7 +140,7 @@ export default function Login() {
     e.preventDefault();
     setError("");
     try {
-      await verifyMfaLogin(pendingToken, mfaCode);
+      await verifyMfaLogin(pendingToken, mfaCode, { recovery: useRecovery });
       goToDestination();
     } catch (err) {
       setError(err.response?.data?.error || "Invalid code");
@@ -167,11 +172,21 @@ export default function Login() {
     e.preventDefault();
     setError("");
     try {
-      await confirmForcedMfaSetup(setupToken, mfaCode);
-      goToDestination();
+      const result = await confirmForcedMfaSetup(setupToken, mfaCode);
+      // The session is already open; hold on this screen until the person has saved their codes.
+      if (result?.recoveryCodes?.length) setNewCodes(result.recoveryCodes);
+      else goToDestination();
     } catch (err) {
       setError(err.response?.data?.error || "Invalid code");
     }
+  }
+
+  if (newCodes) {
+    return (
+      <div className="admin-shell" style={{ maxWidth: 480 }}>
+        <RecoveryCodesPanel codes={newCodes} onDone={goToDestination} doneLabel="Continue to the site" />
+      </div>
+    );
   }
 
   if (setupToken) {
@@ -235,6 +250,7 @@ export default function Login() {
         className="btn secondary"
         onClick={() => {
           setPendingToken(null);
+          setUseRecovery(false);
           setMfaCode("");
           setError("");
         }}
@@ -263,7 +279,11 @@ export default function Login() {
         {methods.authenticatorApp && (
           <>
             {!canUsePasskey && (
-              <p style={{ color: "var(--muted)" }}>Enter the 6-digit code from your authenticator app.</p>
+              <p style={{ color: "var(--muted)" }}>
+                {useRecovery
+                  ? "Enter one of your recovery codes. It works once."
+                  : "Enter the 6-digit code from your authenticator app."}
+              </p>
             )}
             <form
               onSubmit={handleMfaSubmit}
@@ -273,9 +293,9 @@ export default function Login() {
                 Code
                 <input
                   type="text"
-                  inputMode="numeric"
+                  inputMode={useRecovery ? "text" : "numeric"}
                   autoComplete="one-time-code"
-                  maxLength={6}
+                  maxLength={useRecovery ? 14 : 6}
                   value={mfaCode}
                   onChange={(e) => setMfaCode(e.target.value)}
                   autoFocus={!canUsePasskey}
@@ -285,6 +305,17 @@ export default function Login() {
               {error && <p style={{ color: "var(--danger)" }}>{error}</p>}
               <button type="submit" className="btn">
                 Verify
+              </button>
+              <button
+                type="button"
+                className="btn secondary"
+                onClick={() => {
+                  setUseRecovery(!useRecovery);
+                  setMfaCode("");
+                  setError("");
+                }}
+              >
+                {useRecovery ? "Use my authenticator app instead" : "I lost my phone: use a recovery code"}
               </button>
               {backToLogin}
             </form>

@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
+import { formatPhone } from "../utils/phone.js";
 import { applicationAnswerList } from "../utils/applicationAnswers.js";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import {
@@ -358,10 +359,10 @@ function ApplicantAnswers({ application: a, answers }) {
     <>
       <div className="form-grid">
         <ViewField label="Email" value={a.email} />
-        <ViewField label="Phone" value={a.phone} />
+        <ViewField label="Phone" value={formatPhone(a.phone)} />
         <ViewField label="Address" value={address} />
         <ViewField label="Emergency contact" value={emergencyContactName} />
-        <ViewField label="Emergency phone" value={a.emergencyContactPhone} />
+        <ViewField label="Emergency phone" value={formatPhone(a.emergencyContactPhone)} />
         <ViewField label="Emergency email" value={a.emergencyContactEmail} />
       </div>
       {/* declinedReason is null for other statuses. */}

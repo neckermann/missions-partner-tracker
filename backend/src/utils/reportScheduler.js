@@ -1,7 +1,7 @@
 // Emails saved report views on a cadence (ReportSchedule); runs among the scheduled jobs.
 // Rendered for the "shared" audience (restricted partners masked) because an email
 // can be forwarded; a report the owner's role can't open is skipped.
-const cron = require("node-cron");
+const cron = require("./pausableCron");
 const prisma = require("../prismaClient");
 const { isDemoInstance } = require("./demoMode");
 const { isFeatureEnabled } = require("./features");
@@ -88,20 +88,45 @@ async function sendDueReports(now = new Date()) {
         select: { email: true },
       });
       const csv = toCsv(result.rows, result.columns);
+      const message = (to) => ({
+        to,
+        subject: `${view.name} — ${report.label}`,
+        text: `${view.name}\n\n${result.summary.map((s) => `${s.label}: ${cellText(s.value)}`).join("\n")}`,
+        html: renderHtml(view, result),
+        attachments: [
+          {
+            Name: csvFilename(report.label, { now: today }),
+            Content: Buffer.from(csv, "utf8").toString("base64"),
+            ContentType: "text/csv",
+          },
+        ],
+      });
+      // Each recipient is sent on their own, and tried twice, so one bad address (or one hiccup) neither stops the
+      // others nor makes the next day's retry send the report again to the people who already have it.
+      let delivered = 0;
       for (const r of recipients) {
-        await sendEmail({
-          to: r.email,
-          subject: `${view.name} — ${report.label}`,
-          text: `${view.name}\n\n${result.summary.map((s) => `${s.label}: ${cellText(s.value)}`).join("\n")}`,
-          html: renderHtml(view, result),
-          attachments: [
-            {
-              Name: csvFilename(report.label, { now: today }),
-              Content: Buffer.from(csv, "utf8").toString("base64"),
-              ContentType: "text/csv",
-            },
-          ],
-        });
+        let ok = false;
+        let lastError;
+        for (let attempt = 0; attempt < 2 && !ok; attempt += 1) {
+          try {
+            await sendEmail(message(r.email));
+            ok = true;
+          } catch (err) {
+            lastError = err;
+          }
+        }
+        if (ok) delivered += 1;
+        else
+          console.error(`Scheduled report ${schedule.id}: couldn't send to a recipient:`, lastError?.message);
+      }
+      // Nobody got it: leave it due so the next send hour tries again. If anyone did, it is marked sent: a
+      // recipient it failed for misses this one (marking per recipient would need a schema change), but nobody
+      // gets it twice.
+      if (recipients.length > 0 && delivered === 0) {
+        console.error(
+          `Scheduled report ${schedule.id}: every send failed, will retry at the next send hour.`
+        );
+        continue;
       }
       await prisma.reportSchedule.update({ where: { id: schedule.id }, data: { lastSentAt: now } });
     } catch (err) {

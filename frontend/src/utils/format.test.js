@@ -8,6 +8,11 @@ import {
   dateOnlyParts,
   nowParts,
   lastDayOfMonth,
+  formatCurrency,
+  formatRequestedAmount,
+  currencySymbol,
+  setChurchCurrency,
+  getChurchCurrency,
 } from "./format.js";
 
 // These pin the two timezone traps this module exists to avoid.
@@ -140,5 +145,39 @@ describe("lastDayOfMonth", () => {
     expect(lastDayOfMonth(2026, 4)).toBe(30); // April
     expect(lastDayOfMonth(2024, 2)).toBe(29); // leap year
     expect(lastDayOfMonth(2026, 2)).toBe(28); // non-leap year
+  });
+});
+
+describe("the church's currency", () => {
+  afterEach(() => setChurchCurrency("USD"));
+
+  test("amounts read in dollars until the church changes it", () => {
+    expect(formatCurrency(1500)).toBe("$1,500");
+    expect(currencySymbol()).toBe("$");
+    expect(getChurchCurrency()).toBe("USD");
+  });
+
+  test("every amount and label follows the church's currency", () => {
+    setChurchCurrency("EUR");
+    expect(formatCurrency(1500)).toBe("€1,500");
+    expect(currencySymbol()).toBe("€");
+    expect(formatRequestedAmount(900)).toBe("€900");
+    expect(getChurchCurrency()).toBe("EUR");
+  });
+
+  test("an amount that arrives as a numeric string is still written as money", () => {
+    expect(formatCurrency("250")).toBe("$250");
+    expect(formatCurrency("not a number", { fallback: "—" })).toBe("—");
+    expect(formatCurrency(null, { fallback: "—" })).toBe("—");
+  });
+
+  test("a bad code falls back to dollars instead of throwing", () => {
+    setChurchCurrency("nonsense");
+    expect(getChurchCurrency()).toBe("USD");
+    expect(formatCurrency(5)).toBe("$5");
+  });
+
+  test("a call can still name its own currency", () => {
+    expect(formatCurrency(5, { currency: "GBP" })).toBe("£5");
   });
 });

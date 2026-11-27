@@ -85,6 +85,9 @@ after(async () => {
   await stopServer();
 });
 
+// A tiny buffer that really is a PDF as far as the upload check can tell (it starts with the PDF signature).
+const pdfBytes = (text) => Buffer.from(`%PDF-1.4\n${text}`);
+
 async function createPartner(overrides = {}) {
   const res = await admin("/api/partners", {
     method: "POST",
@@ -553,7 +556,7 @@ describe("Trips: trip-wide document title/fileSize, and participant visibility",
 
   test("an admin-uploaded trip-wide document stores the given title and fileSize", async () => {
     const { trip } = await createTripWithParticipant();
-    const bytes = Buffer.from("packing list contents");
+    const bytes = pdfBytes("packing list contents");
     const form = new FormData();
     form.set("file", new Blob([bytes], { type: "application/pdf" }), "packing-list.pdf");
     form.set("title", "Packing List");
@@ -574,11 +577,7 @@ describe("Trips: trip-wide document title/fileSize, and participant visibility",
 
     // Trip-wide (participantId: null) -- should be visible to anyone on this trip.
     const tripWideForm = new FormData();
-    tripWideForm.set(
-      "file",
-      new Blob([Buffer.from("itinerary")], { type: "application/pdf" }),
-      "itinerary.pdf"
-    );
+    tripWideForm.set("file", new Blob([pdfBytes("itinerary")], { type: "application/pdf" }), "itinerary.pdf");
     tripWideForm.set("title", "Flight Itinerary");
     const tripWideRes = await admin(`/api/trips/${trip.id}/documents`, {
       method: "POST",
@@ -592,7 +591,7 @@ describe("Trips: trip-wide document title/fileSize, and participant visibility",
     const otherForm = new FormData();
     otherForm.set(
       "file",
-      new Blob([Buffer.from("their passport")], { type: "application/pdf" }),
+      new Blob([pdfBytes("their passport")], { type: "application/pdf" }),
       "passport.pdf"
     );
     otherForm.set("participantId", otherParticipant.id);
@@ -610,7 +609,7 @@ describe("Trips: trip-wide document title/fileSize, and participant visibility",
 
   test("a participant can download a trip-wide document via the token-gated route", async () => {
     const { trip, participant } = await createTripWithParticipant();
-    const bytes = Buffer.from("itinerary contents");
+    const bytes = pdfBytes("itinerary contents");
     const form = new FormData();
     form.set("file", new Blob([bytes], { type: "application/pdf" }), "itinerary.pdf");
     const uploadRes = await admin(`/api/trips/${trip.id}/documents`, { method: "POST", body: form });
@@ -624,7 +623,7 @@ describe("Trips: trip-wide document title/fileSize, and participant visibility",
   test("the download route rejects a missing/invalid token", async () => {
     const { trip } = await createTripWithParticipant();
     const form = new FormData();
-    form.set("file", new Blob([Buffer.from("x")], { type: "application/pdf" }), "x.pdf");
+    form.set("file", new Blob([pdfBytes("x")], { type: "application/pdf" }), "x.pdf");
     const uploadRes = await admin(`/api/trips/${trip.id}/documents`, { method: "POST", body: form });
     const docId = uploadRes.body.id;
 
@@ -640,7 +639,7 @@ describe("Trips: trip-wide document title/fileSize, and participant visibility",
       data: { tripId: trip.id, firstName: "Other", email: "other-dl@example.test" },
     });
     const form = new FormData();
-    form.set("file", new Blob([Buffer.from("their passport")], { type: "application/pdf" }), "passport.pdf");
+    form.set("file", new Blob([pdfBytes("their passport")], { type: "application/pdf" }), "passport.pdf");
     form.set("participantId", otherParticipant.id);
     const uploadRes = await admin(`/api/trips/${trip.id}/documents`, { method: "POST", body: form });
     const docId = uploadRes.body.id;
@@ -675,5 +674,69 @@ describe("GET /api/trips/planning", () => {
     const res = await admin("/api/trips/planning");
     assert.equal(res.status, 200);
     assert.ok(!res.body.some((r) => r.partnerId === partner.id));
+  });
+});
+
+// H6: the admin document upload checks what the file really is, as partner files, photos and the participants' own
+// uploads do, instead of trusting the type the browser reported. Without it a script or HTML page labelled as a PDF
+// would be stored, and handed to a participant, under that label.
+describe("Trips: a document's real type is checked on upload", () => {
+  async function aTrip() {
+    const partner = await createPartner();
+    return (
+      await admin("/api/trips", { method: "POST", body: { partnerId: partner.id, type: "Construction" } })
+    ).body;
+  }
+  const upload = (trip, bytes, type, name) => {
+    const form = new FormData();
+    form.set("file", new Blob([bytes], { type }), name);
+    return admin(`/api/trips/${trip.id}/documents`, { method: "POST", body: form });
+  };
+
+  test("a file that says it is a PDF but is not one is refused, and nothing is stored", async () => {
+    const trip = await aTrip();
+    const res = await upload(
+      trip,
+      Buffer.from("<html><script>alert(1)</script></html>"),
+      "application/pdf",
+      "evil.pdf"
+    );
+    assert.equal(res.status, 400);
+    assert.match(res.body.error, /doesn't match its declared type/);
+    assert.equal(await prisma.tripDocument.count({ where: { tripId: trip.id } }), 0);
+  });
+
+  test("a PDF that is a PDF is accepted, and stored under the type its content proves", async () => {
+    const trip = await aTrip();
+    const res = await upload(trip, pdfBytes("real"), "application/pdf", "real.pdf");
+    assert.equal(res.status, 201, JSON.stringify(res.body));
+    const doc = await prisma.tripDocument.findFirst({ where: { tripId: trip.id } });
+    assert.equal(doc.contentType, "application/pdf");
+  });
+
+  test("a PNG, a JPEG and a WEBP are accepted on their real bytes, and text calling itself a PNG is not", async () => {
+    const trip = await aTrip();
+    const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]);
+    const jpeg = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 0]);
+    const webp = Buffer.concat([
+      Buffer.from("RIFF"),
+      Buffer.from([0, 0, 0, 0]),
+      Buffer.from("WEBP"),
+      Buffer.from([0, 0]),
+    ]);
+    assert.equal((await upload(trip, png, "image/png", "a.png")).status, 201);
+    assert.equal((await upload(trip, jpeg, "image/jpeg", "a.jpg")).status, 201);
+    assert.equal((await upload(trip, webp, "image/webp", "a.webp")).status, 201);
+    assert.equal((await upload(trip, Buffer.from("not a png"), "image/png", "fake.png")).status, 400);
+    assert.equal(
+      (await upload(trip, pdfBytes("a pdf"), "image/png", "wrong-label.png")).status,
+      400,
+      "a PDF labelled PNG"
+    );
+  });
+
+  test("a type that is not allowed at all is still refused up front", async () => {
+    const trip = await aTrip();
+    assert.equal((await upload(trip, Buffer.from("just text"), "text/plain", "notes.txt")).status, 400);
   });
 });

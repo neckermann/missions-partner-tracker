@@ -108,6 +108,16 @@ const emailOn = (on) =>
 const turnOn = (who) => who("/api/settings", { method: "PUT", body: { requirePasswordless: true } });
 const turnOff = () => settings({ requirePasswordless: false });
 const pause = (ms) => new Promise((r) => setTimeout(r, ms));
+// Waits (up to 5s) for `check` to turn true. The link is issued after the reply goes out, so how long it takes
+// depends on how busy the machine is; a fixed pause failed now and then on a loaded CI runner.
+async function until(check, ms = 5000) {
+  const end = Date.now() + ms;
+  while (Date.now() < end) {
+    if (await check()) return true;
+    await pause(50);
+  }
+  return false;
+}
 
 before(async () => {
   anon = await client(null);
@@ -276,7 +286,10 @@ describe("the emailed link", () => {
       }
       assert.deepEqual(replies[0], replies[1]);
       assert.deepEqual(replies[1], replies[2]);
-      await pause(300); // the link is issued after the reply goes out
+      // The link is issued after the reply goes out: wait for it, then give a link that should NOT be issued
+      // (the account with a passkey) a moment in which it could wrongly appear.
+      await until(async () => (await prisma.signInLinkToken.count({ where: { userId: noKey.id } })) >= 1);
+      await pause(300);
       assert.equal(await prisma.signInLinkToken.count({ where: { userId: noKey.id } }), 1);
       assert.equal(await prisma.signInLinkToken.count({ where: { userId: hasKey.id } }), 0);
     } finally {

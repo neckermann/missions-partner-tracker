@@ -14,13 +14,7 @@ const NAV_BADGE_CATEGORIES = {
   surveyUpdates: ["surveyUpdatesPending"],
   prayerRequests: ["newPrayerRequests"],
   oneTimeNeeds: ["newOneTimeNeeds"],
-  trips: [
-    "tripsDepartingSoon",
-    "tripsDepartingSoonIncomplete",
-    "overdueTripRequirements",
-    "tripApplicationsPending",
-    "tripsReadyToWrapUp",
-  ],
+  trips: ["tripsDepartingSoon", "overdueTripRequirements", "tripApplicationsPending", "tripsReadyToWrapUp"],
 };
 
 // A 3+ digit count stretches the pill; the real number stays in the title/aria-label.
@@ -150,6 +144,12 @@ function buildNavItems(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures
       to: "/admin/prayer-requests",
       icon: "🙏",
       label: "Prayer Requests",
+    },
+    enabledFeatures.prayerRequests && {
+      key: "prayerSheet",
+      to: "/admin/prayer-sheet",
+      icon: "🕊️",
+      label: "Prayer sheet",
     },
     enabledFeatures.oneTimeNeeds && {
       key: "oneTimeNeeds",

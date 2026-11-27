@@ -59,6 +59,7 @@ export default function UpdateBanner() {
         type="button"
         onClick={dismiss}
         aria-label="Dismiss update notice"
+        title="Dismiss this notice"
         style={{
           background: "none",
           border: "none",

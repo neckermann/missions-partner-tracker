@@ -2,6 +2,7 @@ import React from "react";
 import SourcePicker from "./SourcePicker.jsx";
 import { urgentSendDescription } from "../../utils/urgentSend.js";
 
+import { currencySymbol } from "../../utils/format.js";
 // The one-time-need field set shared by PartnerFinancialSection.jsx (fixed partnerId, add and
 // decide only) and AdminOneTimeNeeds.jsx. Like PrayerRequestFormFields.jsx: form-grid body only,
 // `mode` controls the create-only isUrgent/approveNow blocks, `partnerPicker` is injected when
@@ -34,7 +35,7 @@ export default function SupportNeedFormFields({
         />
       </label>
       <label>
-        Requested Amount ($, optional)
+        Requested Amount ({currencySymbol()}, optional)
         <input
           type="number"
           min="0"
@@ -61,6 +62,27 @@ export default function SupportNeedFormFields({
         Notes
         <input value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} />
       </label>
+      {mode === "edit" && (
+        <>
+          <label>
+            Someone's on it (who, optional)
+            <input
+              value={form.handledBy ?? ""}
+              onChange={(e) => setForm((f) => ({ ...f, handledBy: e.target.value }))}
+              placeholder="A person or a group, e.g. the deacons"
+              maxLength={120}
+            />
+          </label>
+          <label>
+            Met on (optional)
+            <input
+              type="date"
+              value={form.metDate ?? ""}
+              onChange={(e) => setForm((f) => ({ ...f, metDate: e.target.value }))}
+            />
+          </label>
+        </>
+      )}
       {mode === "create" && !limited && (
         <>
           {hasEnabledChannel && (

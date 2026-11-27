@@ -18,7 +18,7 @@ and how the pieces fit together, not how to work on it or how to use it.
 
 One Postgres database (`backend/prisma/schema.prisma`), accessed only
 through Prisma. Pre-1.0: every schema change is squashed into a single
-baseline migration (`backend/prisma/migrations/20261122092854_init/`)
+baseline migration (`backend/prisma/migrations/20261127000000_init/`)
 rather than accumulating a migration history.
 
 ### 1.1 Core entity: Partner
@@ -109,9 +109,13 @@ in `routes/careTeams.js`; §5.1) and `ContactLog` (one touchpoint with a partner
 **WhatsApp dispatch** adds `WhatsAppAuthEntry` (the encrypted linked-
 session store — see §6.2a).
 
-`InboundEmail` has no relation to `Partner` at all — it exists
-specifically to hold mail that couldn't be auto-matched, and either
-outcome (assign, discard) deletes the row.
+`InboundEmail` has no relation to `Partner` at all — it holds mail waiting
+for a person (by default every inbound message), and either outcome
+(assign, discard) deletes the row. Nothing is deleted automatically.
+`ChurchSettings.inboundEmailSkipReview` (off by default) lets a message
+from an address matching exactly one partner, with a passing SPF/DKIM
+check, be filed as that partner's newsletter and announced straight from
+the webhook instead of waiting.
 
 ### 1.3 Notable modeling decisions
 
@@ -182,6 +186,7 @@ in-process cron scheduler (§6) is written with that assumption explicit.
 | `/api/public/country-info` | `countryInfo.js`                                                                                                                                   | `joshuaProject` feature                                                                                                      | Joshua Project proxy                                                                                                                                                                                                                  |
 | `/api/support-needs`       | `supportNeeds.js`                                                                                                                                  | session                                                                                                                      | one-time need CRUD                                                                                                                                                                                                                    |
 | `/api/support-entries`     | `supportEntries.js`                                                                                                                                | session                                                                                                                      | monthly-support ledger                                                                                                                                                                                                                |
+| `/api/prayer-sheet`        | `prayerSheet.js`                                                                                                                                   | session (admin, editor, viewer); `prayerRequests` feature                                                                    | the Sunday prayer sheet: public-safe partners and requests for a date, rotated by `cadence` (`utils/prayerSheet.js`; no stored state)                                                                                                 |
 | `/api/prayer-requests`     | `prayerRequests.js`                                                                                                                                | session                                                                                                                      | prayer request CRUD                                                                                                                                                                                                                   |
 | `/api/adults`              | `adults.js`                                                                                                                                        | session                                                                                                                      | missionary household adult CRUD                                                                                                                                                                                                       |
 | `/api/children`            | `children.js`                                                                                                                                      | session                                                                                                                      | missionary household child CRUD                                                                                                                                                                                                       |
@@ -197,7 +202,7 @@ in-process cron scheduler (§6) is written with that assumption explicit.
 | `/api/notifications`       | `notifications.js`                                                                                                                                 | session                                                                                                                      | `NotificationSeen` read/unread state for in-app notices                                                                                                                                                                               |
 | `/api/reports`             | `reports.js`                                                                                                                                       | session, `reports` feature (admin-only for users-&-access and schedule management)                                           | report hub catalog (`GET /`), run a report (JSON/CSV), saved views (`GET/POST /views`, `DELETE /views/:id`), scheduled report emails (`POST /views/:id/schedule`, `DELETE /schedules/:id`, admin only) — see `backend/src/reporting/` |
 | `/api/partner-files`       | `partnerFiles.js`                                                                                                                                  | session, `partnerFiles` feature                                                                                              | newsletter/document CRUD, download, AI scan                                                                                                                                                                                           |
-| `/api/photos`              | `photos.js`                                                                                                                                        | open                                                                                                                         | raw photo bytes                                                                                                                                                                                                                       |
+| `/api/photos`              | `photos.js`                                                                                                                                        | open                                                                                                                         | `/:id` display copy (JPEG ≤800px), `/:id/raw` full photo                                                                                                                                                                                                                       |
 | `/api/silhouette`          | `silhouette.js`                                                                                                                                    | open                                                                                                                         | generic SVG placeholder photos                                                                                                                                                                                                        |
 | `/api/settings`            | `settings.js`, `settingsGroupMe.js`, `settingsWhatsApp.js`, `settingsEmail.js`, `settingsTrips.js`, `settingsDispatches.js` (six files, one mount) | session (read) / admin (write)                                                                                               | church profile, branding, GroupMe/WhatsApp pairing + group targeting, email, Trips settings, dispatch config, Joshua Project/AI Extraction keys                                                                                       |
 | `/api/public/settings`     | `publicSettings.js`                                                                                                                                | open                                                                                                                         | public-safe settings + logo bytes                                                                                                                                                                                                     |
@@ -230,14 +235,14 @@ Each file owns one narrow responsibility:
 | `jwt.js`                                        | Session cookie signing/verification (httpOnly + Secure + SameSite=Lax).                                                                                                                                                                                                                                                                                                                                                                            |
 | `extraction.js`                                 | Claude-based extraction of prayer requests/one-time needs from an uploaded newsletter/document.                                                                                                                                                                                                                                                                                                                                                    |
 | `joshuaProject.js`                              | Server-side proxy for Joshua Project's country-stats API.                                                                                                                                                                                                                                                                                                                                                                                          |
-| `backup.js`                                     | Builds the full-database NDJSON.gz export.                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `backup.js`                                     | Streams the full-database NDJSON.gz export (two reads of one repeatable-read snapshot, flat memory) and reads one back as a stream to verify and restore it.                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `backupCheck.js`                                | Guesses the Postgres provider from `DATABASE_URL`'s hostname, for a tailored reminder message.                                                                                                                                                                                                                                                                                                                                                     |
 | `today.js`                                      | Resolves report "today" as church-timezone-aware UTC midnight (`process.env.TZ`, set from `ChurchSettings.timezone` at startup and again whenever the setting is saved, `utils/timezone.js`), preferring a browser-supplied query param when present. `churchToday()` is the same day for code with no browser: the key-date bell, email and care posts, and the daily jobs.                                                                                                                                                                                                                                                           |
 | `csv.js`                                        | Hand-written RFC 4180 CSV serialization (no dependency).                                                                                                                                                                                                                                                                                                                                                                                           |
 | `fileResponse.js`                               | Serves a DB-stored file back to the browser; decides `inline` vs. attachment based on whether its signature was verified on upload.                                                                                                                                                                                                                                                                                                                |
 | `fileSignature.js`                              | Magic-number verification of uploaded file content vs. declared type.                                                                                                                                                                                                                                                                                                                                                                              |
 | `geocode.js`                                    | OpenStreetMap Nominatim forward-geocoding (city/state/country granularity only).                                                                                                                                                                                                                                                                                                                                                                   |
-| `photoUrls.js`                                  | Turns a `Photo` row's id into its servable URL.                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `photoUrls.js`                                  | Turns a `Photo` row's id into its servable URLs (`url` display copy, `rawUrl` full photo). `photoCopies.js` makes the display copy and shrinks the logo with `sharp` (one at a time).                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `prismaIncludes.js`                             | The shared `{id, kind, displayName}` partner-reference select.                                                                                                                                                                                                                                                                                                                                                                                     |
 | `sendingParty.js`                               | Reshapes the `SendingParty` relation into `sendingChurch`/`sendingOrg`.                                                                                                                                                                                                                                                                                                                                                                            |
 | `silhouette.js`                                 | Generates the generic SVG placeholder photos (never a real human photo).                                                                                                                                                                                                                                                                                                                                                                           |
@@ -495,6 +500,14 @@ than by omission"). Roles exist to gate **writes**, not visibility:
   required; refused for the last factor while two-factor is required), and `login/options|verify`
   (second step after the password, using the pending token). Login returns `methods`
   `{authenticatorApp, passkey}`. Admin MFA reset deletes passkeys.
+- **Recovery codes (#496)**: `UserRecoveryCode` (user, SHA-256 of the code, `usedAt`). Ten random
+  codes are made when an authenticator app is confirmed (`POST /api/auth/mfa/verify-setup` returns
+  them once) or on request (`POST /api/auth/mfa/recovery-codes`, password required, retires the old
+  set). `POST /api/auth/mfa/login-verify` takes `recoveryCode` in place of `token`; a code is spent
+  by one conditional update, shares the per-account wrong-code limit, and is audited
+  (`auth.recovery_code_used`). Turning the app off or an admin MFA reset deletes the codes, and
+  `backend/scripts/clear-two-factor.js` (`npm run clear-two-factor -- <email>`) clears an account's
+  two-factor from the server. `FIELD_ENCRYPTION_KEY` is a start-up requirement (`config/env.js`).
 - **Passwordless (#386 Layer 2)**: `ChurchSettings.requirePasswordless`, church-wide, off by
   default, never on a demo. Turning it on (`PUT /api/settings`) needs outbound email ready (feature
   on, Postmark token and From address set, `APP_BASE_URL`) and the acting admin to hold a passkey;
@@ -984,7 +997,7 @@ answered, so an edited or deleted question leaves answers readable; `questionId`
 The partner answers at `/survey/:token` (`routes/publicSurveys.js`): no login, rate limited, and every
 failure (unknown, expired, survey not open) answers identically; the page carries only the survey's
 own questions and the partner's own saved answers. They can save and finish later, and change answers
-through the same link until the survey closes. Staff or a guest on the partner's care team can fill one in
+through the same link until the survey closes. A question linked to a field of the partner's record (`utils/surveyFields.js`) names its input (`inputType`: `tel`, `email`, `line` or `contactMethod`) and is checked on save by the same `utils/contactFormat.js` rules every form uses: a phone is saved as E.164 (`+15065550259`, the United States assumed when no country code is typed) and an email in lower case; a contact-method question always carries the fixed list of ways to be reached, with labels. Staff or a guest on the partner's care team can fill one in
 on their behalf (`PUT /api/surveys/:id/partner/:partnerId`, `entered by` recorded); an admin or editor can
 reopen a submitted response. Access to a partner's answers is the contact log's (`readableNeedPartnerIds`;
 a trip leader none; a viewer reads). Nothing here is public, in the booklet or a dispatch. All five tables
@@ -1168,6 +1181,27 @@ code — it reads the same `groupmeText` field GroupMe does (see 6.2a).
 
 ### 6.4 Urgent dispatch
 
+`ChurchSettings.defaultPhoneCountry` (an ISO 3166-1 code, default `US`, validated against libphonenumber's list) is the country a
+phone number typed without a `+` is read in (`utils/phoneCountry.js`, kept in memory, loaded at start-up and refreshed when the setting is saved;
+served on `GET /api/public/settings` so `PhoneInput` can shape numbers the same way). Phones are saved in international form and emails in lower case by
+`utils/contactFormat.js`, and 28 CHECK constraints at the end of the baseline migration make the database refuse any other value in those columns
+(`User.email`, the login, and newsletter signups are not constrained).
+
+`ChurchSettings.currency` (an ISO 4217 code, default `USD`, validated against `Intl`) is the one currency for
+every amount. Amounts stay whole numbers with no currency of their own; the setting only decides how they are
+written (`utils/money.js` on the server for announcements and report headings, `utils/format.js` in the browser,
+which `SettingsContext` keeps in step). Nothing is converted when it changes.
+
+`Partner.contactSnoozedUntil` ("not this season") keeps a partner out of "quiet" until that day (`contactLogQueries.js`,
+`careChatDispatch.js`); a partner nobody has contacted counts quiet from the day they joined the person's list
+(the care seat's `createdAt`), not from the first minute. A follow-up date still counts while snoozed. Staff-only;
+never on the public site.
+
+`SupportNeed.handledBy` (who has taken a need on) and `SupportNeed.metDate` (the day it was covered) are
+independent of the funding decision (`approvedAmount`/`approvedDate`): a need can be met with no decision, or
+declined and met elsewhere. A met need is not counted as awaiting a decision (`contactLogQueries.js`) and the
+One-Time Needs report has a "Where it stands" column.
+
 `PrayerRequest.isUrgent`/`SupportNeed.isUrgent` (admin/editor-settable at
 creation) trigger `sendUrgentDispatch()` — an immediate, cadence-
 bypassing send across all four channels for that one row (GroupMe and
@@ -1278,6 +1312,22 @@ leaves the previous one serving. `SKIP_SCHEMA_CHECK=true` skips the
 check (RUNBOOK.md). Recovery procedure: `demo/README.md`. Intentional
 until 1.0.0 ships; will need to stop once there's real production data
 anywhere.
+
+**The baseline's name.** The folder is `<timestamp>_init` (today
+`20261127000000_init`). The timestamp is Prisma's required prefix and already
+says when the baseline was cut, so the label stays short and the same for every
+squash: only the timestamp changes, which also changes the migration's name
+and makes `migrate deploy` fail its pre-deploy step on an out-of-date database,
+a loud, safe signal on top of the start-up check. The name also appears in every
+backup's manifest (`migrationName`), which the restore command compares.
+
+**Standing item before 1.0.0: decide the migration naming format.** After 1.0.0
+the baseline is never edited again: every schema change is a new, immutable
+migration folder with a descriptive name. Settle the format going forward
+(for example `YYYYMMDDHHMMSS_short_description`, created with `prisma migrate
+dev --name ...`, one concern per migration) and write it in CONTRIBUTING.md §
+Database migrations before the release is cut. It is on the 1.0.0 decision's
+checklist (CONTRIBUTING.md § Versioning).
 
 ### 8.4 Environment variables
 

@@ -144,7 +144,11 @@ async function sendToRecipients(rows, partnerById, recipients, settings, keyDate
     const keyDates = recipient.kind === CHANNELS.EMAIL_ADMIN ? keyDatesByUser.get(recipient.id) || [] : [];
     if (eligibleRows.length === 0 && keyDates.length === 0) continue;
 
-    const blurbs = eligibleRows.map((row) => buildBlurb(row, partnerById.get(row.partnerId))).filter(Boolean);
+    // Only the currency is passed on: this path has never given buildBlurb the rest of the settings, and
+    // handing them over would change how a restricted partner's name is masked in these emails.
+    const blurbs = eligibleRows
+      .map((row) => buildBlurb(row, partnerById.get(row.partnerId), { currency: settings?.currency }))
+      .filter(Boolean);
     const content =
       recipient.kind === CHANNELS.EMAIL_ADMIN
         ? buildAdminEmailDispatchContent(blurbs, partnerDetailsById, settings, keyDates)
@@ -166,12 +170,24 @@ async function sendToRecipients(rows, partnerById, recipients, settings, keyDate
     });
   }
 
+  let sentAny = false; // whether any message has already gone out in this pass
   for (let i = 0; i < messages.length; i += BATCH_CHUNK_SIZE) {
     const chunk = messages.slice(i, i + BATCH_CHUNK_SIZE);
     // sendEmailBatch returns one entry per message in submission order, each with
     // its own success/failure, so a bad address affects no other message. Batching
     // reduces API calls, not emails sent or billed (see email.js).
-    const results = await sendEmailBatch(chunk.map((m) => m.payload));
+    let results;
+    try {
+      results = await sendEmailBatch(chunk.map((m) => m.payload));
+    } catch (err) {
+      // The provider failed outright for this chunk. If nothing has gone out yet, let the error stop the pass:
+      // the caller leaves everything unmarked and tries again on the next minute, and nobody gets two. If
+      // earlier chunks already went out, finishing the pass is the only way not to send them again on that
+      // retry, so this chunk is recorded as failed like any other failed message and the pass carries on.
+      if (!sentAny) throw err;
+      console.error("Email dispatch batch failed after earlier batches went out:", err.message);
+      results = chunk.map(() => ({ ErrorCode: -1, Message: `Provider error: ${err.message}` }));
+    }
     for (const [idx, result] of results.entries()) {
       if (result.ErrorCode !== 0) {
         console.error(`Email dispatch to ${chunk[idx].payload.To} failed:`, result.Message);
@@ -184,6 +200,7 @@ async function sendToRecipients(rows, partnerById, recipients, settings, keyDate
       }
       // Delivered: this message's rows reached someone, and the key-date heads-ups it carried are recorded so
       // none repeats (a failed send records nothing and retries).
+      sentAny = true;
       chunk[idx].rowIds.forEach((id) => deliveredIds.add(id));
       await recordKeyDatesMailed(chunk[idx].userId, chunk[idx].keyDates);
     }

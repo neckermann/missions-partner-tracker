@@ -1419,10 +1419,12 @@ a {
   border: 1px solid color-mix(in srgb, var(--danger) 35%, var(--surface));
   border-radius: 4px;
   color: var(--danger);
-  font-size: 1.1rem;
-  line-height: 1;
+  font-size: 0.85rem;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
   cursor: pointer;
-  padding: 0.25rem 0.4rem;
+  padding: 0.3rem 0.6rem;
 }
 .btn-remove:hover,
 .btn-remove:focus-visible {
@@ -1436,7 +1438,7 @@ a {
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 1rem;
-  padding-right: 2.5rem;
+  padding-right: 5.5rem;
   margin-bottom: 0.75rem;
   background: var(--surface-2);
 }
@@ -2674,4 +2676,205 @@ button.report-summary-item[aria-pressed="true"] {
 .suggest-option:hover,
 .suggest-option.active {
   background: var(--accent-soft);
+}
+
+/* The Sunday prayer sheet (pages/AdminPrayerSheet.jsx): a one-page printable list, and a slide view. The admin
+   chrome and the controls are hidden on paper by the print rules above (.no-print, .admin-sidebar, buttons). */
+.prayer-sheet-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: flex-end;
+  margin: 1rem 0 0.5rem;
+}
+.prayer-sheet-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+.prayer-sheet {
+  max-width: 7.5in;
+  margin: 1.25rem auto 0;
+  padding: 0.75in;
+  background: #fff;
+  color: #111;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.prayer-sheet-header {
+  text-align: center;
+  border-bottom: 3px solid var(--brand-color, #2a5d3c);
+  padding-bottom: 0.6rem;
+  margin-bottom: 1rem;
+}
+.prayer-sheet-church {
+  font-size: 0.95rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #555;
+}
+.prayer-sheet-header h1 {
+  margin: 0.15rem 0;
+  font-size: 1.8rem;
+  color: var(--brand-color, #2a5d3c);
+}
+.prayer-sheet-date {
+  color: #444;
+}
+.prayer-sheet-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.9rem;
+}
+.prayer-sheet-partner {
+  break-inside: avoid;
+}
+.prayer-sheet-partner h2 {
+  margin: 0 0 0.2rem;
+  font-size: 1.1rem;
+  border: 0;
+  padding: 0;
+  color: #111;
+}
+.prayer-sheet-partner ul {
+  margin: 0;
+  padding-left: 1.2rem;
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+.prayer-sheet-country {
+  font-weight: 400;
+  color: #555;
+}
+.prayer-sheet-empty,
+.prayer-sheet-footer {
+  color: #555;
+  font-size: 0.9rem;
+}
+.prayer-sheet-footer {
+  margin-top: 1.2rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid #ddd;
+  text-align: center;
+}
+.prayer-slides {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  background: #101820;
+  color: #fff;
+}
+.prayer-slides-title {
+  padding: 1rem 2rem;
+  font-size: 1.1rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #b8c4cf;
+}
+.prayer-slides-body {
+  flex: 1;
+  overflow: auto;
+  padding: 1rem 4rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.prayer-slides-body h2 {
+  margin: 0 0 1.2rem;
+  font-size: clamp(2rem, 5vw, 3.6rem);
+  border: 0;
+  padding: 0;
+  color: #fff;
+}
+.prayer-slides-body .prayer-sheet-country {
+  color: #b8c4cf;
+}
+.prayer-slides-body ul {
+  margin: 0;
+  padding-left: 1.5rem;
+  font-size: clamp(1.3rem, 3vw, 2.2rem);
+  line-height: 1.45;
+}
+.prayer-slides-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 1rem;
+}
+@media print {
+  .prayer-sheet-page .prayer-sheet {
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+  }
+  @page {
+    margin: 0.6in;
+  }
+}
+
+/* A labelled phone field (components/shared/PhoneField.jsx): the label above, then the country picker and the box
+   side by side, then the hint. The picker shows a compact "US +1" over a native select that is laid on top of
+   it and made see-through, so the long country list and a phone's own picker still work. */
+.phone-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.phone-input {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.4rem;
+  align-items: stretch;
+}
+.phone-country {
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: 0 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: normal;
+  white-space: nowrap;
+}
+.phone-country:focus-within {
+  outline: 2px solid var(--accent, #2a5d3c);
+  outline-offset: 1px;
+}
+.phone-country-caret {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+.phone-country select {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.phone-hint {
+  grid-column: 1 / -1;
+  color: var(--danger);
+  font-size: 0.85rem;
+  font-weight: normal;
+}
+@media (max-width: 480px) {
+  .phone-input {
+    grid-template-columns: 1fr;
+  }
+  .phone-country {
+    min-height: 2.4rem;
+  }
 }

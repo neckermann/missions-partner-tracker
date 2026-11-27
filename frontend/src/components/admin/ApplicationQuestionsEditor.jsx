@@ -146,7 +146,7 @@ export default function ApplicationQuestionsEditor({
                       style={{ opacity: index === 0 ? 0.3 : 1 }}
                       onClick={() => handleMove(index, -1)}
                     >
-                      ▲
+                      ▲ Up
                     </button>
                     <button
                       type="button"
@@ -157,7 +157,7 @@ export default function ApplicationQuestionsEditor({
                       style={{ opacity: index === questions.length - 1 ? 0.3 : 1 }}
                       onClick={() => handleMove(index, 1)}
                     >
-                      ▼
+                      ▼ Down
                     </button>
                   </div>
                 )}
@@ -169,7 +169,7 @@ export default function ApplicationQuestionsEditor({
                   style={{ marginTop: "1.5rem" }}
                   onClick={() => onRemove(q.id)}
                 >
-                  ✕
+                  Remove
                 </button>
               </div>
 

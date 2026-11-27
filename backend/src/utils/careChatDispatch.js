@@ -5,7 +5,7 @@
 // Opt-in per type (ChurchSettings.chatDispatchKeyDates / QuietPartners / UpdatesToPass, all off by default),
 // and recorded only when a chat channel is on to take it, so Pending Dispatches never fills with posts nobody
 // will send. CareChatPost makes each occurrence post once. Never on a public demo (a scheduled send).
-const cron = require("node-cron");
+const cron = require("./pausableCron");
 const prisma = require("../prismaClient");
 const { isFeatureEnabled } = require("./features");
 const { isDemoInstance } = require("./demoMode");
@@ -78,7 +78,7 @@ async function recordQuietPartners(today) {
   const [partners, lastByPartner, seen] = await Promise.all([
     prisma.partner.findMany({
       where: { archived: false },
-      select: { id: true, displayName: true, createdAt: true },
+      select: { id: true, displayName: true, createdAt: true, contactSnoozedUntil: true },
     }),
     prisma.contactLog.groupBy({ by: ["partnerId"], _max: { contactDate: true } }),
     alreadyPosted("quietPartner"),
@@ -87,6 +87,7 @@ async function recordQuietPartners(today) {
   // A never-contacted partner's quiet clock starts when they were added, so adding someone isn't an instant nudge.
   const quiet = partners
     .map((p) => ({ partner: p, lastContact: last.get(p.id) || null, since: last.get(p.id) || p.createdAt }))
+    .filter((q) => !(q.partner.contactSnoozedUntil && today < q.partner.contactSnoozedUntil))
     .filter((q) => daysBetween(today, q.since) >= contactStaleDays)
     .filter((q) => !seen.has(markerKey(q.partner.id, "quietPartner", "quiet", q.since, 0)))
     .sort((a, b) => a.since - b.since)

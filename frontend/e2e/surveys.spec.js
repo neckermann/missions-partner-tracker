@@ -120,7 +120,7 @@ test.describe("Partner surveys", () => {
     await expect(block).toHaveCount(0);
 
     const adults = await (await admin.request.get(`/api/adults?partnerId=${person.id}`)).json();
-    expect(adults[0].phone1).toBe("(337) 555-0100");
+    expect(adults[0].phone1).toBe("+13375550100");
     await admin.getByRole("tab", { name: "Decided" }).click();
     await expect(admin.getByRole("row", { name: new RegExp(`E2E survey partner ${stamp}`) })).toBeVisible();
 

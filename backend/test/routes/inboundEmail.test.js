@@ -66,7 +66,12 @@ before(async () => {
 
   originalSettings = await prisma.churchSettings.findUnique({
     where: { id: "singleton" },
-    select: { inboundEmailWebhookUsername: true, inboundEmailWebhookPassword: true, enabledFeatures: true },
+    select: {
+      inboundEmailWebhookUsername: true,
+      inboundEmailWebhookPassword: true,
+      inboundEmailSkipReview: true,
+      enabledFeatures: true,
+    },
   });
   // Clean slate -- feature on, real webhook credentials configured, same as
   // email.test.js's own baseline for the outbound side.
@@ -336,6 +341,80 @@ describe("POST /api/inbound-email/postmark -- matching", () => {
     assert.deepEqual(res.body, { matched: false });
 
     await assertHeldNotFiled(partner.id, null);
+  });
+});
+
+// The one way mail is filed without a person: an admin switches the review off, and the sender is a single
+// partner's own address AND SPF/DKIM passed. Anything short of that is still held.
+describe("POST /api/inbound-email/postmark -- review switched off", () => {
+  const send = (body) =>
+    unauthenticated("/api/inbound-email/postmark", {
+      method: "POST",
+      headers: { Authorization: basicAuthHeader(WEBHOOK_USER, WEBHOOK_PASS) },
+      body,
+    });
+  const setSkip = (value) =>
+    prisma.churchSettings.update({ where: { id: "singleton" }, data: { inboundEmailSkipReview: value } });
+  after(() => setSkip(false));
+
+  test("the setting is off by default, and only an admin can change it, through the email settings", async () => {
+    assert.equal((await admin("/api/settings/email")).body.skipReview, false);
+    assert.equal(
+      (await editor("/api/settings/email", { method: "PUT", body: { skipReview: true } })).status,
+      403
+    );
+    const on = await admin("/api/settings/email", { method: "PUT", body: { skipReview: true } });
+    assert.equal(on.status, 200);
+    assert.equal(on.body.skipReview, true);
+    const off = await admin("/api/settings/email", { method: "PUT", body: { skipReview: false } });
+    assert.equal(off.body.skipReview, false);
+  });
+
+  test("a verified sender matching one partner is filed as a newsletter at once", async () => {
+    const partner = await createPartner({ contactEmail: `trusted@${FROM_DOMAIN}` });
+    await setSkip(true);
+    const res = await send(postmarkPayload({ from: `trusted@${FROM_DOMAIN}` }));
+    assert.equal(res.status, 200);
+    assert.deepEqual(res.body, { matched: true });
+    const files = await prisma.partnerFile.findMany({ where: { partnerId: partner.id } });
+    assert.equal(files.length, 1);
+    assert.equal(files[0].kind, "newsletter");
+    assert.equal(files[0].title, "Update from the field");
+    assert.equal(
+      await prisma.inboundEmail.count({ where: { fromAddress: `trusted@${FROM_DOMAIN}` } }),
+      0,
+      "nothing is left waiting in the queue"
+    );
+  });
+
+  test("an unverified sender is still held, even with the review off", async () => {
+    const partner = await createPartner({ contactEmail: `forged@${FROM_DOMAIN}` });
+    await setSkip(true);
+    const res = await send(postmarkPayload({ from: `forged@${FROM_DOMAIN}`, headers: [] }));
+    assert.deepEqual(res.body, { matched: false });
+    assert.equal(await prisma.partnerFile.count({ where: { partnerId: partner.id } }), 0);
+    assert.equal(await prisma.inboundEmail.count({ where: { fromAddress: `forged@${FROM_DOMAIN}` } }), 1);
+  });
+
+  test("an address shared by two partners, or by none, is still held", async () => {
+    const a = await createPartner({ contactEmail: `shared-off@${FROM_DOMAIN}` });
+    const b = await createPartner({ contactEmail: `shared-off@${FROM_DOMAIN}` });
+    await setSkip(true);
+    assert.deepEqual((await send(postmarkPayload({ from: `shared-off@${FROM_DOMAIN}` }))).body, {
+      matched: false,
+    });
+    assert.deepEqual((await send(postmarkPayload({ from: `nobody-off@${FROM_DOMAIN}` }))).body, {
+      matched: false,
+    });
+    for (const p of [a, b]) assert.equal(await prisma.partnerFile.count({ where: { partnerId: p.id } }), 0);
+  });
+
+  test("with the review back on, the same verified sender is held again", async () => {
+    const partner = await createPartner({ contactEmail: `back-on@${FROM_DOMAIN}` });
+    await setSkip(false);
+    const res = await send(postmarkPayload({ from: `back-on@${FROM_DOMAIN}` }));
+    assert.deepEqual(res.body, { matched: false });
+    await assertHeldNotFiled(partner.id, `back-on@${FROM_DOMAIN}`);
   });
 });
 

@@ -1,5 +1,6 @@
 const express = require("express");
 const { z } = require("zod");
+const { phoneSchema, emailSchema } = require("../utils/contactFormat");
 const { CONTACT_METHODS } = require("../utils/contactMethods");
 const prisma = require("../prismaClient");
 const {
@@ -19,9 +20,9 @@ const adultSchema = z.object({
   partnerId: z.string(),
   firstName: z.string().min(1),
   lastName: z.string().optional().nullable(),
-  phone1: z.string().optional().nullable(),
-  phone2: z.string().optional().nullable(),
-  email: z.string().optional().nullable(),
+  phone1: phoneSchema(z),
+  phone2: phoneSchema(z),
+  email: emailSchema(z),
   birthday: z.coerce.date().optional().nullable(),
   // At most one per partner; setting it clears it from the others (clearPrimary).
   isPrimaryContact: z.boolean().optional(),

@@ -19,6 +19,7 @@ const countryInfoRoutes = require("./routes/countryInfo");
 const supportNeedRoutes = require("./routes/supportNeeds");
 const supportEntryRoutes = require("./routes/supportEntries");
 const prayerRequestRoutes = require("./routes/prayerRequests");
+const prayerSheetRoutes = require("./routes/prayerSheet");
 const adultRoutes = require("./routes/adults");
 const childRoutes = require("./routes/children");
 const furloughRoutes = require("./routes/furloughs");
@@ -68,7 +69,9 @@ const publicTripApplicationRoutes = require("./routes/publicTripApplications");
 const publicTripParticipantRoutes = require("./routes/publicTripParticipants");
 const prisma = require("./prismaClient");
 const { backgroundJobsEnabled, startBackgroundJobs, stopBackgroundJobs } = require("./utils/backgroundJobs");
+const { requireAuth } = require("./middleware/requireAuth");
 const { assertSchemaMatches } = require("./utils/schemaCheck");
+const { loadPhoneCountry } = require("./utils/phoneCountry");
 const { applyChurchTimezone } = require("./utils/timezone");
 const { readTrustProxy, trustProxySetting, describeTrustProxy } = require("./utils/trustProxy");
 
@@ -118,9 +121,17 @@ app.use(morgan(process.env.NODE_ENV === "production" ? "combined" : "dev"));
 // mounted first: express.json() skips a body an earlier instance consumed.
 app.use("/api/inbound-email/postmark", express.json({ limit: "15mb" })); // entire email, base64, attachments included
 app.use("/api/template-packs", express.json({ limit: "1mb" })); // a pasted or uploaded pack (admin only)
-app.use("/api/public/survey-uploads", express.json({ limit: "7mb" })); // base64 photo from a survey link
+app.use("/api/public/survey-uploads", express.json({ limit: "24mb" })); // base64 photo from a survey link (15 MB of photo is about 21 MB)
 app.use("/api/public/trips/participants/sign", express.json({ limit: "7mb" })); // base64 signature image
-app.use("/api/public/trips/participants/self-service", express.json({ limit: "7mb" })); // base64 participant photo
+app.use("/api/public/trips/participants/self-service", express.json({ limit: "24mb" })); // base64 participant photo
+// Staff saving a participant's photo send it as a base64 data URL in the update body. Only a signed-in person gets
+// the larger body (the check runs first, so an anonymous caller is refused before anything large is read).
+app.put(
+  "/api/trips/participants/:participantId",
+  cookieParser(),
+  requireAuth,
+  express.json({ limit: "24mb" })
+);
 app.use(express.json({ limit: "100kb" })); // everything else -- small form-field-sized payloads
 app.use(cookieParser());
 
@@ -183,13 +194,8 @@ app.use("/api/public", rateLimit({ windowMs: 60 * 1000, max: 120 }));
 // While an in-app restore runs, every other write is refused (utils/restoreLock.js).
 app.use("/api", refuseWritesDuringRestore);
 
-// The backup file is the heaviest request and the most sensitive output (see
-// routes/backups.js); this stops a compromised admin session pulling it in a loop.
-// Wrong passwords count too. Relaxed under test, like the sign-in limiter.
-app.use(
-  "/api/backups",
-  rateLimit({ windowMs: 15 * 60 * 1000, max: process.env.NODE_ENV === "test" ? 1000 : 5 })
-);
+// (The backup routes limit themselves, inside routes/backups.js, after the admin check: counted per admin account
+// rather than per address, so requests from anyone else never use up an admin's allowance.)
 
 // Each call is a billable Anthropic API request (utils/extraction.js). Scoped to
 // the path so normal document CRUD is unaffected.
@@ -209,6 +215,7 @@ app.use("/api/public/country-info", countryInfoRoutes); // open (Joshua Project 
 app.use("/api/support-needs", supportNeedRoutes); // protected (admin) — session required
 app.use("/api/support-entries", supportEntryRoutes); // protected (admin) — session required
 app.use("/api/prayer-requests", prayerRequestRoutes); // protected (admin) — session required
+app.use("/api/prayer-sheet", prayerSheetRoutes); // protected (staff) — the Sunday prayer sheet, public-safe content only
 app.use("/api/adults", adultRoutes); // protected (admin) — session required
 app.use("/api/children", childRoutes); // protected (admin) — session required
 app.use("/api/furloughs", furloughRoutes); // protected (admin) — session required
@@ -294,6 +301,8 @@ if (require.main === module) {
         select: { timezone: true },
       });
       applyChurchTimezone(settings?.timezone);
+      // The country phone numbers typed without a "+" are read in; the checks that use it are synchronous.
+      await loadPhoneCountry(prisma);
     } catch (err) {
       console.error("Couldn't read ChurchSettings.timezone at startup, defaulting to UTC:", err);
       process.env.TZ = process.env.TZ || "UTC";

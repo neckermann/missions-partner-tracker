@@ -26,11 +26,11 @@ Grouped by where they're read, verified directly against
 `backend/src/` — nothing below is inferred.
 
 **Core (required to boot):**
-`DATABASE_URL`, `SESSION_SECRET`
+`DATABASE_URL`, `SESSION_SECRET`, `FIELD_ENCRYPTION_KEY` (two-factor is required from the first
+sign-in and its secrets are encrypted with this key; the server stops at start-up without a
+usable one)
 
-**Needed in practice (the app boots without them, but not usefully):**
-`FIELD_ENCRYPTION_KEY` (two-factor is required from the first sign-in and its secrets
-are encrypted with this key, so without it the first admin cannot finish signing in),
+**Needed in practice (the app boots without it, but not usefully):**
 `APP_BASE_URL` (the base of every emailed or shared link; on Render it is picked up
 from `RENDER_EXTERNAL_URL`, but set it yourself for a custom domain, since passkeys are
 tied to the address)
@@ -90,6 +90,8 @@ retention setting, 30, 60 or 90 days). There is no separate worker service.
 They run only in production, or with `BACKGROUND_JOBS=on`; if they are off the
 audit log keeps growing until they run; nothing breaks. The audit log is on by default and records sign-in IP
 addresses, which matters if you are asked what personal data the app keeps.
+
+A digest or chat post is **due once its scheduled day and hour has passed without a send**, not only while the clock reads that exact hour. If the service was down or restarting at the scheduled hour, the send goes out as soon as it is back (the same day for daily and weekly sends, and later in the month for a monthly or quarterly one), and only once per cycle. A schedule that has never sent waits for its next slot rather than firing the moment it is configured. On a clock-change day with no 2am, a 2am send goes out at 3am.
 
 ## Deploy / rollback
 

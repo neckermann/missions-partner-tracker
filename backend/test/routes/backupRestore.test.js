@@ -3,9 +3,11 @@ const assert = require("node:assert/strict");
 require("dotenv").config({ quiet: true });
 const zlib = require("zlib");
 const crypto = require("crypto");
+const fs = require("fs");
+const os = require("os");
 const prisma = require("../../src/prismaClient");
-const { buildBackup, parseBackup, latestMigrationName } = require("../../src/utils/backup");
-const { encryptBackup, decryptBackup } = require("../../src/utils/backupCrypto");
+const { buildBackup, latestMigrationName } = require("../../src/utils/backup");
+const { encryptBackup } = require("../../src/utils/backupCrypto");
 const { beginRestore, endRestore } = require("../../src/utils/restoreLock");
 const { clearAuditEnabledCache } = require("../../src/utils/auditLog");
 const {
@@ -21,8 +23,8 @@ const {
 } = require("./helpers");
 
 // Restoring from inside the app REPLACES everything, so every guard has a test against the real database:
-// who may do it, the password and typed word, the file's own checks, the passphrase, the safety copy, one
-// restore at a time, writes refused while it runs, all-or-nothing, and the audit entry.
+// who may do it, the password and typed word, a copy of the current data downloaded first, the file's own checks,
+// the passphrase, one restore at a time, writes refused while it runs, all-or-nothing, and the audit entry.
 let base;
 let adminCookie;
 let admin; // JSON client, for ordinary calls
@@ -40,7 +42,7 @@ async function login(role) {
     .join("; ");
 }
 
-// Raw multipart call (the safety copy comes back as bytes, which the JSON helper would mangle).
+// Raw multipart call (the JSON helper would mangle the upload).
 async function restore({
   file,
   password = TEST_PASSWORD,
@@ -58,17 +60,30 @@ async function restore({
     headers: cookie ? { Cookie: cookie } : {},
     body: form,
   });
-  const bytes = Buffer.from(await res.arrayBuffer());
+  const text = await res.text();
   let json = null;
-  if ((res.headers.get("content-type") || "").includes("json")) {
-    try {
-      json = JSON.parse(bytes.toString("utf8"));
-    } catch {
-      // not JSON
-    }
+  try {
+    json = JSON.parse(text);
+  } catch {
+    // not JSON
   }
-  return { status: res.status, headers: res.headers, bytes, json };
+  return { status: res.status, headers: res.headers, json };
 }
+
+// The dialog's first step: the admin downloads a copy of what is on the site now (the restore asks for one made in
+// the last 15 minutes). Returns the file's bytes.
+async function takeCopy() {
+  const res = await fetch(`${base}/api/backups/download`, {
+    method: "POST",
+    headers: { Cookie: adminCookie, "Content-Type": "application/json" },
+    body: JSON.stringify({ password: TEST_PASSWORD }),
+  });
+  assert.equal(res.status, 200);
+  return Buffer.from(await res.arrayBuffer());
+}
+
+// Uploads are kept in the temp folder while they are read, under a random 32-character name; none may be left.
+const leftoverUploads = () => fs.readdirSync(os.tmpdir()).filter((n) => /^[0-9a-f]{32}$/.test(n)).length;
 
 const partnerNames = async () =>
   (
@@ -138,6 +153,17 @@ describe("who may restore", () => {
 });
 
 describe("what the admin must give", () => {
+  test("a copy of the current data, downloaded first: without one the restore is refused and nothing changes", async () => {
+    const keep = await makePartner("kept without a copy");
+    const file = (await buildBackup(prisma)).buffer;
+    await prisma.partner.delete({ where: { id: keep.id } });
+    const res = await restore({ file });
+    assert.equal(res.status, 400);
+    assert.match(res.json.error, /Download a copy of the current data first/);
+    assert.deepEqual(await partnerNames(), [], "the backup was not applied");
+    await takeCopy(); // from here on the admin has taken the first step
+  });
+
   test("a file, the exact word RESTORE and their password, each checked before anything happens", async () => {
     const file = (await buildBackup(prisma)).buffer;
     assert.equal((await restore({ file: null })).status, 400, "no file");
@@ -166,7 +192,7 @@ describe("what is wrong with the file", () => {
   test("not a backup at all", async () => {
     const res = await restore({ file: Buffer.from("this is not a backup") });
     assert.equal(res.status, 400);
-    assert.match(res.json.error, /doesn't look like a backup/);
+    assert.match(res.json.error, /damaged or incomplete|doesn't look like a backup/);
   });
 
   test("a backup whose contents were edited (checksum mismatch)", async () => {
@@ -192,10 +218,11 @@ describe("what is wrong with the file", () => {
     assert.ok(res.json.error.includes(latestMigrationName()));
   });
 
-  test("a file over the size limit is turned away with a pointer to the command", async () => {
-    const res = await restore({ file: Buffer.alloc(41 * 1024 * 1024, 1) });
-    assert.equal(res.status, 400);
-    assert.match(res.json.error, /too large to restore from the browser/);
+  test("the uploaded file is never left on the server, whether the restore worked or not", async () => {
+    const before = leftoverUploads();
+    await restore({ file: Buffer.from("this is not a backup") });
+    await restore({ file: (await buildBackup(prisma)).buffer });
+    assert.equal(leftoverUploads(), before);
   });
 });
 
@@ -221,30 +248,20 @@ describe("a backup locked with a passphrase", () => {
 });
 
 describe("a successful restore", () => {
-  test("replaces what is there with the backup, hands back a safety copy of what was there, and is audited", async () => {
+  test("replaces what is there with the backup, is audited, and a copy taken first undoes it", async () => {
     await makePartner("in the backup");
     const backupFile = (await buildBackup(prisma)).buffer;
     await makePartner("made after the backup");
     assert.equal((await partnerNames()).length, 2);
+    const copyBeforeRestore = await takeCopy(); // step 1 in the dialog
 
     const res = await restore({ file: backupFile });
     assert.equal(res.status, 200, res.json && JSON.stringify(res.json));
+    assert.equal(res.json.restored, true);
+    assert.ok(res.json.rows > 0);
 
     // The data is the backup's: the later partner is gone.
     assert.deepEqual(await partnerNames(), [`${FIXTURE_TAG} in the backup`]);
-
-    // The response is a safety copy of the data as it was just before: it is a valid backup, and it holds both.
-    assert.match(
-      res.headers.get("content-disposition"),
-      /^attachment; filename="before-restore-.*\.ndjson\.gz"$/
-    );
-    assert.ok(Number(res.headers.get("x-restored-rows")) > 0);
-    const safety = parseBackup(zlib.gunzipSync(res.bytes).toString("utf8"));
-    const safetyNames = safety.rowsByModel.partner
-      .map((p) => p.displayName)
-      .filter((n) => n.includes(FIXTURE_TAG))
-      .sort();
-    assert.deepEqual(safetyNames, [`${FIXTURE_TAG} in the backup`, `${FIXTURE_TAG} made after the backup`]);
 
     // The restore is on the record.
     const entry = await prisma.auditLog.findFirst({
@@ -254,26 +271,14 @@ describe("a successful restore", () => {
     assert.ok(entry, "an audit entry for the restore");
     assert.equal(entry.actorEmail, TEST_USERS.admin.email);
 
-    // The safety copy really undoes it: restoring it brings the later partner back.
-    const undo = await restore({ file: res.bytes });
-    assert.equal(undo.status, 200);
+    // The copy taken first really undoes it: restoring it brings the later partner back.
+    const undo = await restore({ file: copyBeforeRestore });
+    assert.equal(undo.status, 200, undo.json && JSON.stringify(undo.json));
     assert.deepEqual(await partnerNames(), [
       `${FIXTURE_TAG} in the backup`,
       `${FIXTURE_TAG} made after the backup`,
     ]);
     await removeFixturePartners();
-  });
-
-  test("the safety copy can be locked with its own passphrase", async () => {
-    const backupFile = (await buildBackup(prisma)).buffer;
-    const res = await restore({ file: backupFile, safetyPassphrase: "a safety passphrase" });
-    assert.equal(res.status, 200);
-    assert.match(res.headers.get("content-disposition"), /\.ndjson\.gz\.locked"$/);
-    assert.equal(res.headers.get("content-type"), "application/octet-stream");
-    const opened = decryptBackup(res.bytes, "a safety passphrase");
-    assert.ok(parseBackup(zlib.gunzipSync(opened).toString("utf8")).manifest);
-    const tooShort = await restore({ file: backupFile, safetyPassphrase: "short" });
-    assert.equal(tooShort.status, 400);
   });
 
   test("the admin who restored is still signed in (their account is in the backup)", async () => {

@@ -63,6 +63,10 @@ export default function Setup() {
         everyone on a new install; after that you can invite others and configure your church's branding from
         the admin dashboard.
       </p>
+      <p style={{ color: "var(--muted)" }}>
+        Setting up two-factor gives you recovery codes to keep safe. Once you are in, add a second
+        administrator too, so a lost phone is never the end of the road.
+      </p>
       <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
         <label>
           Email

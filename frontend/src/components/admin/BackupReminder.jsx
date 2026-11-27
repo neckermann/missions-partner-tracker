@@ -67,6 +67,7 @@ export default function BackupReminder() {
         type="button"
         onClick={dismiss}
         aria-label="Dismiss backup reminder"
+        title="Dismiss this reminder"
         style={{
           background: "none",
           border: "none",

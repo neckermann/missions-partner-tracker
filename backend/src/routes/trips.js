@@ -4,6 +4,7 @@
 const express = require("express");
 const { optionalWebAddress } = require("../utils/webAddress");
 const { z } = require("zod");
+const { phoneSchema, emailSchema } = require("../utils/contactFormat");
 const prisma = require("../prismaClient");
 const { recordAudit } = require("../utils/auditLog");
 const { latestOf, tripLastUpdated, listFields } = require("../utils/lastUpdated");
@@ -32,6 +33,7 @@ const {
   copyTripQuestions,
 } = require("../utils/tripTemplates");
 const { sendStoredFile } = require("../utils/fileResponse");
+const { verifyUpload } = require("../utils/fileSignature");
 const { tripDocumentUpload } = require("../utils/upload");
 const { participantSchema, defaultParticipantGoal } = require("../utils/tripParticipantSchema");
 const { SOON_DAYS, isRequirementFulfilledForParticipant } = require("../notifications/categories");
@@ -851,6 +853,11 @@ router.post(
   async (req, res, next) => {
     try {
       if (!req.file) return res.status(400).json({ error: "No file provided" });
+      // The browser's word about the file's type is not enough (H6): check the real content, as the partner files,
+      // photos and the participants' own uploads do, and store the type the bytes prove.
+      const verified = verifyUpload(req.file);
+      if (!verified.ok)
+        return res.status(400).json({ error: "File content doesn't match its declared type" });
       const { participantId, requirementId, title } = req.body;
       const outside = await idsOutsideTrip(req.params.id, {
         participantIds: participantId ? [participantId] : [],
@@ -864,7 +871,7 @@ router.post(
         requirementId: requirementId || null,
         title: title || null,
         fileName: req.file.originalname,
-        contentType: req.file.mimetype || "application/octet-stream",
+        contentType: verified.contentType,
         fileSize: req.file.size,
       };
       // Upsert when both fields are set: the public self-service upload relies on the same
@@ -922,8 +929,8 @@ router.delete(
 const contributionSchema = z.object({
   participantId: z.string().optional().nullable(),
   donorName: z.string().min(1),
-  donorEmail: z.string().email().optional().nullable(),
-  donorPhone: z.string().optional().nullable(),
+  donorEmail: emailSchema(z),
+  donorPhone: phoneSchema(z),
   amount: z.coerce.number().int().positive(),
   method: z.enum(["check", "cash", "online", "other"]),
   reference: z.string().optional().nullable(),

@@ -174,7 +174,7 @@ full file with inline comments):
 | `PORT` | No | Defaults to 4000 |
 | `NODE_ENV` | No | `development` or `production` — must be exactly `production` on a real deployment, or the session cookie isn't marked secure/HTTPS-only. Render and most PaaS platforms set this for you; a self-hosted server/container needs it set by hand. |
 | `SESSION_SECRET` | Yes | Signs the session cookie (see [Authentication setup](#authentication-setup)). Generate a long random value, e.g. `openssl rand -base64 48`. See [Rotating SESSION_SECRET](#rotating-session_secret) below |
-| `FIELD_ENCRYPTION_KEY` | Yes (the Render button makes one for you) | Encrypts every reversibly-stored secret at rest: two-factor (MFA) secrets, plus the Postmark server token, GroupMe access token, Joshua Project API key, and WhatsApp session. Generate with `npm run generate-secrets`. Without it the app starts, but two-factor sign-in is required from the first sign-in and cannot be set up, so the first admin is locked out, and any of those integrations fail. See [Rotating FIELD_ENCRYPTION_KEY](#rotating-field_encryption_key) below |
+| `FIELD_ENCRYPTION_KEY` | Yes (the Render button makes one for you) | Encrypts every reversibly-stored secret at rest: two-factor (MFA) secrets, plus the Postmark server token, GroupMe access token, Joshua Project API key, and WhatsApp session. Generate with `npm run generate-secrets`. The app refuses to start without a usable key (32 bytes, base64), the same as `SESSION_SECRET`: two-factor sign-in is required from the first sign-in and cannot be set up without it. Keep it somewhere durable. See [Rotating FIELD_ENCRYPTION_KEY](#rotating-field_encryption_key) below |
 | `NOMINATIM_CONTACT` | Recommended | Your contact email, sent with geocoding requests per [Nominatim's usage policy](https://operations.osmfoundation.org/policies/nominatim/) |
 | `MFA_ISSUER` | No | Name shown in a user's authenticator app when they enroll in MFA; defaults to "Missions Partner Tracker Admin" |
 | `APP_BASE_URL` | On Render: no. Elsewhere: yes | This app's own public URL, no trailing slash — needed for every link the app puts in a message or builds for you: setup, password-reset and sign-in links, survey and trip links, passkeys, the email digest's unsubscribe link, and the dispatch queue's own links: the GroupMe newsletter dispatch's link and the email digest's "read the source" / "read the full newsletter" links (see [GroupMe dispatch](USER_GUIDE.md#groupme-dispatch-admin-only) and [Updates to share](USER_GUIDE.md#updates-to-share)). On Render this is picked up automatically from `RENDER_EXTERNAL_URL`, so you need not set it; set it yourself if you use your own domain or host elsewhere. Leave it unset elsewhere and those links just don't appear (and a setup or sign-in link can't be built). |
@@ -331,8 +331,16 @@ A few things worth knowing operationally:
   it off for themselves. Before turning it on, make sure the admins have
   enrolled: the switch only works for an admin who has set up two-factor
   on their own account, and it shows how many active accounts haven't
-  yet. If someone loses their authenticator, Manage Users' **Reset MFA**
-  clears it and they enrol again at next sign-in. It is on by default for
+  yet. When someone sets up an authenticator app they are shown **ten
+  recovery codes** (each works once) and must tick that they have saved
+  them; a lost phone is then a recovery code at the sign-in screen, and
+  **My Account → Two-factor → Make a new set of recovery codes** replaces
+  the set. If someone loses their authenticator *and* their codes,
+  another admin's Manage Users **Reset MFA** clears it and they enrol
+  again at next sign-in. A sole admin has no other admin: whoever runs the
+  server clears it from the command line (see
+  [Locked out of two-factor](#locked-out-of-two-factor)), so add a second
+  administrator you trust. It is on by default for
   a new install (the first-run setup turns it on), off on an install that
   predates it, can't be turned on for the public demo, and changes to it are in the
   [Audit log](USER_GUIDE.md#audit-log-admin-only). No role is special:
@@ -687,6 +695,22 @@ logging everyone out. That's the correct, expected behavior if you ever
 suspect the value has leaked — do it, then have everyone log back in.
 There's no partial/soft rotation; it's all-or-nothing by design.
 
+### Locked out of two-factor
+
+Someone who has lost their authenticator app, their passkeys and their recovery codes needs two-factor
+cleared. Another admin does it from **Manage Users → Reset MFA**. If the person locked out is the only admin,
+whoever runs the server does it from a shell with the same `DATABASE_URL` as the app (on Render, the
+service's **Shell** tab):
+
+```bash
+cd backend && npm run clear-two-factor -- you@yourchurch.org
+```
+
+It removes that account's authenticator secret, passkeys and recovery codes and signs the account out
+everywhere; nothing else about the account changes. The next password sign-in goes straight to setting
+two-factor up again and shows a new set of recovery codes. The action is recorded in the audit log.
+If the password is lost too, use `node prisma/createAdmin.js <email> "<new password>"` first.
+
 ### Rotating FIELD_ENCRYPTION_KEY
 
 This encrypts two-factor (MFA) secrets **and** every stored integration
@@ -757,12 +781,18 @@ webhook includes the entire raw email (headers, body, attachments) in
 one request, which this app stores as a `.eml` file, exactly like a
 manually-uploaded newsletter. If the sender's address matches exactly
 one partner — either that partner's own Contact Email (organizations) or
-any of their household adults' email addresses (missionaries) — it's
-filed as a Newsletter automatically, scannable by AI Features
-like any other. If zero partners match, or more than one does, it lands
-in the **Emails to sort** queue instead of guessing, where any
-logged-in admin or editor can view the raw email and assign it to the
-right partner (or an admin can discard it). Setup:
+any of their household adults' email addresses (missionaries) — that is
+noted, but a sender address can be forged, so by default **every**
+message waits in the **Emails to sort** queue, where any logged-in
+admin or editor can view the raw email and assign it to the right
+partner as a Newsletter (scannable by AI Features like any other), or an
+admin can discard it. Nothing is ever deleted automatically. On
+**Settings → Email → Receiving**, an admin can tick **File mail from a
+verified partner without review**: a message whose sender matches exactly
+one partner *and* passes the sender check (SPF, or DKIM) is then filed
+as that partner's Newsletter and announced at once; anything that does not
+match, matches more than one partner, or fails the check still waits. It
+is off by default. Setup:
 
 1. Create a free Postmark account (or reuse the one from Sending above —
    the same server can run both an outbound and an inbound stream).
@@ -1589,6 +1619,8 @@ somewhere separate from the file (a password manager, or written down
 in a safe place). Unlocked downloads still work, but anyone who gets
 one can read everything in it.
 
+The backup is built and sent a piece at a time, so it works however many photos and files you have, even on the smallest hosting plan, and the file is the same format as before. It does read the database twice to make one consistent copy, so a large backup takes a little longer to start downloading. If a download is interrupted, discard the partial file: the restore command refuses it.
+
 Nothing in the app backs up your database, so it reminds you. An admin sees
 a banner and a **Time to check your backups** item on the bell, and, **when
 Email (Sending) is on**, also gets a short email about once a month (never on
@@ -1618,19 +1650,21 @@ the backup's contents and both check the file first (its checksum, and that
 it was made for this version of the app's database).
 
 **In the app** (no command line needed): **Settings → About App → Restore
-from a backup…**. It asks for the backup file, **your password again**,
-the file's passphrase if it was locked, and the word `RESTORE` typed
-exactly. Before it changes anything it builds a copy of what the site holds
-right now; when the restore finishes, that copy downloads automatically
-(named `before-restore-…`), so a restore you regret can be undone by
-restoring that file. While it runs, which can take a minute or two, the
-site refuses every other change; the whole restore is one database
-transaction, so if anything fails partway nothing is changed. Afterwards you
-are signed out, and a linked WhatsApp number needs linking again. Every
-restore, and every refused attempt, is in the audit log. It is for admins
-only and is switched off on a public demo. Very large backups (over about
-40 MB as downloaded) are refused with a pointer to the command below, so a
-small server isn't run out of memory.
+from a backup…**. **Step 1** downloads a copy of what the site holds right
+now (it asks for your password, and can lock the copy with a passphrase), so
+a restore you regret can be undone by restoring that copy; the restore will
+not run without one made in the last 15 minutes. **Step 2** asks for the
+backup file, **your password again**, the file's passphrase if it was
+locked, and the word `RESTORE` typed exactly. The file is checked from start
+to end before anything changes (its checksum, its row counts, the passphrase,
+and that it was made for this version of the database). While it runs, which
+can take a few minutes, the site refuses every other change and scheduled
+emails wait; the whole restore is one database transaction, so if anything
+fails partway nothing is changed. Afterwards you are signed out, and a linked
+WhatsApp number needs linking again. Every restore, and every refused
+attempt, is in the audit log. It is for admins only and is switched off on a
+public demo. The file is kept on the server's disk only while it is read, and
+a backup over 1 GB is refused with a pointer to the command below.
 
 **From the command line**, for a backup too large for the app, a site that
 won't start, or an empty new database:

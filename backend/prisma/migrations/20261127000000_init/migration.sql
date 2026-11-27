@@ -25,6 +25,7 @@ CREATE TABLE "Partner" (
     "contactViaRole" TEXT,
     "contactViaPhone" TEXT,
     "contactViaEmail" TEXT,
+    "contactSnoozedUntil" DATE,
     "sentByOurChurch" BOOLEAN NOT NULL DEFAULT false,
     "contactFirstName" TEXT,
     "contactLastName" TEXT,
@@ -185,6 +186,7 @@ CREATE TABLE "TripParticipant" (
 CREATE TABLE "TripParticipantPhoto" (
     "id" TEXT NOT NULL,
     "photo" BYTEA NOT NULL,
+    "displayBytes" BYTEA,
 
     CONSTRAINT "TripParticipantPhoto_pkey" PRIMARY KEY ("id")
 );
@@ -599,6 +601,8 @@ CREATE TABLE "SupportNeed" (
     "decisionNote" TEXT,
     "notes" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "handledBy" TEXT,
+    "metDate" DATE,
     "isUrgent" BOOLEAN NOT NULL DEFAULT false,
     "sourceFileId" TEXT,
     "lastEditedById" TEXT,
@@ -735,6 +739,7 @@ CREATE TABLE "Photo" (
 CREATE TABLE "PhotoBytes" (
     "id" TEXT NOT NULL,
     "bytes" BYTEA NOT NULL,
+    "displayBytes" BYTEA,
 
     CONSTRAINT "PhotoBytes_pkey" PRIMARY KEY ("id")
 );
@@ -759,6 +764,8 @@ CREATE TABLE "ChurchSettings" (
     "usePartnerTermInAdmin" BOOLEAN NOT NULL DEFAULT false,
     "publicTagline" TEXT,
     "aboutText" TEXT,
+    "subscribePassage" TEXT,
+    "subscribePassageSource" TEXT,
     "primaryColor" TEXT,
     "headerColor" TEXT,
     "highlightColor" TEXT,
@@ -815,6 +822,8 @@ CREATE TABLE "ChurchSettings" (
     "lastGroupmeChatDispatchSentAt" TIMESTAMP(3),
     "lastWhatsappChatDispatchSentAt" TIMESTAMP(3),
     "timezone" TEXT NOT NULL DEFAULT 'America/Chicago',
+    "currency" TEXT NOT NULL DEFAULT 'USD',
+    "defaultPhoneCountry" TEXT NOT NULL DEFAULT 'US',
     "chatDispatchPrayerRequests" BOOLEAN NOT NULL DEFAULT true,
     "chatDispatchOneTimeNeeds" BOOLEAN NOT NULL DEFAULT true,
     "chatDispatchNewsletters" BOOLEAN NOT NULL DEFAULT true,
@@ -843,6 +852,7 @@ CREATE TABLE "ChurchSettings" (
     "allowPublicSupportRaisingLinks" BOOLEAN NOT NULL DEFAULT false,
     "enableTripBudgeting" BOOLEAN NOT NULL DEFAULT false,
     "inboundEmailAddress" TEXT,
+    "inboundEmailSkipReview" BOOLEAN NOT NULL DEFAULT false,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "updatedById" TEXT,
@@ -1060,6 +1070,17 @@ CREATE TABLE "UserPasskey" (
     "lastUsedAt" TIMESTAMP(3),
 
     CONSTRAINT "UserPasskey_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "UserRecoveryCode" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "codeHash" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "usedAt" TIMESTAMP(3),
+
+    CONSTRAINT "UserRecoveryCode_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -1453,6 +1474,12 @@ CREATE UNIQUE INDEX "UserPasskey_credentialId_key" ON "UserPasskey"("credentialI
 CREATE INDEX "UserPasskey_userId_idx" ON "UserPasskey"("userId");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "UserRecoveryCode_codeHash_key" ON "UserRecoveryCode"("codeHash");
+
+-- CreateIndex
+CREATE INDEX "UserRecoveryCode_userId_idx" ON "UserRecoveryCode"("userId");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "PublicSubscriber_email_key" ON "PublicSubscriber"("email");
 
 -- CreateIndex
@@ -1687,6 +1714,9 @@ ALTER TABLE "SignInLinkToken" ADD CONSTRAINT "SignInLinkToken_userId_fkey" FOREI
 ALTER TABLE "UserPasskey" ADD CONSTRAINT "UserPasskey_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "UserRecoveryCode" ADD CONSTRAINT "UserRecoveryCode_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "PublicSubscriberPartner" ADD CONSTRAINT "PublicSubscriberPartner_subscriberId_fkey" FOREIGN KEY ("subscriberId") REFERENCES "PublicSubscriber"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -1750,3 +1780,38 @@ CREATE UNIQUE INDEX "CareTeamMember_one_lead_per_partner" ON "CareTeamMember"("p
 
 -- At most one primary contact per partner (same reason as above).
 CREATE UNIQUE INDEX "Adult_one_primary_contact_per_partner" ON "Adult"("partnerId") WHERE "isPrimaryContact";
+
+-- A phone or email column holds only a value in the saved form (utils/contactFormat.js): a phone as
+-- international digits (+15065550259), an email an address shape no longer than 200 characters; blank is
+-- NULL. The routes already refuse anything else, so this makes the database refuse it too, for a script
+-- or an import that writes a column directly. Prisma's schema language can't express a CHECK, so these
+-- are added by hand here, after the generated tables. (User.email, the login, and newsletter
+-- subscribers are deliberately not constrained.)
+ALTER TABLE "Partner" ADD CONSTRAINT "Partner_contactPhone_format" CHECK ("contactPhone" IS NULL OR "contactPhone" ~ '^\+[1-9][0-9]{6,14}$');
+ALTER TABLE "Partner" ADD CONSTRAINT "Partner_emergencyContactPhone_format" CHECK ("emergencyContactPhone" IS NULL OR "emergencyContactPhone" ~ '^\+[1-9][0-9]{6,14}$');
+ALTER TABLE "Partner" ADD CONSTRAINT "Partner_contactViaPhone_format" CHECK ("contactViaPhone" IS NULL OR "contactViaPhone" ~ '^\+[1-9][0-9]{6,14}$');
+ALTER TABLE "Adult" ADD CONSTRAINT "Adult_phone1_format" CHECK ("phone1" IS NULL OR "phone1" ~ '^\+[1-9][0-9]{6,14}$');
+ALTER TABLE "Adult" ADD CONSTRAINT "Adult_phone2_format" CHECK ("phone2" IS NULL OR "phone2" ~ '^\+[1-9][0-9]{6,14}$');
+ALTER TABLE "TripParticipant" ADD CONSTRAINT "TripParticipant_phone_format" CHECK ("phone" IS NULL OR "phone" ~ '^\+[1-9][0-9]{6,14}$');
+ALTER TABLE "TripParticipant" ADD CONSTRAINT "TripParticipant_emergencyContactPhone_format" CHECK ("emergencyContactPhone" IS NULL OR "emergencyContactPhone" ~ '^\+[1-9][0-9]{6,14}$');
+ALTER TABLE "TripParticipant" ADD CONSTRAINT "TripParticipant_parentGuardianPhone_format" CHECK ("parentGuardianPhone" IS NULL OR "parentGuardianPhone" ~ '^\+[1-9][0-9]{6,14}$');
+ALTER TABLE "TripApplication" ADD CONSTRAINT "TripApplication_phone_format" CHECK ("phone" IS NULL OR "phone" ~ '^\+[1-9][0-9]{6,14}$');
+ALTER TABLE "TripApplication" ADD CONSTRAINT "TripApplication_emergencyContactPhone_format" CHECK ("emergencyContactPhone" IS NULL OR "emergencyContactPhone" ~ '^\+[1-9][0-9]{6,14}$');
+ALTER TABLE "TripApplication" ADD CONSTRAINT "TripApplication_parentGuardianPhone_format" CHECK ("parentGuardianPhone" IS NULL OR "parentGuardianPhone" ~ '^\+[1-9][0-9]{6,14}$');
+ALTER TABLE "TripContribution" ADD CONSTRAINT "TripContribution_donorPhone_format" CHECK ("donorPhone" IS NULL OR "donorPhone" ~ '^\+[1-9][0-9]{6,14}$');
+ALTER TABLE "SendingParty" ADD CONSTRAINT "SendingParty_phone_format" CHECK ("phone" IS NULL OR "phone" ~ '^\+[1-9][0-9]{6,14}$');
+ALTER TABLE "ChurchSettings" ADD CONSTRAINT "ChurchSettings_phone_format" CHECK ("phone" IS NULL OR "phone" ~ '^\+[1-9][0-9]{6,14}$');
+ALTER TABLE "User" ADD CONSTRAINT "User_phone_format" CHECK ("phone" IS NULL OR "phone" ~ '^\+[1-9][0-9]{6,14}$');
+ALTER TABLE "Partner" ADD CONSTRAINT "Partner_contactEmail_format" CHECK ("contactEmail" IS NULL OR ("contactEmail" ~ '^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$' AND char_length("contactEmail") <= 200));
+ALTER TABLE "Partner" ADD CONSTRAINT "Partner_emergencyContactEmail_format" CHECK ("emergencyContactEmail" IS NULL OR ("emergencyContactEmail" ~ '^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$' AND char_length("emergencyContactEmail") <= 200));
+ALTER TABLE "Partner" ADD CONSTRAINT "Partner_contactViaEmail_format" CHECK ("contactViaEmail" IS NULL OR ("contactViaEmail" ~ '^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$' AND char_length("contactViaEmail") <= 200));
+ALTER TABLE "Adult" ADD CONSTRAINT "Adult_email_format" CHECK ("email" IS NULL OR ("email" ~ '^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$' AND char_length("email") <= 200));
+ALTER TABLE "TripParticipant" ADD CONSTRAINT "TripParticipant_email_format" CHECK ("email" IS NULL OR ("email" ~ '^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$' AND char_length("email") <= 200));
+ALTER TABLE "TripParticipant" ADD CONSTRAINT "TripParticipant_emergencyContactEmail_format" CHECK ("emergencyContactEmail" IS NULL OR ("emergencyContactEmail" ~ '^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$' AND char_length("emergencyContactEmail") <= 200));
+ALTER TABLE "TripParticipant" ADD CONSTRAINT "TripParticipant_parentGuardianEmail_format" CHECK ("parentGuardianEmail" IS NULL OR ("parentGuardianEmail" ~ '^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$' AND char_length("parentGuardianEmail") <= 200));
+ALTER TABLE "TripApplication" ADD CONSTRAINT "TripApplication_email_format" CHECK (("email" ~ '^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$' AND char_length("email") <= 200));
+ALTER TABLE "TripApplication" ADD CONSTRAINT "TripApplication_emergencyContactEmail_format" CHECK ("emergencyContactEmail" IS NULL OR ("emergencyContactEmail" ~ '^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$' AND char_length("emergencyContactEmail") <= 200));
+ALTER TABLE "TripApplication" ADD CONSTRAINT "TripApplication_parentGuardianEmail_format" CHECK ("parentGuardianEmail" IS NULL OR ("parentGuardianEmail" ~ '^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$' AND char_length("parentGuardianEmail") <= 200));
+ALTER TABLE "TripContribution" ADD CONSTRAINT "TripContribution_donorEmail_format" CHECK ("donorEmail" IS NULL OR ("donorEmail" ~ '^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$' AND char_length("donorEmail") <= 200));
+ALTER TABLE "SendingParty" ADD CONSTRAINT "SendingParty_contactEmail_format" CHECK ("contactEmail" IS NULL OR ("contactEmail" ~ '^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$' AND char_length("contactEmail") <= 200));
+ALTER TABLE "ChurchSettings" ADD CONSTRAINT "ChurchSettings_contactEmail_format" CHECK ("contactEmail" IS NULL OR ("contactEmail" ~ '^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$' AND char_length("contactEmail") <= 200));

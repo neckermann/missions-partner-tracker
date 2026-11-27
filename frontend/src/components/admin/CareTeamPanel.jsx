@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
+import { formatPhone } from "../../utils/phone.js";
 import { Link } from "react-router-dom";
 import { fetchCareTeam, setCareTeam, fetchCareTeamCandidates, fetchMissionsTeam } from "../../api/client.js";
 import { useSettings } from "../../context/SettingsContext.jsx";
@@ -12,7 +13,7 @@ import StatusPill from "./StatusPill.jsx";
 // guest sees names only (the API omits emails). `showHeading` lets the trip page drop the card chrome.
 // Phone, email and a line about them: sent only to signed-in staff roles, never a guest.
 function MemberDetails({ m }) {
-  const reach = [m.phone, m.email].filter(Boolean).join(" · ");
+  const reach = [formatPhone(m.phone), m.email].filter(Boolean).join(" · ");
   if (!reach && !m.profile) return null;
   return (
     <div style={{ fontSize: "0.85rem", color: "var(--muted)" }}>
