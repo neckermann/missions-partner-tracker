@@ -764,8 +764,14 @@ export default function AdminTripParticipantDetail() {
                 View
               </button>{" "}
               {canWrite && (
-                <button type="button" className="btn-remove" onClick={() => handleDeleteDocument(d.id)}>
-                  ✕
+                <button
+                  type="button"
+                  className="btn-remove"
+                  onClick={() => handleDeleteDocument(d.id)}
+                  title="Delete this document"
+                  aria-label={`Delete ${d.title || d.fileName}`}
+                >
+                  Delete
                 </button>
               )}
             </li>

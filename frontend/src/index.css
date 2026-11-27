@@ -1419,10 +1419,12 @@ a {
   border: 1px solid color-mix(in srgb, var(--danger) 35%, var(--surface));
   border-radius: 4px;
   color: var(--danger);
-  font-size: 1.1rem;
-  line-height: 1;
+  font-size: 0.85rem;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
   cursor: pointer;
-  padding: 0.25rem 0.4rem;
+  padding: 0.3rem 0.6rem;
 }
 .btn-remove:hover,
 .btn-remove:focus-visible {
@@ -1436,7 +1438,7 @@ a {
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 1rem;
-  padding-right: 2.5rem;
+  padding-right: 5.5rem;
   margin-bottom: 0.75rem;
   background: var(--surface-2);
 }
