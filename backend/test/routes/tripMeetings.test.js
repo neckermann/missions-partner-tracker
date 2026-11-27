@@ -332,6 +332,146 @@ describe("Trips: meetings", () => {
   });
 });
 
+// G14a: a reminder is marked sent only when it went out. A provider outage at the wrong hour used to mean no
+// reminder and no retry, because the helper swallows the error and the scheduler marked it sent anyway.
+describe("Trips: reminders retry a send that failed", () => {
+  const {
+    checkAndSendTripMeetingReminders,
+    checkAndSendRequirementReminders,
+  } = require("../../src/utils/tripReminderScheduler");
+
+  // Postmark answers according to `answer(toAddress)`; every attempt is recorded.
+  async function withPostmark(answer, run) {
+    const attempts = [];
+    const prevFetch = global.fetch;
+    global.fetch = (url, options) => {
+      if (String(url).startsWith("https://api.postmarkapp.com") && options?.body) {
+        let to = null;
+        try {
+          to = JSON.parse(options.body).To;
+        } catch {
+          /* not a send */
+        }
+        attempts.push(to);
+        if (!answer(to)) {
+          const body = { ErrorCode: 300, Message: "Provider unavailable" };
+          return Promise.resolve({
+            ok: false,
+            status: 500,
+            json: async () => body,
+            text: async () => JSON.stringify(body),
+          });
+        }
+      }
+      return prevFetch(url, options);
+    };
+    try {
+      await run();
+    } finally {
+      global.fetch = prevFetch;
+    }
+    return attempts;
+  }
+
+  async function tripWith(emails) {
+    const partner = await createPartner();
+    const trip = (
+      await admin("/api/trips", { method: "POST", body: { partnerId: partner.id, type: "Construction" } })
+    ).body;
+    const participants = [];
+    for (const email of emails) {
+      participants.push(
+        await prisma.tripParticipant.create({ data: { tripId: trip.id, firstName: "Pat", email } })
+      );
+    }
+    return { trip, participants };
+  }
+  const meetingIn24h = (tripId) =>
+    prisma.tripMeeting.create({ data: { tripId, startAt: new Date(Date.now() + 24 * 60 * 60 * 1000) } });
+  const mine = (attempts, emails) => attempts.filter((to) => emails.includes(to));
+
+  test("when every send fails the meeting is left unmarked, and the next tick sends it", async () => {
+    const emails = ["retry-a@example.test", "retry-b@example.test"];
+    const { trip } = await tripWith(emails);
+    const meeting = await meetingIn24h(trip.id);
+
+    const first = await withPostmark(
+      () => false,
+      () => checkAndSendTripMeetingReminders()
+    );
+    assert.ok(mine(first, emails).length >= 2, "both were attempted");
+    assert.equal((await prisma.tripMeeting.findUnique({ where: { id: meeting.id } })).reminderSentAt, null);
+
+    const second = await withPostmark(
+      () => true,
+      () => checkAndSendTripMeetingReminders()
+    );
+    assert.deepEqual(mine(second, emails).sort(), emails.slice().sort());
+    assert.ok((await prisma.tripMeeting.findUnique({ where: { id: meeting.id } })).reminderSentAt);
+  });
+
+  test("when only some fail the meeting is marked, so the people who got it are not sent it twice", async () => {
+    const emails = ["part-ok@example.test", "part-bad@example.test"];
+    const { trip } = await tripWith(emails);
+    const meeting = await meetingIn24h(trip.id);
+
+    await withPostmark(
+      (to) => to !== "part-bad@example.test",
+      () => checkAndSendTripMeetingReminders()
+    );
+    assert.ok((await prisma.tripMeeting.findUnique({ where: { id: meeting.id } })).reminderSentAt);
+    const again = await withPostmark(
+      () => true,
+      () => checkAndSendTripMeetingReminders()
+    );
+    assert.equal(mine(again, emails).length, 0, "no second reminder");
+  });
+
+  test("a meeting whose people have no email address is still marked, so it is not retried forever", async () => {
+    const { trip } = await tripWith([null]);
+    const meeting = await meetingIn24h(trip.id);
+    await withPostmark(
+      () => true,
+      () => checkAndSendTripMeetingReminders()
+    );
+    assert.ok((await prisma.tripMeeting.findUnique({ where: { id: meeting.id } })).reminderSentAt);
+  });
+
+  test("a checklist reminder that failed to send is not marked, and goes out on the next check", async () => {
+    const email = "req-retry@example.test";
+    const { trip, participants } = await tripWith([email]);
+    const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const requirement = await prisma.tripRequirement.create({
+      data: { tripId: trip.id, label: "Passport copy", kind: "task", dueAt: tomorrow, reminderLeadDays: 3 },
+    });
+    const status = () =>
+      prisma.tripRequirementStatus.findUnique({
+        where: {
+          requirementId_participantId: { requirementId: requirement.id, participantId: participants[0].id },
+        },
+      });
+
+    await withPostmark(
+      () => false,
+      () => checkAndSendRequirementReminders()
+    );
+    assert.equal(await status(), null, "a failed send leaves no marker");
+
+    const retry = await withPostmark(
+      () => true,
+      () => checkAndSendRequirementReminders()
+    );
+    assert.deepEqual(mine(retry, [email]), [email]);
+    assert.ok((await status())?.reminderSentAt);
+
+    const third = await withPostmark(
+      () => true,
+      () => checkAndSendRequirementReminders()
+    );
+    assert.equal(mine(third, [email]).length, 0, "and once sent it is not sent again");
+  });
+});
+
 // One-click RSVP: link-based only, no inbound email. Each link is a plain GET verified by the
 // same signed access token the self-service page uses, so this suite leans on
 // buildTripParticipantAccessToken directly.
