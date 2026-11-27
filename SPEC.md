@@ -997,7 +997,7 @@ answered, so an edited or deleted question leaves answers readable; `questionId`
 The partner answers at `/survey/:token` (`routes/publicSurveys.js`): no login, rate limited, and every
 failure (unknown, expired, survey not open) answers identically; the page carries only the survey's
 own questions and the partner's own saved answers. They can save and finish later, and change answers
-through the same link until the survey closes. Staff or a guest on the partner's care team can fill one in
+through the same link until the survey closes. A question linked to a field of the partner's record (`utils/surveyFields.js`) names its input (`inputType`: `tel`, `email`, `line` or `contactMethod`) and is checked on save by the same `utils/contactFormat.js` rules every form uses: a phone is saved as E.164 (`+15065550259`, the United States assumed when no country code is typed) and an email in lower case; a contact-method question always carries the fixed list of ways to be reached, with labels. Staff or a guest on the partner's care team can fill one in
 on their behalf (`PUT /api/surveys/:id/partner/:partnerId`, `entered by` recorded); an admin or editor can
 reopen a submitted response. Access to a partner's answers is the contact log's (`readableNeedPartnerIds`;
 a trip leader none; a viewer reads). Nothing here is public, in the booklet or a dispatch. All five tables

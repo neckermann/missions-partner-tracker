@@ -6,12 +6,32 @@
 // columns the partner page edits, inside the approver's request, so "last edited by" and the
 // audit log credit the person who approved it.
 const { CONTACT_METHODS } = require("./contactMethods");
+const { normalizePhone, normalizeEmail } = require("./contactFormat");
 
 const { applySupportAnswer } = require("./surveySupport");
 
 const PHOTO = "photo";
-const isEmail = (v) => /^\S+@\S+\.\S+$/.test(v) && v.length <= 200;
-const phoneOk = (v) => (v.match(/\d/g) || []).length >= 7 && v.length <= 40;
+
+// The words a person reads for each way of being reached; the stored value is the key.
+const CONTACT_METHOD_LABELS = {
+  call: "Phone call",
+  text: "Text message",
+  email: "Email",
+  whatsapp: "WhatsApp",
+  signal: "Signal",
+  messenger: "Messenger",
+  other: "Other",
+};
+
+// A contact method from what a person wrote or picked: the stored value, or its readable label.
+function normalizeContactMethod(raw) {
+  const v = typeof raw === "string" ? raw.trim().toLowerCase() : "";
+  if (!v) return { value: null };
+  if (CONTACT_METHODS.includes(v)) return { value: v };
+  const byLabel = CONTACT_METHODS.find((m) => CONTACT_METHOD_LABELS[m].toLowerCase() === v);
+  if (byLabel) return { value: byLabel };
+  return { error: `Choose one of: ${CONTACT_METHODS.map((m) => CONTACT_METHOD_LABELS[m]).join(", ")}` };
+}
 
 // A partner's primary contact: an organization's named contact is on the partner itself; a
 // family's is the adult marked primary (else the first adult).
@@ -19,15 +39,18 @@ function primaryAdult(adults) {
   return adults.find((a) => a.isPrimaryContact) || adults[0] || null;
 }
 
-// Each field: label, the question kinds that make sense, how to read what is on file, how to check
-// a value, and how to write it. `write` returns { error } or nothing.
+// Each field: label, the question kinds that make sense, which input the page shows (`inputType`),
+// how to read what is on file, how to normalise a value (`normalize` returns { value } to save or
+// { error } in plain words, the same rules every other form uses), and how to write it. `write`
+// returns { error } or nothing.
 const FIELDS = {
   primaryPhone: {
     label: "Primary contact's phone",
     kinds: ["text"],
+    inputType: "tel",
     read: ({ partner, adults }) =>
       partner.kind === "organization" ? partner.contactPhone : primaryAdult(adults)?.phone1,
-    check: (v) => (phoneOk(v) ? null : "That doesn't look like a phone number"),
+    normalize: normalizePhone,
     write: async (tx, { partner, adults }, v) => {
       if (partner.kind === "organization") {
         await tx.partner.update({ where: { id: partner.id }, data: { contactPhone: v } });
@@ -41,9 +64,10 @@ const FIELDS = {
   primaryEmail: {
     label: "Primary contact's email",
     kinds: ["text"],
+    inputType: "email",
     read: ({ partner, adults }) =>
       partner.kind === "organization" ? partner.contactEmail : primaryAdult(adults)?.email,
-    check: (v) => (isEmail(v) ? null : "That doesn't look like an email address"),
+    normalize: normalizeEmail,
     write: async (tx, { partner, adults }, v) => {
       if (partner.kind === "organization") {
         await tx.partner.update({ where: { id: partner.id }, data: { contactEmail: v } });
@@ -57,9 +81,10 @@ const FIELDS = {
   contactMethod: {
     label: "How they prefer to be contacted",
     kinds: ["single", "text"],
+    inputType: "contactMethod",
     read: ({ partner, adults }) =>
       partner.kind === "organization" ? partner.contactMethod : primaryAdult(adults)?.contactMethod,
-    check: (v) => (CONTACT_METHODS.includes(v) ? null : `Use one of: ${CONTACT_METHODS.join(", ")}`),
+    normalize: normalizeContactMethod,
     write: async (tx, { partner, adults }, v) => {
       if (partner.kind === "organization") {
         await tx.partner.update({ where: { id: partner.id }, data: { contactMethod: v } });
@@ -73,18 +98,25 @@ const FIELDS = {
   emergencyContactName: simplePartnerText("Emergency contact's name", "emergencyContactName", 120),
   emergencyContactPhone: {
     ...simplePartnerText("Emergency contact's phone", "emergencyContactPhone", 40),
-    check: (v) => (phoneOk(v) ? null : "That doesn't look like a phone number"),
+    inputType: "tel",
+    normalize: normalizePhone,
   },
   emergencyContactEmail: {
     ...simplePartnerText("Emergency contact's email", "emergencyContactEmail", 200),
-    check: (v) => (isEmail(v) ? null : "That doesn't look like an email address"),
+    inputType: "email",
+    normalize: normalizeEmail,
   },
   overviewShort: simplePartnerText("Short overview (one line)", "overviewShort", 300),
   mailingAddress: {
     label: "Mailing address",
     kinds: ["address"],
     read: ({ addresses }) => addressToValue((addresses || []).find((a) => a.type === "mailing")),
-    check: (v) => normalizeAddress(v).error || (JSON.parse(v).line1 ? null : "Add a street address"),
+    normalize: (v) => {
+      const a = normalizeAddress(v);
+      if (a.error) return { error: a.error };
+      if (!a.value || !JSON.parse(a.value).line1) return { error: "Add a street address" };
+      return { value: a.value };
+    },
     write: async (tx, { partner }, v) => {
       const a = JSON.parse(v);
       const data = {
@@ -151,8 +183,13 @@ function simplePartnerText(label, column, max) {
   return {
     label,
     kinds: ["text"],
+    inputType: "line",
+    maxLength: max,
     read: ({ partner }) => partner[column],
-    check: (v) => (v.length <= max ? null : `Keep it to ${max} characters`),
+    normalize: (v) => {
+      const t = typeof v === "string" ? v.trim() : "";
+      return t.length <= max ? { value: t || null } : { error: `Keep it to ${max} characters` };
+    },
     write: async (tx, { partner }, v) => {
       await tx.partner.update({ where: { id: partner.id }, data: { [column]: v } });
     },
@@ -162,6 +199,55 @@ function simplePartnerText(label, column, max) {
 // What the builder offers: [{ key, label, kinds }].
 function listFields() {
   return Object.entries(FIELDS).map(([key, f]) => ({ key, label: f.label, kinds: f.kinds }));
+}
+
+// How a question linked to `field` is shown to the person answering: which input to use, and for
+// a contact method the one fixed list of choices (whatever an author typed is ignored, so the
+// answer can always be saved). `choices` and `labels` are only set when the list is fixed.
+function presentation(field) {
+  const f = FIELDS[field];
+  if (!f || !f.inputType) return {};
+  const out = { inputType: f.inputType };
+  if (f.maxLength) out.maxLength = f.maxLength;
+  if (f.inputType === "contactMethod") {
+    out.choices = [...CONTACT_METHODS];
+    out.labels = CONTACT_METHOD_LABELS;
+    out.allowOther = false;
+  }
+  return out;
+}
+
+// The question as the page and the answer check see it: stored choices replaced by the fixed list
+// where the field has one.
+function presentQuestion(q) {
+  const p = presentation(q.field);
+  return {
+    ...q,
+    ...(p.choices ? { choices: p.choices, allowOther: false } : {}),
+  };
+}
+
+// The question as the page draws it: its own columns plus which input to show (`inputType`:
+// "tel", "email", "line", "contactMethod" or null for the ordinary box), a length limit, and for a
+// contact method the fixed choices with the words to show beside each.
+function pageQuestion(q) {
+  const p = presentation(q.field);
+  return {
+    ...q,
+    choices: p.choices || q.choices,
+    allowOther: p.choices ? false : q.allowOther,
+    inputType: p.inputType || null,
+    maxLength: p.maxLength || null,
+    labels: p.labels || null,
+  };
+}
+
+// The problem with a typed answer for the field a question is linked to, in plain words, or null.
+// Blank is never a problem here (required questions are checked separately).
+function problemWithAnswer(field, raw) {
+  const f = FIELDS[field];
+  if (!f || !f.normalize || f.photo || f.support) return null;
+  return f.normalize(raw).error || null;
 }
 
 // True if `field` can be linked to a question of this kind.
@@ -179,7 +265,17 @@ async function loadContext(db, partnerId) {
 }
 
 const clean = (v) => (typeof v === "string" ? v.trim() : "");
-const sameValue = (a, b) => clean(a).toLowerCase() === clean(b).toLowerCase();
+// Two values are the same when they normalise to the same thing for this field, so "(506) 555-0259"
+// on file and "506 555 0259" in an answer are one number. Without a field, plain case-blind text.
+function sameValue(a, b, field) {
+  const f = field && FIELDS[field];
+  if (f && f.normalize) {
+    const x = f.normalize(clean(a));
+    const y = f.normalize(clean(b));
+    if (!x.error && !y.error) return (x.value || "") === (y.value || "");
+  }
+  return clean(a).toLowerCase() === clean(b).toLowerCase();
+}
 
 // The text on file for a field ("" when none).
 function currentText(ctx, field) {
@@ -198,11 +294,13 @@ async function applyField(tx, ctx, field, raw) {
     const result = await applySupportAnswer(tx, ctx.partner.id, value);
     return result?.error ? { error: result.error } : { applied: value };
   }
-  const problem = f.check(value);
-  if (problem) return { error: problem };
-  const result = await f.write(tx, ctx, value);
+  const checked = f.normalize ? f.normalize(value) : { value };
+  if (checked.error) return { error: checked.error };
+  const saved = checked.value;
+  if (!saved) return { error: "There is nothing to apply" };
+  const result = await f.write(tx, ctx, saved);
   if (result?.error) return { error: result.error };
-  return { applied: value };
+  return { applied: saved };
 }
 
 module.exports = {
@@ -215,4 +313,9 @@ module.exports = {
   sameValue,
   applyField,
   normalizeAddress,
+  presentation,
+  presentQuestion,
+  pageQuestion,
+  problemWithAnswer,
+  CONTACT_METHOD_LABELS,
 };

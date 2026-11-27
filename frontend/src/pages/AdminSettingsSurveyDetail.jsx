@@ -576,7 +576,13 @@ export default function AdminSettingsSurveyDetail() {
             {r.answers.map((a) => (
               <div key={a.id} style={{ marginBottom: "0.4rem" }}>
                 <dt style={{ color: "var(--muted)", fontSize: "0.9rem" }}>{a.label}</dt>
-                <dd style={{ margin: 0 }}>{describeSavedAnswer(a, results.supportMenu) || "—"}</dd>
+                <dd style={{ margin: 0 }}>
+                  {describeSavedAnswer(
+                    a,
+                    results.supportMenu,
+                    results.survey?.questions?.find((q) => q.id === a.questionId)
+                  ) || "—"}
+                </dd>
               </div>
             ))}
           </dl>
