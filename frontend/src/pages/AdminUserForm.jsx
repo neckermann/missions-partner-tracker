@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import PhoneInput from "../components/shared/PhoneInput.jsx";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { createUser, fetchTrips, fetchReachablePartners } from "../api/client.js";
 import { useSettings } from "../context/SettingsContext.jsx";
@@ -134,8 +135,7 @@ export default function AdminUserForm() {
             </label>
             <label>
               Phone (optional)
-              <input
-                type="tel"
+              <PhoneInput
                 value={values.phone}
                 onChange={(e) => setValue("phone", e.target.value)}
                 maxLength={40}

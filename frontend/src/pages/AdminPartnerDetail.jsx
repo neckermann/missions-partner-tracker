@@ -1,4 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
+import EmailInput from "../components/shared/EmailInput.jsx";
+import PhoneInput from "../components/shared/PhoneInput.jsx";
 import { formatPhone } from "../utils/phone.js";
 import NeedDecisionFields from "../components/admin/NeedDecisionFields.jsx";
 import { useParams, useNavigate, Link } from "react-router-dom";
@@ -1106,8 +1108,7 @@ export default function AdminPartnerDetail() {
                   </label>
                   <label>
                     Phone
-                    <input
-                      type="tel"
+                    <PhoneInput
                       inputMode="tel"
                       value={d.phone}
                       onChange={(e) => set("phone", e.target.value)}
@@ -1115,7 +1116,7 @@ export default function AdminPartnerDetail() {
                   </label>
                   <label>
                     Email
-                    <input value={d.email} onChange={(e) => set("email", e.target.value)} />
+                    <EmailInput value={d.email} onChange={(e) => set("email", e.target.value)} />
                   </label>
                 </div>
               )}
@@ -1271,8 +1272,7 @@ export default function AdminPartnerDetail() {
                       </label>
                       <label>
                         Contact Phone
-                        <input
-                          type="tel"
+                        <PhoneInput
                           inputMode="tel"
                           value={d.contactPhone}
                           onChange={(e) => set("contactPhone", e.target.value)}
@@ -1280,7 +1280,10 @@ export default function AdminPartnerDetail() {
                       </label>
                       <label>
                         Contact Email
-                        <input value={d.contactEmail} onChange={(e) => set("contactEmail", e.target.value)} />
+                        <EmailInput
+                          value={d.contactEmail}
+                          onChange={(e) => set("contactEmail", e.target.value)}
+                        />
                       </label>
                     </>
                   )}
@@ -1394,12 +1397,14 @@ export default function AdminPartnerDetail() {
                       </label>
                       <label>
                         Contact Email
-                        <input value={d.contactEmail} onChange={(e) => set("contactEmail", e.target.value)} />
+                        <EmailInput
+                          value={d.contactEmail}
+                          onChange={(e) => set("contactEmail", e.target.value)}
+                        />
                       </label>
                       <label>
                         Phone
-                        <input
-                          type="tel"
+                        <PhoneInput
                           inputMode="tel"
                           value={d.phone}
                           onChange={(e) => set("phone", e.target.value)}
@@ -2063,8 +2068,7 @@ export default function AdminPartnerDetail() {
             </label>
             <label>
               Phone 1
-              <input
-                type="tel"
+              <PhoneInput
                 inputMode="tel"
                 value={adultCrud.form.phone1}
                 onChange={(e) => adultCrud.setForm((f) => ({ ...f, phone1: e.target.value }))}
@@ -2072,8 +2076,7 @@ export default function AdminPartnerDetail() {
             </label>
             <label>
               Phone 2
-              <input
-                type="tel"
+              <PhoneInput
                 inputMode="tel"
                 value={adultCrud.form.phone2}
                 onChange={(e) => adultCrud.setForm((f) => ({ ...f, phone2: e.target.value }))}
@@ -2081,7 +2084,7 @@ export default function AdminPartnerDetail() {
             </label>
             <label>
               Email
-              <input
+              <EmailInput
                 value={adultCrud.form.email}
                 onChange={(e) => adultCrud.setForm((f) => ({ ...f, email: e.target.value }))}
               />

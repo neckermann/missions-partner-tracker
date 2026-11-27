@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from "react";
+import EmailInput from "../components/shared/EmailInput.jsx";
+import PhoneInput from "../components/shared/PhoneInput.jsx";
 import { useParams, Link } from "react-router-dom";
 import PublicSiteHeader from "../components/PublicSiteHeader.jsx";
 import DemoBanner from "../components/DemoBanner.jsx";
@@ -144,17 +146,11 @@ export default function PublicTripApplication() {
             </label>
             <label>
               Email
-              <input
-                type="email"
-                required
-                value={values.email}
-                onChange={(e) => setValue("email", e.target.value)}
-              />
+              <EmailInput required value={values.email} onChange={(e) => setValue("email", e.target.value)} />
             </label>
             <label>
               Phone
-              <input
-                type="tel"
+              <PhoneInput
                 inputMode="tel"
                 value={values.phone}
                 onChange={(e) => setValue("phone", e.target.value)}
@@ -253,8 +249,7 @@ export default function PublicTripApplication() {
                 </label>
                 <label>
                   Phone
-                  <input
-                    type="tel"
+                  <PhoneInput
                     inputMode="tel"
                     value={values.emergencyContactPhone}
                     onChange={(e) => setValue("emergencyContactPhone", e.target.value)}
@@ -262,8 +257,7 @@ export default function PublicTripApplication() {
                 </label>
                 <label>
                   Email (optional)
-                  <input
-                    type="email"
+                  <EmailInput
                     value={values.emergencyContactEmail}
                     onChange={(e) => setValue("emergencyContactEmail", e.target.value)}
                   />
@@ -307,8 +301,7 @@ export default function PublicTripApplication() {
                 </label>
                 <label>
                   Phone
-                  <input
-                    type="tel"
+                  <PhoneInput
                     inputMode="tel"
                     required
                     value={values.parentGuardianPhone}
@@ -317,9 +310,8 @@ export default function PublicTripApplication() {
                 </label>
                 <label>
                   Email
-                  <input
+                  <EmailInput
                     required
-                    type="email"
                     value={values.parentGuardianEmail}
                     onChange={(e) => setValue("parentGuardianEmail", e.target.value)}
                   />

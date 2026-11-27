@@ -1,4 +1,6 @@
 import React from "react";
+import EmailInput from "../../components/shared/EmailInput.jsx";
+import PhoneInput from "../../components/shared/PhoneInput.jsx";
 import AddressFields from "./AddressFields.jsx";
 
 // `checkbox` is optional, used by the Sending Church instance to fold the "sent by our own
@@ -44,12 +46,14 @@ export default function SendingPartySection({ title, value, onChange, checkbox }
         </label>
         <label>
           Contact Email
-          <input value={value.contactEmail || ""} onChange={(e) => update("contactEmail", e.target.value)} />
+          <EmailInput
+            value={value.contactEmail || ""}
+            onChange={(e) => update("contactEmail", e.target.value)}
+          />
         </label>
         <label>
           Phone
-          <input
-            type="tel"
+          <PhoneInput
             inputMode="tel"
             value={value.phone || ""}
             onChange={(e) => update("phone", e.target.value)}
