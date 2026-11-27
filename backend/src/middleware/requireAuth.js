@@ -99,7 +99,21 @@ async function requireAuth(req, res, next) {
     if (user.role === "guest") {
       guestReach = await resolveGuestReach(user.id);
       if (!guestReach.hasActiveGrant) {
-        return unauthorized(req, res, "Invalid or expired session");
+        // Nothing left to reach only because the church has switched trips or care teams off: the account is
+        // fine and its access returns unchanged when the switch is turned back on, so say so rather than
+        // answering as if the session were bad. Only /me (so the page can explain) is let through; every
+        // other route is refused here, whatever it would otherwise allow a guest.
+        if (guestReach.pausedFeatures.length > 0) {
+          if (!req.allowPausedGuest) {
+            return res.status(403).json({
+              error: "Your church has paused this for now.",
+              code: "feature_paused",
+              features: guestReach.pausedFeatures,
+            });
+          }
+        } else {
+          return unauthorized(req, res, "Invalid or expired session");
+        }
       }
     }
     // A mismatch means the token predates a password/MFA/role change; see
@@ -121,12 +135,20 @@ async function requireAuth(req, res, next) {
       req.user.grantedTripIds = guestReach.grantedTripIds; // writable
       req.user.partnerIds = guestReach.partnerIds;
       req.user.careTeamPartnerIds = guestReach.careTeamPartnerIds;
+      req.user.pausedFeatures = guestReach.pausedFeatures;
     }
     // Lets the "last edited by" stamp work without every route passing the user down.
     actorStore.run({ id: user.id, name: displayName(user) }, next);
   } catch (err) {
     next(err);
   }
+}
+
+// For the one route a guest with nothing reachable (everything they were given is paused) may still call: GET
+// /api/auth/me, which tells the app why, so it can show a plain page instead of the sign-in screen.
+function requireAuthAllowPaused(req, res, next) {
+  req.allowPausedGuest = true;
+  return requireAuth(req, res, next);
 }
 
 // requireAuth is async, so await it: otherwise a rejection would be unhandled instead of a 500.
@@ -277,6 +299,7 @@ function requirePartnerWriter({ body = false, param = null, model = null } = {})
 
 module.exports = {
   requireAuth,
+  requireAuthAllowPaused,
   requireRole,
   requireAuthOrMfaSetup,
   requireTripScope,

@@ -123,6 +123,21 @@ trip's logistics without a full account on everything else. See
 [SPEC.md § 5.1](SPEC.md#51-guest--a-scoped-login-not-a-4th-full-role)
 for the full access list.
 
+**When the feature a guest's access comes from is switched off.** A
+trip leader's access belongs to **Trips**, and a care team member's to
+**Care teams**. While the church has that feature switched off in
+[Enabled Features](ADMIN_GUIDE.md#feature-toggles), the guest's access
+stops on the server (they cannot open the trip or its partner by typing
+an address either), and a guest with nothing else to open sees a plain
+page saying their church has paused it ("Trips are paused" or "Care
+teams are paused"), not the sign-in page and not an instruction to
+change a setting, which they cannot reach. A guest with both kinds of
+access keeps the one that is still on. Nothing is removed: the trip
+grants and care team seats are kept, and switching the feature back on
+restores the access exactly as it was. Turning **Care teams** or
+**Trips** off therefore takes any guest who depends on it out of the
+app until it is back on, so tell them first.
+
 If something you expect to see isn't there (a nav link, a button), it's
 almost always a role thing, not a bug — check with whoever manages users
 at your church.
