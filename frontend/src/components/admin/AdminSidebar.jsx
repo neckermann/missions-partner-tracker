@@ -145,6 +145,12 @@ function buildNavItems(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures
       icon: "🙏",
       label: "Prayer Requests",
     },
+    enabledFeatures.prayerRequests && {
+      key: "prayerSheet",
+      to: "/admin/prayer-sheet",
+      icon: "🕊️",
+      label: "Prayer sheet",
+    },
     enabledFeatures.oneTimeNeeds && {
       key: "oneTimeNeeds",
       to: "/admin/support/needs",

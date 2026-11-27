@@ -807,6 +807,23 @@ flag.
 
 ![The central Newsletters & Docs page, listing uploads across every partner with their Kind](docs/assets/screenshots/partner-files.png)
 
+### Prayer sheet
+
+**Prayer sheet** (under Prayer Requests in the menu) makes something ready for
+Sunday: a one-page, printable list of what to pray for, or the same thing as
+slides for the screen at church (**Show as slides**: one partner per slide,
+arrow keys or the buttons to move, Escape to close). Pick how often you make a
+sheet, **every week**, **every two weeks** or **once a month**, and the sheets
+rotate through your partners so each comes round about once a month: weekly
+shows a quarter of your partners on each sheet, every two weeks shows half, and
+monthly shows all of them on one. The same Sunday always gives the same sheet.
+Your choice of rhythm is remembered in your browser.
+
+Because it is handed out, it shows only what your public site may show: a
+partner that is public, not archived and not restricted, and only its prayer
+requests marked as ministry and public that are still ongoing. Private
+requests, restricted partners and answered requests never appear.
+
 ### Printable partner booklet
 
 **Print Booklet** builds a print-formatted directory: pick a **Look &
