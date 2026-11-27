@@ -118,7 +118,7 @@ export default function PrayerRequestFormFields({
               </div>
               <p style={{ margin: "0.35rem 0 0", color: "var(--muted)", fontSize: "0.85rem" }}>
                 This partner is restricted, so nothing above sends anywhere until an admin or editor reviews
-                it -- normally from the Updates to share page afterward. Checking this confirms, right now,
+                it -- normally from the Updates to Share page afterward. Checking this confirms, right now,
                 that the text you just typed is safe to send verbatim, skipping that extra trip. You'll be
                 asked to confirm the exact wording before saving.
               </p>

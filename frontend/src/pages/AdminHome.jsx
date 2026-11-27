@@ -136,13 +136,13 @@ function buildMainSections(partnerLabel, enabledFeatures, isAdmin) {
     },
     (enabledFeatures.groupme || enabledFeatures.whatsapp || enabledFeatures.outboundEmail) && {
       to: "/admin/pending-dispatches",
-      title: "Updates to share",
+      title: "Updates to Share",
       icon: "📨",
       description: "Review and approve GroupMe, WhatsApp, and email sends before they go out.",
     },
     enabledFeatures.inboundEmail && {
       to: "/admin/inbound-email",
-      title: "Emails to sort",
+      title: "Emails to Sort",
       icon: "📥",
       description: "Inbound emails that couldn't be automatically matched to a partner.",
     },

@@ -1,4 +1,4 @@
-// The Audit log page's API: read the audit trail, export it, and set how
+// The Audit Log page's API: read the audit trail, export it, and set how
 // long it is kept. Admin only, and only while the auditTrail feature is on.
 // Reading it is deliberately not itself logged -- that would make every look
 // at the log add to it.

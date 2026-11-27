@@ -199,8 +199,8 @@ export default function AdminSettingsEmail() {
               <p style={{ color: "var(--muted)" }}>Inbound address: {v.inboundEmailAddress || "Not set"}</p>
               <p style={{ color: "var(--muted)" }}>
                 {v.skipReview
-                  ? "Mail from a partner's own address that passes the sender check is filed and announced without review. Everything else waits in Emails to sort."
-                  : "Every message waits in Emails to sort until someone files it."}
+                  ? "Mail from a partner's own address that passes the sender check is filed and announced without review. Everything else waits in Emails to Sort."
+                  : "Every message waits in Emails to Sort until someone files it."}
               </p>
               <code
                 style={{
@@ -228,7 +228,7 @@ export default function AdminSettingsEmail() {
               </div>
               <p style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
                 Lets partners email updates straight into this app — every message waits in the{" "}
-                <strong>Emails to sort</strong> list until an admin or editor files it (a match against a
+                <strong>Emails to Sort</strong> list until an admin or editor files it (a match against a
                 partner's own email, or any of their household adults', is noted there). On your Postmark
                 server's Inbound stream Settings tab, check{" "}
                 <strong>Include raw email content in JSON payload</strong>, then set the{" "}
@@ -261,7 +261,7 @@ export default function AdminSettingsEmail() {
                 <em>and</em> passes the sender check (SPF or DKIM) is filed as that partner's newsletter and
                 announced straight away, with nobody looking at it first. A sender address can be forged, so
                 leave this off unless you are comfortable with that. Anything that does not match, matches
-                more than one partner, or fails the check still waits in Emails to sort.
+                more than one partner, or fails the check still waits in Emails to Sort.
               </p>
               <label style={{ marginTop: "1rem" }}>
                 Webhook Username

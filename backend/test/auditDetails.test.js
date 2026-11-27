@@ -1,4 +1,4 @@
-// How an audit entry's details read on the Audit log page and in the CSV.
+// How an audit entry's details read on the Audit Log page and in the CSV.
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const { describeDetails } = require("../src/utils/auditDetails");

@@ -112,6 +112,7 @@ module.exports = [
             "TripSelect",
             "SuggestInput",
             "EmailInput",
+            "WebAddressInput",
           ],
         },
       ],

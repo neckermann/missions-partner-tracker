@@ -149,7 +149,7 @@ function buildNavItems(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures
       key: "prayerSheet",
       to: "/admin/prayer-sheet",
       icon: "🕊️",
-      label: "Prayer sheet",
+      label: "Prayer Sheet",
     },
     enabledFeatures.oneTimeNeeds && {
       key: "oneTimeNeeds",
@@ -162,13 +162,13 @@ function buildNavItems(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures
       key: "pendingDispatches",
       to: "/admin/pending-dispatches",
       icon: "📨",
-      label: "Updates to share",
+      label: "Updates to Share",
     },
     enabledFeatures.inboundEmail && {
       key: "inboundEmail",
       to: "/admin/inbound-email",
       icon: "📥",
-      label: "Emails to sort",
+      label: "Emails to Sort",
     },
     enabledFeatures.surveys && {
       key: "surveyUpdates",
@@ -190,9 +190,9 @@ function buildNavItems(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures
 function buildSiteAdminLinks(enabledFeatures) {
   return [
     { to: "/admin/settings/about", label: "About & Branding", icon: "🎨" },
-    { to: "/admin/settings/privacy", label: "Privacy and safety", icon: "🔒" },
+    { to: "/admin/settings/privacy", label: "Privacy and Safety", icon: "🔒" },
     { to: "/admin/settings/users", label: "Manage Users", icon: "👥" },
-    enabledFeatures.auditTrail && { to: "/admin/settings/audit", label: "Audit log", icon: "📜" },
+    enabledFeatures.auditTrail && { to: "/admin/settings/audit", label: "Audit Log", icon: "📜" },
     { to: "/admin/settings/features", label: "Enabled Features", icon: "🧩" },
     enabledFeatures.trips && { to: "/admin/settings/trips", label: "Trips", icon: "✈️" },
     (enabledFeatures.careTeam || enabledFeatures.keyDates || enabledFeatures.contactLog) && {
@@ -215,7 +215,7 @@ function buildSiteAdminLinks(enabledFeatures) {
     enabledFeatures.whatsapp && { to: "/admin/settings/whatsapp", label: "WhatsApp", icon: "📱" },
     (enabledFeatures.groupme || enabledFeatures.whatsapp || enabledFeatures.outboundEmail) && {
       to: "/admin/settings/dispatches",
-      label: "Sending updates",
+      label: "Sending Updates",
       icon: "🗓️",
     },
     (enabledFeatures.aiExtraction || enabledFeatures.joshuaProject) && {

@@ -128,28 +128,23 @@ export async function fetchSystemInfo() {
   return data;
 }
 
-// Asks for the admin's password again (and, if given, locks the file with a passphrase), then saves the file
-// the server sends. A failed request answers with JSON but arrives as a Blob, so its message is read out here.
-export async function downloadBackup({ password, passphrase }) {
-  let res;
-  try {
-    res = await api.post(
-      "/backups/download",
-      { password, ...(passphrase ? { passphrase } : {}) },
-      { responseType: "blob" }
-    );
-  } catch (err) {
-    const blob = err.response?.data;
-    if (blob && typeof blob.text === "function") {
-      try {
-        err.message = JSON.parse(await blob.text()).error || err.message;
-      } catch {
-        // keep the original message
-      }
+// A failed backup call answers with JSON but arrives as a Blob (the success answer is a file), so the plain
+// message is read out of it here.
+async function blobErrorMessage(err) {
+  const blob = err.response?.data;
+  if (blob && typeof blob.text === "function") {
+    try {
+      err.message = JSON.parse(await blob.text()).error || err.message;
+    } catch {
+      // keep the original message
     }
-    throw err;
   }
-  const name = /filename="([^"]+)"/.exec(res.headers["content-disposition"] || "")?.[1] || "backup.ndjson.gz";
+  return err;
+}
+
+// Saves a file the server sent as the answer, under the name it chose; returns that name.
+function saveResponseFile(res, fallbackName) {
+  const name = /filename="([^"]+)"/.exec(res.headers["content-disposition"] || "")?.[1] || fallbackName;
   const url = URL.createObjectURL(res.data);
   const link = document.createElement("a");
   link.href = url;
@@ -159,6 +154,40 @@ export async function downloadBackup({ password, passphrase }) {
   link.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
   return name;
+}
+
+// Asks for the admin's password again (and, if given, locks the file with a passphrase), then saves the file
+// the server sends.
+export async function downloadBackup({ password, passphrase }) {
+  let res;
+  try {
+    res = await api.post(
+      "/backups/download",
+      { password, ...(passphrase ? { passphrase } : {}) },
+      { responseType: "blob" }
+    );
+  } catch (err) {
+    throw await blobErrorMessage(err);
+  }
+  return saveResponseFile(res, "backup.ndjson.gz");
+}
+
+// Restores a backup file, REPLACING everything on the site. The caller must have downloaded a copy of the
+// current data in the last 15 minutes (downloadBackup above); the server refuses otherwise. Returns
+// { restored, rows }. On any failure nothing was changed and the thrown error carries the server's plain message.
+export async function restoreBackup({ file, password, confirmation, passphrase }) {
+  const form = new FormData();
+  form.append("file", file);
+  form.append("password", password);
+  form.append("confirmation", confirmation);
+  if (passphrase) form.append("passphrase", passphrase);
+  try {
+    // Can take several minutes on a large backup.
+    const { data } = await api.post("/backups/restore", form, { timeout: 30 * 60 * 1000 });
+    return data;
+  } catch (err) {
+    throw new Error(err.response?.data?.error || "The restore didn't go through. Nothing was changed.");
+  }
 }
 
 export async function fetchBackupCheck() {
@@ -1027,6 +1056,11 @@ export async function logout() {
   await api.post("/auth/logout");
 }
 
+// Ends every open session of this account, this browser included (the server also clears this browser's cookie).
+export async function logoutEverywhere() {
+  await api.post("/auth/logout-all");
+}
+
 export async function fetchCurrentUser() {
   try {
     const { data } = await api.get("/auth/me");
@@ -1311,7 +1345,7 @@ export async function fetchReachablePartners() {
   return data;
 }
 
-// Audit log. Empty filters are dropped, not sent as "".
+// Audit Log. Empty filters are dropped, not sent as "".
 const withoutBlanks = (params) => Object.fromEntries(Object.entries(params).filter(([, v]) => v));
 export async function fetchAuditLog(params = {}) {
   const { data } = await api.get("/audit", { params: withoutBlanks(params) });

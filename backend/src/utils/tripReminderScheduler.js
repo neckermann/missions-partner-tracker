@@ -3,7 +3,7 @@
 // day-before TripMeeting reminder and the TripRequirement due-date reminder. An
 // hourly tick over a 2-hour window catches every meeting exactly once whatever
 // its scheduled hour; the requirement reminder needs no window (see below).
-const cron = require("node-cron");
+const cron = require("./pausableCron");
 const prisma = require("../prismaClient");
 const { isDemoInstance } = require("./demoMode");
 const { isFeatureEnabled } = require("./features");

@@ -13,11 +13,12 @@
 const prisma = require("../prismaClient");
 const { isFeatureEnabled } = require("./features");
 
-// code -> { label, category }; categories group the Audit log page's filter.
+// code -> { label, category }; categories group the Audit Log page's filter.
 const AUDIT_ACTIONS = {
   "auth.login_success": { label: "Signed in", category: "Sign-in" },
   "auth.login_failed": { label: "Failed sign-in", category: "Sign-in" },
   "auth.password_changed": { label: "Changed their password", category: "Sign-in" },
+  "auth.logout_all": { label: "Signed out of all devices", category: "Sign-in" },
   "auth.password_set": { label: "Set a password from a setup link", category: "Sign-in" },
   "auth.password_reset": { label: "Reset the password from an emailed link", category: "Sign-in" },
   "auth.password_reset_requested": { label: "Requested a password reset", category: "Sign-in" },
@@ -59,6 +60,8 @@ const AUDIT_ACTIONS = {
 
   "backup.downloaded": { label: "Downloaded a backup", category: "Data" },
   "backup.download_refused": { label: "Backup download refused (wrong password)", category: "Data" },
+  "backup.restored": { label: "Restored the site from a backup", category: "Data" },
+  "backup.restore_refused": { label: "Backup restore refused", category: "Data" },
 
   "partner.restricted_changed": { label: "Changed a partner's restricted status", category: "Restricted" },
   "partner.restricted_viewed": { label: "Viewed a restricted partner", category: "Restricted" },
