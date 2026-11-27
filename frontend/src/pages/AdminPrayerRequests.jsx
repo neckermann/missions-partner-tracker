@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
+import PartnerLinkButton from "../components/admin/PartnerLinkButton.jsx";
 import { HeldForReviewNote } from "../components/admin/GuestNotice.jsx";
 import PageHeader from "../components/shared/PageHeader.jsx";
-import { Link } from "react-router-dom";
 import {
   fetchPrayerRequests,
   createPrayerRequest,
@@ -436,12 +436,7 @@ export default function AdminPrayerRequests() {
         requestDetail &&
         (canEditRow({ partnerId: requestDetail.form.partnerId, ...requestDetail.form }) ? (
           <QuickActionModal title="Prayer Request" onClose={closeModal} onSubmit={submitRequestDetail}>
-            <Link
-              to={`/admin/partners/${requestDetail.form.partnerId}`}
-              style={{ display: "inline-block", marginBottom: "0.75rem" }}
-            >
-              Go to partner →
-            </Link>
+            <PartnerLinkButton partnerId={requestDetail.form.partnerId} partners={partners} />
             {!isGuest && <LastEdited name={requestDetail.lastEditedByName} at={requestDetail.lastEditedAt} />}
             <PrayerRequestFormFields
               form={requestDetail.form}
@@ -467,12 +462,7 @@ export default function AdminPrayerRequests() {
           </QuickActionModal>
         ) : (
           <Modal title="Prayer Request" onClose={closeModal}>
-            <Link
-              to={`/admin/partners/${requestDetail.form.partnerId}`}
-              style={{ display: "inline-block", marginBottom: "0.75rem" }}
-            >
-              Go to partner →
-            </Link>
+            <PartnerLinkButton partnerId={requestDetail.form.partnerId} partners={partners} />
             {!isGuest && <LastEdited name={requestDetail.lastEditedByName} at={requestDetail.lastEditedAt} />}
             <Field
               label="Category"

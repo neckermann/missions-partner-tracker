@@ -155,6 +155,13 @@ per page) — those are gone, not alternatives.
   row. The only buttons left are for creating ("+ Add", "+ Record") and
   for actions that aren't editing ("Send a greeting", "Log a
   thank-you").
+  **Navigation inside a popup is a button-styled link**, never bare
+  underlined text floating between the title and the form: a record's
+  window gets `PartnerLinkButton`
+  (`frontend/src/components/admin/PartnerLinkButton.jsx`, "Go to
+  Abernathy family →") for the way to its partner, so the prayer
+  request, one-time need and partner file windows cannot drift apart.
+  Links inside table rows and running text stay plain links.
   **Section-level editing**: `EditableSection`
   (`frontend/src/components/admin/EditableSection.jsx`) is the save
   standard for grouped scalar fields on a detail page — explicit Edit
