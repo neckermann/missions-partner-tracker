@@ -198,7 +198,9 @@ the suite.
   CHECK-constraint pattern used by `SupportEntry`/`Newsletter`/`Document`/
   etc. (`backend/prisma/schema.prisma`), not a new join table shape.
 - **No `window.confirm()`, `confirm()`, or `prompt()` for anything a user
-  sees.** Use `frontend/src/hooks/useConfirmDialog.jsx` instead — a
+  sees** (the `no-alert` lint rule fails the build; the other written rules
+  here have a guard too: `backend/test/ruleGuards.test.js` covers single origin
+  and migrations). Use `frontend/src/hooks/useConfirmDialog.jsx` instead — a
   styled, accessible dialog built on the app's own `Modal.jsx`, not the
   native browser alert. Same call shape as `window.confirm`
   (`if (!(await confirmDialog({...}))) return;`), so converting an
