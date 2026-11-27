@@ -12,8 +12,14 @@ import FeaturePausedPage from "../FeaturePausedPage.jsx";
 // Shared shell for every /admin/* route, mounted once so the sidebar persists across navigation.
 export default function AdminLayout() {
   const location = useLocation();
-  const { isGuest, guestTripIds, guestReadTripIds, careTeamSeats, pausedFeatures, loading } =
-    useCurrentUser();
+  const {
+    isGuest,
+    guestTripIds,
+    guestReadTripIds,
+    careTeamSeats,
+    pausedFeatures = [],
+    loading,
+  } = useCurrentUser();
 
   // A guest whose every grant depends on a feature the church has switched off has nothing left to open: say so
   // plainly (the server refuses everything but this answer, middleware/requireAuth.js). Access returns unchanged
