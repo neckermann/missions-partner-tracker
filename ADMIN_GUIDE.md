@@ -1619,6 +1619,8 @@ somewhere separate from the file (a password manager, or written down
 in a safe place). Unlocked downloads still work, but anyone who gets
 one can read everything in it.
 
+The backup is built and sent a piece at a time, so it works however many photos and files you have, even on the smallest hosting plan, and the file is the same format as before. It does read the database twice to make one consistent copy, so a large backup takes a little longer to start downloading. If a download is interrupted, discard the partial file: the restore command refuses it.
+
 Nothing in the app backs up your database, so it reminds you. An admin sees
 a banner and a **Time to check your backups** item on the bell, and, **when
 Email (Sending) is on**, also gets a short email about once a month (never on
