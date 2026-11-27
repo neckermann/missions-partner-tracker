@@ -3,6 +3,7 @@ import { Navigate, Outlet, useLocation } from "react-router-dom";
 import AdminSidebar from "./AdminSidebar.jsx";
 import UpdateBanner from "./UpdateBanner.jsx";
 import BackupReminder from "./BackupReminder.jsx";
+import SiteAddressBanner from "./SiteAddressBanner.jsx";
 import GuestNotice from "./GuestNotice.jsx";
 import ErrorBoundary from "../ErrorBoundary.jsx";
 import useCurrentUser from "../../hooks/useCurrentUser.js";
@@ -46,6 +47,7 @@ export default function AdminLayout() {
   return (
     <div className="admin-layout-wrapper">
       <UpdateBanner />
+      <SiteAddressBanner />
       <BackupReminder />
       <div className="admin-layout">
         <AdminSidebar />

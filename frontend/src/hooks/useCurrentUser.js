@@ -53,6 +53,8 @@ export default function useCurrentUser() {
     guestReadTripIds,
     canAccessTrip,
     careTeamSeats,
+    // Admins only: the address the site is set to (APP_BASE_URL), or null. See SiteAddressBanner.
+    configuredSiteOrigin: user?.configuredSiteOrigin ?? null,
     // On the church's missions team: looks after every partner with no care team of its own.
     onMissionsTeam: user?.onMissionsTeam === true,
     isOnCareTeamFor,
