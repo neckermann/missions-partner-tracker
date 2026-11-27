@@ -163,6 +163,88 @@ after(async () => {
 
 // B1 of the November 2026 app review: a digest that failed to send used to be stamped as sent anyway
 // (and its error note cleared), so a church whose email was misconfigured lost those updates silently.
+// G14b: the provider failing outright part-way through a digest of more than 250 recipients used to throw out of
+// the pass after the first 250 had already been sent, leaving nothing marked, so the next minute sent them again.
+describe("a digest the provider fails part-way through", () => {
+  const now = new Date("2026-06-01T09:00:00Z");
+  async function bigDigest() {
+    const partner = await createPartner({});
+    const row = await createRow(partner.id, "prayerRequestCreated", {
+      partnerName: partner.displayName,
+      requestText: "part-way",
+    });
+    const admins = await Promise.all(
+      Array.from({ length: 251 }, () => createAdminUser({ cadence: "biweekly" }))
+    );
+    return { row, admins };
+  }
+  // Postmark's batch call number `failCall` (1-based) answers with an outage; the others succeed.
+  async function withOutageOnCall(failCall, run) {
+    let calls = 0;
+    const originalFetch = global.fetch;
+    global.fetch = (url, options) => {
+      if (String(url).startsWith("https://api.postmarkapp.com")) {
+        calls += 1;
+        if (calls === failCall) {
+          const body = { ErrorCode: 300, Message: "Provider unavailable" };
+          return Promise.resolve({
+            ok: false,
+            status: 500,
+            json: async () => body,
+            text: async () => JSON.stringify(body),
+          });
+        }
+      }
+      return originalFetch(url, options);
+    };
+    try {
+      await run();
+    } finally {
+      global.fetch = originalFetch;
+    }
+  }
+  const tier = async () =>
+    runEmailDispatchTier(
+      "biweekly",
+      "biweeklyEmailDispatchSentAt",
+      "lastBiweeklyEmailDispatchSentAt",
+      await getSettings(),
+      now
+    );
+
+  test("when the second batch fails, the first 250 are not sent again: the row is marked and the tier is done", async () => {
+    const { row, admins } = await bigDigest();
+    try {
+      await withOutageOnCall(2, async () => {
+        await tier();
+      });
+      const after = await prisma.dispatchRecord.findUnique({ where: { id: row.id } });
+      assert.ok(after.biweeklyEmailDispatchSentAt, "it reached people, so it is marked");
+      assert.match(after.emailError, /Provider error/, "and the failure stays visible to admins");
+      const settings = await prisma.churchSettings.findUnique({ where: { id: "singleton" } });
+      assert.ok(
+        settings.lastBiweeklyEmailDispatchSentAt,
+        "the tier's last-sent time moves on, so it is not run again"
+      );
+    } finally {
+      await prisma.user.deleteMany({ where: { id: { in: admins.map((a) => a.id) } } });
+    }
+  });
+
+  test("when the very first batch fails nothing went out, so the pass stops and nothing is marked", async () => {
+    const { row, admins } = await bigDigest();
+    try {
+      await withOutageOnCall(1, async () => {
+        await assert.rejects(() => tier());
+      });
+      const after = await prisma.dispatchRecord.findUnique({ where: { id: row.id } });
+      assert.equal(after.biweeklyEmailDispatchSentAt, null, "so the next minute tries the whole pass again");
+    } finally {
+      await prisma.user.deleteMany({ where: { id: { in: admins.map((a) => a.id) } } });
+    }
+  });
+});
+
 describe("a digest whose send failed is not marked as sent", () => {
   async function setup({ failFor = [] } = {}) {
     const partner = await createPartner({});
