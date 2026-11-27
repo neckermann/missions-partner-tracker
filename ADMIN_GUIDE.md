@@ -781,12 +781,18 @@ webhook includes the entire raw email (headers, body, attachments) in
 one request, which this app stores as a `.eml` file, exactly like a
 manually-uploaded newsletter. If the sender's address matches exactly
 one partner — either that partner's own Contact Email (organizations) or
-any of their household adults' email addresses (missionaries) — it's
-filed as a Newsletter automatically, scannable by AI Features
-like any other. If zero partners match, or more than one does, it lands
-in the **Emails to sort** queue instead of guessing, where any
-logged-in admin or editor can view the raw email and assign it to the
-right partner (or an admin can discard it). Setup:
+any of their household adults' email addresses (missionaries) — that is
+noted, but a sender address can be forged, so by default **every**
+message waits in the **Emails to sort** queue, where any logged-in
+admin or editor can view the raw email and assign it to the right
+partner as a Newsletter (scannable by AI Features like any other), or an
+admin can discard it. Nothing is ever deleted automatically. On
+**Settings → Email → Receiving**, an admin can tick **File mail from a
+verified partner without review**: a message whose sender matches exactly
+one partner *and* passes the sender check (SPF, or DKIM) is then filed
+as that partner's Newsletter and announced at once; anything that does not
+match, matches more than one partner, or fails the check still waits. It
+is off by default. Setup:
 
 1. Create a free Postmark account (or reuse the one from Sending above —
    the same server can run both an outbound and an inbound stream).

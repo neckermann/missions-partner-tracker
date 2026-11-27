@@ -112,6 +112,8 @@ describe("GET/PUT /api/settings/email -- admin gate", () => {
       webhookPath: "/api/inbound-email/postmark",
       // Informational, not a credential.
       inboundEmailAddress: null,
+      // Off by default: every inbound message waits for a person.
+      skipReview: false,
     });
   });
 });

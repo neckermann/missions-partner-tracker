@@ -87,7 +87,12 @@ router.post("/postmark", async (req, res, next) => {
   try {
     const settings = await prisma.churchSettings.findUnique({
       where: { id: "singleton" },
-      select: { inboundEmailWebhookUsername: true, inboundEmailWebhookPassword: true, enabledFeatures: true },
+      select: {
+        inboundEmailWebhookUsername: true,
+        inboundEmailWebhookPassword: true,
+        inboundEmailSkipReview: true,
+        enabledFeatures: true,
+      },
     });
 
     // Never treat an empty expected credential as matching an empty/missing one.
@@ -131,8 +136,33 @@ router.post("/postmark", async (req, res, next) => {
       select: { id: true },
     });
 
-    // Nothing is filed or announced straight from the webhook: the sender address is forgeable and the
-    // SPF/DKIM signal is best-effort, so every message waits in the queue for a person to look at it.
+    // By default nothing is filed or announced straight from the webhook: the sender address is forgeable and
+    // the SPF/DKIM signal is best-effort, so every message waits in the queue for a person to look at it.
+    // An admin can switch the review off (Settings, Email); then, and only then, a message from an address
+    // that matches exactly one partner AND passed SPF/DKIM is filed as that partner's newsletter and
+    // announced. Everything else still waits.
+    if (settings.inboundEmailSkipReview && matches.length === 1 && isSenderVerified(payload.Headers)) {
+      const created = await prisma.partnerFile.create({
+        data: {
+          partnerId: matches[0].id,
+          kind: "newsletter",
+          title: subject,
+          receivedDate: new Date(),
+          fileName,
+          contentType: "message/rfc822",
+          fileSize: bytes.length,
+          notes: "Received via inbound email.",
+          bytesRow: { create: { bytes } },
+        },
+        include: { partner: partnerRefSelect },
+      });
+      // A broken notification channel must never affect whether this email got filed.
+      await notifyNewsletterCreated(created).catch((err) =>
+        console.error("Couldn't announce an inbound newsletter:", err.message)
+      );
+      return res.status(200).json({ matched: true });
+    }
+
     // queueReason tells the reviewing admin why (and, for a verified single match, that it is likely fine).
     let queueReason = null;
     if (matches.length === 1) {

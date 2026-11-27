@@ -1661,7 +1661,10 @@ email arrives:
   then notifies the same way a manually-uploaded newsletter does
   (GroupMe/email digest, if those are on; [AI Features](#ai-features-admin-only)
   can scan it the same as any other newsletter). Nothing in the queue is ever deleted
-  automatically; only an admin can discard a message.
+  automatically; only an admin can discard a message. (An admin can switch
+  the review off for a sender that matches one partner and passes the sender
+  check: **Settings → Email → Receiving → File mail from a verified partner
+  without review**. It is off by default.)
 - If the sender's address matches **no partner, or more than one** (two
   partners happen to share a household-adult email, for instance),
   there's no safe guess to make — it lands in the **Emails to sort**

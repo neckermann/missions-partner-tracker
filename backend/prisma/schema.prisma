@@ -1479,6 +1479,12 @@ model ChurchSettings {
   // inbound domain set in Postmark. Display only.
   inboundEmailAddress String?
 
+  // Skip the review for a sender the app can vouch for. Off (the default): every inbound message waits in
+  // Unmatched Emails until an admin or editor assigns it. On: a message from an address that matches exactly
+  // one partner AND whose SPF/DKIM check passed is filed as that partner's newsletter and announced at once.
+  // Anything else is still held. The From address can be forged, so this trades review for convenience.
+  inboundEmailSkipReview Boolean @default(false)
+
   // The church-wide application questions, requirement checklist and the two pick-from
   // libraries are real rows (ApplicationQuestion, RequirementTemplateItem; scope "template" or
   // "library"); see utils/tripTemplates.js.

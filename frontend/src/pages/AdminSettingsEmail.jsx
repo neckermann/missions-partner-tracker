@@ -40,6 +40,7 @@ export default function AdminSettingsEmail() {
       ...(draft.webhookUsername?.trim() ? { webhookUsername: draft.webhookUsername.trim() } : {}),
       ...(draft.webhookPassword?.trim() ? { webhookPassword: draft.webhookPassword.trim() } : {}),
       inboundEmailAddress: draft.inboundEmailAddress?.trim() || null,
+      skipReview: draft.skipReview,
     });
     setSettings(updated);
     // The sidebar's Email link and the "Unmatched Emails" nav depend on receiveEnabled (see refreshSettings).
@@ -184,6 +185,7 @@ export default function AdminSettingsEmail() {
             webhookUsername: settings.webhookUsername || "",
             webhookPassword: "",
             inboundEmailAddress: settings.inboundEmailAddress || "",
+            skipReview: settings.skipReview === true,
           }}
           onSave={saveReceive}
           onSaved={reload}
@@ -195,6 +197,11 @@ export default function AdminSettingsEmail() {
               </p>
               <p style={{ color: "var(--muted)" }}>Webhook username: {v.webhookUsername || "Not set"}</p>
               <p style={{ color: "var(--muted)" }}>Inbound address: {v.inboundEmailAddress || "Not set"}</p>
+              <p style={{ color: "var(--muted)" }}>
+                {v.skipReview
+                  ? "Mail from a partner's own address that passes the sender check is filed and announced without review. Everything else waits in Emails to sort."
+                  : "Every message waits in Emails to sort until someone files it."}
+              </p>
               <code
                 style={{
                   display: "block",
@@ -239,6 +246,23 @@ export default function AdminSettingsEmail() {
               >
                 https://{"<username>"}:{"<password>"}@{webhookUrl.replace(/^https?:\/\//, "")}
               </code>
+              <div className="admin-checkbox-row" style={{ marginTop: "1rem" }}>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={d.skipReview}
+                    onChange={(e) => set("skipReview", e.target.checked)}
+                  />
+                  File mail from a verified partner without review
+                </label>
+              </div>
+              <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
+                Off by default. When on, a message whose sender address matches exactly one partner{" "}
+                <em>and</em> passes the sender check (SPF or DKIM) is filed as that partner's newsletter and
+                announced straight away, with nobody looking at it first. A sender address can be forged, so
+                leave this off unless you are comfortable with that. Anything that does not match, matches
+                more than one partner, or fails the check still waits in Emails to sort.
+              </p>
               <label style={{ marginTop: "1rem" }}>
                 Webhook Username
                 <input

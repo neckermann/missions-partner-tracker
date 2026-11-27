@@ -109,9 +109,13 @@ in `routes/careTeams.js`; §5.1) and `ContactLog` (one touchpoint with a partner
 **WhatsApp dispatch** adds `WhatsAppAuthEntry` (the encrypted linked-
 session store — see §6.2a).
 
-`InboundEmail` has no relation to `Partner` at all — it exists
-specifically to hold mail that couldn't be auto-matched, and either
-outcome (assign, discard) deletes the row.
+`InboundEmail` has no relation to `Partner` at all — it holds mail waiting
+for a person (by default every inbound message), and either outcome
+(assign, discard) deletes the row. Nothing is deleted automatically.
+`ChurchSettings.inboundEmailSkipReview` (off by default) lets a message
+from an address matching exactly one partner, with a passing SPF/DKIM
+check, be filed as that partner's newsletter and announced straight from
+the webhook instead of waiting.
 
 ### 1.3 Notable modeling decisions
 
