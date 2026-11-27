@@ -76,7 +76,10 @@ describe("trip application email", () => {
       },
     });
   }
-  const application = { firstName: "Dana", lastName: "Reed", email: "dana@example.test", phone: "555" };
+  // A phone number no random id in the mail (a trip UUID, say) can contain by chance. It was "555", which a UUID
+  // holds about one run in a hundred, failing the "no contact details" check below for no real reason.
+  const PHONE = "+1 (555) 013-7742";
+  const application = { firstName: "Dana", lastName: "Reed", email: "dana@example.test", phone: PHONE };
 
   test("goes to admins only, not editors, viewers or the trip's own leaders", async () => {
     const t = await trip();
@@ -96,7 +99,9 @@ describe("trip application email", () => {
     assert.match(mail.subject, new RegExp(`New application for ${TAG} trip`));
     assert.ok(mail.text.includes("Dana Reed"));
     assert.ok(
-      !mail.text.includes("dana@example.test") && !mail.text.includes("555"),
+      !mail.text.includes("dana@example.test") &&
+        !mail.text.includes(PHONE) &&
+        !mail.text.includes("013-7742"),
       "no contact details leave the app"
     );
     assert.ok(mail.text.includes(`/admin/trips/${t.id}/team`));
