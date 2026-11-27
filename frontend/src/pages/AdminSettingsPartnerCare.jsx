@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   fetchMissionsTeam,
   saveMissionsTeam,
@@ -191,20 +192,72 @@ export default function AdminSettingsPartnerCare() {
       )}
 
       <div className="admin-section-group">
-        <h2 className="admin-group-heading">Timing</h2>
+        <h2 className="admin-group-heading">Quiet partners</h2>
         <EditableSection
-          title="Timing"
+          title="Quiet partners"
+          canEdit
+          value={{ contactStaleDays: String(timings?.contactStaleDays ?? 90) }}
+          onSave={(draft) => updateChurchSettings({ contactStaleDays: Number(draft.contactStaleDays) })}
+          onSaved={reloadTimings}
+          view={() => (
+            <>
+              <Field
+                label="A partner is quiet after"
+                value={timings ? `${timings.contactStaleDays} days without contact` : "Loading…"}
+                showEmpty
+              />
+              <p style={{ color: "var(--muted)", marginTop: "0.5rem" }}>
+                Used on the bell, on My partners and as the default in the Last heard from report.
+              </p>
+            </>
+          )}
+          edit={(d, set) => (
+            <label>
+              Call a partner quiet after this many days without a logged contact (7 to 365)
+              <input
+                type="number"
+                min={7}
+                max={365}
+                value={d.contactStaleDays}
+                onChange={(e) => set("contactStaleDays", e.target.value)}
+                required
+              />
+            </label>
+          )}
+        />
+      </div>
+
+      <div className="admin-section-group">
+        <h2 className="admin-group-heading">Key-date reminders</h2>
+        <div className="admin-section">
+          {enabledFeatures.keyDates ? (
+            <p style={{ margin: 0 }}>
+              <strong>On.</strong> Whoever looks after each partner is reminded about coming birthdays,
+              anniversaries and supported-since milestones on the bell
+              {enabledFeatures.outboundEmail
+                ? ", and in one grouped email a day that is sent only on days something is due."
+                : ". Turn on Email (Sending) to also send the daily email."}{" "}
+              Switch it off under <Link to="/admin/settings/features">Enabled Features</Link>.
+            </p>
+          ) : (
+            <p style={{ margin: 0 }}>
+              <strong>Off.</strong> Turn on <em>Key-date reminders</em> under{" "}
+              <Link to="/admin/settings/features">Enabled Features</Link> to remind people about birthdays,
+              anniversaries and supported-since milestones.
+            </p>
+          )}
+        </div>
+        <EditableSection
+          title="Key-date timing"
           canEdit
           value={{
             keyDateLeadDays: String(timings?.keyDateLeadDays ?? 7),
             keyDateAdvanceDays: (timings?.keyDateAdvanceDays ?? [90, 30]).join(", "),
-            contactStaleDays: String(timings?.contactStaleDays ?? 90),
           }}
           onSave={(draft) =>
             updateChurchSettings({
               keyDateLeadDays: Number(draft.keyDateLeadDays),
               keyDateAdvanceDays: parseDays(draft.keyDateAdvanceDays),
-              contactStaleDays: Number(draft.contactStaleDays),
             })
           }
           onSaved={reloadTimings}
@@ -224,16 +277,10 @@ export default function AdminSettingsPartnerCare() {
                 }
                 showEmpty
               />
-              <Field
-                label="A partner is quiet after"
-                value={timings ? `${timings.contactStaleDays} days without contact` : "Loading…"}
-                showEmpty
-              />
               <p style={{ color: "var(--muted)", marginTop: "0.5rem" }}>
-                The final number is used on the bell, in the daily email, on My partners and as the default in
-                the Last heard from report. Earlier heads-ups ride in each person's email digest, once each.
-                The short daily email goes out at 7am church time, and only to someone whose digest wouldn't
-                reach them before the date.
+                The first number is used on the bell, in the daily email and on My partners. Earlier heads-ups
+                ride in each person&apos;s email digest, once each. The short daily email goes out at 7am
+                church time, and only to someone whose digest wouldn&apos;t reach them before the date.
               </p>
             </>
           )}
@@ -260,40 +307,9 @@ export default function AdminSettingsPartnerCare() {
                   onChange={(e) => set("keyDateAdvanceDays", e.target.value)}
                 />
               </label>
-              <label>
-                Call a partner quiet after this many days without a logged contact (7 to 365)
-                <input
-                  type="number"
-                  min={7}
-                  max={365}
-                  value={d.contactStaleDays}
-                  onChange={(e) => set("contactStaleDays", e.target.value)}
-                  required
-                />
-              </label>
             </>
           )}
         />
-      </div>
-
-      <div className="admin-section-group">
-        <h2 className="admin-group-heading">Key-date reminders</h2>
-        <div className="admin-section">
-          {enabledFeatures.keyDates ? (
-            <p style={{ margin: 0 }}>
-              <strong>On.</strong> Whoever looks after each partner is reminded about coming birthdays,
-              anniversaries and supported-since milestones on the bell
-              {enabledFeatures.outboundEmail
-                ? ", and in one grouped email a day that is sent only on days something is due."
-                : ". Turn on Email (Sending) to also send the daily email."}
-            </p>
-          ) : (
-            <p style={{ margin: 0 }}>
-              <strong>Off.</strong> Turn on <em>Key-date reminders</em> under Enabled Features to remind
-              people about birthdays, anniversaries and supported-since milestones.
-            </p>
-          )}
-        </div>
       </div>
     </div>
   );
