@@ -30,6 +30,39 @@ function renderGate() {
 
 beforeEach(() => fetchSetupStatus.mockReset());
 
+describe("RequirePublicSite: needs", () => {
+  const gate = () =>
+    render(
+      <MemoryRouter>
+        <RequirePublicSite feature="publicPrayerDigest" needs="publicSubscribeAvailable">
+          <div>THE FORM</div>
+        </RequirePublicSite>
+      </MemoryRouter>
+    );
+
+  it("shows the page when the feature is on and what it needs is there (or not yet known)", () => {
+    settings = {
+      enabledFeatures: { publicPrayerDigest: true },
+      publicSubscribeAvailable: true,
+      loading: false,
+    };
+    gate();
+    expect(screen.getByText("THE FORM")).toBeInTheDocument();
+  });
+
+  it("says this isn't public when the feature is on but sign-up cannot work", () => {
+    fetchSetupStatus.mockResolvedValue({ needed: false });
+    settings = {
+      enabledFeatures: { publicPrayerDigest: true },
+      publicSubscribeAvailable: false,
+      loading: false,
+    };
+    gate();
+    expect(screen.queryByText("THE FORM")).toBeNull();
+    expect(screen.getByText("This isn't public")).toBeInTheDocument();
+  });
+});
+
 describe("RequirePublicSite", () => {
   it("shows the page when the feature is on, and never asks about setup", () => {
     settings = { enabledFeatures: { publicDirectory: true }, loading: false };

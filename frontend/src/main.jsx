@@ -121,7 +121,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
               <Route
                 path="/subscribe"
                 element={
-                  <RequirePublicSite feature="publicPrayerDigest">
+                  <RequirePublicSite feature="publicPrayerDigest" needs="publicSubscribeAvailable">
                     <PublicSubscribe />
                   </RequirePublicSite>
                 }

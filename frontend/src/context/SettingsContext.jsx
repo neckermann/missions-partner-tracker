@@ -51,6 +51,8 @@ const DEFAULTS = {
     whatsapp: false,
     joshuaProject: false,
   },
+  // Whether the public prayer sign-up can work (routes/publicSettings.js). Defaults on so the form doesn't flash away.
+  publicSubscribeAvailable: true,
   // Email-digest cadence tiers an admin offers. Defaults match ChurchSettings' column defaults so a
   // page never flashes a tier that is about to disappear.
   cadenceTiersEnabled: {

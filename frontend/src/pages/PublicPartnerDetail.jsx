@@ -12,7 +12,7 @@ import { linkTypeLabel } from "../utils/linkTypes.js";
 
 export default function PublicPartnerDetail() {
   const { id } = useParams();
-  const { partnerTermPlural, enabledFeatures } = useSettings();
+  const { partnerTermPlural, enabledFeatures, publicSubscribeAvailable } = useSettings();
   const [partner, setPartner] = useState(null);
   const [notFound, setNotFound] = useState(false);
 
@@ -151,7 +151,7 @@ export default function PublicPartnerDetail() {
           </div>
         )}
 
-        {enabledFeatures.publicPrayerDigest && (
+        {enabledFeatures.publicPrayerDigest && publicSubscribeAvailable !== false && (
           <>
             <PublicSubscribeForm
               allPartners={false}

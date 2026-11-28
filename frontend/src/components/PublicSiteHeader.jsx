@@ -12,12 +12,15 @@ const NAV_LINKS = [
     to: "/subscribe",
     label: (partnerTermPlural) => `Pray for our ${partnerTermPlural}`,
     feature: "publicPrayerDigest",
+    // Hidden too while signing up cannot work (no working email), so the link never leads to "Not found".
+    needs: "publicSubscribeAvailable",
   },
   { to: "/trips", label: "Trip Opportunities", feature: "publicTripDiscovery" },
 ];
 
 export default function PublicSiteHeader({ title, subtitle, children }) {
-  const { logo, partnerTermPlural, enabledFeatures } = useSettings();
+  const settings = useSettings();
+  const { logo, partnerTermPlural, enabledFeatures } = settings;
   const { pathname } = useLocation();
 
   return (
@@ -30,7 +33,9 @@ export default function PublicSiteHeader({ title, subtitle, children }) {
         </div>
       </div>
       <div className="app-header-nav">
-        {NAV_LINKS.filter((l) => l.to !== pathname && enabledFeatures[l.feature]).map((l) => (
+        {NAV_LINKS.filter(
+          (l) => l.to !== pathname && enabledFeatures[l.feature] && (!l.needs || settings[l.needs] !== false)
+        ).map((l) => (
           <Link key={l.to} to={l.to} style={{ color: "white" }}>
             {typeof l.label === "function" ? l.label(partnerTermPlural) : l.label}
           </Link>

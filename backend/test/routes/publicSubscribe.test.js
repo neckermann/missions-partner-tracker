@@ -254,6 +254,34 @@ const postConfirm = (token) =>
     body: `token=${encodeURIComponent(token)}`,
   });
 
+// The sign-up form and its links are hidden whenever signing up cannot work, so nobody meets "Not found".
+describe("GET /api/public/settings: publicSubscribeAvailable", () => {
+  const available = async () => (await anon("/api/public/settings")).body.publicSubscribeAvailable;
+
+  test("true only when the digest, the directory and a working email account are all there", async () => {
+    await setFeatures(ALL_ON);
+    assert.equal(await available(), true);
+
+    for (const off of [{ publicPrayerDigest: false }, { publicDirectory: false }, { outboundEmail: false }]) {
+      await setFeatures(off);
+      assert.equal(await available(), false, JSON.stringify(off));
+      await setFeatures(ALL_ON);
+    }
+
+    const before = await prisma.churchSettings.findUnique({
+      where: { id: "singleton" },
+      select: { postmarkServerToken: true, emailFromAddress: true },
+    });
+    await prisma.churchSettings.update({ where: { id: "singleton" }, data: { postmarkServerToken: null } });
+    try {
+      assert.equal(await available(), false, "email switched on but no mail account yet");
+    } finally {
+      await prisma.churchSettings.update({ where: { id: "singleton" }, data: before });
+    }
+    assert.equal(await available(), true);
+  });
+});
+
 describe("GET and POST /api/public/subscribe/confirm", () => {
   // H4: opening the link only shows a button. A mail scanner that pre-opens links must never confirm anyone.
   test("GET renders a confirm button and does not confirm anyone by itself", async () => {
