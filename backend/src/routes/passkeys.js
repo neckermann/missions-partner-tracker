@@ -13,7 +13,7 @@ const { requireAuth, requireAuthOrMfaSetup } = require("../middleware/requireAut
 const { setSessionCookie } = require("../utils/jwt");
 const { recordAuditSafe } = require("../utils/auditLog");
 const { isTwoFactorRequired } = require("../utils/twoFactor");
-const { isDemoDeployment, endOtherSessions } = require("../utils/demoMode");
+const { isDemoDeployment, isTestingSite, endOtherSessions } = require("../utils/demoMode");
 const { isPasskeySignInOn } = require("../utils/passwordless");
 const {
   MAX_PASSKEYS,
@@ -53,7 +53,17 @@ module.exports = function passkeyRoutes({ completeLogin }) {
   // A session, or the forced-enrolment setup token (a person the church requires two-factor of
   // who has none yet): in that case finishing also signs them in, like a verified code does.
 
-  router.post("/register/options", requireAuthOrMfaSetup, async (req, res, next) => {
+  // A public demo shares its logins with everyone, so a passkey added to one would let a visitor sign in as that
+  // account (and lock others out of it until the next reset). Refused there; the owner's own test deployment
+  // (DEMO_TESTING_SITE) is not guarded and may add them.
+  const refuseOnPublicDemo = (req, res, next) => {
+    if (isDemoDeployment() && !isTestingSite()) {
+      return res.status(403).json({ error: "Passkeys can't be added on the public demo." });
+    }
+    next();
+  };
+
+  router.post("/register/options", refuseOnPublicDemo, requireAuthOrMfaSetup, async (req, res, next) => {
     try {
       const user = await prisma.user.findUnique({
         where: { id: req.user.id },
@@ -101,7 +111,7 @@ module.exports = function passkeyRoutes({ completeLogin }) {
     label: z.string().trim().max(60).optional(),
   });
 
-  router.post("/register/verify", requireAuthOrMfaSetup, async (req, res, next) => {
+  router.post("/register/verify", refuseOnPublicDemo, requireAuthOrMfaSetup, async (req, res, next) => {
     try {
       const body = registerSchema.parse(req.body);
       const user = await prisma.user.findUnique({

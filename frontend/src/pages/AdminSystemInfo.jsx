@@ -65,6 +65,11 @@ export default function AdminSystemInfo() {
         <p>Loading…</p>
       ) : (
         <>
+          {(info.warnings || []).map((warning) => (
+            <p key={warning} className="field-warning" role="alert" style={{ marginBottom: "1rem" }}>
+              {warning}
+            </p>
+          ))}
           <div className="admin-section">
             <h3>App</h3>
             <InfoRow label="Version" value={`v${info.app.version}`} />

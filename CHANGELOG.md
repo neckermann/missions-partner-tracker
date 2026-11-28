@@ -20,6 +20,10 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 - **Knowing an administrator's email is no longer enough to lock them out (#594).** Failed sign-ins are now counted per address and account: ten failures from one address stop that address, not the real person signing in from somewhere else. A higher ceiling (five times as many, from any mix of addresses) still stops a guesser who keeps changing address, but an address that has signed in with a correct password before (remembered in memory for 30 days) is let through. The same applies to wrong two-factor codes.
 
+### Security
+
+- **A public demo refuses passkeys, and System Info warns about the testing-site setting (#595).** On a public demo a visitor could add up to five passkeys to a shared, published login. Adding one is now refused there (the owner's own test deployment, which sets `DEMO_TESTING_SITE`, is not guarded and can still add them). System Info also shows a warning at the top when `DEMO_TESTING_SITE` is set, because one mistaken setting on a demo the public can reach would end password sign-in for its published logins.
+
 ## [0.1.0-beta.4] - 2026-11-27
 
 ### Upgrading

@@ -143,3 +143,36 @@ describe("the published logins", () => {
     assert.deepEqual(hidden.body.demoGuestLogins, []);
   });
 });
+
+// #595: a visitor must not add a passkey to a published, shared login, and the testing-site setting is shown to
+// the administrator as a warning because one mistaken variable on a public demo would end password sign-in.
+describe("passkeys on a public demo, and the testing-site warning", () => {
+  test("adding a passkey is refused on a guarded demo", async () => {
+    guardedDemo();
+    const options = await admin("/api/auth/passkeys/register/options", { method: "POST", body: {} });
+    assert.equal(options.status, 403);
+    assert.match(options.body.error, /public demo/);
+    const verify = await admin("/api/auth/passkeys/register/verify", {
+      method: "POST",
+      body: { challengeToken: "x", response: { id: "x" } },
+    });
+    assert.equal(verify.status, 403);
+  });
+
+  test("the owner's own test deployment can still add one", async () => {
+    process.env.DEMO_RESET_TOKEN = "test-token";
+    process.env.DEMO_TESTING_SITE = "true";
+    const options = await admin("/api/auth/passkeys/register/options", { method: "POST", body: {} });
+    assert.equal(options.status, 200, JSON.stringify(options.body));
+  });
+
+  test("System Info warns when the testing-site setting is set, and only then", async () => {
+    delete process.env.DEMO_TESTING_SITE;
+    const off = await admin("/api/system-info");
+    assert.deepEqual(off.body.warnings, []);
+    process.env.DEMO_TESTING_SITE = "true";
+    const on = await admin("/api/system-info");
+    assert.equal(on.body.warnings.length, 1);
+    assert.match(on.body.warnings[0], /DEMO_TESTING_SITE/);
+  });
+});
