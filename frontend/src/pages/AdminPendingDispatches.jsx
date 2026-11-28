@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import PageHeader from "../components/shared/PageHeader.jsx";
 import { fetchPendingDispatches, deletePendingDispatch, updatePendingDispatch } from "../api/client.js";
 import DispatchReviewModal from "../components/admin/DispatchReviewModal.jsx";
@@ -235,7 +236,14 @@ export default function AdminPendingDispatches() {
     <div className="admin-shell">
       <PageHeader
         title="Updates to Share"
-        description="New prayer requests, one-time needs, and newsletters wait here instead of posting immediately. Each clears once every channel it applies to (GroupMe, WhatsApp, the admin email, the public email) has handled it, on its own schedule. Schedules, what gets posted to chat and how the email looks are under Settings → Sending Updates."
+        description={
+          <>
+            New prayer requests, one-time needs, and newsletters wait here instead of posting immediately.
+            Each clears once every channel it applies to (GroupMe, WhatsApp, the admin email, the public
+            email) has handled it, on its own schedule. Schedules, what gets posted to chat and how the email
+            looks are under <Link to="/admin/settings/dispatches">Settings → Sending Updates</Link>.
+          </>
+        }
       />
 
       {noChannelOn && readyCount > 0 && (

@@ -368,15 +368,17 @@ export default function AdminUsers() {
   const passwordlessOn = !!currentUser?.passwordlessRequired;
   const withoutPasskey = signingIn.filter((u) => !u.passkeyCount).length;
   // Why the passwordless switch can't be used yet, if it can't (the server checks the same).
-  const passwordlessBlocker = passwordlessOn
-    ? null
-    : currentUser?.passwordlessBlockedByDemo
-      ? "Passwordless sign-in is switched off on this demo: it would end password sign-in for the shared logins and lock every visitor out until the next reset. A real install can turn it on here."
-      : !currentUser?.emailReady
-        ? "Turn on outbound email and finish setting it up first (Settings → Email): people without a passkey sign in through an emailed link."
-        : !currentUser?.passkeyCount
-          ? "Add a passkey to your own account first (My Account), so turning this on doesn't lock you out."
-          : null;
+  const passwordlessBlocker = passwordlessOn ? null : currentUser?.passwordlessBlockedByDemo ? (
+    "Passwordless sign-in is switched off on this demo: it would end password sign-in for the shared logins and lock every visitor out until the next reset. A real install can turn it on here."
+  ) : !currentUser?.emailReady ? (
+    <>
+      Turn on outbound email and finish setting it up first (
+      <Link to="/admin/settings/email">Settings → Email</Link>): people without a passkey sign in through an
+      emailed link.
+    </>
+  ) : !currentUser?.passkeyCount ? (
+    "Add a passkey to your own account first (My Account), so turning this on doesn't lock you out."
+  ) : null;
 
   return (
     <div className="admin-shell">

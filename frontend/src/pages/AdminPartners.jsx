@@ -12,6 +12,7 @@ import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
 import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
 import StatusPill from "../components/admin/StatusPill.jsx";
 import FilterBar from "../components/shared/FilterBar.jsx";
+import EmptyListMessage, { filtersActive } from "../components/shared/EmptyListMessage.jsx";
 import Table from "../components/shared/Table.jsx";
 import useFilterState from "../hooks/useFilterState.js";
 import useLoadMore from "../hooks/useLoadMore.js";
@@ -311,9 +312,9 @@ export default function AdminPartners() {
     <div className="admin-shell">
       <PageHeader
         title={sectionTitle}
-        subtitle={`${visible.length} active ${
+        subtitle={`${visible.length}${filters.includeArchived ? "" : " active"} ${
           visible.length === 1 ? sectionTitle.toLowerCase().replace(/s$/, "") : sectionTitle.toLowerCase()
-        }`}
+        }${filters.includeArchived ? ", archived included" : ""}`}
         actions={
           canWrite && (
             <>
@@ -357,7 +358,31 @@ export default function AdminPartners() {
             rowKey={(row) => `${row.type}-${row.id}`}
             onRowClick={(row) => navigate(row.detailLink)}
             rowHref={(row) => row.detailLink}
-            emptyMessage={loading ? "Loading…" : "No partners match these filters."}
+            emptyMessage={
+              loading ? (
+                "Loading…"
+              ) : (
+                <EmptyListMessage
+                  filtered={filtersActive(filters, emptyFilters)}
+                  filteredText="No partners match these filters."
+                  onClear={resetFilters}
+                >
+                  No {sectionTitle.toLowerCase()} yet. This is where the people and organizations your church
+                  supports are listed, with their contact details, prayer requests and support.
+                  {canWrite && (
+                    <>
+                      {" "}
+                      <Link to="/admin/partners/new?kind=missionary" className="btn small">
+                        + Add the first missionary
+                      </Link>{" "}
+                      <Link to="/admin/partners/new?kind=organization" className="btn secondary small">
+                        + Add an organization
+                      </Link>
+                    </>
+                  )}
+                </EmptyListMessage>
+              )
+            }
             columns={[
               {
                 key: "name",

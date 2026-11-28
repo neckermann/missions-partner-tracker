@@ -1,4 +1,5 @@
 import React, { useId, useState } from "react";
+import FieldHint from "./FieldHint.jsx";
 
 // An email box that shows the email keyboard and, when you leave it, a short note if what you
 // typed can't be an address. A drop-in for <input>: same `value` and `onChange(event)`, and every
@@ -18,7 +19,8 @@ export default function EmailInput({ value, onBlur, ...rest }) {
   const [touched, setTouched] = useState(false);
   const hintId = useId();
   const current = value ?? "";
-  const hint = touched ? emailHint(current) : "";
+  const pending = emailHint(current);
+  const hint = touched ? pending : "";
   return (
     <>
       <input
@@ -34,15 +36,7 @@ export default function EmailInput({ value, onBlur, ...rest }) {
         aria-invalid={hint ? "true" : undefined}
         aria-describedby={hint ? hintId : rest["aria-describedby"]}
       />
-      {hint && (
-        <span
-          id={hintId}
-          role="status"
-          style={{ display: "block", color: "var(--danger)", fontSize: "0.85rem" }}
-        >
-          {hint}
-        </span>
-      )}
+      <FieldHint id={hintId} text={pending} show={Boolean(hint)} />
     </>
   );
 }

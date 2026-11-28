@@ -4,6 +4,7 @@ import { listReports, runReport, reportCsvUrl, fetchSendingChurches } from "../a
 import { useSettings } from "../context/SettingsContext.jsx";
 import Breadcrumb from "../components/shared/Breadcrumb.jsx";
 import FilterBar from "../components/shared/FilterBar.jsx";
+import EmptyListMessage, { filtersActive } from "../components/shared/EmptyListMessage.jsx";
 import Table from "../components/shared/Table.jsx";
 import ReportBarChart from "../components/shared/ReportBarChart.jsx";
 import SavedViewsBar from "../components/admin/SavedViewsBar.jsx";
@@ -221,7 +222,19 @@ export default function AdminReport() {
 
           <ReportBarChart chart={result.chart} rows={result.rows} />
 
-          <Table columns={columns} rows={result.rows} emptyMessage="Nothing matched those filters." />
+          <Table
+            columns={columns}
+            rows={result.rows}
+            emptyMessage={
+              <EmptyListMessage
+                filtered={filtersActive(values, defaults)}
+                filteredText="Nothing matched those filters."
+                onClear={reset}
+              >
+                Nothing to report yet. This report fills in as you add the records it is about.
+              </EmptyListMessage>
+            }
+          />
 
           {result.notes.map((n) => (
             <p key={n} className="report-meta">
