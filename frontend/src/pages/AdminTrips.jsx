@@ -29,6 +29,7 @@ import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
 import TripStatusBadge, { STATUS_LABELS } from "../components/admin/TripStatusBadge.jsx";
 import StatusPill from "../components/admin/StatusPill.jsx";
 import FilterBar from "../components/shared/FilterBar.jsx";
+import EmptyListMessage, { filtersActive } from "../components/shared/EmptyListMessage.jsx";
 import PartnerFilterChip from "../components/shared/PartnerFilterChip.jsx";
 import Breadcrumb from "../components/shared/Breadcrumb.jsx";
 import usePartnerUrlFilter from "../hooks/usePartnerUrlFilter.js";
@@ -426,7 +427,31 @@ function ExistingTripsTab() {
         }
         // A trip with a page opens it; a completed one opens its history dialog instead.
         rowHref={(trip) => (trip.status === "completed" ? null : `/admin/trips/${trip.id}`)}
-        emptyMessage="No trips match these filters."
+        emptyMessage={
+          <EmptyListMessage
+            filtered={filtersActive(filters, emptyFilters) || Boolean(filterPartnerId)}
+            filteredText="No trips match these filters."
+            onClear={resetFilters}
+          >
+            No trips yet. A trip is a team going to serve with one of your partners, with its own team,
+            meetings, requirements and money.
+            {canWrite && (
+              <>
+                {" "}
+                <button
+                  type="button"
+                  className="btn small"
+                  onClick={() => {
+                    setShowAddForm(true);
+                    setAddKind("planning");
+                  }}
+                >
+                  + Plan the first trip
+                </button>
+              </>
+            )}
+          </EmptyListMessage>
+        }
         columns={[
           {
             key: "entityName",
