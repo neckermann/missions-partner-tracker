@@ -20,7 +20,7 @@ const NAV_LINKS = [
 
 export default function PublicSiteHeader({ title, subtitle, children }) {
   const settings = useSettings();
-  const { logo, partnerTermPlural, enabledFeatures } = settings;
+  const { logo, partnerTermPlural, enabledFeatures, churchName } = settings;
   const { pathname } = useLocation();
 
   return (
@@ -28,6 +28,8 @@ export default function PublicSiteHeader({ title, subtitle, children }) {
       <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
         {logo?.url && <img src={logo.url} alt="" className="header-logo" />}
         <div>
+          {/* Whose site this is, on every public page (the page title says what the page is). */}
+          {churchName && <p className="header-church">{churchName}</p>}
           <h1>{title}</h1>
           {subtitle && <p className="header-tagline">{subtitle}</p>}
         </div>
@@ -41,6 +43,12 @@ export default function PublicSiteHeader({ title, subtitle, children }) {
           </Link>
         ))}
         {children}
+        {/* The way in for the team, on every public page. */}
+        {pathname !== "/login" && (
+          <Link to="/login" style={{ color: "white", opacity: 0.85 }}>
+            Team sign in
+          </Link>
+        )}
         {/* Visitors follow their device's setting unless they pick Light or Dark here. */}
         <ThemeToggle compact />
       </div>

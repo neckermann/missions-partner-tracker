@@ -11,11 +11,11 @@ vi.mock("../context/SettingsContext.jsx", () => ({
 const at = (ui) => render(<MemoryRouter>{ui}</MemoryRouter>);
 
 describe("NotFound", () => {
-  it("says the page wasn't found and offers the home page and team sign-in", () => {
+  it("says the page wasn't found and offers the home page (the header carries team sign-in)", () => {
     at(<NotFound />);
     expect(screen.getByRole("heading", { name: "That page wasn't found" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Go to the home page" })).toHaveAttribute("href", "/");
-    expect(screen.getByRole("link", { name: "Team sign in" })).toHaveAttribute("href", "/login");
+    expect(screen.getAllByRole("link", { name: "Team sign in" }).length).toBe(1);
   });
 
   it("inside the admin shell it is just the message and a way back to Home", () => {

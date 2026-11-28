@@ -172,6 +172,13 @@ a {
   max-width: 220px;
   object-fit: contain;
 }
+.header-church {
+  margin: 0 0 0.1rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.85);
+}
 .header-tagline {
   margin: 0.15rem 0 0;
   font-size: 0.8rem;

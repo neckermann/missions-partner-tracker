@@ -28,3 +28,18 @@ describe("PublicSiteHeader's prayer sign-up link", () => {
     expect(screen.queryByRole("link", { name: /Pray for our Missionaries/ })).toBeNull();
   });
 });
+
+describe("PublicSiteHeader's identity and sign-in", () => {
+  it("names the church, and links team sign-in, on every public page", () => {
+    settings = { ...base, churchName: "Hillside Community Church", enabledFeatures: {} };
+    show();
+    expect(screen.getByText("Hillside Community Church")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Team sign in" })).toHaveAttribute("href", "/login");
+  });
+
+  it("shows no name line when the church hasn't set one", () => {
+    settings = { ...base, churchName: null, enabledFeatures: {} };
+    show();
+    expect(document.querySelector(".header-church")).toBeNull();
+  });
+});
