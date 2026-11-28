@@ -7,14 +7,16 @@ require("dotenv").config({ quiet: true });
 const prisma = require("../../src/prismaClient");
 const { recordCareChatDispatches } = require("../../src/utils/careChatDispatch");
 const { buildBlurb } = require("../../src/utils/dispatchBlurbs");
+const { churchToday } = require("../../src/utils/today");
 const { CHANNELS, isEligibleForChannel } = require("../../src/utils/dispatchEligibility");
 
 const TAG = "ZZTEST-careChat";
 const MAIL = "care-chat-test";
 let original;
 
+// The church's day, as the app counts it (utils/today.js), not the UTC day, which differs for hours every day.
 const dayOffset = (n) => {
-  const d = new Date();
+  const d = churchToday();
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + n));
 };
 const birthdayIn = (n) => {
