@@ -89,8 +89,9 @@ Postgres database in a single step.
    `/setup` first creates it. If setup says it has "already been completed" and
    you did not create that account, redeploy to start again (a new install has
    no data to lose).
-5. Create your first admin account right in the browser. The page asks
-   **Where will you mostly sign in?** On your own device, choose a passkey (no
+5. Create your first admin account right in the browser. Give your name (it
+   is optional) so the changes you make show as yours, not as "Someone". The
+   page asks **Where will you mostly sign in?** On your own device, choose a passkey (no
    password to remember, and no recovery codes: that is why the next step is
    a second administrator). On shared or several computers, choose a password
    and an authenticator app (scan a QR code, confirm a code, then keep your
