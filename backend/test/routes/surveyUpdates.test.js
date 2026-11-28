@@ -527,6 +527,40 @@ describe("survey packs and updates", () => {
     await prisma.supportOption.deleteMany({ where: { group } });
   });
 
+  test("with Support preferences off, a partner is not asked the support question or held to it", async () => {
+    await setFeatures({ supportPreferences: true });
+    const survey = (
+      await editor("/api/surveys", { method: "POST", body: { title: `${FIXTURE_TAG} Support off` } })
+    ).body;
+    const saved = await editor(`/api/surveys/${survey.id}/questions`, {
+      method: "PUT",
+      body: {
+        questions: [
+          { kind: "text", label: "Anything to share?" },
+          { kind: "support", label: "How can we support you?", required: true },
+        ],
+      },
+    });
+    assert.equal(saved.status, 200, JSON.stringify(saved.body));
+    await editor(`/api/surveys/${survey.id}`, { method: "PUT", body: { status: "open" } });
+    const { token, tokenHash, expiresAt } = newInviteToken();
+    await prisma.surveyInvite.create({
+      data: { surveyId: survey.id, partnerId: partner.id, tokenHash, expiresAt, sentAt: new Date() },
+    });
+    const kinds = async () => (await anon(`/api/public/surveys/${token}`)).body.questions.map((q) => q.kind);
+    assert.deepEqual(await kinds(), ["text", "support"]);
+
+    await setFeatures({ supportPreferences: false });
+    assert.deepEqual(await kinds(), ["text"], "the support question is left out");
+    const shortId = saved.body.questions.find((q) => q.kind === "text").id;
+    const submit = await anon(`/api/public/surveys/${token}`, {
+      method: "PUT",
+      body: { submit: true, answers: [{ questionId: shortId, value: "Hello" }] },
+    });
+    assert.equal(submit.status, 200, JSON.stringify(submit.body));
+    await setFeatures({ supportPreferences: true });
+  });
+
   test("a linked question gets the right input, takes only what its field accepts, and saves one form (#548)", async () => {
     const made = (await editor("/api/surveys", { method: "POST", body: { title: `${FIXTURE_TAG} Formats` } }))
       .body;

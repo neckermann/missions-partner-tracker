@@ -522,6 +522,7 @@ export default function PublicTripParticipant() {
                             <div style={{ marginTop: "0.5rem" }}>
                               <SignatureCapture
                                 documentText={r.bodyText || ""}
+                                isMinor={Boolean(data.isMinor)}
                                 submitting={submittingSignature}
                                 onSubmit={(payload) => handleSign(r.id, payload)}
                               />

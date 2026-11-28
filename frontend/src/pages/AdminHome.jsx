@@ -172,11 +172,35 @@ function buildMainSections(partnerLabel, enabledFeatures, isAdmin) {
   ].filter(Boolean);
 }
 
+// An admin who is not on the missions team and looks after no partner is sent no partner reminders
+// (reach-outs, key dates, updates to pass on), so say so and where to change it, rather than leave a
+// quiet Home with no explanation. Only while a feature that makes those reminders is on.
+export function NoCareItemsNote({ ownerGroupName }) {
+  return (
+    <div className="admin-section" data-testid="no-care-items-note">
+      <p style={{ margin: 0, color: "var(--muted)" }}>
+        You aren't on the {ownerGroupName || "missions team"} and don't look after a partner, so reminders
+        about partners (who to reach out to, birthdays, news to pass on) don't come to you. To get them, ask
+        an admin to add you, or{" "}
+        <Link to="/admin/settings/partner-care">
+          choose who is on the {ownerGroupName || "missions team"}
+        </Link>
+        .
+      </p>
+    </div>
+  );
+}
+
 export default function AdminHome() {
-  const { user: currentUser, isAdmin } = useCurrentUser();
+  const { user: currentUser, isAdmin, onMissionsTeam, careTeamSeats } = useCurrentUser();
   const [search, setSearch] = useState("");
-  const { partnerTermPlural, usePartnerTermInAdmin, enabledFeatures } = useSettings();
+  const { partnerTermPlural, usePartnerTermInAdmin, enabledFeatures, ownerGroupName } = useSettings();
   const { categories } = useNotifications();
+  const showNoCareNote =
+    isAdmin &&
+    !onMissionsTeam &&
+    careTeamSeats.length === 0 &&
+    (enabledFeatures.contactLog || enabledFeatures.keyDates);
 
   usePublicSiteChoiceRedirect(isAdmin);
   // Categories with a zero count are hidden. Reads the shared registry the bell uses
@@ -209,6 +233,8 @@ export default function AdminHome() {
   return (
     <div className="admin-shell">
       <h2>Welcome{currentUser?.firstName ? `, ${currentUser.firstName}` : ""}</h2>
+
+      {showNoCareNote && <NoCareItemsNote ownerGroupName={ownerGroupName} />}
 
       <div className="admin-section">
         <label htmlFor="home-search-input" style={{ display: "block", marginBottom: "0.4rem" }}>

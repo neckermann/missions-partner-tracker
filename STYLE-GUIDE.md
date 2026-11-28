@@ -126,7 +126,10 @@ per page) — those are gone, not alternatives.
 - **Click → popup → edit → save, everywhere.** This is the one rule
   the rest of this bullet and the next one exist to apply: the whole
   card/row is the click target (not a separate "Edit" button), opening
-  a popup with an explicit Save/Cancel boundary. Continued under
+  a popup with an explicit Save/Cancel boundary. An editable card also
+  shows a small, muted **Edit** word in its header (decorative, not a
+  second button), because a phone has no hover cue and two testers did not
+  discover that the card opens. Continued under
   [issue #270](https://github.com/neckermann/missions-partner-tracker/issues/270).
   onBlur-autosave is retired app-wide, with no exceptions left — it
   used to be kept for repeating-row CRUD (a trip's budget/financial

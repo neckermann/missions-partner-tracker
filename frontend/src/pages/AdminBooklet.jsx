@@ -445,8 +445,8 @@ export default function AdminBooklet() {
     showAdults: true,
     showChildren: true,
     showSendingParty: true,
-    showPrayerRequests: true,
-    showNotesPage: true,
+    showPrayerRequests: false,
+    showNotesPage: false,
   });
   const [title, setTitle] = useState("Missionary Partners");
   const [subtitle, setSubtitle] = useState("Prayer & Support Directory");

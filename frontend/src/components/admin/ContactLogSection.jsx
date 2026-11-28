@@ -71,6 +71,7 @@ export default function ContactLogSection({
 
   // Church visits and newsletters filed, shown as read-only rows. A failure leaves the log alone.
   const [events, setEvents] = useState([]);
+  const [deleteError, setDeleteError] = useState("");
 
   useEffect(() => {
     fetchContactLogOptions().then(setOptions).catch(console.error);
@@ -220,6 +221,17 @@ export default function ContactLogSection({
         </div>
       </div>
       {e.notes && <p style={{ margin: "0.4rem 0 0", whiteSpace: "pre-wrap" }}>{e.notes}</p>}
+      {!canFix && e.createdBy?.id && e.createdBy.id === currentUserId && (
+        <div style={{ marginTop: "0.4rem" }}>
+          <button
+            type="button"
+            className="btn secondary small"
+            onClick={() => handleDelete(e).catch(() => setDeleteError("Couldn't delete that entry."))}
+          >
+            Delete my entry
+          </button>
+        </div>
+      )}
       {e.followUpDate && (
         <div
           style={{
@@ -301,6 +313,11 @@ export default function ContactLogSection({
         </div>
       )}
 
+      {deleteError && (
+        <p className="form-error" role="alert">
+          {deleteError}
+        </p>
+      )}
       {timeline.length === 0 ? (
         <p style={{ color: "var(--muted)", marginTop: "0.5rem" }}>No contact logged yet.</p>
       ) : (

@@ -739,7 +739,8 @@ optional `followUpDate`. The three fixed lists are plain validated Strings in
 **Who.** Anyone who can see the partner can log a contact: admin, editor,
 viewer, and a guest who holds a **care team seat** on it. A trip leader (a trip
 grant alone) never reaches it — the same line as one-time needs
-(`readableNeedPartnerIds`). Fixing or deleting an entry is admin/editor.
+(`readableNeedPartnerIds`). Fixing an entry is admin/editor; deleting is admin/editor for any entry, and
+anyone else who can use the log for one they created (`createdById`) on a partner they can still reach.
 Everyone's contact counts toward the quiet clock. An entry is never held for
 review (it isn't dispatched anywhere).
 

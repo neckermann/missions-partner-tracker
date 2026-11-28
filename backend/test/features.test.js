@@ -97,6 +97,18 @@ describe("isFeatureEnabled", () => {
       assert.deepEqual(unmetRequirements({ aiExtraction: true }, "aiExtraction"), []);
     });
 
+    test("receiving email needs Newsletters & Docs, where it files what it receives", () => {
+      assert.equal(
+        isFeatureEnabled({ inboundEmail: true }, "inboundEmail"),
+        true,
+        "partnerFiles defaults on"
+      );
+      assert.equal(isFeatureEnabled({ inboundEmail: true, partnerFiles: false }, "inboundEmail"), false);
+      assert.deepEqual(unmetRequirements({ inboundEmail: true, partnerFiles: false }, "inboundEmail"), [
+        "partnerFiles",
+      ]);
+    });
+
     test("the care features no longer need Care teams: anyone can look after partners via the missions team", () => {
       for (const key of ["keyDates", "supportPreferences", "surveys", "contactLog"]) {
         assert.ok(!(FEATURES[key].requires || []).includes("careTeam"), `${key} must not require careTeam`);

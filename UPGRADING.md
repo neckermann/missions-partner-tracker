@@ -79,6 +79,15 @@ the ones to know about:
   the booklet includes changed: it still prints partners whether or not they are
   on the public site. A booklet you print the same way as before will have
   **fewer partners** until you tick the box.
+- **The booklet starts without the Notes & Prayer page.** On Print Booklet, the
+  facing **Notes & Prayer Page** and the **Prayer Requests** that print on it
+  used to be ticked when the page opened. They now start unticked, which halves
+  the page count; tick them to print as before. A booklet you print the same way
+  as before will have **no notes pages or prayer requests** until you tick them.
+- **Email (Receiving) needs Newsletters & Docs.** If you had Receiving on and
+  Newsletters & Docs off, Receiving now shows as off (Enabled Features says why)
+  until you turn Newsletters & Docs on. Before, it queued mail that could not be
+  filed.
 - **Urgent updates no longer email staff who chose no email.** Marking an
   update urgent skips the wait for a schedule, but it used to email every
   active staff login, including people who had never picked a digest schedule

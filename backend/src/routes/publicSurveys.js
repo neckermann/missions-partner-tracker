@@ -7,6 +7,7 @@ const { hashToken, isAcceptingAnswers, MAX_CHOICES } = require("../utils/surveys
 const { saveSurveyAnswers, saveSurveyPhoto } = require("../utils/surveyResponses");
 const { loadMenuForPartner } = require("../utils/surveySupport");
 const { pageQuestion } = require("../utils/surveyFields");
+const { isFeatureEnabled } = require("../utils/features");
 
 // #419: a partner answers a survey through their personal link, with no account. The link's token
 // is the only credential: it is stored as a hash, expires, is bound to one survey and one partner,
@@ -27,6 +28,17 @@ async function loadInvite(token) {
     include: { survey: { include: { questions: { orderBy: { position: "asc" } } } } },
   });
   if (!invite || invite.expiresAt <= new Date() || !isAcceptingAnswers(invite.survey)) return null;
+  // A "how can we support you?" question only works while Support preferences is on (its answers could not be
+  // approved otherwise), so a partner is not asked it, or held to it, after that is switched off.
+  if (invite.survey.questions.some((q) => q.kind === "support")) {
+    const settings = await prisma.churchSettings.findUnique({
+      where: { id: "singleton" },
+      select: { enabledFeatures: true },
+    });
+    if (!isFeatureEnabled(settings?.enabledFeatures, "supportPreferences")) {
+      invite.survey.questions = invite.survey.questions.filter((q) => q.kind !== "support");
+    }
+  }
   return invite;
 }
 

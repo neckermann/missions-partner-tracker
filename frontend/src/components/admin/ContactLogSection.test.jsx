@@ -9,6 +9,7 @@ import {
   fetchContactUpdates,
   createContactLogEntry,
   updateContactLogEntry,
+  deleteContactLogEntry,
 } from "../../api/client.js";
 
 vi.mock("../../api/client.js", () => ({
@@ -19,8 +20,9 @@ vi.mock("../../api/client.js", () => ({
   updateContactLogEntry: vi.fn(),
   deleteContactLogEntry: vi.fn(),
 }));
+let confirmAnswer = false;
 vi.mock("../../hooks/useConfirmDialog.jsx", () => ({
-  default: () => ({ confirm: vi.fn(), confirmElement: null }),
+  default: () => ({ confirm: vi.fn(() => Promise.resolve(confirmAnswer)), confirmElement: null }),
 }));
 
 const OPTIONS = {
@@ -232,5 +234,36 @@ describe("ContactLogSection (#288)", () => {
     await screen.findAllByText("Phone call");
     expect(screen.queryByText(/Follow up by/)).toBeNull();
     expect(screen.getByText(/Followed up \(was due/)).toBeTruthy();
+  });
+
+  it("lets someone delete an entry they typed in, after a confirmation, but not anyone else's", async () => {
+    const mine = { ...entry, id: "mine", createdBy: { id: "me" }, createdById: "me" };
+    const theirs = {
+      ...entry,
+      id: "theirs",
+      notes: "Someone else's note",
+      createdBy: { id: "u9" },
+      createdById: "u9",
+    };
+    renderIt({ entries: [mine, theirs], canFix: false, currentUserId: "me" });
+    await screen.findAllByText("Phone call");
+    const buttons = screen.getAllByRole("button", { name: "Delete my entry" });
+    expect(buttons).toHaveLength(1);
+
+    confirmAnswer = false;
+    fireEvent.click(buttons[0]);
+    await waitFor(() => expect(deleteContactLogEntry).not.toHaveBeenCalled());
+
+    confirmAnswer = true;
+    fireEvent.click(buttons[0]);
+    await waitFor(() => expect(deleteContactLogEntry).toHaveBeenCalledWith("mine"));
+    confirmAnswer = false;
+  });
+
+  it("does not add the button for staff, who already delete from the edit popup", async () => {
+    const mine = { ...entry, id: "mine", createdBy: { id: "me" }, createdById: "me" };
+    renderIt({ entries: [mine], canFix: true, currentUserId: "me" });
+    await screen.findByText("Phone call");
+    expect(screen.queryByRole("button", { name: "Delete my entry" })).toBeNull();
   });
 });
