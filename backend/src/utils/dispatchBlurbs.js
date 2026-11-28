@@ -283,7 +283,7 @@ function buildBlurb(row, partner, settings) {
       const never = !payload.lastContactDate;
       const days = payload.daysQuiet;
       const bodyText = never
-        ? "Nobody has logged contact with them yet."
+        ? "We have not heard from them yet."
         : `It has been ${days} days since we last heard from them.`;
       return {
         id: row.id,

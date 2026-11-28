@@ -28,6 +28,10 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 - **Knowing an administrator's email is no longer enough to lock them out (#594).** Failed sign-ins are now counted per address and account: ten failures from one address stop that address, not the real person signing in from somewhere else. A higher ceiling (five times as many, from any mix of addresses) still stops a guesser who keeps changing address, but an address that has signed in with a correct password before (remembered in memory for 30 days) is let through. The same applies to wrong two-factor codes.
 
+### Security
+
+- **A public demo refuses passkeys, and System Info warns about the testing-site setting (#595).** On a public demo a visitor could add up to five passkeys to a shared, published login. Adding one is now refused there (the owner's own test deployment, which sets `DEMO_TESTING_SITE`, is not guarded and can still add them). System Info also shows a warning at the top when `DEMO_TESTING_SITE` is set, because one mistaken setting on a demo the public can reach would end password sign-in for its published logins.
+
 ## [0.1.0-beta.4] - 2026-11-27
 
 ### Upgrading
@@ -63,6 +67,7 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ### Fixed
 
+- One definition of a "quiet" partner. My partners, its bell item and the care chat's quiet-partner post now start the quiet count again whenever a partner is heard from in any way (a logged contact, a newsletter filed, a prayer request received or a visit to your church), the same four things the Last heard from report counts, instead of the contact log alone. The column is renamed "Last heard from". The grace period and "Not this season" work as before.
 - With no public page switched on (directory, map or prayer sign-up), "Show on public site", the "Not public" pills and the Public filter no longer appear on the add-partner form, a partner's page and the Partners list, and the prayer request form offers a single "Include in printed booklet" box instead of "Show on public profile". What was ticked before is kept and returns when a public page is turned on.
 - Pages reached only through a private link (a survey, a team member's own trip page, a private trip application link) show the church's name and logo but no longer the public menu (Directory, Map, Trip Opportunities) or "Team sign in", so a partner or team member is not offered pages that are not meant for them.
 - The trip application form checks the email on the first step, so a mistyped address is caught there (and the field is flagged) instead of only when you submit on the last step. A link to a trip that has stopped taking applications now says "Applications for <trip> are not open right now" instead of "This trip couldn't be found" (a restricted partner's trip is not named; an unknown link still says not found).

@@ -211,7 +211,7 @@ describe("care posts: quiet partners and news to pass on", () => {
     );
     assert.match(
       buildBlurb(rows[0], quiet).groupmeText,
-      /Time to reach out to .*quiet\. Nobody has logged contact/
+      /Time to reach out to .*quiet\. We have not heard from them yet/
     );
     await recordCareChatDispatches();
     assert.equal((await mine("quietPartner")).length, 1, "not posted again for the same quiet stretch");

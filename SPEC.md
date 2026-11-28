@@ -745,8 +745,12 @@ review (it isn't dispatched anywhere).
 
 **Quiet and follow-ups.** `ChurchSettings.contactStaleDays` (default 90, 7 to 365,
 set under Settings → Care Teams; `utils/careSettings.js` `careTimings` reads it)
-is the one number for "quiet" (the _Last heard from_ report defaults to it too,
-and counts a church visit as hearing from a partner): no logged contact for that long, or never. A
+is the one number for "quiet" (the _Last heard from_ report defaults to it too):
+nothing heard from the partner for that long, or never. One rule, `utils/lastHeardFrom.js`
+`lastHeardFromByPartner`: the latest of a logged contact, a newsletter filed, a prayer request
+received and a church visit, none dated in the future (a photo does not count). My partners, its
+bell item and the care chat's quiet-partner post all read it, and the report reads the same four
+sources, so they agree on who is quiet. A
 follow-up date is answered by any later-entered contact dated on or after the
 one that set it; unanswered and past, it is _due_. `utils/contactLogQueries.js`
 `loadAssignedPartners` is the single read model behind the **My partners**

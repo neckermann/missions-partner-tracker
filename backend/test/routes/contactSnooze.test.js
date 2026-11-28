@@ -247,3 +247,65 @@ describe("setting the snooze", () => {
     assert.ok(!JSON.stringify(one.body).includes("contactSnoozedUntil"));
   });
 });
+
+describe("any sign of life resets the quiet clock, not only a logged contact", () => {
+  // Joined the list long ago and nothing logged: quiet. Then each of these arrives.
+  const oldDate = utcDay(-200);
+  const cases = [
+    [
+      "a newsletter filed",
+      (id, when) =>
+        prisma.partnerFile.create({
+          data: {
+            partnerId: id,
+            kind: "newsletter",
+            receivedDate: when,
+            fileName: "n.pdf",
+            contentType: "application/pdf",
+            bytesRow: { create: { bytes: Buffer.from("%PDF-fixture") } },
+          },
+        }),
+    ],
+    [
+      "a prayer request received",
+      (id, when) =>
+        prisma.prayerRequest.create({
+          data: { partnerId: id, category: "strategic", requestText: "x", dateReceived: when },
+        }),
+    ],
+    [
+      "a visit to our church",
+      (id, when) => prisma.churchVisit.create({ data: { partnerId: id, visitDate: when } }),
+    ],
+    [
+      "a logged contact",
+      (id, when) =>
+        prisma.contactLog.create({
+          data: { partnerId: id, contactDate: when, contactType: "email", direction: "outbound" },
+        }),
+    ],
+  ];
+
+  for (const [label, make] of cases) {
+    test(`${label} 10 days ago clears "quiet"; the same dated 200 days ago does not`, async () => {
+      const p = await partnerOnList({ joinedDaysAgo: 200, tag: label });
+      assert.equal((await rowFor(p.id)).quiet, true, "quiet before anything arrives");
+      await make(p.id, oldDate);
+      assert.equal((await rowFor(p.id)).quiet, true, "an old one does not help");
+      await make(p.id, utcDay(-10));
+      const row = await rowFor(p.id);
+      assert.equal(row.quiet, false);
+      assert.equal(row.daysSinceContact, 10);
+      assert.equal(row.lastContact, ymd(utcDay(-10)));
+    });
+  }
+
+  test("something dated in the future does not count, and a photo does not either", async () => {
+    const p = await partnerOnList({ joinedDaysAgo: 200, tag: "future" });
+    await prisma.prayerRequest.create({
+      data: { partnerId: p.id, category: "strategic", requestText: "x", dateReceived: utcDay(5) },
+    });
+    await prisma.churchVisit.create({ data: { partnerId: p.id, visitDate: utcDay(30) } });
+    assert.equal((await rowFor(p.id)).quiet, true);
+  });
+});
