@@ -18,6 +18,7 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ### Fixed
 
+- The Monthly Support page counts the amount in force today for each partner, the same as the reports, instead of the latest entry even when it is dated in the future. A partner whose only entry starts later shows no amount yet, and the page total matches the report.
 - Screens no longer offer what a person cannot use: a viewer no longer sees a "Survey Updates" menu item (the server refuses it) or an "Updates waiting for your OK" alert; the red photo Delete button shows only to admins, who are the only ones it works for; a viewer or guest who types the New Partner address goes back to the list instead of an empty form that cannot save; and a trip leader signing in lands on their trip without a "You don't have access to that page" note (it still appears if they go somewhere they should not).
 - Email (Receiving) now requires Newsletters & Docs, which is where the mail it receives is filed: with Newsletters & Docs off it shows as off and explains why, instead of queuing mail that cannot be filed ("Not found"). And when Support preferences is switched off, a survey no longer asks a partner its support question or holds them to it, so a partner can still submit the rest.
 - A trip release or other e-signature for someone under 18 on the trip's start date can only be signed by a parent or legal guardian: their page no longer offers "Myself" and says a parent or guardian signs, and the server refuses a signature as "Myself" for a minor. Adults are unchanged.

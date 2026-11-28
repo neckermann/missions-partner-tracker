@@ -3,6 +3,7 @@ const { webAddress, optionalWebAddress } = require("../utils/webAddress");
 const { z } = require("zod");
 const { phoneSchema, emailSchema } = require("../utils/contactFormat");
 const { CONTACT_METHODS, CONTACT_LEVELS } = require("../utils/contactMethods");
+const { churchToday } = require("../utils/today");
 const prisma = require("../prismaClient");
 const { recordAudit, recordRestrictedView } = require("../utils/auditLog");
 const { latestOf, partnerLastUpdated, listFields } = require("../utils/lastUpdated");
@@ -89,7 +90,7 @@ const partnerSummarySelect = {
     where: { type: "physical" },
     select: { type: true, city: true, stateProvinceRegion: true, country: true, gpsLat: true, gpsLng: true },
   },
-  // "Current" monthly support is just the latest row by effectiveDate.
+  // The list route replaces this with the amount in force today (see GET /): a future-dated row is not current.
   supportEntries: {
     orderBy: { effectiveDate: "desc" },
     take: 1,
@@ -416,8 +417,18 @@ router.get("/", requireRole("admin", "editor", "viewer", "guest"), async (req, r
       where: { id: "singleton" },
       select: { enabledFeatures: true },
     });
+    // "Current" support is the amount in force today, not the latest row: one dated in the future is not yet
+    // being given (reports read it the same way: reporting/definitions.js supportEntryAsOf).
     const staffSelect = isFeatureEnabled(listSettings?.enabledFeatures, "monthlySupport")
-      ? partnerSummarySelect
+      ? {
+          ...partnerSummarySelect,
+          supportEntries: {
+            where: { effectiveDate: { lte: churchToday() } },
+            orderBy: [{ effectiveDate: "desc" }, { createdAt: "desc" }],
+            take: 1,
+            select: { amount: true, effectiveDate: true },
+          },
+        }
       : summarySelectWithoutSupport;
     const records = await prisma.partner.findMany({
       where,
