@@ -107,6 +107,23 @@ describe("AdminUsers -- guests (#356)", () => {
     expect(within(orphan).getByText("Deactivated")).toBeInTheDocument();
   });
 
+  it("says a guest with nothing left to reach has no access, not that they have no trips", async () => {
+    fetchUsers.mockResolvedValue([
+      {
+        ...base,
+        id: "g9",
+        email: "care-guest@example.test",
+        role: "guest",
+        tripAccess: [],
+        inactiveReason: "no_access",
+      },
+    ]);
+    renderPage();
+    const row = (await screen.findByText("care-guest@example.test")).closest("tr");
+    expect(within(row).getByText("No access left")).toBeInTheDocument();
+    expect(screen.queryByText(/No trips left/)).not.toBeInTheDocument();
+  });
+
   it("filters to inactive accounts only, and back", async () => {
     renderPage();
     await screen.findByText("current-guest@example.test");
