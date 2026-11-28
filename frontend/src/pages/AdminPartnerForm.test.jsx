@@ -11,7 +11,7 @@ vi.mock("../api/client.js", () => ({ createPartner: vi.fn() }));
 let currentUser = { isAdmin: true };
 vi.mock("../hooks/useCurrentUser.js", () => ({ default: () => currentUser }));
 vi.mock("../context/SettingsContext.jsx", () => ({
-  useSettings: () => ({ churchName: "Test Church" }),
+  useSettings: () => ({ churchName: "Test Church", enabledFeatures: { publicDirectory: true } }),
 }));
 
 beforeEach(() => {

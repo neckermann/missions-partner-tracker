@@ -3,6 +3,7 @@ import PageHeader from "../components/shared/PageHeader.jsx";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { fetchPartners, archivePartner, unarchivePartner, deletePartner } from "../api/client.js";
 import { useSettings } from "../context/SettingsContext.jsx";
+import { publicSiteOn } from "../utils/publicSite.js";
 import { getContinent } from "../utils/countryContinents.js";
 import { matchesSearch } from "../utils/search.js";
 import { formatDate } from "../utils/format.js";
@@ -108,20 +109,25 @@ export default function AdminPartners() {
   );
 
   const sendingChurchField = useSendingChurchField();
+  const publicOn = publicSiteOn(enabledFeatures);
   const fields = useMemo(
     () => [
       PARTNER_TYPE_FILTER_FIELD,
       ...(sendingChurchField ? [sendingChurchField] : []),
-      {
-        name: "isPublic",
-        label: "Public",
-        type: "select",
-        options: [
-          { value: "all", label: "All" },
-          { value: "true", label: "Public only" },
-          { value: "false", label: "Not public" },
-        ],
-      },
+      ...(publicOn
+        ? [
+            {
+              name: "isPublic",
+              label: "Public",
+              type: "select",
+              options: [
+                { value: "all", label: "All" },
+                { value: "true", label: "Public only" },
+                { value: "false", label: "Not public" },
+              ],
+            },
+          ]
+        : []),
       {
         name: "restricted",
         label: "Restricted",
@@ -161,7 +167,7 @@ export default function AdminPartners() {
       },
       { name: "search", label: "Search by name, field, focus, or summary" },
     ],
-    [availableContinents, sendingChurchField]
+    [availableContinents, sendingChurchField, publicOn]
   );
   const {
     values: filters,
@@ -423,10 +429,10 @@ export default function AdminPartners() {
                 // Only what is out of the ordinary, not three yes/no columns. Not sortable:
                 // a row can carry several flags; the filters above isolate one.
                 render: (row) =>
-                  row.isRestricted || !row.isPublic || isSentByUs(row) ? (
+                  row.isRestricted || (publicOn && !row.isPublic) || isSentByUs(row) ? (
                     <span style={{ display: "flex", flexWrap: "wrap", gap: "0.25rem" }}>
                       {row.isRestricted && <StatusPill label="Restricted" color="#a6540f" />}
-                      {!row.isPublic && <StatusPill label="Not public" color="#6b6f76" />}
+                      {publicOn && !row.isPublic && <StatusPill label="Not public" color="#6b6f76" />}
                       {isSentByUs(row) && <StatusPill label="Sent by us" color="#6b6f76" />}
                     </span>
                   ) : (
