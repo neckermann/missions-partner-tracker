@@ -84,6 +84,10 @@ the ones to know about:
   used to be ticked when the page opened. They now start unticked, which halves
   the page count; tick them to print as before. A booklet you print the same way
   as before will have **no notes pages or prayer requests** until you tick them.
+- **Key-date reminders need the Contact log.** A reminder is cleared by logging
+  a contact, and the list of dates lives on My partners, which is part of the
+  Contact log. If you had Key-date reminders on and the Contact log off, they now
+  show as off (Enabled Features says why) until you turn the Contact log on.
 - **Email (Receiving) needs Newsletters & Docs.** If you had Receiving on and
   Newsletters & Docs off, Receiving now shows as off (Enabled Features says why)
   until you turn Newsletters & Docs on. Before, it queued mail that could not be

@@ -162,6 +162,14 @@ describe("TripDetailLayout: Wrap up trip (#358)", () => {
     expect(await screen.findByRole("link", { name: "Wrap up trip" })).toBeInTheDocument();
   });
 
+  it("does not offer it while the trip is still being planned", async () => {
+    user.current = { isGuest: false, canWrite: true, isAdmin: true, canAccessTrip: () => true };
+    fetchTrip.mockResolvedValue({ ...TRIP, status: "planning" });
+    renderLayout();
+    await screen.findByRole("heading", { name: "Summer Trip" });
+    expect(screen.queryByRole("link", { name: "Wrap up trip" })).not.toBeInTheDocument();
+  });
+
   it("does not offer it once the trip is completed, or to someone who can't write it", async () => {
     user.current = { isGuest: false, canWrite: true, isAdmin: true, canAccessTrip: () => true };
     fetchTrip.mockResolvedValue({ ...TRIP, status: "completed" });

@@ -239,6 +239,12 @@ export default function AdminTripTeam() {
           Share this directly with specific people — never listed, never publicly discoverable. Works even for
           a restricted partner (masked).
         </p>
+        {trip.applicationShareToken && trip.status !== "accepting_applications" && (
+          <p style={{ color: "var(--warn)" }}>
+            The link only opens the application while this trip is <strong>accepting applications</strong>;
+            until then it says applications are not open.
+          </p>
+        )}
         {trip.applicationShareToken ? (
           <p>
             <code>{`${window.location.origin}/apply/by-token/${trip.applicationShareToken}`}</code>{" "}

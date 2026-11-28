@@ -32,6 +32,7 @@ const PublicMap = lazy(() => import("./pages/PublicMap.jsx"));
 const AdminLayout = lazy(() => import("./components/admin/AdminLayout.jsx"));
 const AdminHome = lazy(() => import("./pages/AdminHome.jsx"));
 const AdminPartners = lazy(() => import("./pages/AdminPartners.jsx"));
+import PublicHome from "./components/PublicHome.jsx";
 import RequireCanWrite from "./components/RequireCanWrite.jsx";
 const AdminPartnerForm = lazy(() => import("./pages/AdminPartnerForm.jsx"));
 const AdminPartnerDetail = lazy(() => import("./pages/AdminPartnerDetail.jsx"));
@@ -95,14 +96,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
           <Suspense fallback={<RouteFallback />}>
             <Routes>
               {/* Public site */}
-              <Route
-                path="/"
-                element={
-                  <RequirePublicSite feature="publicDirectory">
-                    <PublicDirectory />
-                  </RequirePublicSite>
-                }
-              />
+              <Route path="/" element={<PublicHome directory={<PublicDirectory />} />} />
               <Route
                 path="/map"
                 element={

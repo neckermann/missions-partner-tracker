@@ -169,6 +169,9 @@ const FEATURES = {
     description:
       "Remind whoever looks after each partner (its care team if it has one, otherwise your missions team) about coming birthdays (including children), anniversaries and supported-since milestones: on the bell, and in one grouped email a day that is sent only on days something is due. The email needs Email (Sending).",
     withoutEmail: "My partners shows what the daily email would have said, with Copy this week's list.",
+    // A reminder is cleared by logging a contact with the "Key date" topic, and "My partners" (where the dates are
+    // listed) is part of the contact log, so reminders that could not be read or cleared are not offered.
+    requires: ["contactLog"],
     defaultEnabled: true,
     group: "admin",
   },

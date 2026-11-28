@@ -59,6 +59,7 @@ before(async () => {
     careTeam: true, // the care-team-coverage report only exists while this is on
     supportPreferences: true, // likewise the support-preferences report
     surveys: true, // and the survey-responses report
+    groupme: true, // and update sending health, which needs a channel on
   });
 });
 
@@ -165,6 +166,49 @@ describe("GET /api/reports/:id with real seeded data", () => {
     assert.equal(prayedRow.lastPrayedWithCongregation, "2026-10-01");
     assert.ok(neverRow, "the seeded partner without the field shows up");
     assert.equal(neverRow.lastPrayedWithCongregation, null);
+  });
+
+  test("last-heard-from leaves out the columns of a feature that is off, and does not claim nobody sent a newsletter", async () => {
+    await createPartner({ displayName: `${FIXTURE_TAG} No Newsletter Partner` });
+    try {
+      const keys = (body) => body.columns.map((c) => c.key);
+      const labels = (body) => body.summary.map((x) => x.label);
+
+      await setFeatures({ partnerFiles: true, contactLog: true, prayerRequests: true });
+      const on = (await admin("/api/reports/last-heard-from?onlyStale=false")).body;
+      assert.ok(["newsletter", "contact", "prayer"].every((k) => keys(on).includes(k)));
+      assert.ok(labels(on).includes("Never sent a newsletter"));
+
+      await setFeatures({ partnerFiles: false, contactLog: false, prayerRequests: false });
+      const off = (await admin("/api/reports/last-heard-from?onlyStale=false")).body;
+      for (const k of ["newsletter", "newsletterDays", "contact", "contactDays", "prayer"]) {
+        assert.ok(!keys(off).includes(k), `${k} is left out`);
+      }
+      assert.ok(!labels(off).includes("Never sent a newsletter"));
+      assert.ok(keys(off).includes("visit"), "what still applies stays");
+      assert.match(off.notes.join(" "), /a church visit/);
+      assert.doesNotMatch(off.notes.join(" "), /newsletter|prayer request|logged contact/);
+    } finally {
+      await setFeatures({ partnerFiles: true, contactLog: true, prayerRequests: true });
+    }
+  });
+
+  test("update sending health is in the catalog only while a channel is switched on", async () => {
+    const listed = async () => {
+      const res = await admin("/api/reports");
+      assert.equal(res.status, 200);
+      return JSON.stringify(res.body).includes("dispatch-health");
+    };
+    try {
+      await setFeatures({ groupme: false, whatsapp: false, outboundEmail: false });
+      assert.equal(await listed(), false);
+      assert.equal((await admin("/api/reports/dispatch-health")).status, 404);
+      await setFeatures({ groupme: true });
+      assert.equal(await listed(), true);
+      assert.equal((await admin("/api/reports/dispatch-health")).status, 200);
+    } finally {
+      await setFeatures({ groupme: true, whatsapp: false, outboundEmail: false });
+    }
   });
 
   test("format=csv returns an actual CSV body, not the JSON shape", async () => {

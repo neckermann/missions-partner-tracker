@@ -9,6 +9,8 @@ const dispatchHealth = {
   group: "communication",
   label: "Update sending health",
   question: "Are our GroupMe, WhatsApp and email sends going out, and how fast are they reviewed?",
+  // Nothing to report on until a channel is switched on.
+  requiresAnyFeature: ["groupme", "whatsapp", "outboundEmail"],
   params: z.object({ from: optionalDay, to: optionalDay }),
   fields: [
     { name: "from", label: "From", type: "date" },

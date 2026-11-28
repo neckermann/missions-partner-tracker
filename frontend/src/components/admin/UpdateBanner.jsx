@@ -1,17 +1,20 @@
 import React, { useEffect, useState } from "react";
 import { fetchVersionCheck } from "../../api/client.js";
+import useCurrentUser from "../../hooks/useCurrentUser.js";
 
 const DISMISSED_KEY = "missions-tracker-update-dismissed-version";
 
 // A banner on the admin dashboard when this instance is behind the latest upstream release
-// (backend/src/utils/versionCheck.js). Non-admins get a 403 from /api/version-check, treated as
-// "no update": the banner is a courtesy and must never make the dashboard look broken. Dismissal
+// (backend/src/utils/versionCheck.js). Only admins can see it, so it is only asked for for an admin (anyone else
+// would get a 403 on every page). The banner is a courtesy and must never make the dashboard look broken. Dismissal
 // is remembered per version in localStorage, so it doesn't suppress the next release's notice.
 export default function UpdateBanner() {
   const [info, setInfo] = useState(null);
   const [dismissed, setDismissed] = useState(false);
+  const { isAdmin, loading } = useCurrentUser();
 
   useEffect(() => {
+    if (loading || !isAdmin) return;
     fetchVersionCheck()
       .then((data) => {
         if (data?.updateAvailable) {
@@ -20,9 +23,9 @@ export default function UpdateBanner() {
         }
       })
       .catch(() => {
-        // Not an admin, or the check failed/GitHub unreachable: no banner, never a dashboard error.
+        // The check failed or GitHub is unreachable: no banner, never a dashboard error.
       });
-  }, []);
+  }, [isAdmin, loading]);
 
   if (!info || dismissed) return null;
 

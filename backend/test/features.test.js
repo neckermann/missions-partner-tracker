@@ -97,6 +97,12 @@ describe("isFeatureEnabled", () => {
       assert.deepEqual(unmetRequirements({ aiExtraction: true }, "aiExtraction"), []);
     });
 
+    test("key-date reminders need the contact log, which is where they are listed and cleared", () => {
+      assert.equal(isFeatureEnabled({ keyDates: true }, "keyDates"), true, "contactLog defaults on");
+      assert.equal(isFeatureEnabled({ keyDates: true, contactLog: false }, "keyDates"), false);
+      assert.deepEqual(unmetRequirements({ keyDates: true, contactLog: false }, "keyDates"), ["contactLog"]);
+    });
+
     test("receiving email needs Newsletters & Docs, where it files what it receives", () => {
       assert.equal(
         isFeatureEnabled({ inboundEmail: true }, "inboundEmail"),
