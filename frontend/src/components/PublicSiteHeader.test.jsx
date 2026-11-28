@@ -43,3 +43,22 @@ describe("PublicSiteHeader's identity and sign-in", () => {
     expect(document.querySelector(".header-church")).toBeNull();
   });
 });
+
+describe("PublicSiteHeader on a private-link page", () => {
+  it("keeps the church's name but drops the public menu and the team sign-in", () => {
+    settings = {
+      ...base,
+      churchName: "Hillside Community Church",
+      enabledFeatures: { publicDirectory: true, publicMap: true },
+    };
+    render(
+      <MemoryRouter initialEntries={["/survey/abc"]}>
+        <PublicSiteHeader plain title="Survey" />
+      </MemoryRouter>
+    );
+    expect(screen.getByText("Hillside Community Church")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Directory" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Map" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Team sign in" })).toBeNull();
+  });
+});

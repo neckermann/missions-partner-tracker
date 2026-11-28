@@ -18,7 +18,9 @@ const NAV_LINKS = [
   { to: "/trips", label: "Trip Opportunities", feature: "publicTripDiscovery" },
 ];
 
-export default function PublicSiteHeader({ title, subtitle, children }) {
+// `plain` is for pages someone reaches only through a private link (a survey, their own trip page,
+// an application link): the church's name and logo, but none of the public menu and no team sign-in.
+export default function PublicSiteHeader({ title, subtitle, plain = false, children }) {
   const settings = useSettings();
   const { logo, partnerTermPlural, enabledFeatures, churchName } = settings;
   const { pathname } = useLocation();
@@ -35,16 +37,18 @@ export default function PublicSiteHeader({ title, subtitle, children }) {
         </div>
       </div>
       <div className="app-header-nav">
-        {NAV_LINKS.filter(
-          (l) => l.to !== pathname && enabledFeatures[l.feature] && (!l.needs || settings[l.needs] !== false)
-        ).map((l) => (
-          <Link key={l.to} to={l.to} style={{ color: "white" }}>
-            {typeof l.label === "function" ? l.label(partnerTermPlural) : l.label}
-          </Link>
-        ))}
+        {!plain &&
+          NAV_LINKS.filter(
+            (l) =>
+              l.to !== pathname && enabledFeatures[l.feature] && (!l.needs || settings[l.needs] !== false)
+          ).map((l) => (
+            <Link key={l.to} to={l.to} style={{ color: "white" }}>
+              {typeof l.label === "function" ? l.label(partnerTermPlural) : l.label}
+            </Link>
+          ))}
         {children}
         {/* The way in for the team, on every public page. */}
-        {pathname !== "/login" && (
+        {!plain && pathname !== "/login" && (
           <Link to="/login" style={{ color: "white", opacity: 0.85 }}>
             Team sign in
           </Link>
