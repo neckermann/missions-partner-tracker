@@ -9,6 +9,7 @@ import AdminSidebar from "./AdminSidebar.jsx";
 // 390px screen ran off it. It must stay fully on screen, and close when the page scrolls or
 // the window resizes, since a fixed dropdown would otherwise stay put while its bell moves.
 // jsdom does no layout, so the rectangles are supplied.
+const markSeenSpy = vi.hoisted(() => vi.fn());
 vi.mock("../../api/client.js", () => ({ logout: vi.fn() }));
 vi.mock("../../hooks/useCurrentUser.js", () => ({
   default: () => ({ isGuest: false, isAdmin: true, canWrite: true, loading: false }),
@@ -18,8 +19,8 @@ vi.mock("../../hooks/useNotifications.js", () => ({
     categories: [
       { key: "needs", label: "New one-time needs", icon: "🎁", count: 2, linkTo: "/admin/one-time-needs" },
     ],
-    totalUnread: 2,
-    markSeen: vi.fn(),
+    totalWaiting: 1,
+    markSeen: markSeenSpy,
   }),
 }));
 vi.mock("../../context/SettingsContext.jsx", () => ({
@@ -89,5 +90,27 @@ describe("AdminSidebar notification bell dropdown", () => {
       window.dispatchEvent(new Event("resize"));
     });
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+  });
+});
+
+describe("AdminSidebar notification bell: opening it", () => {
+  it("marks nothing seen, so no alert is cleared (or backup reminder snoozed) by looking", () => {
+    window.innerWidth = 1280;
+    bellLeft = 156;
+    markSeenSpy.mockClear();
+    openBell();
+    expect(markSeenSpy).not.toHaveBeenCalled();
+  });
+
+  it("shows a badge that counts the same alerts as the list has lines", () => {
+    window.innerWidth = 1280;
+    render(
+      <MemoryRouter>
+        <AdminSidebar />
+      </MemoryRouter>
+    );
+    expect(screen.getByTitle("1 waiting")).toHaveTextContent("1");
+    fireEvent.click(screen.getByTitle("Notifications"));
+    expect(screen.getAllByText("New one-time needs").length).toBe(1);
   });
 });

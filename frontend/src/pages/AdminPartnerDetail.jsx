@@ -806,7 +806,7 @@ export default function AdminPartnerDetail() {
             label: isGuest ? "One-Time Needs" : "Financial",
             href: "#section-financial",
           },
-          { label: "Mission Trips", href: "#section-trips" },
+          enabledFeatures.trips && { label: "Mission Trips", href: "#section-trips" },
         ]
           .filter(Boolean)
           .map((item) => (
@@ -972,161 +972,163 @@ export default function AdminPartnerDetail() {
           )}
         />
 
-        <div className="admin-section-group" id="section-family">
-          <h2 className="admin-group-heading">Family &amp; Personal</h2>
+        {!isOrg && (
+          <div className="admin-section-group" id="section-family">
+            <h2 className="admin-group-heading">Family &amp; Personal</h2>
 
-          {!isOrg && (
-            <EditableSection
-              title="Wedding Anniversary"
-              canEdit={canEdit}
-              onSaved={reload}
-              onSave={(d) => save({ anniversary: dateOrNull(d.anniversary) })}
-              value={{ anniversary: toDateInputValue(p.anniversary) }}
-              view={(v) => (
-                <Field label="Wedding Anniversary" value={formatDateLong(v.anniversary)} showEmpty />
-              )}
-              edit={(d, set) => (
-                <label style={{ maxWidth: "220px" }}>
-                  Wedding Anniversary
-                  <input
-                    type="date"
-                    value={d.anniversary}
-                    onChange={(e) => set("anniversary", e.target.value)}
-                  />
-                </label>
-              )}
-            />
-          )}
-
-          {!isOrg && (
-            <RecordList
-              title="Adults"
-              canEdit={canEdit}
-              items={collections.adults}
-              renderItem={(a) => (
-                <>
-                  <Field label="Name" value={[a.firstName, a.lastName].filter(Boolean).join(" ")} />
-                  <Field label="Birthday" value={formatDateLong(a.birthday)} />
-                  <Field label="Phone 1" value={formatPhone(a.phone1)} copy="phone" whose={a.firstName} />
-                  <Field label="Phone 2" value={formatPhone(a.phone2)} copy="phone" whose={a.firstName} />
-                  <Field label="Email" value={a.email} copy="email" whose={a.firstName} />
-                  {a.isPrimaryContact && <Field label="Primary contact" value="Yes" />}
-                </>
-              )}
-              onAdd={() =>
-                adultCrud.openAdd({
-                  isPrimaryContact: false,
-                  firstName: "",
-                  lastName: "",
-                  phone1: "",
-                  phone2: "",
-                  email: "",
-                  birthday: "",
-                })
-              }
-              onEdit={(a) =>
-                adultCrud.openEdit(a.id, {
-                  isPrimaryContact: !!a.isPrimaryContact,
-                  firstName: a.firstName || "",
-                  lastName: a.lastName || "",
-                  phone1: formatPhone(a.phone1),
-                  phone2: formatPhone(a.phone2),
-                  email: a.email || "",
-                  birthday: toDateInputValue(a.birthday),
-                })
-              }
-            />
-          )}
-
-          {!isOrg && (
-            <RecordList
-              title="Children"
-              canEdit={canEdit}
-              items={collections.children}
-              renderItem={(c) => (
-                <>
-                  <Field label="Name" value={[c.firstName, c.lastName].filter(Boolean).join(" ")} />
-                  <Field label="Birthday" value={formatDateLong(c.birthday)} />
-                </>
-              )}
-              onAdd={() => childCrud.openAdd({ firstName: "", lastName: "", birthday: "" })}
-              onEdit={(c) =>
-                childCrud.openEdit(c.id, {
-                  firstName: c.firstName || "",
-                  lastName: c.lastName || "",
-                  birthday: toDateInputValue(c.birthday),
-                })
-              }
-            />
-          )}
-
-          {!isOrg && (
-            <RecordList
-              title="Languages Spoken"
-              canEdit={canEdit}
-              items={collections.languages}
-              renderItem={(l) => (
-                <>
-                  <Field label="Language" value={l.language} />
-                  <Field
-                    label="Proficiency"
-                    value={l.proficiency ? proficiencyLabel(l.proficiency) : null}
-                    showEmpty
-                  />
-                </>
-              )}
-              onAdd={() => languageCrud.openAdd({ language: "", proficiency: "" })}
-              onEdit={(l) =>
-                languageCrud.openEdit(l.id, { language: l.language, proficiency: l.proficiency || "" })
-              }
-            />
-          )}
-
-          {!isOrg && (
-            <EditableSection
-              title="Emergency Contact"
-              canEdit={canEdit}
-              onSaved={reload}
-              onSave={(d) =>
-                save({
-                  emergencyContactName: d.name,
-                  emergencyContactPhone: d.phone,
-                  emergencyContactEmail: d.email,
-                })
-              }
-              value={{
-                name: p.emergencyContactName || "",
-                phone: formatPhone(p.emergencyContactPhone),
-                email: p.emergencyContactEmail || "",
-              }}
-              view={(v) => (
-                <div style={{ display: "flex", gap: "1.5rem", flexWrap: "wrap" }}>
-                  <Field label="Name" value={v.name} showEmpty />
-                  <Field label="Phone" value={v.phone} showEmpty />
-                  <Field label="Email" value={v.email} showEmpty />
-                </div>
-              )}
-              edit={(d, set) => (
-                <div className="form-grid">
-                  <label>
-                    Name
-                    <input value={d.name} onChange={(e) => set("name", e.target.value)} />
+            {!isOrg && (
+              <EditableSection
+                title="Wedding Anniversary"
+                canEdit={canEdit}
+                onSaved={reload}
+                onSave={(d) => save({ anniversary: dateOrNull(d.anniversary) })}
+                value={{ anniversary: toDateInputValue(p.anniversary) }}
+                view={(v) => (
+                  <Field label="Wedding Anniversary" value={formatDateLong(v.anniversary)} showEmpty />
+                )}
+                edit={(d, set) => (
+                  <label style={{ maxWidth: "220px" }}>
+                    Wedding Anniversary
+                    <input
+                      type="date"
+                      value={d.anniversary}
+                      onChange={(e) => set("anniversary", e.target.value)}
+                    />
                   </label>
-                  <PhoneField
-                    label="Phone"
-                    inputMode="tel"
-                    value={d.phone}
-                    onChange={(e) => set("phone", e.target.value)}
-                  />
-                  <label>
-                    Email
-                    <EmailInput value={d.email} onChange={(e) => set("email", e.target.value)} />
-                  </label>
-                </div>
-              )}
-            />
-          )}
-        </div>
+                )}
+              />
+            )}
+
+            {!isOrg && (
+              <RecordList
+                title="Adults"
+                canEdit={canEdit}
+                items={collections.adults}
+                renderItem={(a) => (
+                  <>
+                    <Field label="Name" value={[a.firstName, a.lastName].filter(Boolean).join(" ")} />
+                    <Field label="Birthday" value={formatDateLong(a.birthday)} />
+                    <Field label="Phone 1" value={formatPhone(a.phone1)} copy="phone" whose={a.firstName} />
+                    <Field label="Phone 2" value={formatPhone(a.phone2)} copy="phone" whose={a.firstName} />
+                    <Field label="Email" value={a.email} copy="email" whose={a.firstName} />
+                    {a.isPrimaryContact && <Field label="Primary contact" value="Yes" />}
+                  </>
+                )}
+                onAdd={() =>
+                  adultCrud.openAdd({
+                    isPrimaryContact: false,
+                    firstName: "",
+                    lastName: "",
+                    phone1: "",
+                    phone2: "",
+                    email: "",
+                    birthday: "",
+                  })
+                }
+                onEdit={(a) =>
+                  adultCrud.openEdit(a.id, {
+                    isPrimaryContact: !!a.isPrimaryContact,
+                    firstName: a.firstName || "",
+                    lastName: a.lastName || "",
+                    phone1: formatPhone(a.phone1),
+                    phone2: formatPhone(a.phone2),
+                    email: a.email || "",
+                    birthday: toDateInputValue(a.birthday),
+                  })
+                }
+              />
+            )}
+
+            {!isOrg && (
+              <RecordList
+                title="Children"
+                canEdit={canEdit}
+                items={collections.children}
+                renderItem={(c) => (
+                  <>
+                    <Field label="Name" value={[c.firstName, c.lastName].filter(Boolean).join(" ")} />
+                    <Field label="Birthday" value={formatDateLong(c.birthday)} />
+                  </>
+                )}
+                onAdd={() => childCrud.openAdd({ firstName: "", lastName: "", birthday: "" })}
+                onEdit={(c) =>
+                  childCrud.openEdit(c.id, {
+                    firstName: c.firstName || "",
+                    lastName: c.lastName || "",
+                    birthday: toDateInputValue(c.birthday),
+                  })
+                }
+              />
+            )}
+
+            {!isOrg && (
+              <RecordList
+                title="Languages Spoken"
+                canEdit={canEdit}
+                items={collections.languages}
+                renderItem={(l) => (
+                  <>
+                    <Field label="Language" value={l.language} />
+                    <Field
+                      label="Proficiency"
+                      value={l.proficiency ? proficiencyLabel(l.proficiency) : null}
+                      showEmpty
+                    />
+                  </>
+                )}
+                onAdd={() => languageCrud.openAdd({ language: "", proficiency: "" })}
+                onEdit={(l) =>
+                  languageCrud.openEdit(l.id, { language: l.language, proficiency: l.proficiency || "" })
+                }
+              />
+            )}
+
+            {!isOrg && (
+              <EditableSection
+                title="Emergency Contact"
+                canEdit={canEdit}
+                onSaved={reload}
+                onSave={(d) =>
+                  save({
+                    emergencyContactName: d.name,
+                    emergencyContactPhone: d.phone,
+                    emergencyContactEmail: d.email,
+                  })
+                }
+                value={{
+                  name: p.emergencyContactName || "",
+                  phone: formatPhone(p.emergencyContactPhone),
+                  email: p.emergencyContactEmail || "",
+                }}
+                view={(v) => (
+                  <div style={{ display: "flex", gap: "1.5rem", flexWrap: "wrap" }}>
+                    <Field label="Name" value={v.name} showEmpty />
+                    <Field label="Phone" value={v.phone} showEmpty />
+                    <Field label="Email" value={v.email} showEmpty />
+                  </div>
+                )}
+                edit={(d, set) => (
+                  <div className="form-grid">
+                    <label>
+                      Name
+                      <input value={d.name} onChange={(e) => set("name", e.target.value)} />
+                    </label>
+                    <PhoneField
+                      label="Phone"
+                      inputMode="tel"
+                      value={d.phone}
+                      onChange={(e) => set("phone", e.target.value)}
+                    />
+                    <label>
+                      Email
+                      <EmailInput value={d.email} onChange={(e) => set("email", e.target.value)} />
+                    </label>
+                  </div>
+                )}
+              />
+            )}
+          </div>
+        )}
 
         <div className="admin-section-group" id="section-location">
           <h2 className="admin-group-heading">Location &amp; Contact</h2>
@@ -1666,145 +1668,147 @@ export default function AdminPartnerDetail() {
           </div>
         )}
 
-        <div className="admin-section-group" id="section-trips">
-          <h2 className="admin-group-heading">Mission Trips</h2>
+        {enabledFeatures.trips && (
+          <div className="admin-section-group" id="section-trips">
+            <h2 className="admin-group-heading">Mission Trips</h2>
 
-          {enabledFeatures.trips && (
-            <PartnerSummaryCard
-              icon="✈️"
-              title="Mission Trips"
-              count={collections.trips.length}
-              items={tripsLoadMore.visible.map((t) => ({
-                text: `${t.name || t.type || "Trip"}${t.startDate ? ` · ${formatDate(t.startDate)}` : ""}${
-                  t.status ? ` · ${t.status}` : ""
-                }`,
-                onClick: () => navigate(`/admin/trips/${t.id}`),
-              }))}
-              hasMore={tripsLoadMore.hasMore}
-              remaining={tripsLoadMore.remaining}
-              onShowMore={tripsLoadMore.showMore}
-              viewAllTo={`/admin/trips?partnerId=${p.id}`}
-              actions={
-                // Starting a trip is staff's: a care team member can see trips but not create one.
-                canWrite
-                  ? [
-                      {
-                        label: "+ Add",
-                        onClick: () => navigate(`/admin/trips?partnerId=${p.id}&newTrip=1`),
-                      },
-                    ]
-                  : []
+            {enabledFeatures.trips && (
+              <PartnerSummaryCard
+                icon="✈️"
+                title="Mission Trips"
+                count={collections.trips.length}
+                items={tripsLoadMore.visible.map((t) => ({
+                  text: `${t.name || t.type || "Trip"}${t.startDate ? ` · ${formatDate(t.startDate)}` : ""}${
+                    t.status ? ` · ${t.status}` : ""
+                  }`,
+                  onClick: () => navigate(`/admin/trips/${t.id}`),
+                }))}
+                hasMore={tripsLoadMore.hasMore}
+                remaining={tripsLoadMore.remaining}
+                onShowMore={tripsLoadMore.showMore}
+                viewAllTo={`/admin/trips?partnerId=${p.id}`}
+                actions={
+                  // Starting a trip is staff's: a care team member can see trips but not create one.
+                  canWrite
+                    ? [
+                        {
+                          label: "+ Add",
+                          onClick: () => navigate(`/admin/trips?partnerId=${p.id}&newTrip=1`),
+                        },
+                      ]
+                    : []
+                }
+              />
+            )}
+
+            <EditableSection
+              title="Trip Capacity"
+              canEdit={canEdit}
+              onSaved={reload}
+              onSave={(d) =>
+                save({
+                  tripTeamSizeMin: d.tripTeamSizeMin === "" ? null : Number(d.tripTeamSizeMin),
+                  tripTeamSizeMax: d.tripTeamSizeMax === "" ? null : Number(d.tripTeamSizeMax),
+                  tripSeasonNotes: d.tripSeasonNotes || null,
+                  tripLogisticsNotes: d.tripLogisticsNotes || null,
+                })
               }
+              value={{
+                tripTeamSizeMin: p.tripTeamSizeMin ?? "",
+                tripTeamSizeMax: p.tripTeamSizeMax ?? "",
+                tripSeasonNotes: p.tripSeasonNotes || "",
+                tripLogisticsNotes: p.tripLogisticsNotes || "",
+              }}
+              view={(v) => (
+                <>
+                  <Field
+                    label="Team Size"
+                    value={
+                      v.tripTeamSizeMin !== "" || v.tripTeamSizeMax !== ""
+                        ? `${v.tripTeamSizeMin === "" ? "?" : v.tripTeamSizeMin} – ${
+                            v.tripTeamSizeMax === "" ? "?" : v.tripTeamSizeMax
+                          }`
+                        : null
+                    }
+                    showEmpty
+                  />
+                  <div style={{ marginTop: "0.75rem" }}>
+                    <Field label="Best Time of Year / Duration Notes" value={v.tripSeasonNotes} />
+                    <Field label="Lodging &amp; Logistics Notes" value={v.tripLogisticsNotes} />
+                  </div>
+                  <div
+                    style={{ marginTop: "1rem", paddingTop: "0.75rem", borderTop: "1px solid var(--border)" }}
+                  >
+                    <RecordList
+                      bare
+                      canEdit={canEdit}
+                      items={collections.tripTypes}
+                      renderItem={(t) => <Field label="Type" value={t.type} />}
+                      addLabel="+ Add Type"
+                      onAdd={() => tripTypeCrud.openAdd({ type: "" })}
+                      onEdit={(t) => tripTypeCrud.openEdit(t.id, { type: t.type })}
+                      emptyMessage="No trip types on file."
+                    />
+                  </div>
+                </>
+              )}
+              edit={(d, set) => (
+                <>
+                  <div className="form-grid">
+                    <label>
+                      Min Team Size
+                      <input
+                        type="number"
+                        min="0"
+                        value={d.tripTeamSizeMin}
+                        onChange={(e) => set("tripTeamSizeMin", e.target.value)}
+                      />
+                    </label>
+                    <label>
+                      Max Team Size
+                      <input
+                        type="number"
+                        min="0"
+                        value={d.tripTeamSizeMax}
+                        onChange={(e) => set("tripTeamSizeMax", e.target.value)}
+                      />
+                    </label>
+                  </div>
+                  <label style={{ marginTop: "1rem" }}>
+                    Best Time of Year / Duration Notes
+                    <textarea
+                      rows={2}
+                      value={d.tripSeasonNotes}
+                      onChange={(e) => set("tripSeasonNotes", e.target.value)}
+                    />
+                  </label>
+                  <label style={{ marginTop: "0.75rem" }}>
+                    Lodging &amp; Logistics Notes
+                    <textarea
+                      rows={2}
+                      value={d.tripLogisticsNotes}
+                      onChange={(e) => set("tripLogisticsNotes", e.target.value)}
+                    />
+                  </label>
+                  <div
+                    style={{ marginTop: "1rem", paddingTop: "0.75rem", borderTop: "1px solid var(--border)" }}
+                  >
+                    <RecordList
+                      bare
+                      canEdit={canEdit}
+                      items={collections.tripTypes}
+                      renderItem={(t) => <Field label="Type" value={t.type} />}
+                      addLabel="+ Add Type"
+                      onAdd={() => tripTypeCrud.openAdd({ type: "" })}
+                      onEdit={(t) => tripTypeCrud.openEdit(t.id, { type: t.type })}
+                      emptyMessage="No trip types on file."
+                    />
+                  </div>
+                </>
+              )}
             />
-          )}
-
-          <EditableSection
-            title="Trip Capacity"
-            canEdit={canEdit}
-            onSaved={reload}
-            onSave={(d) =>
-              save({
-                tripTeamSizeMin: d.tripTeamSizeMin === "" ? null : Number(d.tripTeamSizeMin),
-                tripTeamSizeMax: d.tripTeamSizeMax === "" ? null : Number(d.tripTeamSizeMax),
-                tripSeasonNotes: d.tripSeasonNotes || null,
-                tripLogisticsNotes: d.tripLogisticsNotes || null,
-              })
-            }
-            value={{
-              tripTeamSizeMin: p.tripTeamSizeMin ?? "",
-              tripTeamSizeMax: p.tripTeamSizeMax ?? "",
-              tripSeasonNotes: p.tripSeasonNotes || "",
-              tripLogisticsNotes: p.tripLogisticsNotes || "",
-            }}
-            view={(v) => (
-              <>
-                <Field
-                  label="Team Size"
-                  value={
-                    v.tripTeamSizeMin !== "" || v.tripTeamSizeMax !== ""
-                      ? `${v.tripTeamSizeMin === "" ? "?" : v.tripTeamSizeMin} – ${
-                          v.tripTeamSizeMax === "" ? "?" : v.tripTeamSizeMax
-                        }`
-                      : null
-                  }
-                  showEmpty
-                />
-                <div style={{ marginTop: "0.75rem" }}>
-                  <Field label="Best Time of Year / Duration Notes" value={v.tripSeasonNotes} />
-                  <Field label="Lodging &amp; Logistics Notes" value={v.tripLogisticsNotes} />
-                </div>
-                <div
-                  style={{ marginTop: "1rem", paddingTop: "0.75rem", borderTop: "1px solid var(--border)" }}
-                >
-                  <RecordList
-                    bare
-                    canEdit={canEdit}
-                    items={collections.tripTypes}
-                    renderItem={(t) => <Field label="Type" value={t.type} />}
-                    addLabel="+ Add Type"
-                    onAdd={() => tripTypeCrud.openAdd({ type: "" })}
-                    onEdit={(t) => tripTypeCrud.openEdit(t.id, { type: t.type })}
-                    emptyMessage="No trip types on file."
-                  />
-                </div>
-              </>
-            )}
-            edit={(d, set) => (
-              <>
-                <div className="form-grid">
-                  <label>
-                    Min Team Size
-                    <input
-                      type="number"
-                      min="0"
-                      value={d.tripTeamSizeMin}
-                      onChange={(e) => set("tripTeamSizeMin", e.target.value)}
-                    />
-                  </label>
-                  <label>
-                    Max Team Size
-                    <input
-                      type="number"
-                      min="0"
-                      value={d.tripTeamSizeMax}
-                      onChange={(e) => set("tripTeamSizeMax", e.target.value)}
-                    />
-                  </label>
-                </div>
-                <label style={{ marginTop: "1rem" }}>
-                  Best Time of Year / Duration Notes
-                  <textarea
-                    rows={2}
-                    value={d.tripSeasonNotes}
-                    onChange={(e) => set("tripSeasonNotes", e.target.value)}
-                  />
-                </label>
-                <label style={{ marginTop: "0.75rem" }}>
-                  Lodging &amp; Logistics Notes
-                  <textarea
-                    rows={2}
-                    value={d.tripLogisticsNotes}
-                    onChange={(e) => set("tripLogisticsNotes", e.target.value)}
-                  />
-                </label>
-                <div
-                  style={{ marginTop: "1rem", paddingTop: "0.75rem", borderTop: "1px solid var(--border)" }}
-                >
-                  <RecordList
-                    bare
-                    canEdit={canEdit}
-                    items={collections.tripTypes}
-                    renderItem={(t) => <Field label="Type" value={t.type} />}
-                    addLabel="+ Add Type"
-                    onAdd={() => tripTypeCrud.openAdd({ type: "" })}
-                    onEdit={(t) => tripTypeCrud.openEdit(t.id, { type: t.type })}
-                    emptyMessage="No trip types on file."
-                  />
-                </div>
-              </>
-            )}
-          />
-        </div>
+          </div>
+        )}
       </div>
 
       {activeModal === "add-prayer" && (

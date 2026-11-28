@@ -12,7 +12,7 @@ vi.mock("../../hooks/useCurrentUser.js", () => ({
   default: () => ({ loading: false, isAdmin: true, isGuest: false, careTeamSeats: [] }),
 }));
 vi.mock("../../hooks/useNotifications.js", () => ({
-  default: () => ({ categories: [], totalUnread: 0, markSeen: vi.fn() }),
+  default: () => ({ categories: [], totalWaiting: 0, markSeen: vi.fn() }),
 }));
 vi.mock("../../context/SettingsContext.jsx", () => ({
   useSettings: () => ({

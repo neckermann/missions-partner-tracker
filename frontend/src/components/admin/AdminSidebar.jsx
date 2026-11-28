@@ -25,7 +25,7 @@ function badgeText(count) {
 // Smallest gap kept between the bell dropdown and the screen edge, in px.
 const BELL_EDGE = 8;
 
-function NotificationBell({ categories, totalUnread, markSeen }) {
+function NotificationBell({ categories, totalWaiting }) {
   const [open, setOpen] = useState(false);
   const [coords, setCoords] = useState(null);
   const ref = useRef(null);
@@ -74,8 +74,9 @@ function NotificationBell({ categories, totalUnread, markSeen }) {
       const rect = btnRef.current.getBoundingClientRect();
       setCoords({ top: rect.bottom + 4, left: rect.left });
     }
+    // Opening the bell only shows the list. It marks nothing seen: that used to clear every alert (and snooze the
+    // backup reminder for 30 days) without anyone doing anything about them.
     setOpen(opening);
-    if (opening) withCount.forEach((c) => markSeen(c.key));
   }
 
   return (
@@ -89,9 +90,9 @@ function NotificationBell({ categories, totalUnread, markSeen }) {
         aria-expanded={open}
       >
         🔔
-        {totalUnread > 0 && (
-          <span className="admin-sidebar-bell-badge" title={`${totalUnread} unread`}>
-            {badgeText(totalUnread)}
+        {totalWaiting > 0 && (
+          <span className="admin-sidebar-bell-badge" title={`${totalWaiting} waiting`}>
+            {badgeText(totalWaiting)}
           </span>
         )}
       </button>
@@ -291,7 +292,7 @@ const CARE_GUEST_NAV_KEYS = new Set(["partners", "partnerFiles", "prayerRequests
 
 export default function AdminSidebar() {
   const { loading: userLoading, isAdmin, isGuest, careTeamSeats } = useCurrentUser();
-  const { categories, totalUnread, markSeen } = useNotifications();
+  const { categories, totalWaiting } = useNotifications();
   const categoryByKey = new Map(categories.map((c) => [c.key, c]));
   const [collapsedPref, setCollapsed] = useState(readSidebarCollapsed);
   // On a phone the menu starts closed so the opened page is on the first screen, and closes again
@@ -376,7 +377,7 @@ export default function AdminSidebar() {
           {title}
         </h1>
         <span className="admin-sidebar-title-actions">
-          <NotificationBell categories={categories} totalUnread={totalUnread} markSeen={markSeen} />
+          <NotificationBell categories={categories} totalWaiting={totalWaiting} />
           <button
             type="button"
             className="admin-sidebar-menu-btn"

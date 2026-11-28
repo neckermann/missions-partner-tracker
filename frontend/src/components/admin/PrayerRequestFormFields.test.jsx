@@ -1,8 +1,13 @@
 import React from "react";
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import PrayerRequestFormFields from "./PrayerRequestFormFields.jsx";
 import { sentForReviewNote } from "../../utils/heldForReview.js";
+import { useSettings } from "../../context/SettingsContext.jsx";
+
+vi.mock("../../context/SettingsContext.jsx", () => ({
+  useSettings: vi.fn(() => ({ enabledFeatures: { booklet: true } })),
+}));
 
 const base = {
   category: "strategic",
@@ -76,5 +81,15 @@ describe("sentForReviewNote", () => {
     );
     expect(sentForReviewNote("")).toBe("Your request has gone to the Missions team for review.");
     expect(sentForReviewNote(undefined)).toMatch(/for review\.$/);
+  });
+});
+
+describe("PrayerRequestFormFields: features that are off", () => {
+  it("does not offer 'Include in printed booklet' when the booklet is off", () => {
+    useSettings.mockReturnValue({ enabledFeatures: { booklet: false } });
+    render(<Harness mode="create" />);
+    expect(screen.getByLabelText("Show on public profile")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Include in printed booklet")).toBeNull();
+    useSettings.mockReturnValue({ enabledFeatures: { booklet: true } });
   });
 });

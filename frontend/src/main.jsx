@@ -8,6 +8,7 @@ import PublicTripOpportunities from "./pages/PublicTripOpportunities.jsx";
 import PublicTripApplication from "./pages/PublicTripApplication.jsx";
 import PublicTripParticipant from "./pages/PublicTripParticipant.jsx";
 import PublicTripAccessRecovery from "./pages/PublicTripAccessRecovery.jsx";
+import NotFound from "./pages/NotFound.jsx";
 import PublicSurvey from "./pages/PublicSurvey.jsx";
 import Login from "./pages/Login.jsx";
 import SignInLink from "./pages/SignInLink.jsx";
@@ -332,7 +333,14 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                   <Route path="about" element={<AdminSettingsAbout />} />
                   <Route path="privacy" element={<AdminSettingsPrivacy />} />
                   <Route path="features" element={<AdminSettingsFeatures />} />
-                  <Route path="groupme" element={<AdminSettingsGroupMe />} />
+                  <Route
+                    path="groupme"
+                    element={
+                      <RequireAdminFeature feature="groupme">
+                        <AdminSettingsGroupMe />
+                      </RequireAdminFeature>
+                    }
+                  />
                   <Route
                     path="whatsapp"
                     element={
@@ -341,8 +349,22 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                       </RequireAdminFeature>
                     }
                   />
-                  <Route path="integrations" element={<AdminSettingsIntegrations />} />
-                  <Route path="email" element={<AdminSettingsEmail />} />
+                  <Route
+                    path="integrations"
+                    element={
+                      <RequireAdminFeature feature={["aiExtraction", "joshuaProject"]}>
+                        <AdminSettingsIntegrations />
+                      </RequireAdminFeature>
+                    }
+                  />
+                  <Route
+                    path="email"
+                    element={
+                      <RequireAdminFeature feature={["outboundEmail", "inboundEmail"]}>
+                        <AdminSettingsEmail />
+                      </RequireAdminFeature>
+                    }
+                  />
                   <Route
                     path="trips"
                     element={
@@ -411,7 +433,10 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                   <Route path="users" element={<AdminUsers />} />
                   <Route path="users/new" element={<AdminUserForm />} />
                 </Route>
+                {/* An unknown address under /admin: a message inside the shell, not a blank page. */}
+                <Route path="*" element={<NotFound inAdmin />} />
               </Route>
+              <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>
         </ErrorBoundary>
