@@ -16,6 +16,10 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ## [Unreleased]
 
+### Changed
+
+- **Knowing an administrator's email is no longer enough to lock them out (#594).** Failed sign-ins are now counted per address and account: ten failures from one address stop that address, not the real person signing in from somewhere else. A higher ceiling (five times as many, from any mix of addresses) still stops a guesser who keeps changing address, but an address that has signed in with a correct password before (remembered in memory for 30 days) is let through. The same applies to wrong two-factor codes.
+
 ## [0.1.0-beta.4] - 2026-11-27
 
 ### Upgrading

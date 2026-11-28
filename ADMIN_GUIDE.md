@@ -415,14 +415,19 @@ design:
 | `/api/public/*` (directory, map, country stats, public settings) | 120 requests / min |
 
 **Per account, as well as per address.** An address can be dodged, so sign-in is
-also limited by *account*: after 10 failed password sign-ins for the same email
-within 15 minutes (and, separately, 10 wrong two-factor codes), that account's
-sign-in is refused with a "try again in N minutes" message from any address,
-even for the right password, until the oldest failures age out. A successful
-sign-in clears the count. Someone who knows an email can therefore make that
-account wait by failing on purpose; it lasts at most 15 minutes. It is held in
-memory (a restart clears it), and is off on a public demo, whose logins are
-shared.
+also limited by *account*, in two counts. After 10 failed password sign-ins
+(and, separately, 10 wrong two-factor codes) for the same email *from the same
+address* within 15 minutes, that address is refused with a "try again in N
+minutes" message, even for the right password, until the oldest failures age
+out. Someone signing in from a different address is not held back by it, so
+knowing an administrator's email is not enough to keep them out. A second,
+higher ceiling (five times as many failures, from any mix of addresses) stops
+a guesser who keeps changing address; it holds back addresses the account has
+not signed in from, but an address that has signed in with a correct password
+before (remembered for 30 days) is let through. A successful sign-in clears
+both counts. Someone who knows an email can still make a *new* address wait by
+failing on purpose; it lasts at most 15 minutes. It is held in memory (a
+restart clears it), and is off on a public demo, whose logins are shared.
 
 **Behind a proxy, set `TRUST_PROXY` correctly.** The per-address limits read the
 visitor's address from the `X-Forwarded-For` header, so the app has to know how
