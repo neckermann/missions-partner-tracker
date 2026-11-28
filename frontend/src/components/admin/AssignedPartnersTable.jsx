@@ -77,33 +77,38 @@ export default function AssignedPartnersTable() {
           "—"
         ),
     },
-    {
-      key: "nextKeyDate",
-      label: "Next key date",
-      stopRowClick: true,
-      render: (r) =>
-        r.nextKeyDate ? (
-          <span>
-            {`${r.nextKeyDate.occasion}${r.nextKeyDate.who ? ` (${r.nextKeyDate.who})` : ""} · ${formatDateLong(r.nextKeyDate.date)}`}
-            {/* Inside the reminder window -- the same 7 days the bell and email use */}
-            {enabledFeatures.keyDates && r.nextKeyDate.daysUntil <= KEY_DATE_SOON_DAYS && (
-              <StatusPill label={r.nextKeyDate.daysUntil === 0 ? "Today" : "Soon"} color="#a6540f" />
-            )}
-            {r.greetingEmail && r.nextKeyDate.daysUntil <= KEY_DATE_SOON_DAYS && (
-              <button
-                type="button"
-                className="btn secondary small"
-                style={{ marginLeft: "0.5rem" }}
-                onClick={() => greet(r)}
-              >
-                Send greeting
-              </button>
-            )}
-          </span>
-        ) : (
-          "—"
-        ),
-    },
+    // Key dates (and the greeting they offer) belong to the key-date feature: no column while it is off.
+    ...(enabledFeatures.keyDates
+      ? [
+          {
+            key: "nextKeyDate",
+            label: "Next key date",
+            stopRowClick: true,
+            render: (r) =>
+              r.nextKeyDate ? (
+                <span>
+                  {`${r.nextKeyDate.occasion}${r.nextKeyDate.who ? ` (${r.nextKeyDate.who})` : ""} · ${formatDateLong(r.nextKeyDate.date)}`}
+                  {/* Inside the reminder window -- the same 7 days the bell and email use */}
+                  {enabledFeatures.keyDates && r.nextKeyDate.daysUntil <= KEY_DATE_SOON_DAYS && (
+                    <StatusPill label={r.nextKeyDate.daysUntil === 0 ? "Today" : "Soon"} color="#a6540f" />
+                  )}
+                  {r.greetingEmail && r.nextKeyDate.daysUntil <= KEY_DATE_SOON_DAYS && (
+                    <button
+                      type="button"
+                      className="btn secondary small"
+                      style={{ marginLeft: "0.5rem" }}
+                      onClick={() => greet(r)}
+                    >
+                      Send greeting
+                    </button>
+                  )}
+                </span>
+              ) : (
+                "—"
+              ),
+          },
+        ]
+      : []),
     ...(enabledFeatures.prayerRequests
       ? [{ key: "openPrayers", label: "Open prayers", sortable: true, render: (r) => r.openPrayers }]
       : []),

@@ -332,7 +332,14 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                   <Route path="about" element={<AdminSettingsAbout />} />
                   <Route path="privacy" element={<AdminSettingsPrivacy />} />
                   <Route path="features" element={<AdminSettingsFeatures />} />
-                  <Route path="groupme" element={<AdminSettingsGroupMe />} />
+                  <Route
+                    path="groupme"
+                    element={
+                      <RequireAdminFeature feature="groupme">
+                        <AdminSettingsGroupMe />
+                      </RequireAdminFeature>
+                    }
+                  />
                   <Route
                     path="whatsapp"
                     element={
@@ -341,8 +348,22 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                       </RequireAdminFeature>
                     }
                   />
-                  <Route path="integrations" element={<AdminSettingsIntegrations />} />
-                  <Route path="email" element={<AdminSettingsEmail />} />
+                  <Route
+                    path="integrations"
+                    element={
+                      <RequireAdminFeature feature={["aiExtraction", "joshuaProject"]}>
+                        <AdminSettingsIntegrations />
+                      </RequireAdminFeature>
+                    }
+                  />
+                  <Route
+                    path="email"
+                    element={
+                      <RequireAdminFeature feature={["outboundEmail", "inboundEmail"]}>
+                        <AdminSettingsEmail />
+                      </RequireAdminFeature>
+                    }
+                  />
                   <Route
                     path="trips"
                     element={

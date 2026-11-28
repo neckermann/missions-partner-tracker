@@ -85,6 +85,7 @@ describe("the key-date list you can copy when email is off", () => {
 
 describe("AssignedPartnersTable (#288)", () => {
   it("shows the care columns, with quiet and due flagged", async () => {
+    features = { ...features, keyDates: true };
     renderIt();
     expect(await screen.findByText("The Reeds")).toBeTruthy();
     expect(screen.getByText("120 days ago")).toBeTruthy();
@@ -100,6 +101,21 @@ describe("AssignedPartnersTable (#288)", () => {
     await screen.findByText("The Reeds");
     expect(screen.getByText("Open prayers")).toBeTruthy();
     expect(screen.queryByText("Open needs")).toBeNull();
+  });
+
+  it("has no key-date column, and offers no greeting, while key dates is off", async () => {
+    fetchAssignedPartners.mockResolvedValue([
+      {
+        ...rows[0],
+        nextKeyDate: { ...rows[0].nextKeyDate, daysUntil: 2 },
+        greetingEmail: "dana@example.org",
+      },
+    ]);
+    renderIt();
+    await screen.findByText("The Reeds");
+    expect(screen.queryByText("Next key date")).toBeNull();
+    expect(screen.queryByText(/Birthday \(Dana\)/)).toBeNull();
+    expect(screen.queryByText("Send greeting")).toBeNull();
   });
 
   it("says so when you aren't on any care team", async () => {

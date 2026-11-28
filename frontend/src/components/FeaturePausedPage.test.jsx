@@ -98,7 +98,7 @@ describe("RequireAdminFeature for a guest", () => {
       </MemoryRouter>
     );
     expect(screen.getByRole("heading", { name: "Trips are paused" })).toBeInTheDocument();
-    expect(document.body.textContent).not.toMatch(/Church Settings/);
+    expect(document.body.textContent).not.toMatch(/Settings|Enabled Features/);
   });
 
   it("an admin still gets the way to switch it back on", () => {
@@ -110,6 +110,6 @@ describe("RequireAdminFeature for a guest", () => {
         </RequireAdminFeature>
       </MemoryRouter>
     );
-    expect(screen.getByText(/Church Settings/)).toBeInTheDocument();
+    expect(screen.getByText(/Enabled Features/)).toBeInTheDocument();
   });
 });
