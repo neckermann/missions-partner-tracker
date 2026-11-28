@@ -18,6 +18,7 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ### Fixed
 
+- The "Update sending health" report is only listed while GroupMe, WhatsApp or Email (Sending) is switched on, instead of appearing on an install with nothing to send through.
 - The "Last heard from" report leaves out the columns of a feature that is switched off (newsletters, logged contacts, prayer requests), no longer counts those as hearing from a partner, and no longer says partners "never sent a newsletter" when Newsletters & Docs is off. Its note names only the sources that apply.
 - Two small noises are gone. Non-admins no longer get a refused request (403) to the update and backup checks on every page, because only admins are asked. A prayer request dated after the day being reported on now shows 0 days open in the prayer report, not "−1".
 - Turning on public fundraising pages in Trips settings now gives a page to everyone already on a team, instead of only to people added afterwards (anyone added while it was off never got one, even after it was turned on). Pages they already had are kept.

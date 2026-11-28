@@ -73,7 +73,9 @@ function shapeFor(report, isEnabled) {
 
 function allowed(report, role, isEnabled) {
   if (!(report.roles || DEFAULT_ROLES).includes(role)) return false;
-  return !report.requiresFeature || isEnabled(report.requiresFeature);
+  if (report.requiresFeature && !isEnabled(report.requiresFeature)) return false;
+  // `requiresAnyFeature`: shown while at least one of these is on (sending health needs a channel to be on).
+  return !report.requiresAnyFeature || report.requiresAnyFeature.some(isEnabled);
 }
 
 // Catalog for the hub: metadata only, no data.
