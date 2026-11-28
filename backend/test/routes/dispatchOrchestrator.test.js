@@ -4,6 +4,7 @@ require("dotenv").config({ quiet: true });
 const prisma = require("../../src/prismaClient");
 const { encryptField } = require("../../src/utils/crypto");
 const { clearDispatchRecords, sendUrgentDispatch } = require("../../src/utils/dispatchOrchestrator");
+const { cleanupRow } = require("./helpers");
 
 // clearDispatchRecords and sendUrgentDispatch have no direct coverage elsewhere:
 // dispatches.test.js exercises sendUrgentDispatch only indirectly (GET
@@ -143,7 +144,7 @@ after(async () => {
   await cleanup();
   await Promise.all(
     originalUserCadences.map((u) =>
-      prisma.user.update({ where: { id: u.id }, data: { cadence: u.cadence } }).catch(() => {})
+      cleanupRow(prisma.user.update({ where: { id: u.id }, data: { cadence: u.cadence } }))
     )
   );
   if (originalSettings) {

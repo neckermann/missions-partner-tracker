@@ -122,7 +122,20 @@ async function removeFixturePartners() {
   await prisma.partner.deleteMany({ where: { displayName: { contains: FIXTURE_TAG } } });
 }
 
+// Cleanup that has to work. A row that is already gone is fine (Prisma's P2025), but anything else (a foreign-key
+// refusal that leaves rows behind for the next file to trip over, a dropped connection) fails the run instead of
+// being swallowed by `.catch(() => {})`.
+async function cleanupRow(promise) {
+  try {
+    return await promise;
+  } catch (err) {
+    if (err?.code === "P2025") return null;
+    throw err;
+  }
+}
+
 module.exports = {
+  cleanupRow,
   client,
   startServer,
   stopServer,

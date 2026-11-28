@@ -5,6 +5,7 @@ const prisma = require("../../src/prismaClient");
 const { encryptField } = require("../../src/utils/crypto");
 const { sendDigestTier } = require("../../src/utils/emailDispatchDelivery");
 const { runEmailDispatchTier } = require("../../src/utils/emailDispatchScheduler");
+const { cleanupRow } = require("./helpers");
 
 // Same mock-the-whole-domain technique as dispatches.test.js and publicSubscribe.test.js for
 // Postmark; no real email ever sends. No Express server is started: sendDigestTier() only
@@ -153,7 +154,7 @@ after(async () => {
   await cleanup();
   await Promise.all(
     originalUserCadences.map((u) =>
-      prisma.user.update({ where: { id: u.id }, data: { cadence: u.cadence } }).catch(() => {})
+      cleanupRow(prisma.user.update({ where: { id: u.id }, data: { cadence: u.cadence } }))
     )
   );
   await prisma.churchSettings.update({

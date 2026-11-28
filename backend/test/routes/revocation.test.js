@@ -12,6 +12,7 @@ const {
   ensureTestUsers,
   removeTestUsers,
   TEST_PASSWORD,
+  cleanupRow,
 } = require("./helpers");
 
 // helpers.client() only knows the three fixture roles. This logs in as an
@@ -85,7 +86,7 @@ describe("session revocation", () => {
       assert.equal((await editor("/api/partners")).status, 200, "reads still fine as a viewer");
     } finally {
       await prisma.user.update({ where: { id: editorId }, data: { role: "editor" } });
-      await prisma.partner.delete({ where: { id: created.body.id } }).catch(() => {});
+      await cleanupRow(prisma.partner.delete({ where: { id: created.body.id } }));
     }
   });
 
