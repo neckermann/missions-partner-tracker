@@ -1,6 +1,6 @@
 // The per-account limit on failed sign-ins (B9 of the November 2026 app review): it keys on the account,
 // so changing the address a request seems to come from does not reset it.
-const { test, describe, beforeEach } = require("node:test");
+const { test, describe, beforeEach, afterEach } = require("node:test");
 const assert = require("node:assert/strict");
 const limiter = require("../src/utils/accountLoginLimiter");
 
@@ -46,5 +46,64 @@ describe("accountLoginLimiter", () => {
     assert.equal(limiter.maxFailures({ NODE_ENV: "test" }), 1000);
     assert.equal(limiter.maxFailures({ ACCOUNT_LOGIN_MAX_FAILURES: "3", NODE_ENV: "test" }), 3);
     assert.equal(limiter.maxFailures({ ACCOUNT_LOGIN_MAX_FAILURES: "nope" }), 10);
+  });
+});
+
+describe("accountLoginLimiter, by address and account (#594)", () => {
+  const T1 = 2_000_000_000_000;
+  const KEYS = ["ACCOUNT_LOGIN_MAX_FAILURES", "ACCOUNT_LOGIN_MAX_FAILURES_ANY_ADDRESS"];
+  let saved;
+  beforeEach(() => {
+    limiter.resetAll();
+    saved = Object.fromEntries(KEYS.map((k) => [k, process.env[k]]));
+  });
+  afterEach(() => {
+    for (const k of KEYS) {
+      if (saved[k] === undefined) delete process.env[k];
+      else process.env[k] = saved[k];
+    }
+  });
+
+  test("failures from one address stop that address only", () => {
+    process.env.ACCOUNT_LOGIN_MAX_FAILURES = "3";
+    process.env.ACCOUNT_LOGIN_MAX_FAILURES_ANY_ADDRESS = "50";
+    try {
+      for (let i = 0; i < 3; i++) limiter.recordAttemptFailure("login", "a@x.test", "1.1.1.1", T1);
+      assert.ok(limiter.checkAttempt("login", "a@x.test", "1.1.1.1", T1 + 1) > 0);
+      assert.equal(limiter.checkAttempt("login", "a@x.test", "2.2.2.2", T1 + 1), 0);
+    } finally {
+      // restored in afterEach
+    }
+  });
+
+  test("the account-wide ceiling holds back new addresses but not one that has signed in", () => {
+    process.env.ACCOUNT_LOGIN_MAX_FAILURES = "3";
+    process.env.ACCOUNT_LOGIN_MAX_FAILURES_ANY_ADDRESS = "5";
+    try {
+      limiter.recordAttemptSuccess("login", "a@x.test", "9.9.9.9", T1);
+      for (let i = 0; i < 5; i++) limiter.recordAttemptFailure("login", "a@x.test", `7.7.7.${i}`, T1 + i);
+      assert.ok(limiter.checkAttempt("login", "a@x.test", "8.8.8.8", T1 + 10) > 0, "a new address waits");
+      assert.equal(
+        limiter.checkAttempt("login", "a@x.test", "9.9.9.9", T1 + 10),
+        0,
+        "the known address goes through"
+      );
+    } finally {
+      // restored in afterEach
+    }
+  });
+
+  test("a correct sign-in clears the counts, and an address is only 'known' for a while", () => {
+    process.env.ACCOUNT_LOGIN_MAX_FAILURES = "3";
+    process.env.ACCOUNT_LOGIN_MAX_FAILURES_ANY_ADDRESS = "3";
+    try {
+      for (let i = 0; i < 2; i++) limiter.recordAttemptFailure("login", "a@x.test", "1.1.1.1", T1);
+      limiter.recordAttemptSuccess("login", "a@x.test", "1.1.1.1", T1);
+      assert.equal(limiter.checkAttempt("login", "a@x.test", "1.1.1.1", T1 + 1), 0);
+      assert.equal(limiter.isKnownAddress("a@x.test", "1.1.1.1", T1 + 1000), true);
+      assert.equal(limiter.isKnownAddress("a@x.test", "1.1.1.1", T1 + 31 * 24 * 60 * 60 * 1000), false);
+    } finally {
+      // restored in afterEach
+    }
   });
 });

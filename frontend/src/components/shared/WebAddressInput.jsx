@@ -1,5 +1,6 @@
 import React, { useId, useState } from "react";
 import { webAddressHint } from "../../utils/webAddress.js";
+import FieldHint from "./FieldHint.jsx";
 
 // A web address box: the URL keyboard on a phone and, when you leave it, a short note if what you typed isn't a
 // web address. A drop-in for <input>: same `value` and `onChange(event)`, every other prop goes to the input. It
@@ -9,7 +10,8 @@ export default function WebAddressInput({ value, onBlur, ...rest }) {
   const [touched, setTouched] = useState(false);
   const hintId = useId();
   const current = value ?? "";
-  const hint = touched ? webAddressHint(current) : "";
+  const pending = webAddressHint(current);
+  const hint = touched ? pending : "";
   return (
     <>
       <input
@@ -27,15 +29,7 @@ export default function WebAddressInput({ value, onBlur, ...rest }) {
         aria-invalid={hint ? "true" : undefined}
         aria-describedby={hint ? hintId : rest["aria-describedby"]}
       />
-      {hint && (
-        <span
-          id={hintId}
-          role="status"
-          style={{ display: "block", color: "var(--danger)", fontSize: "0.85rem" }}
-        >
-          {hint}
-        </span>
-      )}
+      <FieldHint id={hintId} text={pending} show={Boolean(hint)} />
     </>
   );
 }

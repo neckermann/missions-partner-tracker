@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import EmailInput from "../components/shared/EmailInput.jsx";
 import { formatPhone } from "../utils/phone.js";
-import { useOutletContext } from "react-router-dom";
+import { Link, useOutletContext } from "react-router-dom";
 import { updateTrip, generateApplicationLink, addTripParticipant } from "../api/client.js";
 import { isMinorForTrip, formatCurrency } from "../utils/format.js";
 import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
@@ -261,8 +261,9 @@ export default function AdminTripTeam() {
       <div className="admin-section">
         <h3>Application questions</h3>
         <p style={{ color: "var(--muted)" }}>
-          Added after the church-wide questions (Settings → Trips Settings) on both the public and private
-          application forms for this trip specifically.
+          Added after the church-wide questions (
+          {isAdmin ? <Link to="/admin/settings/trips">Settings → Trips Settings</Link> : "Trips Settings"}) on
+          both the public and private application forms for this trip specifically.
         </p>
         {canWrite ? (
           <ApplicationQuestionsEditor

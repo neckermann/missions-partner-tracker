@@ -229,7 +229,7 @@ router.post("/login", async (req, res, next) => {
     // learns nothing from the answer. Not on a public demo, whose logins are shared and published.
     const limitDemo = isGuardedDemo();
     if (!limitDemo) {
-      const wait = accountLoginLimiter.retryAfterSeconds("login", email);
+      const wait = accountLoginLimiter.checkAttempt("login", email, req.ip);
       if (wait > 0) {
         res.set("Retry-After", String(wait));
         return res.status(429).json({
@@ -259,7 +259,7 @@ router.post("/login", async (req, res, next) => {
           : user.authProvider !== "local" || !user.passwordHash
             ? "not_a_password_account"
             : "wrong_password";
-      if (!limitDemo) accountLoginLimiter.recordFailure("login", email);
+      if (!limitDemo) accountLoginLimiter.recordAttemptFailure("login", email, req.ip);
       await recordAuditSafe(null, {
         action: "auth.login_failed",
         target: user || { email: email.toLowerCase().trim() },
@@ -269,7 +269,7 @@ router.post("/login", async (req, res, next) => {
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
-    accountLoginLimiter.clearFailures("login", email);
+    accountLoginLimiter.recordAttemptSuccess("login", email, req.ip);
     res.json(await afterFirstFactor(res, user, req));
   } catch (err) {
     next(err);
@@ -351,7 +351,7 @@ router.post("/mfa/login-verify", async (req, res, next) => {
     // the password can still only try so many codes, wherever they come from.
     const limitMfa = isGuardedDemo();
     if (!limitMfa) {
-      const wait = accountLoginLimiter.retryAfterSeconds("mfa", user.email);
+      const wait = accountLoginLimiter.checkAttempt("mfa", user.email, req.ip);
       if (wait > 0) {
         res.set("Retry-After", String(wait));
         return res.status(429).json({
@@ -375,7 +375,7 @@ router.post("/mfa/login-verify", async (req, res, next) => {
       }));
     }
     if (!valid) {
-      if (!limitMfa) accountLoginLimiter.recordFailure("mfa", user.email);
+      if (!limitMfa) accountLoginLimiter.recordAttemptFailure("mfa", user.email, req.ip);
       await recordAuditSafe(null, {
         action: "auth.login_failed",
         target: user,
@@ -387,7 +387,7 @@ router.post("/mfa/login-verify", async (req, res, next) => {
       });
     }
 
-    accountLoginLimiter.clearFailures("mfa", user.email);
+    accountLoginLimiter.recordAttemptSuccess("mfa", user.email, req.ip);
     if (recoveryCode) {
       await recordAuditSafe(null, { action: "auth.recovery_code_used", actor: user, req });
     } else {

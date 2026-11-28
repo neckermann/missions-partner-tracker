@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import SuggestInput from "../SuggestInput.jsx";
 import { COUNTRY_CONTINENTS } from "../../utils/countryContinents.js";
 import { streetHint } from "../../utils/webAddress.js";
+import FieldHint from "../shared/FieldHint.jsx";
 
 const COUNTRY_NAMES = Object.keys(COUNTRY_CONTINENTS).sort();
 
@@ -23,7 +24,8 @@ export default function AddressFields({
   mailing = false,
 }) {
   const [lineTouched, setLineTouched] = useState(false);
-  const line1Hint = mailing && lineTouched ? streetHint(value.addressLine1) : "";
+  const line1Pending = mailing ? streetHint(value.addressLine1) : "";
+  const line1Hint = lineTouched ? line1Pending : "";
   function update(field, val) {
     onChange({ ...value, [field]: val });
   }
@@ -38,11 +40,7 @@ export default function AddressFields({
           onBlur={() => setLineTouched(true)}
           aria-invalid={line1Hint ? "true" : undefined}
         />
-        {line1Hint && (
-          <span role="status" style={{ display: "block", color: "var(--danger)", fontSize: "0.85rem" }}>
-            {line1Hint}
-          </span>
-        )}
+        <FieldHint text={line1Pending} show={Boolean(line1Hint)} />
       </label>
       <label>
         Address Line 2

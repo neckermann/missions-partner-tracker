@@ -26,15 +26,15 @@ describe("AddressFields street hint", () => {
   const value = { addressLine1: "Main Street" };
   it("appears on a mailing address that has no number or PO box", () => {
     render(<AddressFields value={value} onChange={() => {}} mailing />);
-    fireEvent.blur(screen.getByLabelText("Address Line 1"));
+    fireEvent.blur(screen.getByLabelText(/^Address Line 1/));
     expect(screen.getByRole("status").textContent).toMatch(/street address or a PO box/);
   });
   it("never appears on a serving location, and not for a PO box", () => {
     const { rerender } = render(<AddressFields value={value} onChange={() => {}} />);
-    fireEvent.blur(screen.getByLabelText("Address Line 1"));
+    fireEvent.blur(screen.getByLabelText(/^Address Line 1/));
     expect(screen.queryByRole("status")).toBeNull();
     rerender(<AddressFields value={{ addressLine1: "PO Box 45" }} onChange={() => {}} mailing />);
-    fireEvent.blur(screen.getByLabelText("Address Line 1"));
+    fireEvent.blur(screen.getByLabelText(/^Address Line 1/));
     expect(screen.queryByRole("status")).toBeNull();
   });
 });
