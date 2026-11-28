@@ -706,7 +706,9 @@ covered below.
   to check off (e.g. "Attended orientation call"), or an
   **e-signature** the participant (or, choosing "Parent or legal
   guardian," a parent signing on a minor's behalf) signs from their
-  own self-service page. A document-kind requirement can now be
+  own self-service page. For someone under 18 on the trip's start
+  date, only "Parent or legal guardian" is offered, and the server
+  refuses a signature as "Myself". A document-kind requirement can now be
   uploaded by the participant themselves from that same page too — not
   only by an admin. Fulfillment shows right on the Confirmed Team
   table, computed from what's actually on file or signed rather than a

@@ -667,6 +667,51 @@ describe("Trips: minors-only requirements (#278)", () => {
     assert.equal(res.status, 404);
   });
 
+  test("a minor's release is signed by a parent or guardian, and the page says the person is a minor", async () => {
+    const { trip, requirement } = await createTripWithRequirement("esignature", { bodyText: "I agree..." });
+    const minor = await createParticipant(trip.id, "2012-01-01");
+    const token = buildTripParticipantAccessToken(minor);
+    const view = await anon(`/api/public/trips/participants/access?token=${token}`);
+    assert.equal(view.body.isMinor, true);
+
+    const asSelf = await anon(`/api/public/trips/participants/sign/${requirement.id}`, {
+      method: "POST",
+      body: { token, signerName: "Jamie", signerRelationship: "self" },
+    });
+    assert.equal(asSelf.status, 400, "a minor cannot sign for themselves");
+    const noneGiven = await anon(`/api/public/trips/participants/sign/${requirement.id}`, {
+      method: "POST",
+      body: { token, signerName: "Jamie" },
+    });
+    assert.equal(noneGiven.status, 400, "and leaving the relationship out is not a way round it");
+
+    const asParent = await anon(`/api/public/trips/participants/sign/${requirement.id}`, {
+      method: "POST",
+      body: { token, signerName: "Pat Parent", signerRelationship: "parent/guardian" },
+    });
+    assert.equal(asParent.status, 201, JSON.stringify(asParent.body));
+  });
+
+  test("an adult can still sign a release for everyone as themselves", async () => {
+    const partner = await createPartner();
+    const trip = await admin("/api/trips", {
+      method: "POST",
+      body: { partnerId: partner.id, type: "Construction", startDate: TRIP_START, endDate: "2027-06-22" },
+    });
+    const requirement = await admin(`/api/trips/${trip.body.id}/requirements`, {
+      method: "POST",
+      body: { label: "Release for everyone", kind: "esignature", bodyText: "I agree..." },
+    });
+    assert.equal(requirement.status, 201);
+    const adult = await createParticipant(trip.body.id, "1980-01-01");
+    const token = buildTripParticipantAccessToken(adult);
+    const res = await anon(`/api/public/trips/participants/sign/${requirement.body.id}`, {
+      method: "POST",
+      body: { token, signerName: "Alex", signerRelationship: "self" },
+    });
+    assert.equal(res.status, 201, JSON.stringify(res.body));
+  });
+
   test("the due-date reminder scheduler never reminds an adult about a minors-only requirement", async () => {
     const { trip } = await createTripWithRequirement("document", {
       dueAt: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),

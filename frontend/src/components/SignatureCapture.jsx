@@ -79,12 +79,14 @@ function SignaturePad({ onChange }) {
 // { signerName, signerRelationship, signatureImage } (a base64 PNG data URL, null if only typed).
 // relationship ("self" | "parent/guardian") is recordkeeping only: nothing verifies who is at the
 // keyboard (see TripDocument.signerRelationship), it just records an honest parent-signs-for-minor.
-export default function SignatureCapture({ documentText, onSubmit, submitting }) {
+export default function SignatureCapture({ documentText, onSubmit, submitting, isMinor = false }) {
   const [mode, setMode] = useState("type"); // "type" | "draw"
   const [typedName, setTypedName] = useState("");
   const [drawnSignature, setDrawnSignature] = useState(null);
   const [attested, setAttested] = useState(false);
-  const [relationship, setRelationship] = useState("self");
+  // Under 18: a parent or guardian signs, so that is the only choice offered.
+  const [chosenRelationship, setRelationship] = useState("self");
+  const relationship = isMinor ? "parent/guardian" : chosenRelationship;
 
   const canSubmit = attested && typedName.trim() && (mode === "type" || drawnSignature);
 
@@ -115,13 +117,19 @@ export default function SignatureCapture({ documentText, onSubmit, submitting })
         {documentText}
       </div>
 
-      <label style={{ marginTop: "0.9rem" }}>
-        I am signing as
-        <select value={relationship} onChange={(e) => setRelationship(e.target.value)}>
-          <option value="self">Myself</option>
-          <option value="parent/guardian">Parent or legal guardian</option>
-        </select>
-      </label>
+      {isMinor ? (
+        <p style={{ marginTop: "0.9rem" }}>
+          Because this person is under 18, a <strong>parent or legal guardian</strong> signs for them.
+        </p>
+      ) : (
+        <label style={{ marginTop: "0.9rem" }}>
+          I am signing as
+          <select value={relationship} onChange={(e) => setRelationship(e.target.value)}>
+            <option value="self">Myself</option>
+            <option value="parent/guardian">Parent or legal guardian</option>
+          </select>
+        </label>
+      )}
 
       <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.9rem" }}>
         <button

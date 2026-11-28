@@ -166,6 +166,8 @@ router.get("/participants/access", requireFeature("trips"), async (req, res, nex
 
     res.json({
       id: participant.id,
+      // Under 18 on the trip's start date: a parent or guardian signs for them (the page offers only that).
+      isMinor: isMinorForTrip(participant.dateOfBirth, participant.trip.startDate),
       firstName: participant.firstName,
       lastName: participant.lastName,
       story: participant.story,
@@ -285,6 +287,15 @@ router.post("/participants/sign/:requirementId", requireFeature("trips"), async 
     // #278: a minors-only requirement never applies to a non-minor: nothing to sign.
     if (requirement.minorsOnly && !isMinorForTrip(participant.dateOfBirth, participant.trip.startDate)) {
       return res.status(404).json({ error: "Not found" });
+    }
+    // Under 18 on the trip's start date, a parent or guardian signs, not the young person.
+    if (
+      isMinorForTrip(participant.dateOfBirth, participant.trip.startDate) &&
+      signerRelationship !== "parent/guardian"
+    ) {
+      return res
+        .status(400)
+        .json({ error: "Because this person is under 18, a parent or guardian needs to sign." });
     }
     const alreadySigned = await prisma.tripDocument.findFirst({
       where: { requirementId: requirement.id, participantId: participant.id },
