@@ -13,6 +13,7 @@ const { createDispatchRecord } = require("./dispatchRecording");
 const { loadOpenKeyDates } = require("./keyDateQueries");
 const { loadUpdatesToPassOn } = require("./contactLogQueries");
 const { careTimings } = require("./careSettings");
+const { lastHeardFromByPartner } = require("./lastHeardFrom");
 const { toUtcDay, daysBetween } = require("../reporting/definitions");
 const { churchToday } = require("./today");
 
@@ -75,16 +76,16 @@ async function recordKeyDates(today) {
 
 async function recordQuietPartners(today) {
   const { contactStaleDays } = await careTimings();
-  const [partners, lastByPartner, seen] = await Promise.all([
+  const [partners, last, seen] = await Promise.all([
     prisma.partner.findMany({
       where: { archived: false },
       select: { id: true, displayName: true, createdAt: true, contactSnoozedUntil: true },
     }),
-    prisma.contactLog.groupBy({ by: ["partnerId"], _max: { contactDate: true } }),
+    // Any sign of life resets the clock: a logged contact, newsletter, prayer request or visit.
+    lastHeardFromByPartner(undefined, today),
     alreadyPosted("quietPartner"),
   ]);
-  const last = new Map(lastByPartner.map((r) => [r.partnerId, r._max.contactDate]));
-  // A never-contacted partner's quiet clock starts when they were added, so adding someone isn't an instant nudge.
+  // A partner never heard from has a quiet clock that starts when they were added, so adding someone isn't an instant nudge.
   const quiet = partners
     .map((p) => ({ partner: p, lastContact: last.get(p.id) || null, since: last.get(p.id) || p.createdAt }))
     .filter((q) => !(q.partner.contactSnoozedUntil && today < q.partner.contactSnoozedUntil))
