@@ -18,6 +18,7 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ### Fixed
 
+- Key-date reminders now need the Contact log: a reminder is cleared by logging a contact and listed on My partners, so with the Contact log off they showed a list with no dates and a reminder that could never be cleared. They show as off, with the reason, until the Contact log is on. And a church that shows only the map now sends visitors from its front page to the map, with the partner page's back link going to the map, instead of a "This isn't public" page and links that led nowhere.
 - When the site's own web address is not set (an install off Render with no APP_BASE_URL), an admin gets one alert, on the bell and Home, while email or surveys is on, and the survey "Get link" and send messages say so in plain words instead of "APP_BASE_URL isn't set".
 - The user list now says "No access left" for a guest with nothing left to reach (it said "No trips left", which was wrong for a care team guest who lost their partners).
 - The Monthly Support page counts the amount in force today for each partner, the same as the reports, instead of the latest entry even when it is dated in the future. A partner whose only entry starts later shows no amount yet, and the page total matches the report.

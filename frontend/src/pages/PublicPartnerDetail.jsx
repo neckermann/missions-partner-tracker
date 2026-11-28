@@ -13,6 +13,8 @@ import { linkTypeLabel } from "../utils/linkTypes.js";
 export default function PublicPartnerDetail() {
   const { id } = useParams();
   const { partnerTermPlural, enabledFeatures, publicSubscribeAvailable } = useSettings();
+  // Where "back" goes: the directory when there is one, else the map (a church showing only the map has no "/").
+  const backTo = enabledFeatures.publicDirectory ? "/" : "/map";
   const [partner, setPartner] = useState(null);
   const [notFound, setNotFound] = useState(false);
 
@@ -31,7 +33,7 @@ export default function PublicPartnerDetail() {
         <PublicSiteHeader title={`Our ${partnerTermPlural}`} />
         <div className="admin-shell">
           <p>Partner not found.</p>
-          <Link to="/">&larr; Back to directory</Link>
+          <Link to={backTo}>&larr; Back to {enabledFeatures.publicDirectory ? "directory" : "map"}</Link>
         </div>
       </div>
     );
@@ -58,7 +60,7 @@ export default function PublicPartnerDetail() {
     <div>
       <PublicSiteHeader title={`Our ${partnerTermPlural}`} />
       <div className="admin-shell">
-        <Breadcrumb items={[{ label: partnerTermPlural, to: "/" }, { label: name }]} />
+        <Breadcrumb items={[{ label: partnerTermPlural, to: backTo }, { label: name }]} />
 
         <div className="partner-detail-header" style={{ marginTop: "1rem" }}>
           {partner.photo ? (
