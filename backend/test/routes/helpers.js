@@ -4,8 +4,10 @@
 // actual middleware chain, the actual auth gates, and a real database.
 //
 // These live in test/routes/ rather than test/ on purpose: `npm test` only
-// globs test/*.test.js, so the unit suite still runs with no database at
-// all. `npm run test:routes` runs these, and needs DATABASE_URL set.
+// globs test/*.test.js, so most of the unit suite runs with no database
+// (about a dozen unit files import the database client and need DATABASE_URL).
+// `npm run test:routes` runs these; besides DATABASE_URL they need NODE_ENV=test,
+// APP_BASE_URL, SESSION_SECRET and FIELD_ENCRYPTION_KEY (see CONTRIBUTING.md).
 require("dotenv").config({ quiet: true });
 const bcrypt = require("bcryptjs");
 const app = require("../../src/server");

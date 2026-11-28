@@ -39,6 +39,8 @@ export default function useCurrentUser() {
   // needs (held for staff review before dispatch), never decide, delete, or make anything public or
   // urgent. Staff can do all of that for any partner.
   const careTeamSeats = user?.careTeamSeats ?? [];
+  // Guests only: the switched-off features (trips, careTeam) that what they were given depends on.
+  const pausedFeatures = isGuest ? (user?.pausedFeatures ?? []) : [];
   const isOnCareTeamFor = (partnerId) => !!partnerId && careTeamSeats.some((s) => s.id === partnerId);
   const canSubmitFor = (partnerId) => canWrite || isOnCareTeamFor(partnerId);
 
@@ -53,6 +55,9 @@ export default function useCurrentUser() {
     guestReadTripIds,
     canAccessTrip,
     careTeamSeats,
+    pausedFeatures,
+    // Admins only: the address the site is set to (APP_BASE_URL), or null. See SiteAddressBanner.
+    configuredSiteOrigin: user?.configuredSiteOrigin ?? null,
     // On the church's missions team: looks after every partner with no care team of its own.
     onMissionsTeam: user?.onMissionsTeam === true,
     isOnCareTeamFor,

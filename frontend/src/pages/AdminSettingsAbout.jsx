@@ -1,7 +1,12 @@
 import React, { useEffect, useState } from "react";
+import { PHONE_COUNTRIES, phoneCountryLabel } from "../utils/phoneCountries.js";
+import EmailInput from "../components/shared/EmailInput.jsx";
+import PhoneField from "../components/shared/PhoneField.jsx";
+import { formatPhone } from "../utils/phone.js";
 import { updateChurchSettings, syncAllSendingChurch, uploadChurchLogo } from "../api/client.js";
 import { useSettings } from "../context/SettingsContext.jsx";
 import AddressFields from "../components/admin/AddressFields.jsx";
+import WebAddressInput from "../components/shared/WebAddressInput.jsx";
 import SettingsPageHeader from "../components/admin/SettingsPageHeader.jsx";
 import EditableSection from "../components/admin/EditableSection.jsx";
 import useChurchSettings from "../hooks/useChurchSettings.js";
@@ -23,12 +28,16 @@ const emptyForm = {
   contactEmail: "",
   websiteLink: "",
   timezone: "UTC",
+  currency: "USD",
+  defaultPhoneCountry: "US",
   ...emptyAddress,
   partnerTermSingular: "",
   partnerTermPlural: "",
   usePartnerTermInAdmin: false,
   publicTagline: "",
   aboutText: "",
+  subscribePassage: "",
+  subscribePassageSource: "",
   primaryColor: "",
   headerColor: "",
   highlightColor: "",
@@ -37,6 +46,15 @@ const emptyForm = {
 };
 
 const TIMEZONES = Intl.supportedValuesOf("timeZone");
+
+// Every currency this browser knows, labelled "USD - US Dollar" so a church can find its own.
+const CURRENCIES = (() => {
+  const names = new Intl.DisplayNames(["en"], { type: "currency" });
+  return Intl.supportedValuesOf("currency").map((code) => ({
+    code,
+    label: `${code} - ${names.of(code) || code}`,
+  }));
+})();
 
 const FONT_OPTIONS = [
   { value: "", label: "System Default" },
@@ -78,6 +96,8 @@ export default function AdminSettingsAbout() {
   async function saveChurchInfo(draft) {
     const updated = await updateChurchSettings(draft);
     setShowSyncPrompt((updated?.sentByOurChurchCount || 0) > 0);
+    // Every amount in the app follows the currency, so the shared settings are fetched again.
+    refreshSettings();
   }
 
   async function handleSyncAll() {
@@ -116,12 +136,14 @@ export default function AdminSettingsAbout() {
         title="Church Info"
         value={{
           churchName: form.churchName,
-          phone: form.phone,
+          phone: formatPhone(form.phone),
           contactFirstName: form.contactFirstName,
           contactLastName: form.contactLastName,
           contactEmail: form.contactEmail,
           websiteLink: form.websiteLink,
           timezone: form.timezone,
+          currency: form.currency,
+          defaultPhoneCountry: form.defaultPhoneCountry,
           addressLine1: form.addressLine1,
           addressLine2: form.addressLine2,
           city: form.city,
@@ -139,10 +161,14 @@ export default function AdminSettingsAbout() {
             <p style={{ color: "var(--muted)" }}>
               {[v.contactFirstName, v.contactLastName].filter(Boolean).join(" ") || "No contact set"}
               {v.contactEmail ? ` · ${v.contactEmail}` : ""}
-              {v.phone ? ` · ${v.phone}` : ""}
+              {v.phone ? ` · ${formatPhone(v.phone)}` : ""}
             </p>
             <p style={{ color: "var(--muted)" }}>{v.websiteLink || "No website set"}</p>
             <p style={{ color: "var(--muted)" }}>Timezone: {v.timezone}</p>
+            <p style={{ color: "var(--muted)" }}>Currency: {v.currency || "USD"}</p>
+            <p style={{ color: "var(--muted)" }}>
+              Phone numbers typed without a + are read as: {phoneCountryLabel(v.defaultPhoneCountry || "US")}
+            </p>
             {showSyncPrompt && sentByOurChurchCount > 0 && (
               // Not interactive: stops clicks/keydowns on the inner button bubbling to the card's open handler.
               // eslint-disable-next-line jsx-a11y/no-static-element-interactions
@@ -178,14 +204,13 @@ export default function AdminSettingsAbout() {
                 Church Name
                 <input value={d.churchName || ""} onChange={(e) => set("churchName", e.target.value)} />
               </label>
-              <label>
-                Phone
-                <input
-                  value={d.phone || ""}
-                  onChange={(e) => set("phone", e.target.value)}
-                  autoComplete="off"
-                />
-              </label>
+              <PhoneField
+                label="Phone"
+                inputMode="tel"
+                value={d.phone || ""}
+                onChange={(e) => set("phone", e.target.value)}
+                autoComplete="off"
+              />
               <label>
                 Contact First Name
                 <input
@@ -202,11 +227,17 @@ export default function AdminSettingsAbout() {
               </label>
               <label>
                 Contact Email
-                <input value={d.contactEmail || ""} onChange={(e) => set("contactEmail", e.target.value)} />
+                <EmailInput
+                  value={d.contactEmail || ""}
+                  onChange={(e) => set("contactEmail", e.target.value)}
+                />
               </label>
               <label>
                 Website
-                <input value={d.websiteLink || ""} onChange={(e) => set("websiteLink", e.target.value)} />
+                <WebAddressInput
+                  value={d.websiteLink || ""}
+                  onChange={(e) => set("websiteLink", e.target.value)}
+                />
               </label>
               <label>
                 Timezone
@@ -218,7 +249,41 @@ export default function AdminSettingsAbout() {
                   ))}
                 </select>
               </label>
+              <label>
+                Currency
+                <select value={d.currency || "USD"} onChange={(e) => set("currency", e.target.value)}>
+                  {CURRENCIES.map((c) => (
+                    <option key={c.code} value={c.code}>
+                      {c.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Phone numbers without a + are read as
+                <select
+                  value={d.defaultPhoneCountry || "US"}
+                  onChange={(e) => set("defaultPhoneCountry", e.target.value)}
+                >
+                  {PHONE_COUNTRIES.map((c) => (
+                    <option key={c.code} value={c.code}>
+                      {c.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
             </div>
+            <p style={{ color: "var(--muted)", fontSize: "0.85rem", marginTop: "0.5rem" }}>
+              Phone numbers are saved with their country code (+1 506 555 0259). When someone types a number
+              without a + the app assumes it is in this country, so a church in the United Kingdom can type
+              020 7946 0958. A number that starts with + always keeps its own country. It never changes a
+              number already saved.
+            </p>
+            <p style={{ color: "var(--muted)", fontSize: "0.85rem", marginTop: "0.5rem" }}>
+              Currency is how every amount in the app is written (monthly support, one-time needs, trip money,
+              reports and announcements). It only changes the symbol: amounts already saved are not converted,
+              so a church that changes it should check its existing figures.
+            </p>
             <p style={{ color: "var(--muted)", fontSize: "0.85rem", marginTop: "0.5rem" }}>
               Timezone drives every scheduled send in this app (email digests, GroupMe) so "send at 9"
               actually means 9am here, not UTC. Changing this takes effect the next time the app restarts, not
@@ -237,6 +302,7 @@ export default function AdminSettingsAbout() {
               onChange={(addr) => {
                 Object.entries(addr).forEach(([key, val]) => set(key, val));
               }}
+              mailing
             />
           </>
         )}
@@ -248,6 +314,8 @@ export default function AdminSettingsAbout() {
           value={{
             publicTagline: form.publicTagline,
             aboutText: form.aboutText,
+            subscribePassage: form.subscribePassage,
+            subscribePassageSource: form.subscribePassageSource,
             headerColor: form.headerColor,
             primaryColor: form.primaryColor,
             highlightColor: form.highlightColor,
@@ -261,6 +329,12 @@ export default function AdminSettingsAbout() {
                 <strong>Tagline:</strong> {v.publicTagline || "Not set"}
               </p>
               <p style={{ color: "var(--muted)" }}>{v.aboutText || "No about text set"}</p>
+              <p style={{ color: "var(--muted)" }}>
+                <strong>Subscribe page passage:</strong>{" "}
+                {v.subscribePassage
+                  ? `${v.subscribePassage.slice(0, 80)}${v.subscribePassage.length > 80 ? "…" : ""}${v.subscribePassageSource ? ` (${v.subscribePassageSource})` : ""}`
+                  : "None. The page shows no passage."}
+              </p>
               <div style={{ display: "flex", gap: "1rem", marginTop: "0.5rem" }}>
                 <span
                   title="Header color"
@@ -317,6 +391,27 @@ export default function AdminSettingsAbout() {
                   placeholder="An optional blurb shown on the public partner directory."
                 />
               </label>
+              <label style={{ marginTop: "1rem" }}>
+                Scripture passage on the Subscribe page
+                <textarea
+                  rows={4}
+                  value={d.subscribePassage || ""}
+                  onChange={(e) => set("subscribePassage", e.target.value)}
+                  placeholder="Optional. Leave empty to show no passage."
+                />
+              </label>
+              <label style={{ marginTop: "0.5rem" }}>
+                Where the passage is from
+                <input
+                  value={d.subscribePassageSource || ""}
+                  onChange={(e) => set("subscribePassageSource", e.target.value)}
+                  placeholder="e.g. Ephesians 6:18 (ESV)"
+                />
+              </label>
+              <p style={{ margin: "0.35rem 0 0", color: "var(--muted)", fontSize: "0.85rem" }}>
+                Shown above the form where people sign up for prayer updates. You choose the translation, and
+                check that its licence lets you quote it.
+              </p>
               <label style={{ marginTop: "1rem", maxWidth: "220px" }}>
                 Header Color
                 <input

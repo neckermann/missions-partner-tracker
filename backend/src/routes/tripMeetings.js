@@ -1,4 +1,5 @@
 const express = require("express");
+const { optionalWebAddress } = require("../utils/webAddress");
 const { z } = require("zod");
 const prisma = require("../prismaClient");
 const { requireAuth, requireRole, requireTripScope } = require("../middleware/requireAuth");
@@ -20,11 +21,7 @@ const meetingInputSchema = z.object({
   title: z.string().optional().nullable(),
   location: z.string().optional().nullable(),
   // An empty string (cleared form input) means "no link"; url() would reject it.
-  meetingLink: z
-    .union([z.string().url(), z.literal("")])
-    .optional()
-    .nullable()
-    .transform((v) => (v ? v : null)),
+  meetingLink: optionalWebAddress(),
   agenda: z.string().optional().nullable(),
 });
 

@@ -20,7 +20,7 @@ import TripFormFields, {
 import QuickActionModal from "../components/shared/QuickActionModal.jsx";
 import Modal from "../components/Modal.jsx";
 import Field from "../components/admin/Field.jsx";
-import { formatDate, toDateInputValue } from "../utils/format.js";
+import { formatDate, toDateInputValue, formatCurrency } from "../utils/format.js";
 import { PARTNER_TYPE_FILTER_FIELD } from "../utils/partnerEntity.js";
 import useLoadMore from "../hooks/useLoadMore.js";
 import LoadMoreButton from "../components/LoadMoreButton.jsx";
@@ -495,7 +495,7 @@ function ExistingTripsTab() {
             render: (trip) => (
               <>
                 ${trip.raised}
-                {trip.supportRaisingGoal ? ` / $${trip.supportRaisingGoal}` : ""}
+                {trip.supportRaisingGoal ? ` / ${formatCurrency(trip.supportRaisingGoal)}` : ""}
               </>
             ),
           },

@@ -9,4 +9,12 @@ function resolveToday(queryToday, now = new Date()) {
   return new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
 }
 
-module.exports = { resolveToday };
+// "Today" for a job or a bell alert that has no browser to ask: the calendar day in the church's own time
+// zone, as a Date at UTC midnight (the shape the key-date and report code expects). Taking the UTC day of
+// the current instant instead is wrong for a church east of about UTC+5: at its 7am the UTC day is still
+// yesterday, so a daily job ran a day late (and a church west of UTC gets the next day in the evening).
+function churchToday(now = new Date()) {
+  return resolveToday(null, now);
+}
+
+module.exports = { resolveToday, churchToday };

@@ -70,11 +70,41 @@ export function formatDateLong(value, { fallback = null } = {}) {
     : fallback;
 }
 
-// "$1,000": amounts are whole dollars (Int columns), so no cents. Currency is a parameter so
-// forks aren't tied to USD.
-export function formatCurrency(amount, { fallback = null, currency = "USD" } = {}) {
+// The church's currency (ChurchSettings.currency, an ISO 4217 code). Set by SettingsContext as soon as the
+// settings arrive, so every formatter below, and every label built with currencySymbol(), follows it without
+// each page asking. Amounts are whole numbers with no currency of their own, so changing it never converts.
+let churchCurrency = "USD";
+export function setChurchCurrency(code) {
+  churchCurrency = typeof code === "string" && /^[A-Z]{3}$/.test(code) ? code : "USD";
+}
+export function getChurchCurrency() {
+  return churchCurrency;
+}
+
+// "$", "€", "CA$": for a field label such as "Amount ($)".
+export function currencySymbol(code = churchCurrency) {
+  try {
+    const part = new Intl.NumberFormat("en-US", { style: "currency", currency: code })
+      .formatToParts(0)
+      .find((p) => p.type === "currency");
+    return part ? part.value : code;
+  } catch {
+    return "$";
+  }
+}
+
+// "$1,000": amounts are whole numbers (Int columns), so no cents. Written in the church's currency.
+// A one-time need can be saved with no figure; that is stored as 0 and shown in words.
+export function formatRequestedAmount(amount) {
+  return amount ? formatCurrency(amount) : "No amount";
+}
+
+export function formatCurrency(amount, { fallback = null, currency = churchCurrency } = {}) {
   if (amount == null) return fallback;
-  return amount.toLocaleString(undefined, {
+  // Amounts can arrive as numeric strings from some endpoints; a string's toLocaleString would write no symbol.
+  const n = Number(amount);
+  if (!Number.isFinite(n)) return fallback;
+  return n.toLocaleString(undefined, {
     style: "currency",
     currency,
     maximumFractionDigits: 0,

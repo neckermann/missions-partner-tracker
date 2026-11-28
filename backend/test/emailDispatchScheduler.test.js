@@ -165,3 +165,126 @@ describe("shouldFlushGroupMe", () => {
     assert.equal(shouldFlushGroupMe({ ...base, lastGroupmeChatDispatchSentAt: yesterday }, WED_9AM), true);
   });
 });
+
+// G14c and G14d: a send is due once its most recent scheduled day and hour has passed without a send, instead of
+// only when the clock reads exactly that hour. A worker that was down at the one hour, or a clock-change day with
+// no 2am, now sends a little late instead of skipping the whole month (or day).
+describe("catching up a missed send hour", () => {
+  const monthly = (over = {}) => ({
+    emailDispatchDayOfMonth: 5,
+    emailDispatchHour: 9,
+    lastMonthlyEmailDispatchSentAt: null,
+    ...over,
+  });
+
+  test("monthly: a worker that was down at the scheduled hour sends once it is back, the same day", () => {
+    const lastMonth = new Date(2025, 11, 5, 9, 2); // sent last month, on time
+    const down = monthly({ lastMonthlyEmailDispatchSentAt: lastMonth });
+    assert.equal(shouldFlushMonthlyEmailDispatch(down, new Date(2026, 0, 5, 8, 59)), false, "not yet");
+    assert.equal(shouldFlushMonthlyEmailDispatch(down, new Date(2026, 0, 5, 11, 30)), true, "back at 11:30");
+  });
+
+  test("monthly: still sends if the worker was down for days, not skipped until next month", () => {
+    const down = monthly({ lastMonthlyEmailDispatchSentAt: new Date(2025, 11, 5, 9, 2) });
+    assert.equal(shouldFlushMonthlyEmailDispatch(down, new Date(2026, 0, 8, 14, 0)), true);
+  });
+
+  test("monthly: once sent for this month it does not send again that month", () => {
+    const sent = monthly({ lastMonthlyEmailDispatchSentAt: new Date(2026, 0, 5, 11, 31) });
+    assert.equal(shouldFlushMonthlyEmailDispatch(sent, new Date(2026, 0, 5, 11, 32)), false);
+    assert.equal(shouldFlushMonthlyEmailDispatch(sent, new Date(2026, 0, 20, 9, 0)), false);
+    assert.equal(
+      shouldFlushMonthlyEmailDispatch(sent, new Date(2026, 1, 5, 9, 0)),
+      true,
+      "and the next month it does"
+    );
+  });
+
+  test("a schedule that has never sent does not fire early: it waits for its next slot", () => {
+    // Configured on the 20th for the 5th, never sent: not today, and not a week after the slot either.
+    assert.equal(shouldFlushMonthlyEmailDispatch(monthly(), new Date(2026, 0, 20, 9, 0)), false);
+    assert.equal(shouldFlushMonthlyEmailDispatch(monthly(), new Date(2026, 0, 5, 9, 0)), true, "on the slot");
+    assert.equal(
+      shouldFlushMonthlyEmailDispatch(monthly(), new Date(2026, 0, 5, 12, 0)),
+      true,
+      "a few hours late"
+    );
+    assert.equal(
+      shouldFlushMonthlyEmailDispatch(monthly(), new Date(2026, 0, 6, 9, 0)),
+      false,
+      "a day late: wait"
+    );
+  });
+
+  test("monthly: the 31st in a short month means that month's last day", () => {
+    const s = monthly({
+      emailDispatchDayOfMonth: 31,
+      lastMonthlyEmailDispatchSentAt: new Date(2026, 0, 31, 9, 1),
+    });
+    assert.equal(shouldFlushMonthlyEmailDispatch(s, new Date(2026, 1, 27, 23, 0)), false);
+    assert.equal(
+      shouldFlushMonthlyEmailDispatch(s, new Date(2026, 1, 28, 9, 30)),
+      true,
+      "Feb 28 is its last day"
+    );
+  });
+
+  test("quarterly follows the same catch-up, with its own long gap", () => {
+    const q = {
+      emailDispatchDayOfMonth: 5,
+      emailDispatchHour: 9,
+      lastQuarterlyEmailDispatchSentAt: new Date(2025, 9, 5, 9, 1),
+    };
+    assert.equal(shouldFlushQuarterlyEmailDispatch(q, new Date(2026, 0, 5, 13, 0)), true);
+    assert.equal(
+      shouldFlushQuarterlyEmailDispatch(
+        { ...q, lastQuarterlyEmailDispatchSentAt: new Date(2025, 11, 5, 9, 1) },
+        new Date(2026, 0, 5, 13, 0)
+      ),
+      false,
+      "only a month after the last one: too soon"
+    );
+  });
+
+  test("biweekly: a missed Wednesday hour sends the same day, and not twice", () => {
+    const base = {
+      emailDispatchDayOfWeek: 3,
+      emailDispatchHour: 9,
+      lastBiweeklyEmailDispatchSentAt: new Date(2025, 11, 24, 9, 1), // two weeks before
+    };
+    assert.equal(shouldFlushBiweeklyEmailDispatch(base, new Date(2026, 0, 7, 15, 0)), true);
+    const done = { ...base, lastBiweeklyEmailDispatchSentAt: new Date(2026, 0, 7, 15, 1) };
+    assert.equal(shouldFlushBiweeklyEmailDispatch(done, new Date(2026, 0, 7, 15, 2)), false);
+    assert.equal(shouldFlushBiweeklyEmailDispatch(done, new Date(2026, 0, 8, 9, 0)), false);
+  });
+
+  test("the daily chat post goes out late rather than skipping the day, and only once", () => {
+    const base = { chatDispatchHour: 9, lastGroupmeChatDispatchSentAt: new Date(2026, 0, 6, 9, 1) };
+    assert.equal(shouldFlushGroupMe(base, new Date(2026, 0, 7, 12, 0)), true, "down at 9, back at noon");
+    const done = { ...base, lastGroupmeChatDispatchSentAt: new Date(2026, 0, 7, 12, 1) };
+    assert.equal(shouldFlushGroupMe(done, new Date(2026, 0, 7, 13, 0)), false);
+    assert.equal(shouldFlushGroupMe(done, new Date(2026, 0, 8, 9, 0)), true, "and tomorrow it does");
+  });
+
+  test("the spring clock-change day, when 2am does not exist, still sends", () => {
+    const prevTz = process.env.TZ;
+    process.env.TZ = "America/Chicago"; // clocks jump from 2:00 to 3:00 on 2026-03-08
+    try {
+      const s = { chatDispatchHour: 2, lastGroupmeChatDispatchSentAt: new Date(2026, 2, 7, 2, 1) };
+      assert.equal(
+        shouldFlushGroupMe(s, new Date(2026, 2, 8, 3, 5)),
+        true,
+        "sent at 3:05 instead of being skipped"
+      );
+      const monthlyS = {
+        emailDispatchDayOfMonth: 8,
+        emailDispatchHour: 2,
+        lastMonthlyEmailDispatchSentAt: new Date(2026, 1, 8, 2, 1),
+      };
+      assert.equal(shouldFlushMonthlyEmailDispatch(monthlyS, new Date(2026, 2, 8, 3, 5)), true);
+    } finally {
+      if (prevTz === undefined) delete process.env.TZ;
+      else process.env.TZ = prevTz;
+    }
+  });
+});

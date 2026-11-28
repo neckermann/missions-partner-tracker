@@ -4,6 +4,9 @@ const prisma = require("../prismaClient");
 const { requireAuth, requireRole } = require("../middleware/requireAuth");
 const { encryptField, decryptField } = require("../utils/crypto");
 const { listGroups, listTopics } = require("../utils/groupmeChannel");
+const { refuseOnGuardedDemo } = require("../utils/demoMode");
+
+const noIntegrationChangesOnDemo = refuseOnGuardedDemo("Changing integration settings");
 
 const router = express.Router();
 router.use(requireAuth);
@@ -70,7 +73,7 @@ router.get("/groupme", requireRole("admin"), async (req, res, next) => {
 });
 
 // PUT /api/settings/groupme (admin only) -- a plain partial update, as PUT / in settings.js.
-router.put("/groupme", requireRole("admin"), async (req, res, next) => {
+router.put("/groupme", requireRole("admin"), noIntegrationChangesOnDemo, async (req, res, next) => {
   try {
     const {
       accessToken,

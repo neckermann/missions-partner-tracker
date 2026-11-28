@@ -31,6 +31,11 @@
 // (SPEC.md § 8.3), and this is the fastest way to recover the live demo DB.
 require("dotenv").config({ path: require("path").join(__dirname, "../../demo/.env"), quiet: true });
 
+// This is the public, guarded demo (utils/demoMode.js), whatever demo/.env happens to contain: the reset
+// must not restore the Anthropic, GroupMe or Postmark keys or a paired WhatsApp number into it.
+process.env.DEMO_RESET_TOKEN = process.env.DEMO_RESET_TOKEN || "remote-reset";
+delete process.env.DEMO_TESTING_SITE;
+
 const demoUrl = process.env.DEMO_DATABASE_URL;
 if (!demoUrl) {
   console.error("DEMO_DATABASE_URL not set");

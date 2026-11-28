@@ -19,6 +19,7 @@ const countryInfoRoutes = require("./routes/countryInfo");
 const supportNeedRoutes = require("./routes/supportNeeds");
 const supportEntryRoutes = require("./routes/supportEntries");
 const prayerRequestRoutes = require("./routes/prayerRequests");
+const prayerSheetRoutes = require("./routes/prayerSheet");
 const adultRoutes = require("./routes/adults");
 const childRoutes = require("./routes/children");
 const furloughRoutes = require("./routes/furloughs");
@@ -56,6 +57,7 @@ const versionRoutes = require("./routes/version");
 const systemInfoRoutes = require("./routes/systemInfo");
 const backupCheckRoutes = require("./routes/backupCheck");
 const backupsRoutes = require("./routes/backups");
+const { refuseWritesDuringRestore } = require("./utils/restoreLock");
 const inboundEmailRoutes = require("./routes/inboundEmail");
 const dispatchRoutes = require("./routes/dispatches");
 const notificationRoutes = require("./routes/notifications");
@@ -66,15 +68,22 @@ const publicTripRoutes = require("./routes/publicTrips");
 const publicTripApplicationRoutes = require("./routes/publicTripApplications");
 const publicTripParticipantRoutes = require("./routes/publicTripParticipants");
 const prisma = require("./prismaClient");
+const { backgroundJobsEnabled, startBackgroundJobs, stopBackgroundJobs } = require("./utils/backgroundJobs");
+const { requireAuth } = require("./middleware/requireAuth");
+const { assertSchemaMatches } = require("./utils/schemaCheck");
+const { loadPhoneCountry } = require("./utils/phoneCountry");
+const { applyChurchTimezone } = require("./utils/timezone");
+const { readTrustProxy, trustProxySetting, describeTrustProxy } = require("./utils/trustProxy");
 
 const app = express();
 const PORT = process.env.PORT || 4000;
 
-// Exactly one proxy sits in front of this process, so X-Forwarded-For must be
-// read or every rate limiter shares a single bucket for the whole instance.
-// Must be 1, never `true`: `true` trusts the whole header chain, letting a
-// client mint itself a private bucket.
-app.set("trust proxy", 1);
+// How many proxies sit in front of this process (utils/trustProxy.js): one by default (Render, nginx),
+// settable with TRUST_PROXY. The rate limiters read the visitor's address from X-Forwarded-For, so the
+// number must be right: too low and every visitor shares one bucket, too high and a visitor can write
+// their own address into the header. Never `true`, which trusts the whole header chain.
+const trustProxy = readTrustProxy();
+app.set("trust proxy", trustProxySetting(trustProxy));
 
 // helmet's default CSP blocks the public map's basemap tiles. Photos and the
 // logo are same-origin and marker pins are data: URIs, so only tiles need widening.
@@ -112,9 +121,17 @@ app.use(morgan(process.env.NODE_ENV === "production" ? "combined" : "dev"));
 // mounted first: express.json() skips a body an earlier instance consumed.
 app.use("/api/inbound-email/postmark", express.json({ limit: "15mb" })); // entire email, base64, attachments included
 app.use("/api/template-packs", express.json({ limit: "1mb" })); // a pasted or uploaded pack (admin only)
-app.use("/api/public/survey-uploads", express.json({ limit: "7mb" })); // base64 photo from a survey link
+app.use("/api/public/survey-uploads", express.json({ limit: "24mb" })); // base64 photo from a survey link (15 MB of photo is about 21 MB)
 app.use("/api/public/trips/participants/sign", express.json({ limit: "7mb" })); // base64 signature image
-app.use("/api/public/trips/participants/self-service", express.json({ limit: "7mb" })); // base64 participant photo
+app.use("/api/public/trips/participants/self-service", express.json({ limit: "24mb" })); // base64 participant photo
+// Staff saving a participant's photo send it as a base64 data URL in the update body. Only a signed-in person gets
+// the larger body (the check runs first, so an anonymous caller is refused before anything large is read).
+app.put(
+  "/api/trips/participants/:participantId",
+  cookieParser(),
+  requireAuth,
+  express.json({ limit: "24mb" })
+);
 app.use(express.json({ limit: "100kb" })); // everything else -- small form-field-sized payloads
 app.use(cookieParser());
 
@@ -174,9 +191,11 @@ app.use("/api/auth/passkeys", (req, res, next) =>
 // Generous: the public pages fire many requests per visitor; this only blunts scraping.
 app.use("/api/public", rateLimit({ windowMs: 60 * 1000, max: 120 }));
 
-// The backup file is the heaviest request and the most sensitive output (see
-// routes/backups.js); this stops a compromised admin session pulling it in a loop.
-app.use("/api/backups", rateLimit({ windowMs: 15 * 60 * 1000, max: 5 }));
+// While an in-app restore runs, every other write is refused (utils/restoreLock.js).
+app.use("/api", refuseWritesDuringRestore);
+
+// (The backup routes limit themselves, inside routes/backups.js, after the admin check: counted per admin account
+// rather than per address, so requests from anyone else never use up an admin's allowance.)
 
 // Each call is a billable Anthropic API request (utils/extraction.js). Scoped to
 // the path so normal document CRUD is unaffected.
@@ -196,6 +215,7 @@ app.use("/api/public/country-info", countryInfoRoutes); // open (Joshua Project 
 app.use("/api/support-needs", supportNeedRoutes); // protected (admin) — session required
 app.use("/api/support-entries", supportEntryRoutes); // protected (admin) — session required
 app.use("/api/prayer-requests", prayerRequestRoutes); // protected (admin) — session required
+app.use("/api/prayer-sheet", prayerSheetRoutes); // protected (staff) — the Sunday prayer sheet, public-safe content only
 app.use("/api/adults", adultRoutes); // protected (admin) — session required
 app.use("/api/children", childRoutes); // protected (admin) — session required
 app.use("/api/furloughs", furloughRoutes); // protected (admin) — session required
@@ -267,31 +287,51 @@ app.get("*splat", (req, res) => res.sendFile(path.join(frontendBuild, "index.htm
 app.use(errorHandler);
 
 // Guarded so route tests can require() the app and boot it on an ephemeral
-// port. Schedulers and the WhatsApp connection run in worker.js, not here.
+// port. The scheduled jobs and the WhatsApp connection also start from here, in production
+// (utils/backgroundJobs.js): there is no separate worker service.
 if (require.main === module) {
   (async () => {
     // Apply ChurchSettings.timezone to process.env.TZ once, before any
-    // date-sensitive route reads the clock (changing TZ later is unreliable).
-    // worker.js does the same independently. Falls back to UTC on a fresh
+    // date-sensitive route reads the clock (changing TZ later is unreliable); the
+    // scheduled jobs start after this, so they read it too. Falls back to UTC on a fresh
     // deploy or transient DB error; never blocks startup.
     try {
       const settings = await prisma.churchSettings.findUnique({
         where: { id: "singleton" },
         select: { timezone: true },
       });
-      process.env.TZ = settings?.timezone || "UTC";
+      applyChurchTimezone(settings?.timezone);
+      // The country phone numbers typed without a "+" are read in; the checks that use it are synchronous.
+      await loadPhoneCountry(prisma);
     } catch (err) {
       console.error("Couldn't read ChurchSettings.timezone at startup, defaulting to UTC:", err);
       process.env.TZ = process.env.TZ || "UTC";
     }
 
+    // Do not go live on a database that was not built from this release's migrations: the deploy fails and the
+    // previous version keeps serving (utils/schemaCheck.js).
+    try {
+      await assertSchemaMatches(prisma);
+    } catch (err) {
+      console.error(`\nNot starting: ${err.message}\n`);
+      process.exit(1);
+    }
+
     const server = app.listen(PORT, () => {
       console.log(`Missionary Tracker API listening on port ${PORT}`);
+      if (process.env.NODE_ENV === "production") console.log(describeTrustProxy(trustProxy));
     });
 
-    const shutdown = () => {
-      server.close(() => process.exit(0));
+    if (backgroundJobsEnabled()) {
+      startBackgroundJobs().catch((err) => console.error("Couldn't start the background jobs:", err));
+    } else {
+      console.log("Background jobs are off here (they run in production, or set BACKGROUND_JOBS=on).");
+    }
+
+    const shutdown = async () => {
       setTimeout(() => process.exit(0), 8000).unref();
+      await stopBackgroundJobs().catch(() => {});
+      server.close(() => process.exit(0));
     };
     process.once("SIGTERM", shutdown);
     process.once("SIGINT", shutdown);

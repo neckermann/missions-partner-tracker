@@ -1,9 +1,10 @@
 import SuggestInput from "../components/SuggestInput.jsx";
 import { CONTACT_LEVELS } from "../utils/contactMethods.js";
 import React, { useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { createPartner } from "../api/client.js";
 import { useSettings } from "../context/SettingsContext.jsx";
+import useCurrentUser from "../hooks/useCurrentUser.js";
 import { getFipsCode } from "../utils/countryFipsCodes.js";
 import { COUNTRY_CONTINENTS } from "../utils/countryContinents.js";
 import Wizard from "../components/shared/Wizard.jsx";
@@ -21,6 +22,7 @@ export default function AdminPartnerForm() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { churchName } = useSettings();
+  const { isAdmin } = useCurrentUser();
 
   const initialValues = {
     kind: searchParams.get("kind") === "organization" ? "organization" : "missionary",
@@ -29,7 +31,7 @@ export default function AdminPartnerForm() {
     country: "",
     overviewShort: "",
     orgType: "Local",
-    isPublic: true,
+    isPublic: false,
     isRestricted: false,
     contactLevel: "normal",
     sentByOurChurch: false,
@@ -170,7 +172,7 @@ export default function AdminPartnerForm() {
                 </select>
               </label>
             )}
-            <label title="Whether this partner appears in the public directory and map at all. Leave off for a partner you're not ready to list yet.">
+            <label>
               <input
                 type="checkbox"
                 checked={values.isPublic}
@@ -178,7 +180,12 @@ export default function AdminPartnerForm() {
               />
               Show on public site
             </label>
-            <label title="Masks the name to initials and coarsens the map pin to a country centroid on the public site.">
+            <p style={{ color: "var(--muted)", fontSize: "0.9rem", margin: "0 0 0.5rem" }}>
+              Ticked: anyone on the internet can see this partner's name, photo, place on the map and short
+              overview. Not ticked: only signed-in people can see them. You can change this at any time on the
+              partner's page.
+            </p>
+            <label>
               <input
                 type="checkbox"
                 checked={values.isRestricted}
@@ -186,6 +193,16 @@ export default function AdminPartnerForm() {
               />
               Restricted-access location
             </label>
+            <p style={{ color: "var(--muted)", fontSize: "0.9rem", margin: "0 0 0.5rem" }}>
+              For partners where being named publicly could be unsafe. On the public site the name is replaced
+              by initials and the map pin is moved to the middle of the country.
+              {isAdmin && (
+                <>
+                  {" "}
+                  <Link to="/admin/settings/privacy">Change what restricted partners show</Link>.
+                </>
+              )}
+            </p>
             {!isOrg && (
               <label title="Fills in the Sending Church section on this partner's page from this church's own info, overwriting anything typed there later. Set up Sending Church details afterward on their page.">
                 <input

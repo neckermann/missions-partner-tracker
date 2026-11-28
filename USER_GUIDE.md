@@ -30,15 +30,35 @@ for why.
 
 ![The login page](docs/assets/screenshots/login-page.png)
 
+**Your first time (the link you were sent).** A new account opens from a link
+in a welcome email (or one an administrator copies to you). The page asks
+**Where will you mostly sign in?** If it is your own phone or computer, choose
+**Mostly on this device**: you create a passkey and use your fingerprint, face
+or screen lock from then on. A passkey has no recovery codes, so if you lose
+that device, ask an administrator to reset your sign-in, or use **Email me a
+new link** on the sign-in page if your church has email set up. If you use
+different or shared computers, choose **On different or shared computers**: you
+choose a password and add an authenticator app, and you are given recovery
+codes to keep. Either way you are signed in at the end, with no separate
+sign-in step. A link works once; an expired one offers to email you a new link.
+If your account already has two-factor, a link only changes your password, and
+you sign in the normal way afterward.
+
 **Forgot your password?** When your church's site can send email, a **Forgot
 your password?** link under the sign-in button asks for your email address and
-sends a link that lets you choose a new one. The link works once and expires
+sends a link that lets you choose a new one (the same page described above). The link works once and expires
 in an hour, and the page says the same thing whether or not that address has
 an account. Choosing a new password signs you out on your other devices, and
 if you use two-factor you're still asked for it next time you sign in. If the
 site can't send email, the link isn't offered: ask an administrator for a new
 setup link (**Settings → Manage Users**). It's not available on the public demo
 or while passwordless sign-in is on.
+
+The sign-in page has two short steps. If you have a passkey, press **Sign in with
+a passkey** (or pick it from the list your browser offers in the email box);
+your fingerprint, face or screen lock signs you in alone. Otherwise type your
+email and press **Continue**, then your password. The page never says whether
+an email has an account.
 
 If your account has two-factor authentication enabled, you'll be prompted
 for a 6-digit code from your authenticator app, or to **Use a passkey**
@@ -50,9 +70,8 @@ you can do anything else. If your church turns the requirement on while you're s
 next click takes you back to sign-in, and you set it up then.
 
 If your church has turned on **passwordless sign-in**, there is no password
-box. **Sign in with a passkey** signs you in with your fingerprint, face or
-screen lock alone (it counts as both factors). If you haven't added a passkey
-yet, **Email me a sign-in link** sends a one-time link that works once and
+box. A passkey signs you in alone (it counts as both factors). If you haven't
+added a passkey yet, typing your email and pressing **Continue** sends a one-time link that works once and
 expires in 15 minutes; it signs you in and then walks you through adding a
 passkey. Lost your passkey? Ask an admin to **Reset MFA** on your account;
 they'll hand you a fresh way in.
@@ -104,6 +123,21 @@ trip's logistics without a full account on everything else. See
 [SPEC.md § 5.1](SPEC.md#51-guest--a-scoped-login-not-a-4th-full-role)
 for the full access list.
 
+**When the feature a guest's access comes from is switched off.** A
+trip leader's access belongs to **Trips**, and a care team member's to
+**Care teams**. While the church has that feature switched off in
+[Enabled Features](ADMIN_GUIDE.md#feature-toggles), the guest's access
+stops on the server (they cannot open the trip or its partner by typing
+an address either), and a guest with nothing else to open sees a plain
+page saying their church has paused it ("Trips are paused" or "Care
+teams are paused"), not the sign-in page and not an instruction to
+change a setting, which they cannot reach. A guest with both kinds of
+access keeps the one that is still on. Nothing is removed: the trip
+grants and care team seats are kept, and switching the feature back on
+restores the access exactly as it was. Turning **Care teams** or
+**Trips** off therefore takes any guest who depends on it out of the
+app until it is back on, so tell them first.
+
 If something you expect to see isn't there (a nav link, a button), it's
 almost always a role thing, not a bug — check with whoever manages users
 at your church.
@@ -113,9 +147,9 @@ at your church.
 The sidebar (and the Home page's card grid, which mirrors it) lists:
 **Home**, [**Partners**](#the-partners-list) (or your church's custom
 term, e.g. "Go Team Partners," if enabled in Branding),
-[**Unmatched Emails**](#receiving) (inbound email only — see
+[**Emails to Sort**](#receiving) (inbound email only — see
 [Email](#email-admin-only) below),
-[**Pending Dispatches**](#pending-dispatches) (GroupMe and/or
+[**Updates to Share**](#updates-to-share) (GroupMe and/or
 email sending only),
 [**Monthly Support**](#financial-support--one-time-needs),
 [**One-Time Needs**](#financial-support--one-time-needs),
@@ -140,10 +174,10 @@ that only appear once their own features are on:
 - **Communications** — [**Email**](#email-admin-only),
   [**GroupMe**](#groupme-dispatch-admin-only),
   [**WhatsApp**](#whatsapp-dispatch-admin-only), and
-  [**Dispatch Settings**](#dispatch-settings-admin-only) (schedules,
+  [**Sending Updates**](#sending-updates-admin-only) (schedules,
   GroupMe's content-type mutes, the restricted-partner safety gate,
   digest appearance, and subscriber counts — the queue itself is
-  [**Pending Dispatches**](#pending-dispatches) in the main menu).
+  [**Updates to Share**](#updates-to-share) in the main menu).
 - **Integrations** — [**AI Features**](#ai-features-admin-only) and
   [**Joshua Project**](#joshua-project-admin-only).
 
@@ -258,6 +292,18 @@ not just what topic they fall under:
     child (Name, Birthday).
   - **Languages Spoken** — a free-text tag list.
   - **Emergency Contact** — Name, Phone, Email.
+  - **Typing a phone number.** Every phone box has a country beside
+    it, shown by name ("Kenya +254"). Pick the country, then type the
+    number the way people there write it (`0712 345678`); it is saved
+    in full international form (`+254712345678`), so Call and WhatsApp
+    reach the right place. For a partner's adults and an
+    organization's contact person the country starts on **the country
+    the partner serves in** (from the Location address); everywhere
+    else, including the emergency contact and sending church, it
+    starts on your church's country. If a number doesn't fit the
+    country picked, a note appears when you leave the box ("This
+    doesn't look like a United States number. Is the country right?").
+    It is only a question: you can still save.
 - **Location & Contact**:
   - **Serving Location** — Field/Region Display Name (shown publicly
     even for a restricted partner, so keep it broad — "East Africa," not
@@ -368,7 +414,7 @@ edit happens — each section's own **Edit** button, not a separate form
 
 #### Who last edited a record
 
-Partner, trip, trip-participant and trip-application pages show "Last edited by Dana Whitfield on 11/24/2026" under the name. A trip's page also says when it was added, on the same line ("Added 11/10/2026 · Last edited by …"), and that date never changes when the trip is edited. This is separate from the admin-only [Audit log](#audit-log-admin-only): it is kept for good, and it is stamped on the record itself, not recorded as an event.
+Partner, trip, trip-participant and trip-application pages show "Last edited by Dana Whitfield on 11/24/2026" under the name. A trip's page also says when it was added, on the same line ("Added 11/10/2026 · Last edited by …"), and that date never changes when the trip is edited. This is separate from the admin-only [Audit Log](#audit-log-admin-only): it is kept for good, and it is stamped on the record itself, not recorded as an event.
 
 On a partner or trip that line covers the sections on its page too — a partner's family, addresses, links, visits, support and photos; a trip's team, meetings, requirements, documents and money — so it answers "when did anyone last touch this record?" even when the change was inside a section. The **Trips** list also has a sortable **Added** column, so you can find the newest trips. The **Partners** and **Trips** lists have a sortable **Last updated** column with the same date and name, so you can sort to find the records nobody has looked after in a while (blank means no signed-in person has changed it). Prayer requests, needs, newsletters and contact-log entries are not folded in; they have their own pages. A prayer request or one-time need shows its own line when you open it. None of this is shown to Guests or on the public site. The **Data completeness** report has **Last edited by** and **Last edited** columns too, so you can see which partner records nobody has touched in a while and who to ask. It is stamped on every record an admin, editor or care team member changes, and not by background jobs or a public form, so a record nobody has edited shows no line. The name is a snapshot, so it still reads after that person's account is deleted.
 
@@ -412,7 +458,10 @@ site can see, independently of each other:
   (e.g. someone your church supports but doesn't publicize).
 - **Restricted-access location** (`isRestricted`) — only relevant if
   `isPublic` is also checked. Automatically, on the public site only:
-  reduces the missionary's name to initials (an organization's name stays
+  reduces the missionary's name to initials built from the adults on the
+  record ("T.S. and S.S." for a couple, "T.S." for one adult, "T.S., S.S.
+  and J.K." for three; a partner with no adults recorded uses the initials
+  of the display name) (an organization's name stays
   visible — it's an institution, not a person), replaces their real photo
   with a generic silhouette icon (a plain shape — single, couple, or
   family, matching their actual household — never a real photo of any
@@ -454,10 +503,18 @@ status pill (Pending Decision / Fully Funded / Partially Funded /
 Declined) computed from the approved vs. requested amount. **+ Add Need**
 adds one without leaving the page; an undecided need gets a **Record
 Decision** button to fill in the approved amount/date once your church
-has made a call, plus an optional **Decision Note** for why it came out
-that way (a reason for declining, or for funding less than what was
-asked). Both the requested amount (on creation) and the approved
-amount/decision note (once decided) show up in the GroupMe post and the
+has made a call (tick **Decline this request** to record a no), plus an
+optional **Decision Note** for why it came out that way (a reason for
+declining, or for funding less than what was asked). The requested
+amount is optional: leave it blank when a letter names no figure, and the
+need shows "No amount". Separately from the decision, open a need to
+record **Someone's on it** (who has taken it on: a person or a group) and
+**Met on** (the day it was covered, by your church or anyone else). An
+undecided need with someone on it reads "Someone's on it: …" instead of
+Pending Decision, and a met need reads **Met** whatever was decided;
+neither sends anything, and a met need no longer counts as waiting for a
+decision. The requested amount (when there is one) and the
+approved amount/decision note (once decided) show up in the GroupMe post and the
 admin email digest for that need — one-time needs never reach the
 public digest, so there's no reason to hold that detail back from the
 audiences that do see it. Both **+ Add Need** and its Edit form have a
@@ -467,7 +524,7 @@ leave it as "None." A need pointed at a source this way, or added
 automatically by [AI Features](#ai-features-admin-only), shows a
 "From: ..." link back to that file, rendered the same either way. For
 marking a new need urgent, or (for a restricted partner) approving it at
-creation instead of from Pending Dispatches, see [Marking something
+creation instead of from Updates to Share, see [Marking something
 urgent](#marking-something-urgent).
 
 ![The One-Time Needs page, with status pills per need](docs/assets/screenshots/one-time-needs.png)
@@ -486,13 +543,32 @@ or leave it as "None."
 
 ![The Source (optional) dropdown on the Add Prayer Request form, listing this partner's newsletters and documents](docs/assets/screenshots/source-picker.png)
 
-- **Category** is **Strategic** (tied to the ministry's long-term vision
+- **Category** is **Ministry** (tied to the ministry's long-term vision
   or calling — church planting, discipleship, language study, funding —
   can optionally be shown on that partner's public profile via **Show on
-  public profile**) or **Situational** (whatever came up — health,
-  travel, family needs, paperwork; admin-only, never shown publicly
-  regardless of any setting).
-- A strategic request marked **Show on public profile** can also be
+  public profile**) or **Everyday** (whatever came up — health,
+  travel, family needs, paperwork; staff only). An Everyday request is
+  **never shared by any route**: it is not posted to GroupMe or
+  WhatsApp, not included in any email update (staff or public), not
+  sent as an urgent update, never shown on the public site, the Sunday
+  prayer sheet or the booklet, and it never appears on Updates to
+  Share. The form hides **Mark as urgent** and **Review and approve
+  now** for it, and says so under the Category box. If you change a
+  Ministry request to Everyday while its update is still waiting to go
+  out, the waiting update is removed. (Changing it back later does not
+  send it: only a new Ministry request makes an update.)
+- **What a care team member can and cannot set.** Anyone who isn't an
+  admin or editor (a Guest on a partner's care team, or a Viewer who is
+  on that partner's care team) can add and edit prayer requests for that
+  partner, but cannot choose what is shown: the **Show on public
+  profile** and **Include in printed booklet** boxes are not on their
+  form, and the server ignores them if they are sent, on adding and on
+  editing. They also cannot mark a request urgent or approve it. When
+  they save, the form says "Your request has gone to the missions team
+  for review" (using your church's name for that group), and it waits
+  for staff on **Updates to Share**. Staff decide later whether it is
+  shown publicly or printed. Admins and editors are unchanged.
+- A ministry request marked **Show on public profile** can also be
   checked **Include in printed booklet** — a separate setting, since a
   partner can build up more public strategic requests over time than
   would ever fit on a printed page. Only requests checked both ways ever
@@ -532,7 +608,7 @@ been answered so far. A request pointed at a source this way, or added
 automatically by [AI Features](#ai-features-admin-only),
 shows a "From: ..." link back to that file, rendered the same either
 way. For marking a new request urgent, or (for a restricted partner)
-approving it at creation instead of from Pending Dispatches, see
+approving it at creation instead of from Updates to Share, see
 [Marking something urgent](#marking-something-urgent).
 
 ![The central Prayer Requests page, newest first across every partner](docs/assets/screenshots/prayer-requests-list.png)
@@ -649,19 +725,30 @@ covered below.
   login needed), and participants get a day-before reminder too, both
   showing the agenda and join link. Changing the time or join link
   resends the invite automatically; **Resend invite** sends it again on
-  demand with no change needed. Someone added to the team after a
+  demand with no change needed. Saving a meeting without changing its
+  time, place or link emails nobody. **Meeting and flight times are
+  always your church's own time**, with the zone named beside them (for
+  example "6:00 PM Central Time"), whoever is looking and wherever they
+  are, so a leader who is travelling reads and types the same hour as
+  the office does. The zone is the one set under **Settings → About &
+  Branding → Church Info**. Someone added to the team after a
   meeting's already scheduled gets that meeting's invite the moment
   they join — nobody has to remember to resend it for them. Changing
   the trip's own start or end date resends everyone the updated
   calendar invite too. **Cancel** calls a meeting off and emails
   everyone who was invited — the meeting stays listed, crossed out, as
-  a record that it happened and was called off.
+  a record that it happened and was called off. **With email off**
+  nothing here claims an email goes out: scheduling, changing or
+  cancelling a meeting shows each team member's own trip page link for
+  you to pass on, the cancel question says nobody is told automatically,
+  **Resend invite** becomes **Show links to pass on**, and the
+  Requirements tab says no reminders are sent.
 - **Budget** (if turned on in Trips Settings) tracks estimated
   whole-team costs against what's been raised — admin-only, never
   shown to applicants or participants.
 - **Contributions** is the giving ledger — who gave, how much, by
   Check/Cash/Online/Other, to whom it's credited.
-- **Applications awaiting review** — click a row to open its own review
+- **Applications awaiting review** — a new application also shows as a badge on the bell. When Email (Sending) is on, the admins get an email naming the applicant with a link to review it (never their contact details). Click a row to open its own review
   page, with the applicant's full answers already shown. **Approve or
   Decline** there launches a short wizard (Decision, then Confirm); a
   declined one can still be reconsidered later.
@@ -805,6 +892,23 @@ flag.
 
 ![The central Newsletters & Docs page, listing uploads across every partner with their Kind](docs/assets/screenshots/partner-files.png)
 
+### Prayer Sheet
+
+**Prayer Sheet** (under Prayer Requests in the menu) makes something ready for
+Sunday: a one-page, printable list of what to pray for, or the same thing as
+slides for the screen at church (**Show as slides**: one partner per slide,
+arrow keys or the buttons to move, Escape to close). Pick how often you make a
+sheet, **every week**, **every two weeks** or **once a month**, and the sheets
+rotate through your partners so each comes round about once a month: weekly
+shows a quarter of your partners on each sheet, every two weeks shows half, and
+monthly shows all of them on one. The same Sunday always gives the same sheet.
+Your choice of rhythm is remembered in your browser.
+
+Because it is handed out, it shows only what your public site may show: a
+partner that is public, not archived and not restricted, and only its prayer
+requests marked as ministry and public that are still ongoing. Private
+requests, restricted partners and answered requests never appear.
+
 ### Printable partner booklet
 
 **Print Booklet** builds a print-formatted directory: pick a **Look &
@@ -814,7 +918,13 @@ decorative shapes, bold accent rules, and a rectangular photo) — choose
 who's included (archived, restricted-access, organizations), and what
 shows on each page (photo, overview, location, address, family info,
 sending church/org, and an optional facing **Notes & Prayer Page** with
-ruled lines for the reader's own handwritten notes). Both templates'
+ruled lines for the reader's own handwritten notes). **Restricted-access
+partners are left out until you tick the box** (it is unticked when
+the page opens); once ticked, the page says how many restricted
+partners are included and cautions that they print with their real
+names and details, so hand that booklet only to people who may see
+them. The booklet is the church's own document and otherwise prints
+partners whether or not they are on the public site. Both templates'
 accent color defaults to your church's own brand color (**Primary
 Color** in [Church Settings](#church-settings-admin-only)); an instance
 that hasn't set one falls back to a fixed four-color rotation instead.
@@ -880,7 +990,11 @@ The current reports, by group:
 
 A report tied to a feature that's turned off (see
 [ADMIN_GUIDE.md § Feature toggles](ADMIN_GUIDE.md#feature-toggles))
-simply doesn't appear in the hub.
+simply doesn't appear in the hub. With **Monthly support** turned off,
+the two reports that stay (**Where we serve** and **Partner roster &
+tenure**) also leave out their committed-amount columns, totals and
+chart, on screen, in the CSV and in a scheduled email, so no support
+amount shows anywhere while that feature is off.
 
 **Saved views** on a report's own page let you save a set of filters by
 name — **private** (only you see it) or **shared** (everyone with access
@@ -904,15 +1018,15 @@ The team shows as one line on the partner's **Contact** card ("Care team: Pat (l
 
 ![The Care team dialog, choosing a Lead and ticking Members](docs/assets/screenshots/assign-care-team.png)
 
-A care team member uses the same app as everyone, and for **their own partner** they can do what an editor can: edit the partner's profile, family, contact details, links and photos; add and edit prayer requests (and record answers) and one-time needs; and upload, edit and scan newsletters and documents. They can also see that partner's trips, read-only. Three things are different:
+A care team member uses the same app as everyone, and for **their own partner** they can do what an editor can: edit the partner's profile, family, contact details, links and photos; add and edit prayer requests (and record answers) and one-time needs; and upload and edit newsletters and documents. They can also see that partner's trips, read-only. Three things are different:
 
-- **What they enter is saved immediately, but isn't sent to the church** by email, GroupMe or WhatsApp **until an admin or editor approves it** in [Pending Dispatches](#pending-dispatches). They can't mark anything urgent or use "approve now".
+- **What they enter is saved immediately, but isn't sent to the church** by email, GroupMe or WhatsApp **until an admin or editor approves it** in [Updates to Share](#updates-to-share). They can't mark anything urgent or use "approve now".
 - **They can't approve or decline a one-time need** or record a decision on it. That stays with the committee or board.
 - **They never see monthly support** — its amount, how long it has run, or its history.
 
-They also can't create or delete partners, or delete records. If you're an admin or editor yourself, being on a team doesn't limit you or hold your entries; it just adds the care-team features.
+They also can't create or delete partners, or delete records, and they can't use the AI scan of a newsletter (it sends the letter to an outside service, so it is for admins and editors only). If you're an admin or editor yourself, being on a team doesn't limit you or hold your entries; it just adds the care-team features.
 
-![Pending Dispatches, where an entry from a care team member is held for staff to approve](docs/assets/screenshots/pending-dispatches-care-team.png)
+![Updates to Share, where an entry from a care team member is held for staff to approve](docs/assets/screenshots/pending-dispatches-care-team.png)
 
 A **Guest**, whether on a care team, given a trip, or both, sees one plain **Partners** list of every partner they can reach, with no tabs. Staff who are on a care team still land on All and switch to the **My partners** tab when they want it.
 
@@ -931,6 +1045,8 @@ A **trip leader** (a Guest given a trip) has a smaller view: their trips, and th
 **Partners to reach out to**, on the bell and the Home page, counts your partners that are quiet or have a follow-up due.
 
 It works with the [Contact log](#contact-log): logging a contact is what resets a partner's quiet days.
+
+A partner nobody has contacted yet is not called quiet straight away: their quiet days count from the day they joined your list, so a new install (or a partner you just added) is not instantly all overdue. For a partner in a busy or private season, open **Edit contact** and set **Not this season**: until that day they are left out of "quiet" on My partners, the bell and the care chat posts, and My partners shows "Not this season until ...". A follow-up date you set on purpose still shows. Clear the date to bring them back.
 
 ### Contact log
 
@@ -960,19 +1076,19 @@ With **Contact log** turned on in [Enabled Features](ADMIN_GUIDE.md#feature-togg
 - **Updates to pass on.** When a one-time need has been decided or a prayer answered and nobody has passed it on yet, the Contact Log shows an **Updates to pass on** box with a **Log that I told them** button: the update is news for the partner (their prayer was answered, or their request was decided), and this is how you record that you passed it on. It opens **+ Log contact** already set to "We reached out" with the right topic ticked, so saving it clears the bell's "Updates to pass on to partners". You still choose how you got in touch.
 - **My partners** and **Partners to reach out to** (for anyone on a care team) are described under [My partners](#my-partners).
 
-The **Last heard from** report counts a logged contact, a newsletter, a prayer request they sent and a church visit as hearing from a partner: a partner is only "quiet" when all of them are old. How long is "quiet" is a church setting (default 90 days; Settings → Care Teams → Timing), and the report uses it unless you type another number for a run. Trip leaders don't get the contact log.
+The **Last heard from** report counts a logged contact, a newsletter, a prayer request they sent and a church visit as hearing from a partner: a partner is only "quiet" when all of them are old. How long is "quiet" is a church setting (default 90 days; Settings → Partner Care → Quiet partners), and the report uses it unless you type another number for a run. Trip leaders don't get the contact log.
 
 ### Key-date reminders
 
 With **Key-date reminders** turned on, whoever looks after a partner (its [care team](#care-teams), or your missions team) is reminded about a coming **birthday** (including the children's), **wedding anniversary**, or **partnering-since milestone** (the first year, then every fifth), or the anniversary of when they were **commissioned** (record both on the partner's page under **Our History With Them**; they can differ, since someone may have been commissioned long before we knew them), a week ahead.
 
-- **On the bell and the Home page** as "Key dates coming up". Open it to find the partner. The **My partners** tab also flags a key date inside the window. A key date is raised **7 days ahead** by default; an admin can change that (1 to 60 days) under Settings → Care Teams → Timing.
+- **On the bell and the Home page** as "Key dates coming up". Open it to find the partner. The **My partners** tab also flags a key date inside the window. A key date is raised **7 days ahead** by default; an admin can change that (1 to 60 days) under Settings → Partner Care → Key-date timing.
 
 ![The bell, with Key dates coming up among a care team member's alerts](docs/assets/screenshots/bell-alerts.png)
 
 - **Send a greeting.** On the **My partners** tab, a key date inside the window has a **Send greeting** button where we may email them (not for a restricted partner, one marked not to be contacted directly, or one whose allowed ways exclude email, and not when there is no address). It opens a prefilled draft in your own mail program, so you read and send it yourself; the app never sends it. Afterwards it asks whether to log it, and saying yes records an email with the **Key date** topic, which clears the reminder.
 
-- **In your email digest**, if you have one (My account → Email Dispatch). A **Key dates coming up** section leads the digest, listing dates **90 and 30 days out**, each once, so a monthly or quarterly digest still gives you time to plan. The earlier heads-ups are a church setting (Settings → Partner Care → Timing).
+- **In your email digest**, if you have one (My account → Email updates). A **Key dates coming up** section leads the digest, listing dates **90 and 30 days out**, each once, so a monthly or quarterly digest still gives you time to plan. The earlier heads-ups are a church setting (Settings → Partner Care → Key-date timing).
 - **By a short email of its own** for the last stretch (the final **7 days** by default), sent at 7am church time on a day something is due, listing everything coming up for your partners (not one email per partner). If your next digest would reach you on or before the date, you get it there instead, so you aren't emailed twice. Someone with no digest always gets the short email. It needs Email (Sending) turned on, and it's sent at 7am church time. **You can turn the email off for yourself** under **My account → Key-date email** (a Guest on a care team can too); the alert on the bell stays either way.
 
 ![The grouped key-date email](docs/assets/screenshots/key-date-email.png)
@@ -1060,7 +1176,10 @@ either take effect immediately, everywhere, with no code changes
 needed:
 
 - **About Church** — Church Info: name, phone, contact name/email,
-  website, and address. This is also what auto-fills "Sent by our church"
+  website, timezone, **currency** (how every amount in the app is written:
+  monthly support, one-time needs, trip money, reports and announcements;
+  it changes only the symbol and converts nothing, so check existing
+  figures if you change it), and address. This is also what auto-fills "Sent by our church"
   on the missionary form. Right after saving a change here, if any
   partners are marked "Sent by our church," a prompt appears showing how
   many and offering to **update them all with this info** — a one-click
@@ -1068,7 +1187,9 @@ needed:
   keeping everyone in sync after an address or contact change. It's
   deliberate, not automatic: saving About Church alone never touches any
   partner on its own.
-- **Branding** — Public Site (tagline, about text, three independent
+- **Branding** — Public Site (tagline, about text, an optional Scripture
+  passage and its source shown above the Subscribe form (empty by default,
+  so you choose the translation and check its licence), three independent
   colors, plus a font choice), Logo, and Partner Terminology (swap
   "Missionary" for whatever your church calls them, and optionally use
   that term in the admin nav too). Each color controls a different part
@@ -1080,7 +1201,7 @@ needed:
   - **Highlight Color** — hover, focus, and active/selected states, e.g.
     a button on hover or the current nav item.
 
-  All three also flow into the [email digest](#email-dispatch-customization)'s
+  All three also flow into the [email digest](#how-the-update-email-looks)'s
   Snapshot layout and its masthead/buttons, so the digest looks like the
   same product as the rest of the site, not a separately-styled email.
   **Reset to Default** clears all three colors and the font back to the
@@ -1107,7 +1228,7 @@ someone loses their authenticator, **Reset MFA** on their row sends them
 through enrollment again. It only turns on for an admin who has set up
 two-factor on their own account first, so it can't lock you out, and it
 can't be turned on for the public demo. It's off by default. Turning it
-on or off is recorded in the [Audit log](#audit-log-admin-only).
+on or off is recorded in the [Audit Log](#audit-log-admin-only).
 
 Below it, **Passwordless sign-in** takes passwords away church-wide: people
 with a passkey sign in with it alone, and everyone else gets an emailed
@@ -1129,9 +1250,17 @@ role (Admin, Editor, Viewer, or Guest — pick at least one trip for a
 Guest), then how they'll get access — **Send a welcome email** (on
 by default) emails them a one-time "Choose your password" link so you
 never type or see their password; **Require two-factor authentication at
-first sign-in** can be turned on at the same time. If outbound email
-isn't set up, the setup link is shown right there on the page instead, to
-copy and send however you like. Turn the welcome email off to set a
+first sign-in** can be turned on at the same time. **With email off**
+(or switched on but not finished setting up) the page never offers to
+send anything: the tick box reads **Give me a setup link to pass on**,
+the note under it says nothing is emailed, and when you save, the
+one-time setup link is shown right there to copy and send however you
+like (a text, your own email, in person). **Send setup link** on a row
+in Manage Users works the same way, and only ever says "Setup link
+sent" when an email really went out. If there is no link to show
+either (the site has not been told its own web address, `APP_BASE_URL`),
+the message says so and tells you to set a password for the person
+from **Edit**. Turn the tick box off to set a
 password yourself (or leave it blank and use **Send setup link** on their
 row in Manage Users later) — either way, every account is still email +
 password once set up, per [Logging in](#logging-in) above. A setup link
@@ -1156,8 +1285,8 @@ create their login in one step.
 
 Editing an existing user (from their row in Manage Users) lets you change
 role, deactivate, require two-factor for just that account, or reset a
-password. **Reset MFA** clears a locked-out user's two-factor setup so
-they can log back in and re-enroll (with just their password, or straight
+password. **Reset MFA** clears a locked-out user's two-factor setup (their
+recovery codes included) so they can log back in and re-enroll (with just their password, or straight
 into enrollment if the church requires two-factor) — for your own account,
 use **Disable Two-Factor Authentication** on [Your account settings](#your-account-settings)
 instead (not available while the church requires it), which requires your
@@ -1206,9 +1335,9 @@ shows a connection string or any credential.
 
 ![The top of the About App page: app, runtime, database, and deployment details](docs/assets/screenshots/system-info.png)
 
-### Audit log (Admin only)
+### Audit Log (Admin only)
 
-The **Audit log** is on by default (turn it off in [Enabled Features](ADMIN_GUIDE.md#feature-toggles) if you'd rather not keep it), and admins get **Settings → Audit log**: who did what, and when, for the actions that matter if you ever need to ask "who changed that?".
+The **Audit Log** is on by default (turn it off in [Enabled Features](ADMIN_GUIDE.md#feature-toggles) if you'd rather not keep it), and admins get **Settings → Audit Log**: who did what, and when, for the actions that matter if you ever need to ask "who changed that?".
 
 - **What is recorded:** sign-ins (and failed ones, with the reason and where from), password and two-factor changes, accounts created, changed or deleted, a guest's trip access given, changed or removed, care team changes, every change to church settings (a feature turned on or off, an API key changed), partners and trips deleted, backups downloaded, a partner being marked restricted, and **each person's first look at a restricted partner each day**.
 - **What isn't:** routine work — a new prayer request, an edited overview, a logged contact. Those are already visible on the record itself.
@@ -1218,7 +1347,7 @@ The **Audit log** is on by default (turn it off in [Enabled Features](ADMIN_GUID
 - **Deleted accounts stay readable.** An entry keeps the name and email of who did it and who it was done to, so it still reads after either account is deleted, and is tagged "(deleted account)".
 - **How long it is kept:** 30, 60 or 90 days (default 90), set on the same page. Older entries are deleted each night.
 
-![The Audit log page: who did what, with filters, an export button and the retention setting](docs/assets/screenshots/audit-log.png)
+![The Audit Log page: who did what, with filters, an export button and the retention setting](docs/assets/screenshots/audit-log.png)
 
 For who last changed one record (kept for good, and shown on the record itself), see [Who last edited a record](#who-last-edited-a-record).
 
@@ -1235,11 +1364,10 @@ in [Enabled Features](ADMIN_GUIDE.md#feature-toggles) once it's set up
 here.
 
 These don't post the instant they happen — GroupMe has its own daily
-batch time (set on the Dispatch Settings page), and an item marked
+batch time (set on the Sending Updates page), and an item marked
 **urgent** posts right away regardless of that schedule — see [Marking
-something urgent](#marking-something-urgent). See [Pending
-Dispatches](#pending-dispatches) for the queue itself, and
-[Dispatch Settings](#dispatch-settings-admin-only) for the
+something urgent](#marking-something-urgent). See [Updates to Share](#updates-to-share) for the queue itself, and
+[Sending Updates](#sending-updates-admin-only) for the
 schedule.
 
 Setup, on the **GroupMe** page under Settings, builds up in
@@ -1300,7 +1428,7 @@ unofficial connection and you'll want a dedicated phone number for it.
 
 WhatsApp sends once a day, at an admin-set hour, and has its own three
 content-type mutes (Prayer Requests / One-Time Needs / Newsletters) —
-both set on the [Dispatch Settings](#dispatch-settings-admin-only)
+both set on the [Sending Updates](#sending-updates-admin-only)
 page. Beside those three, **partner care posts** (a coming key date, a
 partner nobody has heard from, and news to pass on to a partner) have
 their own switches, **off until you turn them on**, and share one
@@ -1350,10 +1478,10 @@ group with new and decided needs:
 ![The Prayer Requests group showing new and answered prayer requests](docs/assets/screenshots/whatsapp-prayer-requests-group.png)
 ![The One-Time Needs group showing new and decided one-time needs](docs/assets/screenshots/whatsapp-one-time-needs-group.png)
 
-### Pending Dispatches
+### Updates to Share
 
-The **Pending Dispatches** page (in the main menu, alongside If Email (Sending), GroupMe and WhatsApp are all off, nothing goes out on its own: the page offers **Copy the updates that are ready** (grouped by partner, leaving out anything still held for review) so you can share them yourself, then clear them.
-Unmatched Emails) is where every prayer request, one-time need, and
+The **Updates to Share** page (in the main menu, alongside If Email (Sending), GroupMe and WhatsApp are all off, nothing goes out on its own: the page offers **Copy the updates that are ready** (grouped by partner, leaving out anything still held for review) so you can share them yourself, then clear them.
+Emails to Sort) is where every prayer request, one-time need, and
 newsletter queues before going out — the shared review-and-send queue
 behind both GroupMe dispatch above and email digests below. Only
 shows up once GroupMe dispatch or Email (Sending) is turned on —
@@ -1361,7 +1489,7 @@ no point reviewing a queue neither channel will ever read. Visible to
 any logged-in role; only an admin or editor can actually edit, approve,
 or clear an item. For the schedules, GroupMe's content-type mutes, the
 restricted-partner safety gate, and email dispatch appearance, see
-[Dispatch Settings](#dispatch-settings-admin-only) below.
+[Sending Updates](#sending-updates-admin-only) below.
 
 The list shows everything currently queued, grouped by partner, with a
 prayer request or need that came from a newsletter nested right under
@@ -1370,7 +1498,7 @@ that newsletter instead of repeated separately. There's no manual
 go out right away, check **urgent** on it when you create it instead,
 see [Marking something urgent](#marking-something-urgent).
 
-![The Pending Dispatches page: a regular partner's prayer requests and one-time needs (new and answered/decided), grouped with a restricted partner's already-reviewed items below](docs/assets/screenshots/pending-dispatches.png)
+![The Updates to Share page: a regular partner's prayer requests and one-time needs (new and answered/decided), grouped with a restricted partner's already-reviewed items below](docs/assets/screenshots/pending-dispatches.png)
 
 Items a [care team member](#care-teams) enters are held here for review whatever the partner — nothing goes out until an admin or editor approves it, the same way a restricted partner's items are held.
 
@@ -1448,7 +1576,7 @@ and public subscribers about to be notified before it actually sends.
 
 What it doesn't bypass: a restricted partner's item still waits on
 review exactly as it would without the checkbox (see [Reviewing a
-restricted partner's request or need](#pending-dispatches) above),
+restricted partner's request or need](#updates-to-share) above),
 and a muted GroupMe content type still blocks that one channel — urgent
 only skips waiting for a schedule, never either of those safety rules.
 
@@ -1456,22 +1584,22 @@ only skips waiting for a schedule, never either of those safety rules.
 second checkbox appears alongside "Mark as urgent": **Review and
 approve now**. Checking it confirms, right then, that the text you just
 typed is safe to send out exactly as written — the same confirmation
-[Pending Dispatches](#pending-dispatches)'s own **Approve** does,
+[Updates to Share](#updates-to-share)'s own **Approve** does,
 just at creation time instead of a second visit later. It clears the
 review hold; it doesn't by itself make anything send immediately — that
 still needs "Mark as urgent" too, or whatever channel's own regular
 schedule picks the item up next.
 
-### Dispatch Settings (Admin only)
+### Sending Updates (Admin only)
 
-The **Dispatch Settings** page under Settings → Communications
+The **Sending Updates** page under Settings → Communications
 holds every schedule, the chat channels' (GroupMe and WhatsApp) shared
 content-type mutes, the one restricted-partner safety gate, and the
 email dispatch's own appearance —
 separate from the actual queue above, same split Email already has
-between its own settings page and Unmatched Emails. Top to bottom:
+between its own settings page and Emails to Sort. Top to bottom:
 
-#### Email Dispatch Subscribers
+#### Who gets update emails
 
 A read-only section at the top of the page (only shown once [Public
 prayer digest](ADMIN_GUIDE.md#feature-toggles) is turned on) showing
@@ -1485,15 +1613,15 @@ only — no email addresses, here or anywhere else an admin can see.
 One checkbox, off by default: turned on, a restricted-access partner's
 prayer requests and one-time needs are recorded and can reach GroupMe,
 WhatsApp, and both email digests, subject to the review requirement described in
-[Pending Dispatches](#pending-dispatches) above. Left off (the
+[Updates to Share](#updates-to-share) above. Left off (the
 default), their events are never recorded in the first place, for any
 type — nothing to hold, nothing to review, because nothing's queued.
 Turning it on takes on that review responsibility in exchange for
 restricted partners' content reaching every channel like anyone else's.
 
-![The Dispatch Settings page: subscriber counts, the Restricted Partners gate, digest customization, email schedule, and the GroupMe/WhatsApp chat schedule](docs/assets/screenshots/dispatch-settings.png)
+![The Sending Updates page: subscriber counts, the Restricted Partners gate, digest customization, email schedule, and the GroupMe/WhatsApp chat schedule](docs/assets/screenshots/dispatch-settings.png)
 
-#### Email Dispatch Customization
+#### How the update email looks
 
 Everything here controls the **email digest specifically** — GroupMe
 and WhatsApp's own message format doesn't change, since both are
@@ -1590,7 +1718,7 @@ the digest doesn't need Receiving on, and vice versa.
 #### Sending
 
 Once turned on, this is the email half of the
-[Pending Dispatches](#pending-dispatches) queue above — an
+[Updates to Share](#updates-to-share) queue above — an
 opted-in user gets one digest email covering everything currently
 queued, instead of one email per item. Setup builds up in steps:
 
@@ -1636,18 +1764,23 @@ email arrives:
 
 - If the sender's address matches **exactly one** partner — either that
   organization's own Contact Email, or any household adult's email on a
-  missionary's record — it's filed automatically as a **Newsletter** on
-  that partner (title = the email's subject, the original `.eml` as the
-  file), and notifies the same way a manually-uploaded newsletter does
+  missionary's record — it waits in **Emails to Sort** for a quick look
+  (a sender address can be forged, so nothing is filed or announced on its
+  own). An admin or editor assigns it to that partner as a **Newsletter**
+  (title = the email's subject, the original `.eml` as the file), and it
+  then notifies the same way a manually-uploaded newsletter does
   (GroupMe/email digest, if those are on; [AI Features](#ai-features-admin-only)
-  can scan it the same as any other newsletter). Nothing to do — it just
-  shows up on that partner's record.
+  can scan it the same as any other newsletter). Nothing in the queue is ever deleted
+  automatically; only an admin can discard a message. (An admin can switch
+  the review off for a sender that matches one partner and passes the sender
+  check: **Settings → Email → Receiving → File mail from a verified partner
+  without review**. It is off by default.)
 - If the sender's address matches **no partner, or more than one** (two
   partners happen to share a household-adult email, for instance),
-  there's no safe guess to make — it lands in the **Unmatched Emails**
+  there's no safe guess to make — it lands in the **Emails to Sort**
   queue instead, visible to any logged-in role.
 
-**Unmatched Emails** (its own nav item, next to Partners) lists what's
+**Emails to Sort** (its own nav item, next to Partners) lists what's
 waiting: From, Subject, Received. **View raw** opens the original email.
 **Assign** (editor or admin) picks the right partner _and_ what kind of
 file it actually is — Newsletter, Survey Response, Signed Policy, Email
@@ -1664,9 +1797,9 @@ participant (grouped by trip) and, if it fulfills one, which document
 requirement. Useful for a signed waiver or passport photo that arrives
 by email rather than through the participant's own self-service page.
 
-![The Unmatched Emails queue, waiting on review](docs/assets/screenshots/unmatched-emails.png)
+![The Emails to Sort queue, waiting on review](docs/assets/screenshots/unmatched-emails.png)
 
-![The Unmatched Emails queue, waiting on review](docs/assets/screenshots/unmatched-emails.png)
+![The Emails to Sort queue, waiting on review](docs/assets/screenshots/unmatched-emails.png)
 
 ## Integrations
 
@@ -1757,10 +1890,9 @@ your passkeys along with your authenticator app.
 ![My Account: two-factor enabled with passkeys, and the list of passkeys](docs/assets/screenshots/my-account-passkeys.png)
 
 If [Email (Sending)](#email-admin-only) is turned on for the church,
-there's also an **Email Dispatch** section here: a cadence (no
+there's also an **Email updates** section here: a cadence (no
 automatic digest by default, or one of whichever of biweekly, monthly,
-and quarterly the admin has chosen to offer — see [Dispatch
-Settings](#dispatch-settings-admin-only)) and, once a cadence is
+and quarterly the admin has chosen to offer — see [Sending Updates](#sending-updates-admin-only)) and, once a cadence is
 picked, a choice of what it covers: **the partners you look after** (the
 default: your care team seats, plus, if you're on the missions team, the
 partners that have no care team of their own), **all partners**, or **only
@@ -1774,14 +1906,14 @@ switched to something else. The digest itself
 still includes prayer requests, one-time needs, and newsletters, same
 as before — picking a cadence and scope here doesn't narrow what you
 get, just when and for whom. It sends on whatever [Email
-Schedule](#dispatch-settings-admin-only) the admin set up at Site
-Administration → Dispatch Settings. You can also turn it off directly from
+Schedule](#sending-updates-admin-only) the admin set up at Site
+Administration → Sending Updates. You can also turn it off directly from
 the unsubscribe link in any digest email, without logging in. Besides
 your chosen cadence, you may occasionally get an item right away
 outside that schedule — see [Marking something
 urgent](#marking-something-urgent).
 
-![Account settings, Email Dispatch: a biweekly cadence picked, with the specific-partners scope list expanded](docs/assets/screenshots/account-settings-digest.png)
+![Account settings, Email updates: a biweekly cadence picked, with the specific-partners scope list expanded](docs/assets/screenshots/account-settings-digest.png)
 
 ![Account settings, mid-enrollment: the QR code step of enabling two-factor authentication](docs/assets/screenshots/mfa-enrollment.png)
 
@@ -1828,10 +1960,13 @@ entirely by what you check in the admin dashboard:
   quarterly an admin has chosen to offer, pre-selected to monthly when
   it's available), and either every partner or several specific ones
   picked from a checklist. A visitor clicks a
-  link in a confirmation email before anything actually sends (double
-  opt-in — nothing goes out to an address nobody confirmed), and every
+  link in a confirmation email, then presses **Confirm my subscription** on
+  the page it opens, before anything actually sends (double opt-in — nothing
+  goes out to an address nobody confirmed, and a mail program that merely
+  opens the link does not confirm it), and every
   digest they get after that carries its own one-click unsubscribe
-  link. This public digest is **prayer requests only** — never a
+  link. Those confirm and unsubscribe links keep working even if you
+  later turn the public digest or the public directory off. This public digest is **prayer requests only** — never a
   one-time need, never a newsletter or a link back to one — unlike the
   digest an admin can opt into from their own [Account
   Settings](#your-account-settings), which still includes both. A
@@ -1876,6 +2011,6 @@ whatever's marked public in the admin dashboard.
 The app ships no church-specific content in its code. Starting points (survey questions, a support menu, trip requirement documents, trip application questions, email update wording) are **template packs**: small JSON files you import from the page where that content lives. Example packs are in the project's [`examples/template-packs`](https://github.com/neckermann/missions-partner-tracker/tree/main/examples/template-packs) folder, and the public demo imports them so it shows everything.
 
 - **Import** (admins): open the page, press **Import…**, choose the file or paste its text, **Check this pack** to see what it would do, then **Import**. Importing only adds: nothing you have is deleted, a duplicate (same name) is skipped, and importing the same pack twice does nothing the second time. A survey arrives as a draft. Email update wording is the one exception: it replaces the subject line, sign-off and layout the pack contains, and the preview says so.
-- **Where:** surveys under **Settings → Surveys**, the support menu under **Settings → Support Preferences**, trip requirements and application questions under **Settings → Trips**, wording under **Settings → Dispatch Settings**.
+- **Where:** surveys under **Settings → Surveys**, the support menu under **Settings → Support Preferences**, trip requirements and application questions under **Settings → Trips**, wording under **Settings → Sending Updates**.
 - **Export:** each of those pages has an **Export** button that saves what you have as a pack, so a church can share its own.
 - **A new install starts empty** in each of these areas, with a prompt to import an example or start blank. Existing installs keep everything they have.

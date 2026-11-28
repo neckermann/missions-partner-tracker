@@ -82,6 +82,7 @@ function SearchBox({ field, value, onChange }) {
             onChange(field.name, "");
           }}
           aria-label="Clear search"
+          title="Clear the search"
         >
           ✕
         </button>
@@ -194,6 +195,7 @@ export default function FilterBar({ fields, values, onChange, onReset, pills, ex
               className="fc-x"
               onClick={() => removeField(field)}
               aria-label={`Remove ${field.label} filter`}
+              title={`Remove the ${field.label} filter`}
             >
               ✕
             </button>

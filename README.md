@@ -3,6 +3,13 @@
 A web app for tracking and publicly showcasing your church's missionary and
 organization partners.
 
+> **Beta (before 1.0).** This is a 0.x release. Until 1.0, an upgrade can change
+> the database in a way that cannot be applied to an existing one, and then the
+> new version will refuse to start rather than run against the wrong tables. An
+> install made today may have to be **wiped and set up again** (or restored from
+> a backup) when you upgrade. Do not rely on it as your only copy of anything
+> until 1.0. See [UPGRADING.md](UPGRADING.md).
+
 - **Public site**: a searchable partner directory plus an interactive world
   map (Leaflet) with an auto "tour" fly-through. Partners marked
   `isRestricted` are automatically shown with initials only, no contact
@@ -37,7 +44,7 @@ organization partners.
   country is. Off by default; add a free API key and turn it on, no code
   changes.
 - **Auth**: email and password, with TOTP two-factor that an admin can
-  require for everyone at once (a new install starts with it on). Deliberately no single sign-on — see
+  require for everyone at once (a site set up through the first-visit setup screen starts with it on; one set up with the `createAdmin.js` command can switch it on under Manage Users). Deliberately no single sign-on — see
   [ADMIN_GUIDE.md § Authentication setup](ADMIN_GUIDE.md#authentication-setup)
   for why. Sessions are secured with an `httpOnly` cookie, never exposed to
   client-side JavaScript.
@@ -49,17 +56,33 @@ organization partners.
 ## Deploy
 
 **[Render](https://render.com) is the recommended way to run this for your
-own church** — one-click, no command line or database to manage, about
-$13/mo. See [ADMIN_GUIDE.md § Getting your church running (Render)](ADMIN_GUIDE.md#getting-your-church-running-render)
+own church**: one click, no terminal, no GitHub account, no database to
+manage. You need a Render account with a payment card (the web service and
+the database are paid plans, about **$13/mo** together) and a phone or computer
+that can make a passkey, or a phone with an authenticator app (two-factor
+sign-in is required from the first sign-in).
+See [ADMIN_GUIDE.md § Getting your church running (Render)](ADMIN_GUIDE.md#getting-your-church-running-render)
 for the full walkthrough; other hosting options exist too (see
 [ADMIN_GUIDE.md § Deploying to production](ADMIN_GUIDE.md#deploying-to-production))
 but need you to run the database and app yourself.
 
-> **Setting up your own church's instance? Don't use the button below.**
-> Its URL points at *this* repo and always will — a README button can't
-> know which copy you're reading it from, so clicking it from your own
-> copy deploys this project instead of yours, ignoring your `render.yaml`
-> and naming the services after this one. Instead, from your own copy:
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/neckermann/missions-partner-tracker)
+
+Click the button, sign in to Render, click **Apply**, wait for the build,
+then open your site's address: it sends you to create the first admin
+account (do that straight away). Your site then follows this project's
+`main` branch and updates itself; before 1.0 an update can need the
+database started over (see [UPGRADING.md](UPGRADING.md)).
+
+One web service plus one Postgres database (which also holds every
+uploaded photo, newsletter, and document — no separate file storage to
+provision), about $13/mo on Render's cheapest paid tiers. The scheduled
+emails and posts run inside the same service. See [`render.yaml`](render.yaml).
+
+> **Want your own fork, a different region, or your own service name?**
+> The button deploys this project as-is, and a Render Blueprint can't ask
+> for a name or region, so those have to be set in `render.yaml` first,
+> from a terminal in your own copy of the repo:
 >
 > ```bash
 > npm run name-instance -- your-church-name oregon
@@ -67,29 +90,10 @@ but need you to run the database and app yourself.
 > git push
 > ```
 >
-> then **Render Dashboard → New → Blueprint** and pick your repo.
->
-> The name becomes the app's URL (`your-church-name.onrender.com`). The
-> second argument is the region — one of `oregon`, `ohio`, `virginia`,
-> `frankfurt`, `singapore` — and it is worth getting right the first
-> time, because Render's spec says *"You can't modify this value after
-> creation."* Moving later means destroying and recreating the service
-> and the database.
->
-> Render Blueprints can't prompt for either: the spec requires static
-> values and has no variable interpolation, and only `sync: false`
-> environment variables are prompted at deploy time. Both have to be set
-> in the file beforehand.
->
-> The button below is only for trying this project as-is.
-
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/neckermann/missions-partner-tracker)
-
-One web service plus one Postgres database (which also holds every
-uploaded photo, newsletter, and document — no separate file storage to
-provision), about $13/mo on Render's cheapest paid tiers. See
-[`render.yaml`](render.yaml) and
-[ADMIN_GUIDE.md § Getting your church running (Render)](ADMIN_GUIDE.md#getting-your-church-running-render).
+> then **Render Dashboard → New → Blueprint** and pick your repo. The
+> region is one of `oregon`, `ohio`, `virginia`, `frankfurt`, `singapore`,
+> and can't be changed afterwards (*"You can't modify this value after
+> creation"*: moving later means recreating the service and the database).
 
 ## Guides
 
@@ -138,7 +142,7 @@ cd backend
 cp .env.example .env       # fill in DATABASE_URL, SESSION_SECRET, etc.
 npm install
 npm run prisma:migrate
-npm run seed                 # optional: ~35 fake partners for demoing
+npm run seed                 # optional: ~35 fake partners (and sample users with unknown passwords) for demoing
 node prisma/createAdmin.js you@yourchurch.org "SomeStrongPassword!"
 npm run dev                  # http://localhost:4000
 

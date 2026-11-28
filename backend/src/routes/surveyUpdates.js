@@ -4,7 +4,8 @@ const prisma = require("../prismaClient");
 const { requireAuth, requireRole } = require("../middleware/requireAuth");
 const { requireFeature } = require("../middleware/requireFeature");
 const { recordAuditSafe } = require("../utils/auditLog");
-const { PHOTO, loadContext, applyField } = require("../utils/surveyFields");
+const { PHOTO, loadContext, applyField, presentation, problemWithAnswer } = require("../utils/surveyFields");
+const { makeDisplayCopy } = require("../utils/photoCopies");
 const { describeSupportValue, FIELD: SUPPORT_FIELD } = require("../utils/surveySupport");
 
 // #419: the changes survey answers suggest to a partner's record. A person approves (optionally
@@ -30,6 +31,10 @@ const shape = (p) => ({
   proposedValue: p.proposedValue,
   appliedValue: p.appliedValue,
   photoUploadId: p.uploadId,
+  inputType: presentation(p.field).inputType || null,
+  // Why this suggestion can't be approved as it stands (null when it can).
+  problem:
+    p.uploadId || p.field === "supportPreferences" ? null : problemWithAnswer(p.field, p.proposedValue),
   createdAt: p.createdAt,
   decidedAt: p.decidedAt,
   decidedByName: p.decidedByName,
@@ -112,6 +117,7 @@ router.post("/:id/approve", async (req, res, next) => {
         ? await prisma.surveyUpload.findUnique({ where: { id: proposal.uploadId } })
         : null;
       if (!upload) return res.status(409).json({ error: "The photo is no longer available" });
+      const displayBytes = await makeDisplayCopy(upload.bytes);
       await prisma.$transaction(async (tx) => {
         await tx.photo.create({
           data: {
@@ -119,7 +125,7 @@ router.post("/:id/approve", async (req, res, next) => {
             receivedDate: new Date(),
             contentType: upload.contentType,
             fileSize: upload.fileSize,
-            bytesRow: { create: { bytes: upload.bytes } },
+            bytesRow: { create: { bytes: upload.bytes, displayBytes } },
           },
         });
         await tx.surveyProposal.update({

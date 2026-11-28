@@ -46,7 +46,7 @@ describe("AccountSettings -- guest (#356)", () => {
 
     expect(await screen.findByText("Change Password")).toBeInTheDocument();
     expect(screen.getByText("Two-Factor Authentication")).toBeInTheDocument();
-    expect(screen.queryByText("Email Dispatch")).not.toBeInTheDocument();
+    expect(screen.queryByText("Email updates")).not.toBeInTheDocument();
     expect(screen.getByText(/Add an extra step at login/)).toBeInTheDocument();
   });
 
@@ -72,7 +72,7 @@ describe("AccountSettings -- guest (#356)", () => {
     fetchCurrentUser.mockResolvedValue(user("editor", true));
     render(<AccountSettings />);
 
-    expect(await screen.findByText("Email Dispatch")).toBeInTheDocument();
+    expect(await screen.findByText("Email updates")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Disable Two-Factor/ })).toBeInTheDocument();
   });
 });

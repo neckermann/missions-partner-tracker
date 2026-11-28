@@ -255,7 +255,7 @@ describe("Trips: adding a participant late catches up on existing meetings", () 
       assert.equal(added.body.teamWelcomeEmail.sent, false);
       assert.match(added.body.teamWelcomeEmail.manualUrl, /^https?:\/\//);
       // The welcome email also carries their support-raising page, so the admin is handed that link too.
-      assert.match(added.body.teamWelcomeEmail.manualSupportRaisingUrl, /\/trip-support-raising\/\w+/);
+      assert.match(added.body.teamWelcomeEmail.manualSupportRaisingUrl, /\/trip-support-raising\/[\w-]+/);
       assert.equal(added.body.firstName, "Link", "the participant itself is still the response");
 
       const undated = await admin("/api/trips", {
@@ -666,7 +666,10 @@ describe("Trips: adding or approving a participant catches up on existing requir
       assert.equal(res.status, 200);
       assert.equal(res.body.teamWelcomeEmail?.sent, false);
       assert.match(res.body.teamWelcomeEmail?.manualUrl || "", /^https?:\/\//);
-      assert.match(res.body.teamWelcomeEmail?.manualSupportRaisingUrl || "", /\/trip-support-raising\/\w+/);
+      assert.match(
+        res.body.teamWelcomeEmail?.manualSupportRaisingUrl || "",
+        /\/trip-support-raising\/[\w-]+/
+      );
     } finally {
       await setFeatures({ outboundEmail: true });
     }

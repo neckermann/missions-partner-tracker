@@ -65,7 +65,7 @@ describe("AdminSidebar -- guest tier", () => {
     for (const name of ["Partners", "Newsletters & Docs", "Prayer Requests", "One-Time Needs", "Trips"]) {
       expect(screen.getByRole("link", { name: new RegExp(name, "i") })).toBeInTheDocument();
     }
-    for (const name of ["Home", "Print Booklet", "Reports", "Pending Dispatches", "Settings"]) {
+    for (const name of ["Home", "Print Booklet", "Reports", "Updates to Share", "Settings"]) {
       expect(screen.queryByRole("link", { name: new RegExp(name, "i") })).not.toBeInTheDocument();
     }
   });
@@ -113,5 +113,35 @@ describe("AdminSidebar -- guest tier", () => {
 
     expect(screen.getByRole("link", { name: /My Account/i })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Home/i })).toBeInTheDocument();
+  });
+
+  it("lists Monthly Support for staff when the feature is on, and never for a guest", () => {
+    enabledFeatures = { monthlySupport: true, prayerRequests: true };
+    currentUser = { loading: false, isAdmin: true, isGuest: false, guestTrips: [], careTeamSeats: [] };
+    renderSidebar();
+    expect(screen.getByRole("link", { name: /Monthly Support/i })).toHaveAttribute(
+      "href",
+      "/admin/support/monthly"
+    );
+  });
+
+  it("hides Monthly Support from a guest even with the feature on", () => {
+    enabledFeatures = { monthlySupport: true, prayerRequests: true };
+    currentUser = {
+      loading: false,
+      isAdmin: false,
+      isGuest: true,
+      guestTrips: [],
+      careTeamSeats: [{ id: "p1", label: "P" }],
+    };
+    renderSidebar();
+    expect(screen.queryByRole("link", { name: /Monthly Support/i })).not.toBeInTheDocument();
+  });
+
+  it("hides Monthly Support when the feature is off", () => {
+    enabledFeatures = { monthlySupport: false };
+    currentUser = { loading: false, isAdmin: true, isGuest: false, guestTrips: [], careTeamSeats: [] };
+    renderSidebar();
+    expect(screen.queryByRole("link", { name: /Monthly Support/i })).not.toBeInTheDocument();
   });
 });

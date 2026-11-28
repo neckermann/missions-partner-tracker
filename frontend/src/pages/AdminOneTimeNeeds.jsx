@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
+import PartnerLinkButton from "../components/admin/PartnerLinkButton.jsx";
+import NeedDecisionFields from "../components/admin/NeedDecisionFields.jsx";
+import { HeldForReviewNote } from "../components/admin/GuestNotice.jsx";
 import PageHeader from "../components/shared/PageHeader.jsx";
-import { Link } from "react-router-dom";
 import {
   fetchSupportNeeds,
   createSupportNeed,
@@ -14,7 +16,7 @@ import SupportNeedFormFields from "../components/admin/SupportNeedFormFields.jsx
 import QuickActionModal from "../components/shared/QuickActionModal.jsx";
 import Modal from "../components/Modal.jsx";
 import Field from "../components/admin/Field.jsx";
-import { formatDateLong, formatCurrency as formatMoney } from "../utils/format.js";
+import { formatDateLong, formatCurrency as formatMoney, formatRequestedAmount } from "../utils/format.js";
 import { DATE_RANGE_OPTIONS, resolveQuickRangeDates } from "../utils/dateRange.js";
 import { entityFor, INCLUDE_ARCHIVED_PARTNERS_FILTER_FIELD } from "../utils/partnerEntity.js";
 import { supportNeedStatus as statusFor } from "../utils/supportNeedStatus.js";
@@ -220,6 +222,8 @@ export default function AdminOneTimeNeeds() {
         approvedAmount: need.approvedAmount,
         approvedDate: need.approvedDate,
         decisionNote: need.decisionNote,
+        handledBy: need.handledBy || "",
+        metDate: need.metDate ? String(need.metDate).slice(0, 10) : "",
       },
     });
     loadSourceFiles(need.partner?.id);
@@ -237,6 +241,8 @@ export default function AdminOneTimeNeeds() {
       requestDate: needDetail.form.requestDate,
       notes: needDetail.form.notes || null,
       sourceFileId: needDetail.form.sourceFileId,
+      handledBy: needDetail.form.handledBy || null,
+      metDate: needDetail.form.metDate || null,
     });
     await reload();
   }
@@ -266,6 +272,7 @@ export default function AdminOneTimeNeeds() {
           ]}
         />
       )}
+      <HeldForReviewNote />
       <PageHeader
         title="One-Time Needs"
         actions={
@@ -333,8 +340,8 @@ export default function AdminOneTimeNeeds() {
             label: "Requested",
             render: (need) =>
               need.approvedAmount != null && need.approvedAmount !== need.requestedAmount
-                ? `${formatCurrency(need.requestedAmount)} → ${formatCurrency(need.approvedAmount)}`
-                : formatCurrency(need.requestedAmount),
+                ? `${formatRequestedAmount(need.requestedAmount)} → ${formatCurrency(need.approvedAmount)}`
+                : formatRequestedAmount(need.requestedAmount),
           },
           {
             key: "status",
@@ -410,34 +417,7 @@ export default function AdminOneTimeNeeds() {
           submitLabel="Save Decision"
           submitDisabled={decision.approvedAmount === "" || !decision.approvedDate}
         >
-          <div style={{ display: "flex", gap: "0.75rem", alignItems: "flex-end", flexWrap: "wrap" }}>
-            <label>
-              Approved Amount ($)
-              <input
-                type="number"
-                min="0"
-                value={decision.approvedAmount}
-                onChange={(e) => setDecision((d) => ({ ...d, approvedAmount: e.target.value }))}
-              />
-            </label>
-            <label>
-              Approved Date
-              <input
-                type="date"
-                value={decision.approvedDate}
-                onChange={(e) => setDecision((d) => ({ ...d, approvedDate: e.target.value }))}
-              />
-            </label>
-          </div>
-          <label style={{ display: "block", marginTop: "0.75rem" }}>
-            Decision Note (optional)
-            <textarea
-              rows={2}
-              value={decision.decisionNote}
-              onChange={(e) => setDecision((d) => ({ ...d, decisionNote: e.target.value }))}
-              placeholder="Why this amount -- declined, partially funded, etc. Shown in the admin notification."
-            />
-          </label>
+          <NeedDecisionFields decision={decision} setDecision={setDecision} noteAsTextarea />
         </QuickActionModal>
       )}
 
@@ -445,12 +425,7 @@ export default function AdminOneTimeNeeds() {
         needDetail &&
         (canEditRow({ partnerId: needDetail.form.partnerId, ...needDetail.form }) ? (
           <QuickActionModal title="One-Time Need" onClose={closeModal} onSubmit={submitNeedDetail}>
-            <Link
-              to={`/admin/partners/${needDetail.form.partnerId}`}
-              style={{ display: "inline-block", marginBottom: "0.75rem" }}
-            >
-              Go to partner →
-            </Link>
+            <PartnerLinkButton partnerId={needDetail.form.partnerId} partners={partners} />
             {!isGuest && <LastEdited name={needDetail.lastEditedByName} at={needDetail.lastEditedAt} />}
             <SupportNeedFormFields
               form={needDetail.form}
@@ -476,27 +451,27 @@ export default function AdminOneTimeNeeds() {
           </QuickActionModal>
         ) : (
           <Modal title="One-Time Need" onClose={closeModal}>
-            <Link
-              to={`/admin/partners/${needDetail.form.partnerId}`}
-              style={{ display: "inline-block", marginBottom: "0.75rem" }}
-            >
-              Go to partner →
-            </Link>
+            <PartnerLinkButton partnerId={needDetail.form.partnerId} partners={partners} />
             {!isGuest && <LastEdited name={needDetail.lastEditedByName} at={needDetail.lastEditedAt} />}
             <Field label="Description" value={needDetail.form.description} />
-            <Field label="Requested Amount" value={formatCurrency(needDetail.form.requestedAmount)} />
+            <Field label="Requested Amount" value={formatRequestedAmount(needDetail.form.requestedAmount)} />
             <Field label="Request Date" value={formatDateLong(needDetail.form.requestDate)} />
             <Field label="Notes" value={needDetail.form.notes} />
             <Field
               label="Approved"
               value={
                 needDetail.form.approvedAmount != null
-                  ? `${formatCurrency(needDetail.form.approvedAmount)} on ${formatDateLong(needDetail.form.approvedDate)}`
+                  ? `${needDetail.form.approvedAmount === 0 ? "Declined" : formatCurrency(needDetail.form.approvedAmount)} on ${formatDateLong(needDetail.form.approvedDate)}`
                   : "Not yet decided"
               }
               showEmpty
             />
             <Field label="Decision Note" value={needDetail.form.decisionNote} />
+            <Field label="Someone's on it" value={needDetail.form.handledBy} />
+            <Field
+              label="Met on"
+              value={needDetail.form.metDate ? formatDateLong(needDetail.form.metDate) : ""}
+            />
             <SourceLink sourceFile={needDetail.form.sourceFile} />
           </Modal>
         ))}

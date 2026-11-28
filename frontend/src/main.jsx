@@ -34,11 +34,15 @@ const AdminPartners = lazy(() => import("./pages/AdminPartners.jsx"));
 const AdminPartnerForm = lazy(() => import("./pages/AdminPartnerForm.jsx"));
 const AdminPartnerDetail = lazy(() => import("./pages/AdminPartnerDetail.jsx"));
 const AdminBooklet = lazy(() => import("./pages/AdminBooklet.jsx"));
+const AdminPrayerSheet = lazy(() => import("./pages/AdminPrayerSheet.jsx"));
 const AdminUsers = lazy(() => import("./pages/AdminUsers.jsx"));
 const AdminUserForm = lazy(() => import("./pages/AdminUserForm.jsx"));
 const AccountSettings = lazy(() => import("./pages/AccountSettings.jsx"));
 const AdminSettingsHome = lazy(() => import("./pages/AdminSettingsHome.jsx"));
 const AdminSettingsAbout = lazy(() => import("./pages/AdminSettingsAbout.jsx"));
+const AdminSettingsPrivacy = lazy(() => import("./pages/AdminSettingsPrivacy.jsx"));
+const AdminPublicSiteChoice = lazy(() => import("./pages/AdminPublicSiteChoice.jsx"));
+const AdminAddAdministrator = lazy(() => import("./pages/AdminAddAdministrator.jsx"));
 const AdminSettingsFeatures = lazy(() => import("./pages/AdminSettingsFeatures.jsx"));
 const AdminSettingsGroupMe = lazy(() => import("./pages/AdminSettingsGroupMe.jsx"));
 const AdminSettingsWhatsApp = lazy(() => import("./pages/AdminSettingsWhatsApp.jsx"));
@@ -155,9 +159,19 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                 }
               >
                 <Route index element={<AdminHome />} />
+                <Route path="public-site" element={<AdminPublicSiteChoice />} />
+                <Route path="add-administrator" element={<AdminAddAdministrator />} />
                 <Route path="partners" element={<AdminPartners />} />
                 <Route path="partners/new" element={<AdminPartnerForm />} />
                 <Route path="partners/:id" element={<AdminPartnerDetail />} />
+                <Route
+                  path="prayer-sheet"
+                  element={
+                    <RequireAdminFeature feature="prayerRequests">
+                      <AdminPrayerSheet />
+                    </RequireAdminFeature>
+                  }
+                />
                 <Route
                   path="booklet"
                   element={
@@ -316,6 +330,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                 >
                   <Route index element={<AdminSettingsHome />} />
                   <Route path="about" element={<AdminSettingsAbout />} />
+                  <Route path="privacy" element={<AdminSettingsPrivacy />} />
                   <Route path="features" element={<AdminSettingsFeatures />} />
                   <Route path="groupme" element={<AdminSettingsGroupMe />} />
                   <Route

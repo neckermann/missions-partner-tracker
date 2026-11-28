@@ -25,6 +25,15 @@ const {
 } = require("../utils/contactLogQueries");
 const { loadOpenKeyDatesFor } = require("../utils/keyDateQueries");
 const { careTimings } = require("../utils/careSettings");
+const { READY_SELECT, isOutboundEmailUnfinished } = require("../utils/emailReady");
+const { isDemoDeployment } = require("../utils/demoMode");
+const {
+  SEND_READINESS_SELECT,
+  emailScheduleProblem,
+  isGroupMeUnfinished,
+  isWhatsAppUnfinished,
+  isChatTimeMissing,
+} = require("../utils/sendReadiness");
 
 const SOON_DAYS = 30;
 const BACKUP_REMIND_AGAIN_AFTER_MS = 30 * 24 * 60 * 60 * 1000;
@@ -152,19 +161,43 @@ function soonWindow() {
   return { now, soonBy };
 }
 
+// One alert for trips starting within 30 days. When some of them still have a requirement nobody has met, the
+// label says how many, and the link goes straight to that trip's requirements when there is just the one.
 async function tripsDepartingSoon(_opts, scopeTripIds) {
   const { now, soonBy } = soonWindow();
-  const rows = await prisma.trip.findMany({
+  const trips = await prisma.trip.findMany({
     where: {
       status: { not: "completed" },
       startDate: { gt: now, lte: soonBy },
       ...(scopeTripIds ? { id: { in: scopeTripIds } } : {}),
     },
-    select: { id: true, startDate: true },
+    include: {
+      participants: { select: { id: true } },
+      requirements: { include: { requirementStatuses: true, documents: true } },
+    },
   });
+  const incomplete = trips.filter((trip) =>
+    trip.participants.some((participant) =>
+      trip.requirements.some(
+        (req) => !isRequirementFulfilledForParticipant(req, participant.id, req.documents)
+      )
+    )
+  );
   // Link straight to the trip when exactly one is responsible; otherwise the list.
-  const linkTo = rows.length === 1 ? `/admin/trips/${rows[0].id}` : undefined;
-  return { count: rows.length, latest: latestOf(rows, (r) => r.startDate), linkTo };
+  let linkTo;
+  if (trips.length === 1) {
+    linkTo =
+      incomplete.length === 1 ? `/admin/trips/${trips[0].id}/requirements` : `/admin/trips/${trips[0].id}`;
+  } else if (incomplete.length === 1) {
+    linkTo = `/admin/trips/${incomplete[0].id}/requirements`;
+  }
+  return {
+    count: trips.length,
+    latest: latestOf(trips, (r) => r.startDate),
+    linkTo,
+    label:
+      incomplete.length > 0 ? `Trips departing soon (${incomplete.length} missing something)` : undefined,
+  };
 }
 
 // A trip whose end date has passed and isn't marked completed. For a trip leader
@@ -218,30 +251,6 @@ function isRequirementFulfilledForParticipant(requirement, participantId, docume
     return !!status?.completedAt;
   }
   return documents.some((d) => d.participantId === participantId);
-}
-
-async function tripsDepartingSoonIncomplete(_opts, scopeTripIds) {
-  const { now, soonBy } = soonWindow();
-  const trips = await prisma.trip.findMany({
-    where: {
-      status: { not: "completed" },
-      startDate: { gt: now, lte: soonBy },
-      ...(scopeTripIds ? { id: { in: scopeTripIds } } : {}),
-    },
-    include: {
-      participants: { select: { id: true } },
-      requirements: { include: { requirementStatuses: true, documents: true } },
-    },
-  });
-  const incomplete = trips.filter((trip) =>
-    trip.participants.some((participant) =>
-      trip.requirements.some(
-        (req) => !isRequirementFulfilledForParticipant(req, participant.id, req.documents)
-      )
-    )
-  );
-  const linkTo = incomplete.length === 1 ? `/admin/trips/${incomplete[0].id}/requirements` : undefined;
-  return { count: incomplete.length, latest: latestOf(incomplete, (t) => t.startDate), linkTo };
 }
 
 async function overdueTripRequirements(_opts, scopeTripIds) {
@@ -327,12 +336,70 @@ async function updatesToPassOn({ userId }) {
   };
 }
 
+// Email (Sending) is switched on but no mail account / sender address has been entered, so nothing can be
+// sent. Everything that would have emailed falls back (copy-link, "not sent") until this is finished.
+async function emailNotFinished() {
+  const settings = await prisma.churchSettings.findUnique({
+    where: { id: "singleton" },
+    select: READY_SELECT,
+  });
+  const unfinished = isOutboundEmailUnfinished(settings);
+  return { count: unfinished ? 1 : 0, latest: unfinished ? new Date() : null };
+}
+
+// A channel that is switched on but cannot send (utils/sendReadiness.js): updates would otherwise wait, or be
+// skipped, with nothing on screen saying so. `latest` is when the settings last changed, so the bell shows it as
+// new once and again after the next change, until it is fixed.
+async function sendReadinessSettings() {
+  return prisma.churchSettings.findUnique({ where: { id: "singleton" }, select: SEND_READINESS_SELECT });
+}
+const notSending = (settings, broken) => ({
+  count: broken ? 1 : 0,
+  latest: broken ? settings?.updatedAt || new Date() : null,
+});
+
+async function emailScheduleNotSet() {
+  const settings = await sendReadinessSettings();
+  const problem = emailScheduleProblem(settings);
+  return {
+    ...notSending(settings, Boolean(problem)),
+    label: problem === "half" ? "The email schedule is only half set" : undefined,
+  };
+}
+
+async function groupmeNotFinished() {
+  const settings = await sendReadinessSettings();
+  return notSending(settings, isGroupMeUnfinished(settings));
+}
+
+async function whatsappNotFinished() {
+  const settings = await sendReadinessSettings();
+  return notSending(settings, isWhatsAppUnfinished(settings));
+}
+
+async function chatTimeNotSet() {
+  const settings = await sendReadinessSettings();
+  return notSending(settings, isChatTimeMissing(settings));
+}
+
 async function adminMfaDisabled() {
   const rows = await prisma.user.findMany({
     where: { role: "admin", active: true, mfaEnabled: false },
     select: { createdAt: true },
   });
   return { count: rows.length, latest: latestOf(rows, (r) => r.createdAt) };
+}
+
+// One administrator is one lost phone away from a lock-out only a server command can fix (ADMIN_GUIDE, "Locked out
+// of two-factor"), so a church with a single active admin is nudged, on the bell and Home, to add a second. Not on
+// a public demo, whose shared logins are not a real church's.
+async function onlyOneAdmin() {
+  if (isDemoDeployment()) return { count: 0, latest: null };
+  const admins = await prisma.user.findMany({
+    where: { role: "admin", active: true },
+    select: { createdAt: true },
+  });
+  return admins.length === 1 ? { count: 1, latest: admins[0].createdAt } : { count: 0, latest: null };
 }
 
 // Inverted semantics: due when time has elapsed, not when something changed.
@@ -374,7 +441,8 @@ async function whatsappConnectionDrop() {
 const CATEGORIES = [
   {
     key: "dispatchesNeedingApproval",
-    label: "Dispatches needing approval",
+    requiresAny: ["groupme", "whatsapp", "outboundEmail"],
+    label: "Updates waiting for your OK",
     icon: "📨",
     linkTo: "/admin/pending-dispatches",
     adminOnly: false,
@@ -384,7 +452,8 @@ const CATEGORIES = [
   },
   {
     key: "unmatchedEmails",
-    label: "Unmatched emails",
+    requiresAny: ["inboundEmail"],
+    label: "Emails to Sort",
     icon: "✉️",
     linkTo: "/admin/inbound-email",
     adminOnly: false,
@@ -394,6 +463,7 @@ const CATEGORIES = [
   },
   {
     key: "surveyUpdatesPending",
+    requiresAny: ["surveys"],
     label: "Survey updates to review",
     icon: "📝",
     linkTo: "/admin/survey-updates",
@@ -406,6 +476,7 @@ const CATEGORIES = [
   },
   {
     key: "newSurveyResponses",
+    requiresAny: ["surveys"],
     label: "New survey answers",
     icon: "📋",
     linkTo: "/admin/partners",
@@ -418,6 +489,7 @@ const CATEGORIES = [
   },
   {
     key: "inboundEmailFailures",
+    requiresAny: ["inboundEmail"],
     label: "Inbound email errors",
     icon: "⚠️",
     linkTo: "/admin/inbound-email",
@@ -452,6 +524,7 @@ const CATEGORIES = [
   },
   {
     key: "tripsDepartingSoon",
+    requiresAny: ["trips"],
     label: "Trips departing soon",
     icon: "✈️",
     linkTo: "/admin/trips",
@@ -462,6 +535,7 @@ const CATEGORIES = [
   },
   {
     key: "tripsReadyToWrapUp",
+    requiresAny: ["trips"],
     label: "Trips ready to wrap up",
     icon: "🏁",
     linkTo: "/admin/trips",
@@ -472,6 +546,7 @@ const CATEGORIES = [
   },
   {
     key: "tripsWrappedUp",
+    requiresAny: ["trips"],
     label: "Trips wrapped up",
     icon: "📝",
     linkTo: "/admin/trips",
@@ -482,17 +557,8 @@ const CATEGORIES = [
     resolve: tripsWrappedUp,
   },
   {
-    key: "tripsDepartingSoonIncomplete",
-    label: "Trips departing soon, incomplete",
-    icon: "⏳",
-    linkTo: "/admin/trips",
-    adminOnly: false,
-    perUser: false,
-    tripScoped: true,
-    resolve: tripsDepartingSoonIncomplete,
-  },
-  {
     key: "overdueTripRequirements",
+    requiresAny: ["trips"],
     label: "Overdue trip requirements",
     icon: "⏰",
     linkTo: "/admin/trips",
@@ -503,6 +569,7 @@ const CATEGORIES = [
   },
   {
     key: "tripApplicationsPending",
+    requiresAny: ["trips"],
     label: "Trip applications pending review",
     icon: "📝",
     linkTo: "/admin/trips",
@@ -513,6 +580,7 @@ const CATEGORIES = [
   },
   {
     key: "newPrayerRequests",
+    requiresAny: ["prayerRequests"],
     label: "New prayer requests",
     icon: "🙏",
     linkTo: "/admin/prayer-requests",
@@ -525,6 +593,7 @@ const CATEGORIES = [
   },
   {
     key: "newOneTimeNeeds",
+    requiresAny: ["oneTimeNeeds"],
     label: "New one-time needs",
     icon: "💝",
     linkTo: "/admin/support/needs",
@@ -546,6 +615,60 @@ const CATEGORIES = [
     resolve: updatesToPassOn,
   },
   {
+    key: "emailNotFinished",
+    label: "Email isn't finished setting up",
+    icon: "✉️",
+    linkTo: "/admin/settings/email",
+    adminOnly: true,
+    perUser: false,
+    tripScoped: false,
+    resolve: emailNotFinished,
+  },
+  {
+    key: "emailScheduleNotSet",
+    requiresAny: ["outboundEmail"],
+    label: "Update emails have no schedule, so none will go out",
+    icon: "🗓️",
+    linkTo: "/admin/settings/dispatches",
+    adminOnly: true,
+    perUser: false,
+    tripScoped: false,
+    resolve: emailScheduleNotSet,
+  },
+  {
+    key: "groupmeNotFinished",
+    requiresAny: ["groupme"],
+    label: "GroupMe isn't finished setting up",
+    icon: "💬",
+    linkTo: "/admin/settings/groupme",
+    adminOnly: true,
+    perUser: false,
+    tripScoped: false,
+    resolve: groupmeNotFinished,
+  },
+  {
+    key: "whatsappNotFinished",
+    requiresAny: ["whatsapp"],
+    label: "WhatsApp isn't finished setting up",
+    icon: "💬",
+    linkTo: "/admin/settings/whatsapp",
+    adminOnly: true,
+    perUser: false,
+    tripScoped: false,
+    resolve: whatsappNotFinished,
+  },
+  {
+    key: "chatTimeNotSet",
+    requiresAny: ["groupme", "whatsapp"],
+    label: "Chat posts have no send time, so none will go out",
+    icon: "⏰",
+    linkTo: "/admin/settings/dispatches",
+    adminOnly: true,
+    perUser: false,
+    tripScoped: false,
+    resolve: chatTimeNotSet,
+  },
+  {
     key: "adminMfaDisabled",
     label: "Admin account missing MFA",
     icon: "🔐",
@@ -554,6 +677,16 @@ const CATEGORIES = [
     perUser: false,
     tripScoped: false,
     resolve: adminMfaDisabled,
+  },
+  {
+    key: "onlyOneAdmin",
+    label: "You are the only administrator",
+    icon: "🧑‍🤝‍🧑",
+    linkTo: "/admin/settings/users",
+    adminOnly: true,
+    perUser: false,
+    tripScoped: false,
+    resolve: onlyOneAdmin,
   },
   {
     key: "timeToCheckBackups",
@@ -567,7 +700,8 @@ const CATEGORIES = [
   },
   {
     key: "dispatchSendFailures",
-    label: "Dispatch send failures",
+    requiresAny: ["groupme", "whatsapp", "outboundEmail"],
+    label: "Updates that didn't send",
     icon: "🚫",
     linkTo: "/admin/pending-dispatches",
     adminOnly: true,
@@ -577,6 +711,7 @@ const CATEGORIES = [
   },
   {
     key: "whatsappConnectionDrop",
+    requiresAny: ["whatsapp"],
     label: "WhatsApp connection dropped",
     icon: "📵",
     linkTo: "/admin/settings/whatsapp",
@@ -589,7 +724,14 @@ const CATEGORIES = [
 
 // Resolves every category this role may see with per-user seen-state applied; the one function the route calls.
 async function resolveNotificationSummary({ userId, role, scopeTripIds = null, scopePartnerIds = null }) {
+  // A category whose page is switched off is not shown at all: its link would only say "This feature is turned off".
+  const settings = await prisma.churchSettings.findUnique({
+    where: { id: "singleton" },
+    select: { enabledFeatures: true },
+  });
   const visible = CATEGORIES.filter((c) => {
+    if (c.requiresAny && !c.requiresAny.some((f) => isFeatureEnabled(settings?.enabledFeatures, f)))
+      return false;
     if (c.roles && !c.roles.includes(role)) return false;
     if (c.adminOnly) return role === "admin";
     if (role === "guest") return c.tripScoped || c.guestVisible;
@@ -597,7 +739,7 @@ async function resolveNotificationSummary({ userId, role, scopeTripIds = null, s
   });
   const results = await Promise.all(
     visible.map(async (c) => {
-      const { count, latest, linkTo } = await c.resolve({ userId }, scopeTripIds, scopePartnerIds);
+      const { count, latest, linkTo, label } = await c.resolve({ userId }, scopeTripIds, scopePartnerIds);
       let isNew;
       if (c.perUser) {
         // The count is already "new since this user looked".
@@ -606,7 +748,15 @@ async function resolveNotificationSummary({ userId, role, scopeTripIds = null, s
         const seenAt = await getSeenAt(userId, c.key);
         isNew = !!latest && (!seenAt || latest > seenAt);
       }
-      return { key: c.key, label: c.label, icon: c.icon, linkTo: linkTo || c.linkTo, count, latest, isNew };
+      return {
+        key: c.key,
+        label: label || c.label,
+        icon: c.icon,
+        linkTo: linkTo || c.linkTo,
+        count,
+        latest,
+        isNew,
+      };
     })
   );
   return results;

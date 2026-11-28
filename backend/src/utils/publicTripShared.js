@@ -2,7 +2,7 @@
 // publicTripParticipants.js): the church's public-trip settings and the
 // restricted-partner label masking.
 const prisma = require("../prismaClient");
-const { maskedDisplayName } = require("./maskData");
+const { maskedDisplayName, MASK_NAME_SELECT } = require("./maskData");
 
 async function getSettings() {
   return prisma.churchSettings.findUnique({
@@ -30,7 +30,15 @@ function partnerFieldLabel(partner, settings) {
 }
 
 const tripPartnerSelect = {
-  partner: { select: { displayName: true, fieldDisplayName: true, isRestricted: true } },
+  partner: {
+    select: {
+      kind: true,
+      displayName: true,
+      fieldDisplayName: true,
+      isRestricted: true,
+      ...MASK_NAME_SELECT,
+    },
+  },
 };
 
 module.exports = { getSettings, partnerFieldLabel, tripPartnerSelect };

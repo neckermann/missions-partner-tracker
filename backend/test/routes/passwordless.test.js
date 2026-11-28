@@ -108,6 +108,16 @@ const emailOn = (on) =>
 const turnOn = (who) => who("/api/settings", { method: "PUT", body: { requirePasswordless: true } });
 const turnOff = () => settings({ requirePasswordless: false });
 const pause = (ms) => new Promise((r) => setTimeout(r, ms));
+// Waits (up to 5s) for `check` to turn true. The link is issued after the reply goes out, so how long it takes
+// depends on how busy the machine is; a fixed pause failed now and then on a loaded CI runner.
+async function until(check, ms = 5000) {
+  const end = Date.now() + ms;
+  while (Date.now() < end) {
+    if (await check()) return true;
+    await pause(50);
+  }
+  return false;
+}
 
 before(async () => {
   anon = await client(null);
@@ -239,17 +249,13 @@ describe("with it on", () => {
     }
   });
 
-  test("passkey-only sign-in is off by default; allowing it opens it, but never the emailed link", async () => {
-    assert.equal((await anon("/api/auth/passkeys/passwordless/options", { method: "POST" })).status, 404);
-    assert.equal((await anon("/api/auth/setup-status")).body.passkeySignIn, false);
-    await settings({ allowPasskeySignIn: true });
-    try {
-      assert.equal((await anon("/api/auth/passkeys/passwordless/options", { method: "POST" })).status, 200);
-      assert.equal((await anon("/api/auth/setup-status")).body.passkeySignIn, true);
-      assert.equal((await anon("/api/auth/setup-status")).body.passwordless, false);
-    } finally {
-      await settings({ allowPasskeySignIn: false });
-    }
+  test("passkey-only sign-in is always on, with no church setting; the emailed link still needs passwordless mode", async () => {
+    assert.equal((await anon("/api/auth/passkeys/passwordless/options", { method: "POST" })).status, 200);
+    assert.equal((await anon("/api/auth/setup-status")).body.passkeySignIn, true);
+    assert.equal((await anon("/api/auth/setup-status")).body.passwordless, false);
+    // The old setting is ignored, switched either way.
+    await settings({ allowPasskeySignIn: false });
+    assert.equal((await anon("/api/auth/passkeys/passwordless/options", { method: "POST" })).status, 200);
     assert.equal(
       (await anon("/api/auth/passwordless/email-link", { method: "POST", body: { email: "x@y.z" } })).status,
       404
@@ -276,7 +282,10 @@ describe("the emailed link", () => {
       }
       assert.deepEqual(replies[0], replies[1]);
       assert.deepEqual(replies[1], replies[2]);
-      await pause(300); // the link is issued after the reply goes out
+      // The link is issued after the reply goes out: wait for it, then give a link that should NOT be issued
+      // (the account with a passkey) a moment in which it could wrongly appear.
+      await until(async () => (await prisma.signInLinkToken.count({ where: { userId: noKey.id } })) >= 1);
+      await pause(300);
       assert.equal(await prisma.signInLinkToken.count({ where: { userId: noKey.id } }), 1);
       assert.equal(await prisma.signInLinkToken.count({ where: { userId: hasKey.id } }), 0);
     } finally {

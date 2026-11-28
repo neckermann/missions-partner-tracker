@@ -5,6 +5,8 @@ const {
   toPublicPartner,
   missionaryHouseholdCategory,
   maskedDisplayName,
+  initialsOfAdults,
+  restrictedInitials,
 } = require("../src/utils/maskData");
 
 // Missionary and organization are one Partner model with a `kind` discriminator, so both
@@ -188,7 +190,8 @@ describe("toPublicPartner — missionary", () => {
   // same "strips everything identifying" list).
   test("public, non-restricted: exposes only the current photo, not history", () => {
     const result = toPublicPartner(baseMissionary());
-    assert.equal(result.photo, "/api/photos/p2/raw");
+    assert.equal(result.photo, "/api/photos/p2");
+    assert.equal(result.photoFull, "/api/photos/p2/raw");
   });
 
   test("public, non-restricted: photo is null when no photos exist", () => {
@@ -198,7 +201,7 @@ describe("toPublicPartner — missionary", () => {
 
   test("restricted: never exposes their real photo, current or otherwise — gets a generic silhouette instead", () => {
     const result = toPublicPartner(baseMissionary({ isRestricted: true, photos: [{ id: "p1" }] }));
-    assert.notEqual(result.photo, "/api/photos/p1/raw");
+    assert.notEqual(result.photo, "/api/photos/p1");
     assert.equal(isSilhouetteDataUri(result.photo), true);
   });
 
@@ -367,12 +370,121 @@ describe("toPublicPartner — organization", () => {
   // equivalent toPublicPartner tests above.
   test("public, non-restricted: exposes only the current photo, not history", () => {
     const result = toPublicPartner(baseOrganization());
-    assert.equal(result.photo, "/api/photos/p2/raw");
+    assert.equal(result.photo, "/api/photos/p2");
   });
 
   test("restricted: never exposes its real photo, current or otherwise — gets a generic silhouette instead", () => {
     const result = toPublicPartner(baseOrganization({ isRestricted: true }));
-    assert.notEqual(result.photo, "/api/photos/p2/raw");
+    assert.notEqual(result.photo, "/api/photos/p2");
     assert.equal(isSilhouetteDataUri(result.photo), true);
+  });
+});
+
+// A restricted missionary household is shown by its adults' initials, not by initials of the display name (which turned
+// "Tim and Sarah Smith" into "T.A.S.S.").
+describe("restricted initials from the adults (#544)", () => {
+  const adult = (firstName, lastName, extra = {}) => ({ firstName, lastName, ...extra });
+
+  test("a single adult is 'T.S.'", () => {
+    assert.equal(initialsOfAdults([adult("Tim", "Smith")]), "T.S.");
+  });
+
+  test("a couple is 'T.S. and S.S.', whether or not they share a surname", () => {
+    assert.equal(initialsOfAdults([adult("Tim", "Smith"), adult("Sarah", "Smith")]), "T.S. and S.S.");
+    assert.equal(initialsOfAdults([adult("Tim", "Smith"), adult("Sarah", "Jones")]), "T.S. and S.J.");
+  });
+
+  test("three adults are listed 'T.S., S.S. and J.K.'", () => {
+    assert.equal(
+      initialsOfAdults([adult("Tim", "Smith"), adult("Sarah", "Smith"), adult("Joy", "Kim")]),
+      "T.S., S.S. and J.K."
+    );
+  });
+
+  test("an adult with only a first name gives 'T.', and one with no name is left out", () => {
+    assert.equal(initialsOfAdults([adult("Tim", null)]), "T.");
+    assert.equal(initialsOfAdults([adult("Tim", "Smith"), adult(null, null), adult("", "  ")]), "T.S.");
+    assert.equal(initialsOfAdults([adult(null, null)]), "");
+  });
+
+  test("the primary contact is first, then the order they were added, whatever order they are loaded in", () => {
+    const sarah = adult("Sarah", "Smith", { isPrimaryContact: true, createdAt: "2026-02-01" });
+    const tim = adult("Tim", "Smith", { createdAt: "2026-01-01" });
+    const joy = adult("Joy", "Kim", { createdAt: "2026-03-01" });
+    assert.equal(initialsOfAdults([joy, tim, sarah]), "S.S., T.S. and J.K.");
+    const noPrimary = [
+      adult("Joy", "Kim", { createdAt: "2026-03-01" }),
+      adult("Tim", "Smith", { createdAt: "2026-01-01" }),
+    ];
+    assert.equal(initialsOfAdults(noPrimary), "T.S. and J.K.");
+  });
+
+  test("letters are upper-cased and an accented or non-Latin first letter still works", () => {
+    assert.equal(initialsOfAdults([adult("élise", "dupont")]), "É.D.");
+    assert.equal(initialsOfAdults([adult("  jun", "li")]), "J.L.");
+  });
+
+  test("no adults loaded, or none recorded, falls back to the display name's initials", () => {
+    assert.equal(restrictedInitials({ displayName: "Tim and Sarah Smith" }), "T.A.S.S.");
+    assert.equal(restrictedInitials({ displayName: "Tim Smith", adults: [] }), "T.S.");
+  });
+
+  test("an organization always uses its display name, even if adults are somehow on it", () => {
+    assert.equal(
+      restrictedInitials({
+        kind: "organization",
+        displayName: "Bright Hope Ministries",
+        adults: [adult("A", "B")],
+      }),
+      "B.H.M."
+    );
+  });
+
+  test("maskedDisplayName uses the adults when restricted, never the real names, and ignores them when not restricted", () => {
+    const partner = {
+      isRestricted: true,
+      displayName: "Tim and Sarah Smith",
+      fieldDisplayName: "Northern Kenya",
+      adults: [adult("Tim", "Smith"), adult("Sarah", "Smith")],
+    };
+    const shown = maskedDisplayName(partner);
+    assert.equal(shown, "T.S. and S.S.");
+    assert.ok(!/Tim|Sarah|Smith/.test(shown));
+    assert.equal(maskedDisplayName({ ...partner, isRestricted: false }), "Tim and Sarah Smith");
+  });
+
+  test("with initials switched off the field name (or the generic label) is used, adults never", () => {
+    const partner = {
+      isRestricted: true,
+      displayName: "Tim Smith",
+      fieldDisplayName: "Northern Kenya",
+      adults: [adult("Tim", "Smith")],
+    };
+    assert.equal(maskedDisplayName(partner, { restrictedPartnerInitialsEnabled: false }), "Northern Kenya");
+    assert.equal(
+      maskedDisplayName({ ...partner, fieldDisplayName: null }, { restrictedPartnerInitialsEnabled: false }),
+      "A restricted-access partner"
+    );
+  });
+
+  test("a restricted partner's public record carries the adults' initials, and no adult name anywhere in it", () => {
+    const record = {
+      id: "p1",
+      kind: "missionary",
+      isPublic: true,
+      isRestricted: true,
+      archived: false,
+      displayName: "Tim and Sarah Smith",
+      adults: [adult("Tim", "Smith"), adult("Sarah", "Smith")],
+      children: [],
+      addresses: [],
+      photos: [],
+      links: [],
+      languages: [],
+      sendingParties: [],
+    };
+    const result = toPublicPartner(record);
+    assert.equal(result.displayName, "T.S. and S.S.");
+    assert.ok(!/Tim|Sarah|Smith/.test(JSON.stringify(result)), "no real name in the public record");
   });
 });

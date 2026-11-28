@@ -1,6 +1,10 @@
 import React, { useState } from "react";
+import EmailInput from "../../components/shared/EmailInput.jsx";
+import PhoneField from "../../components/shared/PhoneField.jsx";
+import { formatPhone } from "../../utils/phone.js";
 import Modal from "../Modal.jsx";
 import { updateAdult, updatePartner } from "../../api/client.js";
+import { toDateInputValue } from "../../utils/format.js";
 import { primaryContactOf } from "../../utils/contactActions.js";
 import { CONTACT_LEVELS, CONTACT_METHODS, contactLevelOf } from "../../utils/contactMethods.js";
 import { mapServerErrorMessage } from "../../utils/friendlyError.js";
@@ -25,9 +29,13 @@ export default function ContactCardEditor({ partner, adults, canEditCare, onClos
   const [via, setVia] = useState({
     name: partner.contactViaName || "",
     role: partner.contactViaRole || "",
-    phone: partner.contactViaPhone || "",
+    phone: formatPhone(partner.contactViaPhone),
     email: partner.contactViaEmail || "",
   });
+  // "Not this season": the partner is not called quiet until this day (yyyy-mm-dd, blank = no snooze).
+  const [snooze, setSnooze] = useState(
+    partner.contactSnoozedUntil ? toDateInputValue(partner.contactSnoozedUntil) : ""
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -68,6 +76,8 @@ export default function ContactCardEditor({ partner, adults, canEditCare, onClos
           contactViaEmail: level === "no_direct" ? orNull(via.email) : null,
         });
       }
+      const savedSnooze = partner.contactSnoozedUntil ? toDateInputValue(partner.contactSnoozedUntil) : "";
+      if (snooze !== savedSnooze) await updatePartner(partner.id, { contactSnoozedUntil: snooze || null });
       onSaved();
     } catch (err) {
       setError(mapServerErrorMessage(err?.response?.data?.error) || "Couldn't save the contact details.");
@@ -200,17 +210,16 @@ export default function ContactCardEditor({ partner, adults, canEditCare, onClos
                     placeholder="e.g. Sending organization"
                   />
                 </label>
-                <label>
-                  Their phone
-                  <input
-                    value={via.phone}
-                    onChange={(e) => setVia({ ...via, phone: e.target.value })}
-                    maxLength={100}
-                  />
-                </label>
+                <PhoneField
+                  label="Their phone"
+                  inputMode="tel"
+                  value={via.phone}
+                  onChange={(e) => setVia({ ...via, phone: e.target.value })}
+                  maxLength={100}
+                />
                 <label>
                   Their email
-                  <input
+                  <EmailInput
                     value={via.email}
                     onChange={(e) => setVia({ ...via, email: e.target.value })}
                     maxLength={200}
@@ -232,6 +241,19 @@ export default function ContactCardEditor({ partner, adults, canEditCare, onClos
             )}
           </fieldset>
         )}
+
+        <fieldset style={{ border: "1px solid var(--border)", borderRadius: 6, padding: "0.6rem 0.8rem" }}>
+          <legend>Not this season</legend>
+          <label>
+            Don't call them quiet until (optional)
+            <input type="date" value={snooze} onChange={(e) => setSnooze(e.target.value)} />
+          </label>
+          <p style={{ color: "var(--muted)", fontSize: "0.85rem", margin: "0.4rem 0 0" }}>
+            For a partner who is in a busy or private season. Until that day they are left out of "quiet" on
+            My partners and the bell. A follow-up date you set on purpose still shows. Leave it blank to clear
+            it.
+          </p>
+        </fieldset>
 
         {error && (
           <p className="form-error" role="alert" style={{ margin: 0 }}>

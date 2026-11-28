@@ -1,5 +1,7 @@
 const express = require("express");
+const { webAddress, optionalWebAddress } = require("../utils/webAddress");
 const { z } = require("zod");
+const { phoneSchema, emailSchema } = require("../utils/contactFormat");
 const { CONTACT_METHODS, CONTACT_LEVELS } = require("../utils/contactMethods");
 const prisma = require("../prismaClient");
 const { recordAudit, recordRestrictedView } = require("../utils/auditLog");
@@ -10,6 +12,7 @@ const { isFeatureEnabled } = require("../utils/features");
 const { requireAuth, requireRole, requirePartnerWriter } = require("../middleware/requireAuth");
 const { canReadPartner, readablePartnerIds } = require("../utils/guestAccess");
 const { withPhotoUrls } = require("../utils/photoUrls");
+const { makeDisplayCopy } = require("../utils/photoCopies");
 const { geocodeAddress } = require("../utils/geocode");
 const { matchesFileSignature } = require("../utils/fileSignature");
 const heicConvert = require("heic-convert");
@@ -44,7 +47,7 @@ const resolveImageExt = makeExtResolver(IMAGE_MIME_TO_EXT, [
 ]);
 
 const upload = uploadFilteredBy(resolveImageExt, {
-  maxFileSize: 5 * 1024 * 1024,
+  maxFileSize: 15 * 1024 * 1024, // the browser shrinks a photo first (frontend/src/utils/prepareImage.js); this is the safety net
   message: "Only JPEG, PNG, WebP, or HEIC/HEIF images are allowed",
 });
 
@@ -135,8 +138,8 @@ const sendingPartySchema = z
     name: z.string().optional().nullable(),
     contactFirstName: z.string().optional().nullable(),
     contactLastName: z.string().optional().nullable(),
-    contactEmail: z.string().optional().nullable(),
-    websiteLink: z.string().optional().nullable(),
+    contactEmail: emailSchema(z),
+    websiteLink: optionalWebAddress(),
     mailingAddress: addressFieldsSchema
       .pick({
         addressLine1: true,
@@ -148,7 +151,7 @@ const sendingPartySchema = z
       })
       .optional()
       .nullable(),
-    phone: z.string().optional().nullable(),
+    phone: phoneSchema(z),
   })
   .optional();
 
@@ -193,8 +196,8 @@ const partnerSchema = z.object({
   orgType: z.string().optional().nullable(),
   contactFirstName: z.string().optional().nullable(),
   contactLastName: z.string().optional().nullable(),
-  contactPhone: z.string().optional().nullable(),
-  contactEmail: z.string().optional().nullable(),
+  contactPhone: phoneSchema(z),
+  contactEmail: emailSchema(z),
   contactMethod: z.enum(CONTACT_METHODS).optional().nullable(),
   contactMethodNote: z.string().trim().max(200).optional().nullable(),
 
@@ -205,13 +208,15 @@ const partnerSchema = z.object({
   contactInstructions: z.string().trim().max(2000).optional().nullable(),
   contactViaName: z.string().trim().max(200).optional().nullable(),
   contactViaRole: z.string().trim().max(200).optional().nullable(),
-  contactViaPhone: z.string().trim().max(100).optional().nullable(),
-  contactViaEmail: z.string().trim().max(200).optional().nullable(),
+  contactViaPhone: phoneSchema(z),
+  contactViaEmail: emailSchema(z),
+  // "Not this season": blank clears it.
+  contactSnoozedUntil: z.preprocess((v) => (v === "" ? null : v), z.coerce.date().nullable()).optional(),
   sentByOurChurch: z.boolean().optional(),
   anniversary: z.coerce.date().optional().nullable(),
   emergencyContactName: z.string().optional().nullable(),
-  emergencyContactPhone: z.string().optional().nullable(),
-  emergencyContactEmail: z.string().optional().nullable(),
+  emergencyContactPhone: phoneSchema(z),
+  emergencyContactEmail: emailSchema(z),
   sendingChurch: sendingPartySchema,
   sendingOrg: sendingPartySchema,
 
@@ -222,9 +227,9 @@ const partnerSchema = z.object({
 const adultSchema = z.object({
   firstName: z.string(),
   lastName: z.string().optional().nullable(),
-  phone1: z.string().optional().nullable(),
-  phone2: z.string().optional().nullable(),
-  email: z.string().optional().nullable(),
+  phone1: phoneSchema(z),
+  phone2: phoneSchema(z),
+  email: emailSchema(z),
   birthday: z.coerce.date().optional().nullable(),
 });
 const childSchema = z.object({
@@ -232,7 +237,7 @@ const childSchema = z.object({
   lastName: z.string().optional().nullable(),
   birthday: z.coerce.date().optional().nullable(),
 });
-const partnerLinkSchema = z.object({ type: z.enum(LINK_TYPES), url: z.string().min(1) });
+const partnerLinkSchema = z.object({ type: z.enum(LINK_TYPES), url: webAddress() });
 const partnerLanguageSchema = z.object({
   language: z.string().min(1),
   proficiency: z.enum(PROFICIENCY_LEVELS).optional().nullable(),
@@ -329,6 +334,9 @@ router.get("/reachable", async (req, res, next) => {
 // to the partners they reach, and without the one thing they never see:
 // money (the current monthly support amount, and "supporting since").
 const { supportEntries: _s, supportingSince: _ss, ...guestSummarySelect } = partnerSummarySelect;
+// With Monthly support switched off nobody is sent the amounts: the list would otherwise hand every partner's
+// current figure to admins, editors and viewers of a church that chose not to keep them in view.
+const { supportEntries: _se, ...summarySelectWithoutSupport } = partnerSummarySelect;
 
 // GET /api/partners/sending-churches -- the options for the "Sending church" filter
 // used on every list about partners (ours first, then each other church, with
@@ -404,9 +412,16 @@ router.get("/", requireRole("admin", "editor", "viewer", "guest"), async (req, r
       return res.json(full.map(shapePartner));
     }
 
+    const listSettings = await prisma.churchSettings.findUnique({
+      where: { id: "singleton" },
+      select: { enabledFeatures: true },
+    });
+    const staffSelect = isFeatureEnabled(listSettings?.enabledFeatures, "monthlySupport")
+      ? partnerSummarySelect
+      : summarySelectWithoutSupport;
     const records = await prisma.partner.findMany({
       where,
-      select: reachable ? guestSummarySelect : partnerSummarySelect,
+      select: reachable ? guestSummarySelect : staffSelect,
       orderBy: { displayName: "asc" },
     });
     // When each partner (or any section of it) was last changed -- staff only; a
@@ -568,7 +583,7 @@ router.post(
           receivedDate,
           contentType,
           fileSize,
-          bytesRow: { create: { bytes } },
+          bytesRow: { create: { bytes, displayBytes: await makeDisplayCopy(bytes) } },
         },
       });
 
@@ -620,9 +635,22 @@ router.put("/:id", requirePartnerWriter({ param: "id" }), async (req, res, next)
     // Read before the transaction to compare against scalarData.sentByOurChurch below.
     const before = await prisma.partner.findUnique({
       where: { id: req.params.id },
-      select: { sentByOurChurch: true, isRestricted: true, displayName: true },
+      select: { sentByOurChurch: true, isRestricted: true, isPublic: true, displayName: true },
     });
     if (!before) return res.status(404).json({ error: "Not found" });
+
+    // Who can see a partner on the public site is staff's decision. A care-team guest can write to
+    // their partner's record, but their prayer requests and uploads wait for approval, so this must
+    // not be the one thing that takes effect at once. Resending the current values is not a change.
+    if (
+      req.user.role === "guest" &&
+      ((scalarData.isPublic !== undefined && scalarData.isPublic !== before.isPublic) ||
+        (scalarData.isRestricted !== undefined && scalarData.isRestricted !== before.isRestricted))
+    ) {
+      return res
+        .status(403)
+        .json({ error: "Only staff can change whether a partner is shown publicly or restricted" });
+    }
 
     const updated = await prisma.$transaction(async (tx) => {
       if (addressRows) await tx.address.deleteMany({ where: { partnerId: req.params.id } });

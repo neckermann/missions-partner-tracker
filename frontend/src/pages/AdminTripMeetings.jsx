@@ -13,10 +13,12 @@ import RecordList from "../components/admin/RecordList.jsx";
 import QuickActionModal from "../components/shared/QuickActionModal.jsx";
 import Field from "../components/admin/Field.jsx";
 import ManualSendNotice from "../components/shared/ManualSendNotice.jsx";
+import { useSettings } from "../context/SettingsContext.jsx";
+import { formatChurchDateTime, toChurchDateTimeInputValue, churchZoneName } from "../utils/churchTime.js";
 
 const emptyMeetingForm = { startAt: "", title: "", location: "", meetingLink: "", agenda: "" };
 
-function MeetingFields({ form, setForm }) {
+function MeetingFields({ form, setForm, zoneName }) {
   function set(field, value) {
     setForm((f) => ({ ...f, [field]: value }));
   }
@@ -38,6 +40,9 @@ function MeetingFields({ form, setForm }) {
           onChange={(e) => set("startAt", e.target.value)}
           required
         />
+        {zoneName && (
+          <small style={{ display: "block", color: "var(--muted)" }}>Your church's time ({zoneName}).</small>
+        )}
       </label>
       <label>
         Location
@@ -66,7 +71,8 @@ function MeetingFields({ form, setForm }) {
 
 // Resend/Cancel live inside the edit popup since they are meeting-specific actions.
 export default function AdminTripMeetings() {
-  const { trip, reload, confirmDialog, id, canWrite } = useOutletContext();
+  const { trip, reload, confirmDialog, id, canWrite, emailOff } = useOutletContext();
+  const { timezone } = useSettings();
   const [error, setError] = useState("");
   const [modalMeeting, setModalMeeting] = useState(null); // null | { id: null|meetingId, form, cancelledAt }
   const [manualEmailRecipients, setManualEmailRecipients] = useState(null); // [{ name, email, url }] | null
@@ -82,10 +88,13 @@ export default function AdminTripMeetings() {
 
   function openEdit(m) {
     setManualEmailRecipients(null);
+    const startAt = toChurchDateTimeInputValue(m.startAt, timezone);
     setModalMeeting({
       id: m.id,
+      // What the box was filled with: an untouched time is left out of the save, so it can't count as a reschedule.
+      loadedStartAt: startAt,
       form: {
-        startAt: m.startAt ? m.startAt.slice(0, 16) : "",
+        startAt,
         title: m.title || "",
         location: m.location || "",
         meetingLink: m.meetingLink || "",
@@ -112,6 +121,7 @@ export default function AdminTripMeetings() {
       if (!patch.startAt) throw new Error("Choose a date/time");
       result = await scheduleTripMeeting(id, patch);
     } else {
+      if (patch.startAt === modalMeeting.loadedStartAt) delete patch.startAt;
       result = await updateTripMeeting(modalMeeting.id, patch);
     }
     reload();
@@ -136,7 +146,9 @@ export default function AdminTripMeetings() {
       title: "Cancel this meeting?",
       body: (
         <ConfirmMessageBody>
-          Everyone on the team who was emailed the original invite will get a cancellation notice.
+          {emailOff
+            ? "Email isn't set up on this site, so nobody is told automatically. After you cancel, you'll see each person's own trip page link, to send them yourself so they know."
+            : "Everyone on the team who was emailed the original invite will get a cancellation notice."}
         </ConfirmMessageBody>
       ),
       confirmLabel: "Cancel meeting",
@@ -203,9 +215,7 @@ export default function AdminTripMeetings() {
             if (tally[r.response] !== undefined) tally[r.response] += 1;
           });
           const noResponseCount = participants.length - rsvps.length;
-          const whenLabel = m.startAt
-            ? new Date(m.startAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })
-            : "—";
+          const whenLabel = formatChurchDateTime(m.startAt, timezone, { fallback: "—" });
           const whereLabel =
             m.location && m.meetingLink
               ? `${m.location} + online`
@@ -237,7 +247,11 @@ export default function AdminTripMeetings() {
             onDelete={modalMeeting.id != null ? () => handleDeleteMeeting(modalMeeting) : undefined}
             submitLabel={modalMeeting.id == null ? "Schedule meeting" : "Save"}
           >
-            <MeetingFields form={modalMeeting.form} setForm={setModalForm} />
+            <MeetingFields
+              form={modalMeeting.form}
+              setForm={setModalForm}
+              zoneName={churchZoneName(timezone)}
+            />
             {manualEmailRecipients?.length > 0 && <ManualSendNotice recipients={manualEmailRecipients} />}
             {modalMeeting.id != null && (
               <div className="table-actions" style={{ marginTop: "0.75rem" }}>
@@ -249,7 +263,7 @@ export default function AdminTripMeetings() {
                     className="btn secondary small"
                     onClick={() => handleResendMeetingInvite(modalMeeting.id)}
                   >
-                    Resend invite
+                    {emailOff ? "Show links to pass on" : "Resend invite"}
                   </button>
                 )}
                 {!modalMeeting.cancelledAt && (

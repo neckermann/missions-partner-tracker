@@ -1,6 +1,7 @@
 const express = require("express");
 const prisma = require("../prismaClient");
 const { demoGuestLogins } = require("../utils/demoLogins");
+const { isGuardedDemo } = require("../utils/demoMode");
 const { FEATURE_KEYS, isFeatureEnabled } = require("../utils/features");
 
 const router = express.Router();
@@ -27,8 +28,17 @@ router.get("/", async (req, res, next) => {
       usePartnerTermInAdmin: settings?.usePartnerTermInAdmin || false,
       // What this church calls the group that looks after partners with no care team ("Missions team").
       ownerGroupName: settings?.ownerGroupName || "Missions team",
+      // The one currency every amount is shown in (utils/money.js).
+      currency: settings?.currency || "USD",
+      // The country a phone number typed without a "+" is read in (utils/phoneCountry.js).
+      defaultPhoneCountry: settings?.defaultPhoneCountry || "US",
+      // Trip meeting and flight times are shown in the church's own zone to everyone (frontend utils/churchTime.js).
+      timezone: settings?.timezone || "America/Chicago",
       publicTagline: settings?.publicTagline || null,
       aboutText: settings?.aboutText || null,
+      // Shown above the public Subscribe form only when the church has set one (#508).
+      subscribePassage: settings?.subscribePassage || null,
+      subscribePassageSource: settings?.subscribePassageSource || null,
       // The email-digest cadence tiers an admin offers (#209). Public so the logged-out Subscribe page
       // and "follow this partner" form can filter their cadence picker. Defaults mirror ChurchSettings'
       // column defaults.
@@ -42,10 +52,11 @@ router.get("/", async (req, res, next) => {
       // signal. The logins are published on purpose so visitors can try the admin dashboard; never set
       // on a real deployment, since DEMO_RESET_TOKEN never is.
       isDemo: Boolean(process.env.DEMO_RESET_TOKEN),
-      demoLoginEmail: process.env.DEMO_RESET_TOKEN ? process.env.DEMO_ADMIN_EMAIL || null : null,
-      demoLoginPassword: process.env.DEMO_RESET_TOKEN ? process.env.DEMO_ADMIN_PASSWORD || null : null,
+      // Not on the owner's own test deployment (DEMO_TESTING_SITE=true): its logins stay private.
+      demoLoginEmail: isGuardedDemo() ? process.env.DEMO_ADMIN_EMAIL || null : null,
+      demoLoginPassword: isGuardedDemo() ? process.env.DEMO_ADMIN_PASSWORD || null : null,
       // The other published demo logins (utils/demoLogins.js). Same demo-only gate; [] elsewhere.
-      demoGuestLogins: process.env.DEMO_RESET_TOKEN ? demoGuestLogins() : [],
+      demoGuestLogins: isGuardedDemo() ? demoGuestLogins() : [],
       // Resolved (not raw) per-feature booleans, reflecting the registry default. Not sensitive, and
       // this is the one settings endpoint the frontend always has access to (SettingsContext.jsx).
       enabledFeatures: Object.fromEntries(

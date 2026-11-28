@@ -3,11 +3,13 @@
 const express = require("express");
 const rateLimit = require("express-rate-limit");
 const { z } = require("zod");
+const { phoneSchema, emailSchema, requiredEmailSchema } = require("../utils/contactFormat");
 const prisma = require("../prismaClient");
 const { requireFeature } = require("../middleware/requireFeature");
 const { isFeatureEnabled } = require("../utils/features");
 const { getSettings } = require("../utils/publicTripShared");
 const { isMinorForTrip } = require("../utils/tripParticipantSchema");
+const { notifyTripTeamOfApplication } = require("../utils/tripApplicationNotice");
 
 const { loadApplicantQuestions, answerRows } = require("../utils/tripTemplates");
 
@@ -27,8 +29,8 @@ const RESPONSE_ARRAY_MAX_ITEMS = 50; // checkboxes-type answer -- every option c
 const applicationSchema = z.object({
   firstName: z.string().min(1).max(NAME_MAX),
   lastName: z.string().min(1).max(NAME_MAX),
-  email: z.string().email().max(SHORT_FIELD_MAX),
-  phone: z.string().max(PHONE_MAX).optional().nullable(),
+  email: requiredEmailSchema(z),
+  phone: phoneSchema(z),
   // Structured mailing address: optional strings with no format validation, like SendingParty.
   // The setting controls what the form shows, not what the server accepts.
   addressLine1: z.string().max(SHORT_FIELD_MAX).optional().nullable(),
@@ -40,8 +42,8 @@ const applicationSchema = z.object({
   // Structured emergency contact: same looseness as the address above.
   emergencyContactFirstName: z.string().max(NAME_MAX).optional().nullable(),
   emergencyContactLastName: z.string().max(NAME_MAX).optional().nullable(),
-  emergencyContactPhone: z.string().max(PHONE_MAX).optional().nullable(),
-  emergencyContactEmail: z.string().max(SHORT_FIELD_MAX).optional().nullable(),
+  emergencyContactPhone: phoneSchema(z),
+  emergencyContactEmail: emailSchema(z),
   // Always collected and required (see TripParticipant.dateOfBirth in schema.prisma). A structured
   // field, not a template question, so the server can compare it to the trip's startDate.
   dateOfBirth: z.coerce.date(),
@@ -50,8 +52,8 @@ const applicationSchema = z.object({
   parentGuardianFirstName: z.string().max(NAME_MAX).optional().nullable(),
   parentGuardianLastName: z.string().max(NAME_MAX).optional().nullable(),
   parentGuardianRelationship: z.string().max(NAME_MAX).optional().nullable(),
-  parentGuardianPhone: z.string().max(PHONE_MAX).optional().nullable(),
-  parentGuardianEmail: z.string().max(SHORT_FIELD_MAX).optional().nullable(),
+  parentGuardianPhone: phoneSchema(z),
+  parentGuardianEmail: emailSchema(z),
   // A checkboxes-type question answers with a string array; every other type with a string (see
   // QUESTION_TYPES in utils/applicationQuestions.js).
   responses: z
@@ -99,7 +101,7 @@ async function createApplication(trip, settings, body, res) {
         .json({ error: "Parent/guardian information is required for an applicant under 18." });
     }
   }
-  await prisma.tripApplication.create({
+  const application = await prisma.tripApplication.create({
     data: {
       tripId: trip.id,
       firstName: data.firstName,
@@ -126,6 +128,8 @@ async function createApplication(trip, settings, body, res) {
       answers: { create: answerRows(await loadApplicantQuestions(trip.id), data.responses) },
     },
   });
+  // Tell the trip's team when email is on (best-effort; never fails the submission).
+  await notifyTripTeamOfApplication(trip.id, application);
   res.status(201).json({ submitted: true });
 }
 

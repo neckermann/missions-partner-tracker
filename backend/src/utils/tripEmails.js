@@ -3,8 +3,8 @@
 // The missing-email skip and per-recipient try/catch live here once. The
 // send-orchestration functions also live here, never inline in a route file.
 const prisma = require("../prismaClient");
+const { loadOutboundEmailReady } = require("./emailReady");
 const { sendEmail } = require("./email");
-const { isFeatureEnabled } = require("./features");
 const { renderEmail, blocks } = require("./emailTemplate");
 const {
   appBaseUrl,
@@ -12,13 +12,9 @@ const {
   buildTripParticipantAccessUrl,
 } = require("./tripAccessToken");
 
-// Every function below needs only this one setting, so select narrowly.
+// Every function below needs only this one answer: can this site send email right now.
 async function outboundEmailEnabled() {
-  const settings = await prisma.churchSettings.findUnique({
-    where: { id: "singleton" },
-    select: { enabledFeatures: true },
-  });
-  return isFeatureEnabled(settings?.enabledFeatures, "outboundEmail");
+  return loadOutboundEmailReady();
 }
 
 // What the self-gating senders return instead of silently no-op'ing when

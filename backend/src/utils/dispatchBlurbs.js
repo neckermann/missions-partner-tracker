@@ -9,7 +9,20 @@
 // restricted partner gets a masked name (maskedDisplayName()), a generic
 // "details withheld" line and no file link. isRestricted is read fresh from the
 // partner, not the payload snapshot, because the flag can change after recording.
-const { maskedDisplayName } = require("./maskData");
+const { maskedDisplayName, MASK_NAME_SELECT } = require("./maskData");
+
+// The partner fields every channel loads before calling buildBlurb(): what eligibility needs, and the adults, so a
+// restricted household is named by its adults' initials (maskedDisplayName). One select for all channels, so none
+// can forget the adults.
+const DISPATCH_PARTNER_SELECT = {
+  id: true,
+  displayName: true,
+  fieldDisplayName: true,
+  isRestricted: true,
+  isPublic: true,
+  ...MASK_NAME_SELECT,
+};
+const { formatMoney } = require("./money");
 const { keyDateWhat, when: whenKeyDate } = require("./keyDateText");
 
 const RESTRICTED_NOTICE =
@@ -31,6 +44,15 @@ const REVIEW_GATED_TYPES = new Set([
 // and one shared topic/group; the email digest has its own key-date section and the bell has the rest, so they
 // never ride in an email dispatch.
 const CARE_DISPATCH_TYPES = new Set(["keyDateComing", "quietPartner", "updateToPassOn"]);
+
+// A prayer request filed as "Everyday" (category "situational": health, travel, family, paperwork) is staff
+// only. It is never recorded for sending (dispatchRecording.js), and this is the second line: a record that
+// carries the category, or that outlived an edit to it, is refused by every channel (dispatchEligibility.js),
+// is never built into text (buildBlurb returns null, so no chat post, digest or review queue shows it) and is
+// cleared at once (dispatchOrchestrator.js).
+function isEverydayPrayer(row) {
+  return row?.payload?.category === "situational";
+}
 
 // Types eligible for the public email audience; admin (User) recipients keep every type.
 const PUBLIC_EMAIL_DISPATCH_TYPES = new Set(["prayerRequestCreated", "prayerRequestAnswered"]);
@@ -72,6 +94,7 @@ function supportNeedOutcomeLabel(payload) {
 // RESTRICTED_NOTICE). Whether an un-reviewed restricted row may *send* is
 // dispatchEligibility.js's needsReview(), not decided here.
 function buildBlurb(row, partner, settings) {
+  if (isEverydayPrayer(row)) return null;
   const { type, payload } = row;
   const restricted = !!partner?.isRestricted;
   const partnerName = restricted
@@ -145,8 +168,10 @@ function buildBlurb(row, partner, settings) {
       // so the requested amount is safe to show like the approved amount below.
       // Restricted masking still applies to name/description. Guards a missing
       // requestedAmount (non-nullable in the schema, but fixtures may omit it) to avoid "$NaN".
-      const amount =
-        payload.requestedAmount != null ? `$${Number(payload.requestedAmount).toLocaleString()}` : null;
+      // A need can be saved with no amount (stored as 0): say nothing about money rather than "$0".
+      const amount = payload.requestedAmount
+        ? formatMoney(payload.requestedAmount, settings?.currency)
+        : null;
       return {
         id: row.id,
         type,
@@ -171,7 +196,9 @@ function buildBlurb(row, partner, settings) {
 
     case "supportNeedDecided": {
       const label = supportNeedOutcomeLabel(payload);
-      const amount = `$${Number(payload.approvedAmount).toLocaleString()}`;
+      // A decline (approved $0) says "Declined" and no amount, rather than "Approved: $0".
+      const amount = payload.approvedAmount ? formatMoney(payload.approvedAmount, settings?.currency) : null;
+      const approvedLine = amount ? `\n\nApproved: ${amount}` : "";
       const bodyText = row.dispatchReviewedAt
         ? row.dispatchReviewedText
         : restricted
@@ -195,8 +222,8 @@ function buildBlurb(row, partner, settings) {
         sourceFileId: maskedSourceFileId,
         sourceLinkUrl: maskedSourceLinkUrl,
         groupmeText: restricted
-          ? `🎁 One-time need decided (${label}), from ${partnerName}:\n${bodyText}\n\nApproved: ${amount}${decisionNoteLine}`
-          : `🎁 One-time need decided (${label}), from ${partnerName}:\n${bodyText}\n\nApproved: ${amount}${decisionNoteLine}${maskedSourceLinkLine}`,
+          ? `🎁 One-time need decided (${label}), from ${partnerName}:\n${bodyText}${approvedLine}${decisionNoteLine}`
+          : `🎁 One-time need decided (${label}), from ${partnerName}:\n${bodyText}${approvedLine}${decisionNoteLine}${maskedSourceLinkLine}`,
       };
     }
 
@@ -303,7 +330,9 @@ function buildBlurb(row, partner, settings) {
 }
 
 module.exports = {
+  DISPATCH_PARTNER_SELECT,
   buildBlurb,
+  isEverydayPrayer,
   appBaseUrl,
   REVIEW_GATED_TYPES,
   PUBLIC_EMAIL_DISPATCH_TYPES,

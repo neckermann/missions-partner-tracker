@@ -53,18 +53,21 @@ describe("POST /api/users", () => {
         email,
         role: "viewer",
         password,
-        phone: " 555-0100 ",
+        phone: " (555) 555-0100 ",
         profile: "Retired nurse, best after 6pm.",
       },
     });
     try {
       assert.equal(res.status, 201);
-      assert.equal(res.body.phone, "555-0100");
+      assert.equal(res.body.phone, "+15555550100");
       const me = await client({ email, password });
       assert.equal((await me("/api/auth/me")).body.user.profile, "Retired nurse, best after 6pm.");
-      const upd = await me("/api/auth/profile", { method: "PUT", body: { phone: "555-0199", profile: "" } });
+      const upd = await me("/api/auth/profile", {
+        method: "PUT",
+        body: { phone: "(555) 555-0199", profile: "" },
+      });
       assert.equal(upd.status, 200);
-      assert.equal(upd.body.user.phone, "555-0199");
+      assert.equal(upd.body.user.phone, "+15555550199");
       assert.equal(upd.body.user.profile, null);
       assert.equal(
         (await me("/api/auth/profile", { method: "PUT", body: { phone: "x".repeat(41) } })).status,

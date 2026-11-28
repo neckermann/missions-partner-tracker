@@ -54,8 +54,10 @@ before(async () => {
   originalEnabledFeatures = featureSettings?.enabledFeatures ?? {};
   await prisma.churchSettings.upsert({
     where: { id: "singleton" },
-    update: { enabledFeatures: { ...originalEnabledFeatures, trips: true } },
-    create: { id: "singleton", enabledFeatures: { trips: true } },
+    update: {
+      enabledFeatures: { ...originalEnabledFeatures, trips: true, publicDirectory: true, publicMap: true },
+    },
+    create: { id: "singleton", enabledFeatures: { trips: true, publicDirectory: true, publicMap: true } },
   });
 });
 
@@ -447,7 +449,7 @@ describe("partners: Sent by our church auto-fills Sending Church", () => {
         contactFirstName: "Amy",
         contactLastName: "Draycott",
         contactEmail: "missions@example.org",
-        phone: "555-0100",
+        phone: "+15555550100",
         websiteLink: "https://example.org",
         addressLine1: "1 Main St",
         city: "Rock Island",
@@ -462,7 +464,7 @@ describe("partners: Sent by our church auto-fills Sending Church", () => {
     assert.equal(p.sendingChurch.contactFirstName, "Amy");
     assert.equal(p.sendingChurch.contactLastName, "Draycott");
     assert.equal(p.sendingChurch.contactEmail, "missions@example.org");
-    assert.equal(p.sendingChurch.phone, "555-0100");
+    assert.equal(p.sendingChurch.phone, "+15555550100");
     assert.equal(p.sendingChurch.websiteLink, "https://example.org");
     assert.equal(p.sendingChurch.mailingAddress.city, "Rock Island");
   });
@@ -600,7 +602,7 @@ describe("partners: bulk Sending Church sync (POST /sync-sending-church)", () =>
         contactFirstName: "Amy",
         contactLastName: "Draycott",
         contactEmail: "missions@example.org",
-        phone: "555-0100",
+        phone: "+15555550100",
         websiteLink: "https://example.org",
         addressLine1: "1 Main St",
         city: "Rock Island",

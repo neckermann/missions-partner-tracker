@@ -1,10 +1,10 @@
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const { z } = require("zod");
+const { phoneSchema } = require("../utils/contactFormat");
 const prisma = require("../prismaClient");
 const { requireRole } = require("../middleware/requireAuth");
 const { sendWelcomeEmail } = require("../utils/welcomeEmails");
-const { isFeatureEnabled } = require("../utils/features");
 const { subscribeToDefaultDigest } = require("../utils/digestDefaults");
 const { recordAudit } = require("../utils/auditLog");
 const {
@@ -17,12 +17,14 @@ const {
 } = require("../utils/guestAccess");
 const { passwordSchema } = require("../utils/password");
 const { isTwoFactorRequired } = require("../utils/twoFactor");
+const { isGuardedDemo, refuseOnGuardedDemo } = require("../utils/demoMode");
+const { isOutboundEmailReady, READY_SELECT } = require("../utils/emailReady");
 
-// Narrow select: this route only needs to know whether outbound email is on.
+// Narrow select: this route only needs to know whether this site can send email.
 async function getSettings() {
   return prisma.churchSettings.findUnique({
     where: { id: "singleton" },
-    select: { enabledFeatures: true },
+    select: READY_SELECT,
   });
 }
 
@@ -96,7 +98,7 @@ const createUserSchema = z.object({
   email: z.string().email(),
   firstName: z.string().optional().nullable(),
   lastName: z.string().optional().nullable(),
-  phone: z.string().trim().max(40).optional().nullable(),
+  phone: phoneSchema(z),
   profile: z.string().trim().max(1000).optional().nullable(),
   // On the church's missions team (looks after partners with no care team). Ignored for a guest.
   onMissionsTeam: z.boolean().optional(),
@@ -128,7 +130,7 @@ const createUserSchema = z.object({
 const updateUserSchema = z.object({
   firstName: z.string().optional().nullable(),
   lastName: z.string().optional().nullable(),
-  phone: z.string().trim().max(40).optional().nullable(),
+  phone: phoneSchema(z),
   profile: z.string().trim().max(1000).optional().nullable(),
   onMissionsTeam: z.boolean().optional(),
   role: ROLE_ENUM.optional(),
@@ -370,7 +372,7 @@ router.post("/", async (req, res, next) => {
     let welcomeEmail = { sent: false, skipped: true };
     if (sendWelcome && !password) {
       const settings = await getSettings();
-      if (isFeatureEnabled(settings?.enabledFeatures, "outboundEmail")) {
+      if (isOutboundEmailReady(settings)) {
         try {
           await sendWelcomeEmail(created, { requireMfa: requireMfa || (await isTwoFactorRequired()) });
           welcomeEmail = { sent: true };
@@ -405,7 +407,7 @@ router.post("/", async (req, res, next) => {
 // Refuses accounts that already have a password -- those use the normal
 // sign-in or an admin password reset, not a setup link. Same
 // email-off/manual-link handling as POST / above.
-router.post("/:id/setup-link", async (req, res, next) => {
+router.post("/:id/setup-link", refuseOnGuardedDemo("Sending a setup link"), async (req, res, next) => {
   try {
     const user = await prisma.user.findUnique({ where: { id: req.params.id } });
     if (!user) return res.status(404).json({ error: "Not found" });
@@ -416,7 +418,7 @@ router.post("/:id/setup-link", async (req, res, next) => {
       return res.status(400).json({ error: "This account already has a password" });
     }
     const settings = await getSettings();
-    if (isFeatureEnabled(settings?.enabledFeatures, "outboundEmail")) {
+    if (isOutboundEmailReady(settings)) {
       await sendWelcomeEmail(user, { requireMfa: user.mfaSetupRequired || (await isTwoFactorRequired()) });
       await recordAudit(null, {
         action: "user.setup_link_sent",
@@ -540,6 +542,11 @@ router.delete("/:id/trip-access/:tripId", async (req, res, next) => {
 router.put("/:id", async (req, res, next) => {
   try {
     const { password, tripAccess, careTeam: careInputs = [], ...data } = updateUserSchema.parse(req.body);
+
+    // The demo's logins are shared and published: a visitor changing one would lock everyone else out.
+    if (password && isGuardedDemo()) {
+      return res.status(403).json({ error: "Changing a password isn't available on the public demo" });
+    }
 
     const becomingNonAdminOrInactive =
       (data.role !== undefined && data.role !== "admin") || data.active === false;
@@ -665,6 +672,7 @@ router.post("/:id/mfa/reset", async (req, res, next) => {
     // every unenrolled account to enrolment; nothing per-account needs setting here.
     // #386: their passkeys go too, so a lost phone or key is cleared in one step.
     await prisma.userPasskey.deleteMany({ where: { userId: req.params.id } });
+    await prisma.userRecoveryCode.deleteMany({ where: { userId: req.params.id } });
     const updated = await prisma.user.update({
       where: { id: req.params.id },
       data: { mfaEnabled: false, mfaSecret: null, sessionVersion: { increment: 1 } },

@@ -63,6 +63,10 @@
           Open source (MIT) &middot; Your church's name, logo and colors &middot; Your data stays in your own
           database
         </p>
+        <p class="hero-trust">
+          Beta (before 1.0): an upgrade may mean starting the database over, so don't treat it as your only
+          copy of anything yet.
+        </p>
       </div>
     </section>
 
@@ -313,13 +317,20 @@
       <div class="wrap">
         <h2>Free, open source, and yours to run</h2>
         <p>
-          MIT licensed, and your data stays yours. Fork the repo and deploy your own instance on Render for
+          MIT licensed, and your data stays yours. Deploy your own instance on Render with one click, for
           about $13 a month: one web service plus one Postgres database, which also holds every uploaded
           photo, newsletter and document, so there is no separate file storage to set up. You will need a
-          GitHub account and about an hour; the Admin Guide walks through it, and the live demo shows what you
-          will get.
+          Render account with a payment card and a phone with an authenticator app; no terminal and no GitHub
+          account. The Admin Guide walks through it, and the live demo shows what you will get. Beta (before
+          1.0): an upgrade may mean starting the database over.
         </p>
         <div class="links">
+          <a
+            href="https://render.com/deploy?repo=https://github.com/neckermann/missions-partner-tracker"
+            target="_blank"
+            rel="noreferrer"
+            >Deploy to Render</a
+          >
           <a href="https://demo.missionspartnertracker.com" target="_blank" rel="noreferrer"
             >Try the live demo</a
           >
@@ -581,7 +592,7 @@
             partner or just the ones they pick — covering prayer requests, one-time needs, and newsletters
             together. Anything marked urgent skips that schedule and goes out right away instead. Receive
             email too — a message from a partner's known address gets filed as a newsletter automatically, and
-            anything from an address the app doesn't recognize lands in Unmatched Emails for a quick manual
+            anything from an address the app doesn't recognize lands in Emails to Sort for a quick manual
             assign. Each direction connects independently to the same Postmark account from Site
             Administration.
           </p>

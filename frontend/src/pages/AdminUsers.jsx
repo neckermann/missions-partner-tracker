@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import PhoneField from "../components/shared/PhoneField.jsx";
 import { Link, useLocation } from "react-router-dom";
 import {
   fetchReachablePartners,
@@ -18,6 +19,7 @@ import SettingsPageHeader from "../components/admin/SettingsPageHeader.jsx";
 import Table from "../components/shared/Table.jsx";
 import QuickActionModal from "../components/shared/QuickActionModal.jsx";
 import { mapServerErrorMessage } from "../utils/friendlyError.js";
+import { setupLinkNotSentMessage } from "../utils/setupLinkMessages.js";
 import { formatUtcDate } from "../utils/format.js";
 import { GuestGrantsPanel } from "../components/admin/GuestAccessPanels.jsx";
 import TripGrantPicker from "../components/admin/TripGrantPicker.jsx";
@@ -170,17 +172,6 @@ export default function AdminUsers() {
     }
   }
 
-  // Offers "Sign in with a passkey" on the sign-in page beside the password form. Passwords keep working.
-  async function handleTogglePasskeySignIn(allow) {
-    setError("");
-    try {
-      await updateChurchSettings({ allowPasskeySignIn: allow });
-      setCurrentUser(await fetchCurrentUser());
-    } catch (err) {
-      reportError(err, "Couldn't change passkey sign-in");
-    }
-  }
-
   // Recovery path for a lost/broken authenticator device — clears MFA so
   // the user can log in with just their password and re-enroll themselves.
   async function handleResetMfa(id, email) {
@@ -208,8 +199,11 @@ export default function AdminUsers() {
       const result = await sendUserSetupLink(id);
       if (result?.manualSetupUrl) {
         setManualSetupLink({ email, url: result.manualSetupUrl });
-      } else {
+      } else if (result?.sent) {
         setNotice(`Setup link sent to ${email}.`);
+      } else {
+        setNotice("");
+        setError(setupLinkNotSentMessage(email));
       }
     } catch (err) {
       reportError(err, "Couldn't send the setup link");
@@ -369,6 +363,8 @@ export default function AdminUsers() {
   const signingIn = users.filter((u) => u.active && u.authProvider === "local");
   const notEnrolled = signingIn.filter((u) => !u.mfaEnabled).length;
   const twoFactorRequired = !!currentUser?.twoFactorRequired;
+  // Only worth saying once the list has loaded.
+  const onlyOneAdmin = users.length > 0 && users.filter((u) => u.role === "admin" && u.active).length === 1;
   const passwordlessOn = !!currentUser?.passwordlessRequired;
   const withoutPasskey = signingIn.filter((u) => !u.passkeyCount).length;
   // Why the passwordless switch can't be used yet, if it can't (the server checks the same).
@@ -400,6 +396,13 @@ export default function AdminUsers() {
         </p>
       )}
       {notice && <p role="status">{notice}</p>}
+      {onlyOneAdmin && (
+        <p role="note" className="admin-section" style={{ margin: "1rem 0" }}>
+          <strong>You are the only administrator.</strong> If you lose your phone and your recovery codes,
+          nobody inside the app can let you back in. Add a second administrator you trust so each can reset
+          the other's two-factor.
+        </p>
+      )}
       {manualSetupLink && <ManualSendNotice recipients={manualSetupLink} />}
 
       <div className="admin-section" style={{ margin: "1rem 0" }}>
@@ -427,26 +430,6 @@ export default function AdminUsers() {
             Set up two-factor on your own account first (My Account), so turning this on doesn't lock you out.
           </p>
         )}
-      </div>
-
-      <div className="admin-section" style={{ marginBottom: "1rem" }}>
-        <h3 style={{ marginTop: 0 }}>Passkey sign-in</h3>
-        <div className="admin-checkbox-row">
-          <label className="checkbox-option">
-            <input
-              type="checkbox"
-              checked={passwordlessOn || !!currentUser?.allowPasskeySignIn}
-              disabled={passwordlessOn}
-              onChange={(e) => handleTogglePasskeySignIn(e.target.checked)}
-            />
-            Show "Sign in with a passkey" on the sign-in page
-          </label>
-        </div>
-        <p style={{ fontSize: "0.85rem", color: "var(--muted)", marginBottom: 0 }}>
-          {passwordlessOn
-            ? "On while passwordless sign-in is on."
-            : "People who have added a passkey (My account) can use their fingerprint, face or screen lock instead of typing a password. Passwords keep working."}
-        </p>
       </div>
 
       <div className="admin-section" style={{ marginBottom: "1rem" }}>
@@ -552,15 +535,12 @@ export default function AdminUsers() {
                     onChange={(e) => updateForm("lastName", e.target.value)}
                   />
                 </label>
-                <label>
-                  Phone
-                  <input
-                    type="tel"
-                    value={editingUser.form.phone || ""}
-                    onChange={(e) => updateForm("phone", e.target.value)}
-                    maxLength={40}
-                  />
-                </label>
+                <PhoneField
+                  label="Phone"
+                  value={editingUser.form.phone || ""}
+                  onChange={(e) => updateForm("phone", e.target.value)}
+                  maxLength={40}
+                />
                 <label>
                   Role
                   <select value={editingUser.form.role} onChange={(e) => updateForm("role", e.target.value)}>

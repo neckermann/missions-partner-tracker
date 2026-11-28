@@ -5,6 +5,9 @@
 //   npm run backup:restore -- <path-to-backup-file.ndjson.gz>
 //   npm run backup:restore -- <path> --force   (bypasses the two checks below)
 //
+// A file locked with a passphrase (the .locked kind) asks for it: set BACKUP_PASSPHRASE in the environment, or
+// you are asked at the prompt. A wrong passphrase stops before anything is written.
+//
 // Safety checks:
 //   1. The backup's recorded migration doesn't match this code's current migration: restoring
 // into a schema the backup wasn't made for corrupts the database.
@@ -13,13 +16,28 @@
 // The file's checksum is always verified, --force or not.
 require("dotenv").config({ quiet: true });
 const fs = require("fs");
-const zlib = require("zlib");
 const { PrismaClient } = require("@prisma/client");
 const { PrismaPg } = require("@prisma/adapter-pg");
-const { parseBackup, restoreRows, latestMigrationName } = require("../src/utils/backup");
+const {
+  isLockedBackupFile,
+  verifyBackupFile,
+  restoreBackupFile,
+  latestMigrationName,
+} = require("../src/utils/backup");
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
+
+function askPassphrase() {
+  const readline = require("readline");
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  return new Promise((resolve) => {
+    rl.question("This backup is locked with a passphrase. Passphrase: ", (answer) => {
+      rl.close();
+      resolve(answer);
+    });
+  });
+}
 
 async function main() {
   const args = process.argv.slice(2);
@@ -35,12 +53,22 @@ async function main() {
     process.exit(1);
   }
 
-  console.log(`Reading ${filePath}...`);
-  const gzipped = fs.readFileSync(filePath);
-  const text = zlib.gunzipSync(gzipped).toString("utf8");
-
-  // parseBackup verifies the checksum and throws on a mismatch; never skippable.
-  const { manifest, rowsByModel } = parseBackup(text);
+  // The file is read as a stream, never held in memory whole, and twice: once to check everything (the checksum,
+  // the row counts, and for a locked file the passphrase and that it wasn't changed), before anything is
+  // written; once to restore.
+  console.log(`Checking ${filePath}...`);
+  let passphrase;
+  if (await isLockedBackupFile(filePath)) {
+    passphrase = process.env.BACKUP_PASSPHRASE || (await askPassphrase());
+  }
+  let manifest;
+  try {
+    // Throws on a bad passphrase, a changed file or a checksum mismatch; never skippable.
+    manifest = await verifyBackupFile(filePath, { passphrase });
+  } catch (err) {
+    console.error(`${err.message}. Nothing was changed.`);
+    process.exit(1);
+  }
   console.log(`Backup created ${manifest.createdAt}, app version ${manifest.appVersion}.`);
 
   const currentMigration = latestMigrationName();
@@ -65,17 +93,18 @@ async function main() {
   }
 
   console.log("Restoring...");
-  const counts = await restoreRows(prisma, rowsByModel);
+  const { counts } = await restoreBackupFile(prisma, filePath, { passphrase, skipVerify: true });
   for (const [model, count] of Object.entries(counts)) {
     console.log(`  ${model}: ${count} row(s)`);
   }
 
   console.log("Restore complete.");
   console.log(
-    "If this backup's encrypted fields (MFA secrets, GroupMe/Joshua Project/Anthropic API keys) were\n" +
-      "created under a different FIELD_ENCRYPTION_KEY than this environment's, those specific values\n" +
-      "won't decrypt -- MFA will need re-enrolling and those integrations' keys re-entering. Nothing\n" +
-      "else is affected; password hashes aren't tied to FIELD_ENCRYPTION_KEY at all."
+    "If this backup's encrypted fields (MFA secrets, and the Postmark, GroupMe, Joshua Project and Anthropic keys)\n" +
+      "were created under a different FIELD_ENCRYPTION_KEY than this environment's, those specific values\n" +
+      "won't decrypt -- MFA will need re-enrolling and those integrations' keys re-entering. A linked WhatsApp\n" +
+      "number is not part of a backup and always needs linking again. Nothing else is affected; password\n" +
+      "hashes aren't tied to FIELD_ENCRYPTION_KEY at all."
   );
 }
 

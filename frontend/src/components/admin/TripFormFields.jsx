@@ -1,4 +1,6 @@
 import React from "react";
+import EmailInput from "../../components/shared/EmailInput.jsx";
+import PhoneField from "../../components/shared/PhoneField.jsx";
 import PresetOrCustomSelect from "./PresetOrCustomSelect.jsx";
 import AlbumLinkField from "./AlbumLinkField.jsx";
 
@@ -98,8 +100,14 @@ export default function TripFormFields({ form, setForm, partnerPicker }) {
       <h4 style={{ marginTop: "1rem" }}>Participants</h4>
       {form.participants.map((p, i) => (
         <div className="repeatable-row" key={i} style={{ background: "white" }}>
-          <button type="button" className="btn-remove" onClick={() => removeParticipant(i)} title="Remove">
-            ✕
+          <button
+            type="button"
+            className="btn-remove"
+            onClick={() => removeParticipant(i)}
+            title="Remove this participant"
+            aria-label={`Remove ${[p.firstName, p.lastName].filter(Boolean).join(" ") || "this participant"}`}
+          >
+            Remove
           </button>
           <div className="form-grid">
             <label>
@@ -124,13 +132,18 @@ export default function TripFormFields({ form, setForm, partnerPicker }) {
                 placeholder="e.g. Construction"
               />
             </label>
-            <label>
-              Phone
-              <input value={p.phone || ""} onChange={(e) => updateParticipant(i, "phone", e.target.value)} />
-            </label>
+            <PhoneField
+              label="Phone"
+              inputMode="tel"
+              value={p.phone || ""}
+              onChange={(e) => updateParticipant(i, "phone", e.target.value)}
+            />
             <label>
               Email
-              <input value={p.email || ""} onChange={(e) => updateParticipant(i, "email", e.target.value)} />
+              <EmailInput
+                value={p.email || ""}
+                onChange={(e) => updateParticipant(i, "email", e.target.value)}
+              />
             </label>
           </div>
         </div>

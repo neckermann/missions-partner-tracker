@@ -1,5 +1,8 @@
 import React from "react";
+import EmailInput from "../../components/shared/EmailInput.jsx";
+import PhoneField from "../../components/shared/PhoneField.jsx";
 import AddressFields from "./AddressFields.jsx";
+import WebAddressInput from "../shared/WebAddressInput.jsx";
 
 // `checkbox` is optional, used by the Sending Church instance to fold the "sent by our own
 // church" toggle into the same box.
@@ -44,19 +47,31 @@ export default function SendingPartySection({ title, value, onChange, checkbox }
         </label>
         <label>
           Contact Email
-          <input value={value.contactEmail || ""} onChange={(e) => update("contactEmail", e.target.value)} />
+          <EmailInput
+            value={value.contactEmail || ""}
+            onChange={(e) => update("contactEmail", e.target.value)}
+          />
         </label>
-        <label>
-          Phone
-          <input value={value.phone || ""} onChange={(e) => update("phone", e.target.value)} />
-        </label>
+        <PhoneField
+          label="Phone"
+          inputMode="tel"
+          value={value.phone || ""}
+          onChange={(e) => update("phone", e.target.value)}
+        />
         <label style={{ gridColumn: "1 / -1" }}>
           Website
-          <input value={value.websiteLink || ""} onChange={(e) => update("websiteLink", e.target.value)} />
+          <WebAddressInput
+            value={value.websiteLink || ""}
+            onChange={(e) => update("websiteLink", e.target.value)}
+          />
         </label>
       </div>
       <h4>Mailing Address</h4>
-      <AddressFields value={value.mailingAddress || {}} onChange={(addr) => update("mailingAddress", addr)} />
+      <AddressFields
+        value={value.mailingAddress || {}}
+        onChange={(addr) => update("mailingAddress", addr)}
+        mailing
+      />
     </div>
   );
 }

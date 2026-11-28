@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import PhoneField from "../components/shared/PhoneField.jsx";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { createUser, fetchTrips, fetchReachablePartners } from "../api/client.js";
 import { useSettings } from "../context/SettingsContext.jsx";
@@ -8,6 +9,8 @@ import TripGrantPicker from "../components/admin/TripGrantPicker.jsx";
 import CareSeatPicker from "../components/admin/CareSeatPicker.jsx";
 import ManualSendNotice from "../components/shared/ManualSendNotice.jsx";
 import { mapServerErrorMessage } from "../utils/friendlyError.js";
+import { welcomeNotSentMessage } from "../utils/setupLinkMessages.js";
+import useCurrentUser from "../hooks/useCurrentUser.js";
 
 const initialValues = {
   email: "",
@@ -37,7 +40,25 @@ export default function AdminUserForm() {
   // ...and a partner's Care team panel links here with ?partnerId=.
   const presetPartnerId = searchParams.get("partnerId");
   const { enabledFeatures, ownerGroupName } = useSettings();
+  // Whether this site can send email at all. While it can't, the last step offers a link to pass on, not a
+  // promise of an email. Unknown (still loading) is treated as able, and corrected when the answer arrives.
+  const { user: currentUser } = useCurrentUser();
+  const emailOff = currentUser ? !currentUser.emailReady : false;
   const careEnabled = !!enabledFeatures.careTeam;
+  // A guest reaches the app only through a trip or a care team seat, so with neither feature on the role
+  // would be a login that can see nothing: don't offer it (unless the form was opened already set to it).
+  const guestUsable = !!enabledFeatures.trips || careEnabled;
+  const guestGives = [enabledFeatures.trips && "the trips", careEnabled && "the partners"]
+    .filter(Boolean)
+    .join(" and ");
+  const guestExplainer = `A guest can see only what you give them: ${[
+    enabledFeatures.trips && "the trips you choose (and those trips' partners)",
+    careEnabled && "the partners whose care team they join (what they add waits for staff approval)",
+  ]
+    .filter(Boolean)
+    .join(
+      ", and "
+    )}. Nothing else in the app is shown to them. They sign in with a password and two-factor authentication.`;
   const startingValues = presetTripId
     ? { ...initialValues, role: "guest", tripAccess: [{ tripId: presetTripId, expiresAt: null }] }
     : presetPartnerId && careEnabled
@@ -79,7 +100,9 @@ export default function AdminUserForm() {
       }
       if (created.welcomeEmail && !created.welcomeEmail.sent && !created.welcomeEmail.skipped) {
         backToList(
-          `${created.email} was created, but the welcome email couldn't be sent (${created.welcomeEmail.error}). Use "Send setup link" on their row to try again.`
+          welcomeNotSentMessage(created.email, created.welcomeEmail, {
+            retryHint: 'Use "Send setup link" on their row to try again.',
+          })
         );
         return;
       }
@@ -118,22 +141,21 @@ export default function AdminUserForm() {
               Last Name
               <input value={values.lastName} onChange={(e) => setValue("lastName", e.target.value)} />
             </label>
-            <label>
-              Phone (optional)
-              <input
-                type="tel"
-                value={values.phone}
-                onChange={(e) => setValue("phone", e.target.value)}
-                maxLength={40}
-              />
-            </label>
+            <PhoneField
+              label="Phone (optional)"
+              value={values.phone}
+              onChange={(e) => setValue("phone", e.target.value)}
+              maxLength={40}
+            />
             <label>
               Role
               <select value={values.role} onChange={(e) => setValue("role", e.target.value)}>
                 <option value="admin">Admin</option>
                 <option value="editor">Editor</option>
                 <option value="viewer">Viewer</option>
-                <option value="guest">Guest (only the trips you choose)</option>
+                {(guestUsable || values.role === "guest") && (
+                  <option value="guest">{`Guest (only ${guestGives} you choose)`}</option>
+                )}
               </select>
             </label>
           </div>
@@ -170,8 +192,7 @@ export default function AdminUserForm() {
                 onChange={(next) => setValue("tripAccess", next)}
               />
               <p style={{ fontSize: "0.85rem", color: "var(--muted)", marginTop: "0.5rem" }}>
-                A guest can work on the trips you choose and see those trips' partners, nothing else in the
-                app. They sign in with a password and two-factor authentication.
+                {guestExplainer}
               </p>
             </div>
           )}
@@ -229,7 +250,9 @@ export default function AdminUserForm() {
                 checked={values.sendWelcomeEmail}
                 onChange={(e) => setValue("sendWelcomeEmail", e.target.checked)}
               />
-              Send a welcome email so they can set their own password (recommended)
+              {emailOff
+                ? "Give me a setup link to pass on, so they can set their own password (recommended)"
+                : "Send a welcome email so they can set their own password (recommended)"}
             </label>
             <label>
               <input
@@ -242,7 +265,9 @@ export default function AdminUserForm() {
           </div>
           <p style={{ fontSize: "0.85rem", color: "var(--muted)", marginTop: "0.5rem" }}>
             {values.sendWelcomeEmail
-              ? "They'll get a one-time link to choose their own password. Nobody else ever sees it."
+              ? emailOff
+                ? "Email isn't set up on this site, so nothing is emailed. When you save, you'll get a one-time link to copy and send them yourself; they use it to choose their own password."
+                : "They'll get a one-time link to choose their own password. Nobody else ever sees it."
               : 'No email is sent. Set a password below, or leave it blank and use "Send setup link" on their row later. Until a password is set they can\'t sign in.'}
           </p>
           {!values.sendWelcomeEmail && (
@@ -279,8 +304,8 @@ export default function AdminUserForm() {
         {manualLink ? (
           <>
             <p>
-              {manualLink.email} was created. Outbound email is off, so share this setup link with them
-              directly instead:
+              {manualLink.email} was created. Nothing was emailed (email isn't set up on this site), so share
+              this setup link with them yourself:
             </p>
             <ManualSendNotice recipients={manualLink} />
             <div style={{ marginTop: "1rem" }}>

@@ -6,6 +6,7 @@ const { requireFeature } = require("../middleware/requireFeature");
 const { hashToken, isAcceptingAnswers, MAX_CHOICES } = require("../utils/surveys");
 const { saveSurveyAnswers, saveSurveyPhoto } = require("../utils/surveyResponses");
 const { loadMenuForPartner } = require("../utils/surveySupport");
+const { pageQuestion } = require("../utils/surveyFields");
 
 // #419: a partner answers a survey through their personal link, with no account. The link's token
 // is the only credential: it is stored as a hash, expires, is bound to one survey and one partner,
@@ -56,14 +57,20 @@ router.get("/:token", async (req, res, next) => {
       title: invite.survey.title,
       intro: invite.survey.intro,
       submitted: Boolean(response?.submittedAt),
-      questions: invite.survey.questions.map((q) => ({
-        id: q.id,
-        kind: q.kind,
-        label: q.label,
-        choices: q.choices,
-        allowOther: q.allowOther,
-        required: q.required,
-      })),
+      questions: invite.survey.questions.map((q) => {
+        const p = pageQuestion(q);
+        return {
+          id: p.id,
+          kind: p.kind,
+          label: p.label,
+          choices: p.choices,
+          allowOther: p.allowOther,
+          required: p.required,
+          inputType: p.inputType,
+          maxLength: p.maxLength,
+          labels: p.labels,
+        };
+      }),
       photos: photos.map((p) => p.questionId).filter(Boolean),
       answers: (response?.answers || [])
         .filter((a) => a.questionId)
@@ -120,7 +127,7 @@ uploadRouter.post("/:token/:questionId", async (req, res, next) => {
     const invite = await loadInvite(req.params.token);
     if (!invite) return res.status(404).json(NOT_AVAILABLE);
     const { contentType, data } = z
-      .object({ contentType: z.string().max(40), data: z.string().max(7 * 1024 * 1024) })
+      .object({ contentType: z.string().max(40), data: z.string().max(24 * 1024 * 1024) })
       .parse(req.body);
     const result = await saveSurveyPhoto({
       survey: invite.survey,

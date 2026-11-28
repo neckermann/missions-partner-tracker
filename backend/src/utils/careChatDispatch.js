@@ -1,11 +1,11 @@
 // The partner care posts for the church's chat (GroupMe / WhatsApp): a coming key date, a partner nobody has
-// heard from, and news waiting to be passed on. A daily run (its own cron in the worker) records each as a
+// heard from, and news waiting to be passed on. A daily run (its own cron among the scheduled jobs) records each as a
 // DispatchRecord, and the chat passes post it at the shared chat hour like a prayer request or a need.
 //
 // Opt-in per type (ChurchSettings.chatDispatchKeyDates / QuietPartners / UpdatesToPass, all off by default),
 // and recorded only when a chat channel is on to take it, so Pending Dispatches never fills with posts nobody
 // will send. CareChatPost makes each occurrence post once. Never on a public demo (a scheduled send).
-const cron = require("node-cron");
+const cron = require("./pausableCron");
 const prisma = require("../prismaClient");
 const { isFeatureEnabled } = require("./features");
 const { isDemoInstance } = require("./demoMode");
@@ -14,6 +14,7 @@ const { loadOpenKeyDates } = require("./keyDateQueries");
 const { loadUpdatesToPassOn } = require("./contactLogQueries");
 const { careTimings } = require("./careSettings");
 const { toUtcDay, daysBetween } = require("../reporting/definitions");
+const { churchToday } = require("./today");
 
 // A first run on a church with many quiet partners posts a few a day, not all at once.
 const QUIET_POSTS_PER_RUN = 5;
@@ -77,7 +78,7 @@ async function recordQuietPartners(today) {
   const [partners, lastByPartner, seen] = await Promise.all([
     prisma.partner.findMany({
       where: { archived: false },
-      select: { id: true, displayName: true, createdAt: true },
+      select: { id: true, displayName: true, createdAt: true, contactSnoozedUntil: true },
     }),
     prisma.contactLog.groupBy({ by: ["partnerId"], _max: { contactDate: true } }),
     alreadyPosted("quietPartner"),
@@ -86,6 +87,7 @@ async function recordQuietPartners(today) {
   // A never-contacted partner's quiet clock starts when they were added, so adding someone isn't an instant nudge.
   const quiet = partners
     .map((p) => ({ partner: p, lastContact: last.get(p.id) || null, since: last.get(p.id) || p.createdAt }))
+    .filter((q) => !(q.partner.contactSnoozedUntil && today < q.partner.contactSnoozedUntil))
     .filter((q) => daysBetween(today, q.since) >= contactStaleDays)
     .filter((q) => !seen.has(markerKey(q.partner.id, "quietPartner", "quiet", q.since, 0)))
     .sort((a, b) => a.since - b.since)
@@ -123,7 +125,7 @@ async function recordUpdatesToPassOn(today) {
 }
 
 // `today` is injectable so a run is testable. Returns how many posts were recorded per type.
-async function recordCareChatDispatches({ today = new Date() } = {}) {
+async function recordCareChatDispatches({ today = churchToday() } = {}) {
   const none = { keyDateComing: 0, quietPartner: 0, updateToPassOn: 0 };
   if (await isDemoInstance()) return none;
   const settings = await prisma.churchSettings.findUnique({ where: { id: "singleton" } });

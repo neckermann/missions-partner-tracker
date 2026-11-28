@@ -3,7 +3,8 @@
 const { matchesFileSignature } = require("./fileSignature");
 
 const PHOTO_CONTENT_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
-const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
+// The browser shrinks a photo before sending it (frontend/src/utils/prepareImage.js), so this is the safety net.
+const MAX_PHOTO_BYTES = 15 * 1024 * 1024;
 
 // `photo` is a base64 data URL ("data:image/png;base64,...."), like the e-signature
 // canvas. The decoded bytes are verified against the declared type: the
@@ -12,7 +13,7 @@ function decodePhotoDataUrl(photo, photoContentType) {
   const base64 = photo.replace(/^data:image\/\w+;base64,/, "");
   const bytes = Buffer.from(base64, "base64");
   if (bytes.length > MAX_PHOTO_BYTES) {
-    throw Object.assign(new Error("Photo is too large (5MB max)"), { status: 400 });
+    throw Object.assign(new Error("That photo is too large (15 MB at most)"), { status: 400 });
   }
   if (!PHOTO_CONTENT_TYPES.has(photoContentType) || !matchesFileSignature(bytes, photoContentType)) {
     throw Object.assign(new Error("Photo must be a JPEG, PNG, or WebP image"), { status: 400 });

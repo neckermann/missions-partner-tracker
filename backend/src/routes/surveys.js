@@ -1,4 +1,5 @@
 const express = require("express");
+const { isOutboundEmailReady } = require("../utils/emailReady");
 const { z } = require("zod");
 const prisma = require("../prismaClient");
 const { requireAuth, requireRole } = require("../middleware/requireAuth");
@@ -21,7 +22,7 @@ const {
   surveyEmailFor,
   shapeQuestion,
 } = require("../utils/surveys");
-const { listFields } = require("../utils/surveyFields");
+const { listFields, pageQuestion } = require("../utils/surveyFields");
 
 // #419: partner surveys. Gated by the `surveys` feature (404 when off, data kept). A church builds surveys; a person sends each chosen partner a personal link
 // (see publicSurveys.js for the partner's side); staff or a care team member can also fill one in
@@ -151,7 +152,7 @@ router.get("/partner/:partnerId", async (req, res, next) => {
         title: s.title,
         intro: s.intro,
         status: s.status,
-        questions: s.questions,
+        questions: s.questions.map(pageQuestion),
         response: byId.get(s.id) || null,
         invite: inviteBy.get(s.id) || null,
       })),
@@ -381,8 +382,11 @@ router.post("/:id/send", manage, async (req, res, next) => {
     if (!survey) return res.status(404).json({ error: "Not found" });
     if (survey.status !== "open") return res.status(400).json({ error: "Open the survey before sending it" });
     const settings = await prisma.churchSettings.findUnique({ where: { id: "singleton" } });
-    if (!isFeatureEnabled(settings?.enabledFeatures, "outboundEmail")) {
-      return res.status(400).json({ error: "Turn on Email (Sending) to send survey links" });
+    if (!isOutboundEmailReady(settings)) {
+      return res.status(400).json({
+        error:
+          "Email (Sending) isn't finished setting up, so survey links can't be emailed. Finish it in Settings, or copy the links yourself.",
+      });
     }
     if (!buildSurveyUrl("probe")) {
       return res.status(400).json({ error: "APP_BASE_URL isn't set, so a link can't be built" });
@@ -528,7 +532,11 @@ router.get("/:id/responses", manage, async (req, res, next) => {
       orderBy: { updatedAt: "desc" },
     });
     const hasSupport = survey.questions.some((q) => q.kind === "support");
-    res.json({ survey, responses, supportMenu: hasSupport ? await loadMenuForPartner() : [] });
+    res.json({
+      survey: { ...survey, questions: survey.questions.map(pageQuestion) },
+      responses,
+      supportMenu: hasSupport ? await loadMenuForPartner() : [],
+    });
   } catch (err) {
     next(err);
   }

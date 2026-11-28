@@ -61,8 +61,8 @@ const prayerRequests = {
       type: "select",
       options: [
         { value: "all", label: "All" },
-        { value: "strategic", label: "Strategic" },
-        { value: "situational", label: "Situational" },
+        { value: "strategic", label: "Ministry" },
+        { value: "situational", label: "Everyday" },
       ],
     },
     { name: "urgentOnly", label: "Urgent only", type: "checkbox" },
@@ -177,6 +177,7 @@ const needsPipeline = {
     { key: "partnerName", label: "Partner" },
     { key: "description", label: "Need", sensitive: true },
     { key: "decision", label: "Decision" },
+    { key: "handling", label: "Where it stands", sensitive: true },
     { key: "requested", label: "Requested ($)", type: "currency" },
     { key: "approved", label: "Approved ($)", type: "currency" },
     { key: "requestDate", label: "Requested", type: "date" },
@@ -205,6 +206,8 @@ const needsPipeline = {
         approvedAmount: true,
         requestDate: true,
         approvedDate: true,
+        handledBy: true,
+        metDate: true,
         isUrgent: true,
         partner: { select: { displayName: true, isRestricted: true } },
       },
@@ -221,6 +224,7 @@ const needsPipeline = {
         partnerName: n.partner.displayName,
         description: n.description,
         decision,
+        handling: n.metDate ? "Met" : n.handledBy ? `Someone's on it: ${n.handledBy}` : "",
         requested: n.requestedAmount,
         approved: n.approvedAmount,
         requestDate: ymd(n.requestDate),
@@ -257,6 +261,7 @@ const needsPipeline = {
       ],
       notes: [
         "Approved amount blank means undecided; $0 means declined; less than requested means partially funded.",
+        "Where it stands is separate from the decision: a need can be met, or have someone on it, with no decision recorded.",
       ],
     };
   },

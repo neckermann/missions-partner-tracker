@@ -1,15 +1,14 @@
 const express = require("express");
 const jwt = require("jsonwebtoken");
 const prisma = require("../prismaClient");
-const { requireFeature } = require("../middleware/requireFeature");
-const { renderSubscriberPage, escapeHtml } = require("../utils/subscriberPage");
+const { renderSubscriberPage, escapeHtml, UNSUBSCRIBED_LINE } = require("../utils/subscriberPage");
 
 const router = express.Router();
 
 // GET /api/public/unsubscribe?token= -- a sibling of publicSubscribe.js so it stays reachable from
-// an old email however subscribe is mounted. Public, no login. Gated on publicPrayerDigest only (as
-// confirm): an existing subscriber can always unsubscribe.
-router.use(requireFeature(["publicPrayerDigest"]));
+// an old email however subscribe is mounted. Public, no login. Deliberately behind no feature switch:
+// the link in an email already sent has to keep working, and keep showing a page, after the church
+// turns the public prayer digest or the public directory off. Do not add requireFeature here.
 
 function verifySubscriberUnsubscribeToken(token) {
   let decoded;
@@ -46,7 +45,7 @@ router.post("/", express.urlencoded({ extended: false }), async (req, res) => {
   // Deletes the row outright, not a flag: no lingering address after an explicit opt-out. Cascades
   // PublicSubscriberPartner. deleteMany so a stale id degrades gracefully instead of throwing.
   await prisma.publicSubscriber.deleteMany({ where: { id: decoded.id } });
-  res.send(await renderSubscriberPage("You've been unsubscribed from prayer updates."));
+  res.send(await renderSubscriberPage("You've been unsubscribed from prayer updates.", UNSUBSCRIBED_LINE));
 });
 
 module.exports = router;

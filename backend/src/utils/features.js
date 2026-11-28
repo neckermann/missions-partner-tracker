@@ -18,22 +18,23 @@ const FEATURES = {
   publicDirectory: {
     label: "Public directory",
     description:
-      'The public list/search view at the site\'s root ("/"). Turning this off shows a private-instance message there instead.',
-    defaultEnabled: true,
+      'The public list/search view at the site\'s root ("/"). Off by default: a new install publishes nothing until the church chooses to (one question after the first sign-in, or Settings → Privacy and Safety). Off shows a private-instance message there instead.',
+    defaultEnabled: false,
     group: "public",
   },
   publicMap: {
     label: "Public map",
     description:
       'The public map view ("/map"). Turning this off shows a private-instance message there instead.',
-    defaultEnabled: true,
+    defaultEnabled: false,
     group: "public",
   },
   partnerFiles: {
     label: "Newsletters & Docs",
     description:
       "Newsletters and documents (survey responses, signed policies, etc.) on missionary/organization pages and their own admin section.",
-    withoutEmail: "New newsletters wait on Pending Dispatches, where you can copy what is ready to share.",
+    withoutEmail:
+      "New newsletters wait on Updates to Share (it appears once GroupMe, WhatsApp or Email sending is on), where you can copy what is ready to share. With none of those on, nothing is queued.",
     defaultEnabled: true,
     group: "admin",
   },
@@ -41,7 +42,8 @@ const FEATURES = {
     label: "Prayer requests",
     description:
       "The Prayer Requests admin section, and the prayer request list on missionary/organization pages.",
-    withoutEmail: "New requests wait on Pending Dispatches, where you can copy what is ready to share.",
+    withoutEmail:
+      "New requests wait on Updates to Share (it appears once GroupMe, WhatsApp or Email sending is on), where you can copy what is ready to share. With none of those on, nothing is queued.",
     defaultEnabled: true,
     group: "admin",
   },
@@ -49,7 +51,8 @@ const FEATURES = {
     label: "One-time needs",
     description:
       "The One-Time Needs admin section, and the one-time needs list on missionary/organization pages.",
-    withoutEmail: "New needs wait on Pending Dispatches, where you can copy what is ready to share.",
+    withoutEmail:
+      "New needs wait on Updates to Share (it appears once GroupMe, WhatsApp or Email sending is on), where you can copy what is ready to share. With none of those on, nothing is queued.",
     defaultEnabled: true,
     group: "admin",
   },
@@ -109,13 +112,14 @@ const FEATURES = {
   },
   inboundEmail: {
     label: "Email (Receiving)",
-    description: "Receive email through a configured Postmark account, matched to partners automatically.",
+    description:
+      "Receive email through a configured Postmark account, held for a quick review, then assigned to the partner.",
     defaultEnabled: false,
     group: "admin",
     section: "communications",
   },
   groupme: {
-    label: "GroupMe dispatch",
+    label: "Post updates to GroupMe",
     description:
       "Post new prayer requests, one-time needs, and newsletters to their own configured GroupMe Topics as they're added.",
     defaultEnabled: false,
@@ -123,7 +127,7 @@ const FEATURES = {
     section: "communications",
   },
   whatsapp: {
-    label: "WhatsApp dispatch",
+    label: "Post updates to WhatsApp",
     description:
       "Post new prayer requests, one-time needs, and newsletters to their own configured WhatsApp community groups, on the same daily schedule as GroupMe. Uses a dedicated WhatsApp number linked to this app -- an unofficial connection, so see the Admin Guide before turning it on.",
     defaultEnabled: false,
@@ -147,12 +151,12 @@ const FEATURES = {
   // A lead plus members per partner who keep in touch with it. Terms are fixed
   // defaults, not ChurchSettings fields. Off by default.
   // A log of every touchpoint with a partner, a contact card, a "My partners" view
-  // and a "needs reaching out" alert. Off by default.
+  // and a "needs reaching out" alert. On by default (the core of keeping in touch).
   contactLog: {
     label: "Contact log",
     description:
       "Record every call, text, email, visit or card with a partner, show a contact card on each partner page, flag partners nobody has been in touch with lately, and add an My partners view for care team members.",
-    defaultEnabled: false,
+    defaultEnabled: true,
     group: "admin",
   },
   // A bell alert and grouped daily email for a care team when a birthday,
@@ -163,7 +167,7 @@ const FEATURES = {
     description:
       "Remind whoever looks after each partner (its care team if it has one, otherwise your missions team) about coming birthdays (including children), anniversaries and supported-since milestones: on the bell, and in one grouped email a day that is sent only on days something is due. The email needs Email (Sending).",
     withoutEmail: "My partners shows what the daily email would have said, with Copy this week's list.",
-    defaultEnabled: false,
+    defaultEnabled: true,
     group: "admin",
   },
   careTeam: {
@@ -178,7 +182,7 @@ const FEATURES = {
   supportPreferences: {
     label: "Support preferences",
     description:
-      "Let each partner choose how the church can support them (a menu you edit under Settings, such as housing while home, airport pick-up, prayer, care packages), shown as a card on the partner's page and recorded by staff or the people who look after them. Never shown publicly, in the booklet or in dispatches.",
+      "Let each partner choose how the church can support them (a menu you edit under Settings, such as housing while home, airport pick-up, prayer, care packages), shown as a card on the partner's page and recorded by staff or the people who look after them. Never shown publicly, in the booklet or in the update posts and emails.",
     defaultEnabled: false,
     group: "admin",
   },
@@ -187,15 +191,15 @@ const FEATURES = {
   surveys: {
     label: "Partner surveys",
     description:
-      "Build short surveys (a check-in, an annual update, a poll) and send each partner a personal link to answer, or fill one in for them after a conversation. Answers show on the partner's page for staff (and their care team, when Care teams is on) only, never publicly, in the booklet or in dispatches. A person starts every send; the app never emails a partner on its own. Sending the links needs Email (Sending).",
+      "Build short surveys (a check-in, an annual update, a poll) and send each partner a personal link to answer, or fill one in for them after a conversation. Answers show on the partner's page for staff (and their care team, when Care teams is on) only, never publicly, in the booklet or in the update posts and emails. A person starts every send; the app never emails a partner on its own. Sending the links needs Email (Sending).",
     withoutEmail: "Sending a survey gives you each partner's link to copy (Get link).",
     defaultEnabled: false,
     group: "admin",
   },
   auditTrail: {
-    label: "Audit log",
+    label: "Audit Log",
     description:
-      "On by default. Records who did what and when for sensitive actions (sign-ins with their IP address, role and access changes, settings changes, deletes, backups, views of restricted partners), with an admin-only Audit log page and CSV export. Events are kept for the retention window set under Audit log (30, 60 or 90 days); who last edited a record is kept for good.",
+      "On by default. Records who did what and when for sensitive actions (sign-ins with their IP address, role and access changes, settings changes, deletes, backups, views of restricted partners), with an admin-only Audit Log page and CSV export. Events are kept for the retention window set under Audit Log (30, 60 or 90 days); who last edited a record is kept for good.",
     defaultEnabled: true,
     group: "admin",
   },
@@ -213,7 +217,7 @@ const FEATURES = {
   joshuaProject: {
     label: "Joshua Project stats",
     description:
-      "Show country-level unreached-people-group statistics on a partner's page. Turning this on after partners already exist? The Country Code (FIPS) field on Serving Location only appears once this is on, so existing partners won't have a code yet -- open each one's Serving Location and either enter it manually or clear and re-enter the Country field to trigger the auto-lookup.",
+      "Show country-level unreached-people-group statistics on a partner's page. Turning this on after partners already exist? Each partner needs a country code for this to work, and that field only appears once this is on, so existing partners won't have one yet -- open each partner's Serving Location and re-enter the Country to fill it in.",
     defaultEnabled: false,
     group: "admin",
     section: "integrations",

@@ -1,12 +1,12 @@
 import { test, expect } from "@playwright/test";
 import { login, setFeatures, restoreFeatures } from "./helpers.js";
 
-// Every prayer request/one-time need/newsletter creation records a DispatchRecord, whether or
-// not a channel is enabled (see dispatchRecording.js), so creating one here is a deterministic
+// Every prayer request/one-time need/newsletter creation records a DispatchRecord while some
+// channel is enabled (see dispatchRecording.js), so creating one here is a deterministic
 // way to get a real row onto this page without seeding or mocking.
 let previousFeatures;
 
-test.describe("Pending Dispatches", () => {
+test.describe("Updates to Share", () => {
   test.afterAll(async ({ browser }) => {
     const context = await browser.newContext();
     const page = await context.newPage();
@@ -21,7 +21,7 @@ test.describe("Pending Dispatches", () => {
     await login(page);
 
     // The page (RequireAdminFeature in main.jsx) needs at least one of
-    // groupme/whatsapp/outboundEmail on, even though recording never depends on a channel.
+    // groupme/whatsapp/outboundEmail on, and recording needs one too.
     // setFeatures (helpers.js) merges into the stored flags.
     previousFeatures = await setFeatures(page.request, { outboundEmail: true });
 
@@ -38,7 +38,7 @@ test.describe("Pending Dispatches", () => {
     const card = page.locator(".partner-summary-card", { hasText: "Prayer Requests" });
     await card.locator("button", { hasText: "+ Add" }).click();
     await page.selectOption(".modal-panel select", {
-      label: "Strategic (ministry vision/calling — can be shared publicly)",
+      label: "Ministry (their work and calling — can be shared publicly)",
     });
     await page.fill(".modal-panel textarea", uniqueText);
     await page.click('.modal-panel button[type="submit"]');
@@ -46,7 +46,7 @@ test.describe("Pending Dispatches", () => {
     await expect(card).toContainText(uniqueText);
 
     await page.goto("/admin/pending-dispatches");
-    await page.waitForSelector("h2:has-text('Pending Dispatches')");
+    await page.waitForSelector("h2:has-text('Updates to Share')");
 
     // Confirms the real request text reached the queue (not a placeholder) and that its row shows
     // the right partner; the page is a shared <Table>, grouped by partner via row ordering

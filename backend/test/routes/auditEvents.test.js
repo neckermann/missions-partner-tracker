@@ -1,4 +1,4 @@
-// The audit trail end to end: the real routes write the entries the Audit log page reads.
+// The audit trail end to end: the real routes write the entries the Audit Log page reads.
 // Covers sign-in (success and failure, never leaking a reason to the caller), account changes,
 // trip access, care teams, settings (secrets noted as changed, never stored), feature toggles,
 // partner/trip deletes, backups and restricted-partner views.
@@ -14,6 +14,7 @@ const {
   removeTestUsers,
   removeFixturePartners,
   FIXTURE_TAG,
+  TEST_PASSWORD,
 } = require("./helpers");
 
 let admin;
@@ -294,9 +295,15 @@ describe("audit trail events", () => {
     assert.equal(p.actorUserId, adminRow.id);
   });
 
-  test("a backup download is logged", async () => {
-    assert.equal((await admin("/api/backups/download")).status, 200);
-    assert.equal((await log({ action: "backup.downloaded" })).length, 1);
+  test("a backup download is logged, noting a passphrase; a wrong password is logged as refused", async () => {
+    const post = (body) => admin("/api/backups/download", { method: "POST", body });
+    assert.equal((await post({ password: TEST_PASSWORD })).status, 200);
+    assert.equal((await post({ password: TEST_PASSWORD, passphrase: "correct horse battery" })).status, 200);
+    assert.equal((await post({ password: "nope" })).status, 401);
+    const downloads = await log({ action: "backup.downloaded" });
+    assert.equal(downloads.length, 2);
+    assert.deepEqual(downloads.map((d) => d.details?.passphraseProtected).sort(), [false, true]);
+    assert.equal((await log({ action: "backup.download_refused" })).length, 1);
   });
 
   test("restricting a partner is logged, and viewing one is logged once a day", async () => {

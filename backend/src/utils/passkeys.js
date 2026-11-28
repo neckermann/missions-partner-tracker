@@ -32,6 +32,28 @@ function relyingParty(req) {
   return { rpID, origins, rpName: process.env.MFA_ISSUER || "Missions Partner Tracker" };
 }
 
+// The site's configured address (APP_BASE_URL, else Render's own), or null when none is set (local dev, tests).
+function configuredOrigin() {
+  const base = (process.env.APP_BASE_URL || process.env.RENDER_EXTERNAL_URL || "").replace(/\/+$/, "");
+  try {
+    return base ? new URL(base).origin : null;
+  } catch {
+    return null;
+  }
+}
+
+// A passkey only works at the one address the site is configured for. When the browser is at another one (www
+// vs the bare domain, the old onrender.com address after a custom domain was added), say so in plain words
+// instead of a bare "couldn't be verified". Depends only on the request's own address, never on who is signing
+// in, so it tells a caller nothing about any account. Returns a sentence, or null when the address is right (or
+// the browser sent none, or no address is configured).
+function wrongAddressMessage(req) {
+  const configured = configuredOrigin();
+  const seen = req.get("origin");
+  if (!configured || !seen || seen === configured) return null;
+  return `Passkeys only work at ${configured}, and you are at ${seen}. Open the site at ${configured} and try again. If that is the wrong address, whoever runs the site needs to update APP_BASE_URL.`;
+}
+
 // The challenge travels to the browser and back in a signed token, so nothing is
 // stored up front. `purpose` keeps a registration challenge from being spent as a
 // sign-in one. A token is accepted once: its id is recorded (SpentPasskeyChallenge)
@@ -72,4 +94,13 @@ async function consumeChallenge(token, { purpose, userId }) {
 const toB64u = (buf) => Buffer.from(buf).toString("base64url");
 const fromB64u = (s) => new Uint8Array(Buffer.from(String(s), "base64url"));
 
-module.exports = { MAX_PASSKEYS, relyingParty, signChallenge, consumeChallenge, toB64u, fromB64u };
+module.exports = {
+  configuredOrigin,
+  wrongAddressMessage,
+  MAX_PASSKEYS,
+  relyingParty,
+  signChallenge,
+  consumeChallenge,
+  toB64u,
+  fromB64u,
+};

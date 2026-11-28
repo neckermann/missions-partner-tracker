@@ -7,10 +7,14 @@ const { DIGEST_RECIPIENT_ROLES } = require("./digestRoles");
 const { resolveDigestScope, digestCovers } = require("./digestScope");
 const { isFeatureEnabled } = require("./features");
 const { CHANNELS, isEligibleForChannel, needsReview, getChurchSettings } = require("./dispatchEligibility");
+const { isEverydayPrayer } = require("./dispatchBlurbs");
 const { postToGroupMe } = require("./groupmeChannel");
 const { postToWhatsApp, hasWhatsAppTarget } = require("./whatsappChannel");
 const whatsappClient = require("./whatsappClient");
 const { normalizeRecipient, sendToRecipients } = require("./emailDispatchDelivery");
+
+// Unsent rows no channel applies to are deleted after this long.
+const UNSENT_EXPIRY_MS = 14 * 24 * 60 * 60 * 1000;
 
 const TIERS = ["biweekly", "monthly", "quarterly"];
 const TIER_STAMP_COLUMN = {
@@ -70,6 +74,8 @@ async function clearDispatchRecords() {
 
   const clearableIds = rows
     .filter((row) => {
+      // Never sendable, so nothing is waiting on it: drop it now rather than after the grace period.
+      if (isEverydayPrayer(row)) return true;
       const partner = partnerById.get(row.partnerId);
       if (needsReview(row, partner)) return false;
 
@@ -84,9 +90,12 @@ async function clearDispatchRecords() {
         isEligibleForChannel(row, CHANNELS.WHATSAPP, partner, settings, true);
       const tiers = Object.fromEntries(TIERS.map((tier) => [tier, tierApplies(row, tier, partner)]));
 
-      // Guards the vacuous case: with every channel off, every "!applies" term is
-      // trivially true and would delete a row that never reached anyone.
-      if (!(groupmeApplies || whatsappApplies || Object.values(tiers).some(Boolean))) return false;
+      // The vacuous case: with nothing applying, every "!applies" term is trivially true, so the
+      // row cannot be judged "fully sent". Keep it for a grace period (a channel may be switched
+      // on soon), then drop it so it can't pile up and post all at once much later.
+      if (!(groupmeApplies || whatsappApplies || Object.values(tiers).some(Boolean))) {
+        return row.createdAt < new Date(Date.now() - UNSENT_EXPIRY_MS);
+      }
 
       return (
         (!groupmeApplies || row.groupmeDispatchedAt) &&
@@ -200,6 +209,10 @@ async function sendWhatsAppUrgent(row, partner, partnerById, settings, now) {
 // Re-fetches isRestricted/isPublic by id rather than trusting the caller's
 // partner shape, which lacks these safety-critical fields.
 async function sendUrgentDispatch(row, { id: partnerId }) {
+  // Belt and braces: every channel below refuses it too (dispatchEligibility.js Rule 0).
+  if (isEverydayPrayer(row)) {
+    return { groupmePosted: false, whatsappPosted: false, emailSent: false, adminCount: 0, publicCount: 0 };
+  }
   const [settings, partner] = await Promise.all([
     getChurchSettings(),
     prisma.partner.findUnique({
@@ -260,9 +273,11 @@ async function sendUrgentDispatch(row, { id: partnerId }) {
       ...adminRecipients,
       ...publicSubscribers.map((s) => normalizeRecipient(s, CHANNELS.EMAIL_PUBLIC)),
     ];
-    const consideredIds = await sendToRecipients([row], partnerById, recipients, settings);
-    emailSent = consideredIds.has(row.id);
+    const { deliveredIds, failedIds } = await sendToRecipients([row], partnerById, recipients, settings);
+    emailSent = deliveredIds.has(row.id);
 
+    // Only a row that reached someone is stamped as sent (a failed send leaves it for the next scheduled
+    // digest), and its error note is kept if any recipient's send failed.
     if (emailSent) {
       await prisma.dispatchRecord.update({
         where: { id: row.id },
@@ -270,7 +285,7 @@ async function sendUrgentDispatch(row, { id: partnerId }) {
           biweeklyEmailDispatchSentAt: now,
           monthlyEmailDispatchSentAt: now,
           quarterlyEmailDispatchSentAt: now,
-          emailError: null,
+          ...(failedIds.has(row.id) ? {} : { emailError: null }),
         },
       });
     }

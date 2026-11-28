@@ -1,15 +1,15 @@
 // What makes a deployment a public demo, and what a demo never does. DEMO_RESET_TOKEN
 // is never set on a real deployment (publicSettings.js and server.js key off it too).
 
-// True on a public demo deployment. Only the web service has the variable; use isDemoInstance()
-// anywhere that can run in the separate worker process (the schedules).
+// True on a public demo deployment (the environment variable, which the web process, and so the scheduled
+// jobs that run inside it, has). isDemoInstance() also recognises a demo by its database.
 function isDemoDeployment() {
   return Boolean(process.env.DEMO_RESET_TOKEN);
 }
 
 // True when this database is a public demo: the variable above, or the `demoMode` flag the demo
-// reset writes to the settings row. The worker runs the schedules and does not get the variable,
-// so the flag is what stops its schedules emailing a demo's fake accounts and spending the email plan.
+// reset writes to the settings row. Scheduled sends check this, so a schedule never emails a demo's fake
+// accounts or spends the email plan, even against a database the variable does not describe.
 // Only scheduled sends are skipped: an email a person adds or clicks to send goes out as anywhere else.
 // Read at most once a minute.
 let cachedDemoMode = { at: 0, value: false };
@@ -50,6 +50,35 @@ const DEMO_DISABLED_FEATURES = [];
 // { feature: false } for each, to spread over a feature object.
 const demoDisabledFeatureFlags = () => Object.fromEntries(DEMO_DISABLED_FEATURES.map((k) => [k, false]));
 
+// The owner's own test deployment (the dev demo): a demo that is deliberately NOT guarded. It keeps its real
+// integration keys so the owner can try sends and take screenshots of what can't be seen otherwise, and it
+// publishes no logins. Set DEMO_TESTING_SITE=true only there; never on a demo the public can reach.
+function isTestingSite() {
+  return process.env.DEMO_TESTING_SITE === "true";
+}
+
+// A public demo that anyone can sign in to: it must never send anything that leaves the app, spend the
+// owner's money, or let a visitor change the shared logins or integration settings. Read from the
+// environment at call time.
+function isGuardedDemo() {
+  return isDemoDeployment() && !isTestingSite();
+}
+
+// The same question for the senders, which also recognises a demo by the `demoMode` flag the reset writes,
+// so it holds for any process that reads this database. DEMO_TESTING_SITE (the owner's own test
+// deployment) still turns it off.
+async function isGuardedDemoInstance() {
+  return !isTestingSite() && (await isDemoInstance());
+}
+
+// Route middleware: refuse `what` on a guarded demo, say so plainly.
+function refuseOnGuardedDemo(what) {
+  return (req, res, next) => {
+    if (isGuardedDemo()) return res.status(403).json({ error: `${what} isn't available on the public demo` });
+    next();
+  };
+}
+
 // Adding or removing a sign-in factor normally ends the account's other sessions. On a demo the
 // logins are shared, so that would sign every other visitor out: leave the sessions alone there.
 function endOtherSessions() {
@@ -58,6 +87,10 @@ function endOtherSessions() {
 
 module.exports = {
   isDemoDeployment,
+  isTestingSite,
+  isGuardedDemo,
+  isGuardedDemoInstance,
+  refuseOnGuardedDemo,
   isDemoInstance,
   forgetDemoModeCache,
   endOtherSessions,

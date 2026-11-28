@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { fetchPartners } from "../api/client.js";
+import usePublicSiteChoiceRedirect from "../hooks/usePublicSiteChoiceRedirect.js";
 import { useSettings } from "../context/SettingsContext.jsx";
 import { getRecentlyViewed } from "../hooks/useRecentlyViewed.js";
 import CardGrid from "../components/admin/CardGrid.jsx";
@@ -16,7 +17,6 @@ const CATEGORY_GROUP = {
   surveyUpdatesPending: "Partner Care",
   dispatchSendFailures: "Communications",
   tripsDepartingSoon: "Trips",
-  tripsDepartingSoonIncomplete: "Trips",
   overdueTripRequirements: "Trips",
   tripApplicationsPending: "Trips",
   tripsReadyToWrapUp: "Trips",
@@ -24,6 +24,12 @@ const CATEGORY_GROUP = {
   newPrayerRequests: "Partner Care",
   newOneTimeNeeds: "Partner Care",
   adminMfaDisabled: "System",
+  onlyOneAdmin: "System",
+  emailNotFinished: "System",
+  emailScheduleNotSet: "Communications",
+  groupmeNotFinished: "Communications",
+  whatsappNotFinished: "Communications",
+  chatTimeNotSet: "Communications",
   timeToCheckBackups: "System",
   whatsappConnectionDrop: "System",
 };
@@ -135,13 +141,13 @@ function buildMainSections(partnerLabel, enabledFeatures, isAdmin) {
     },
     (enabledFeatures.groupme || enabledFeatures.whatsapp || enabledFeatures.outboundEmail) && {
       to: "/admin/pending-dispatches",
-      title: "Pending Dispatches",
+      title: "Updates to Share",
       icon: "📨",
       description: "Review and approve GroupMe, WhatsApp, and email sends before they go out.",
     },
     enabledFeatures.inboundEmail && {
       to: "/admin/inbound-email",
-      title: "Unmatched Email",
+      title: "Emails to Sort",
       icon: "📥",
       description: "Inbound emails that couldn't be automatically matched to a partner.",
     },
@@ -171,6 +177,8 @@ export default function AdminHome() {
   const [search, setSearch] = useState("");
   const { partnerTermPlural, usePartnerTermInAdmin, enabledFeatures } = useSettings();
   const { categories } = useNotifications();
+
+  usePublicSiteChoiceRedirect(isAdmin);
   // Categories with a zero count are hidden. Reads the shared registry the bell uses
   // (/api/notifications/summary); don't add a page-level fetch alongside it, the two
   // drifted apart before and a card never cleared.

@@ -26,17 +26,25 @@ Grouped by where they're read, verified directly against
 `backend/src/` — nothing below is inferred.
 
 **Core (required to boot):**
-`DATABASE_URL`, `SESSION_SECRET`
+`DATABASE_URL`, `SESSION_SECRET`, `FIELD_ENCRYPTION_KEY` (two-factor is required from the first
+sign-in and its secrets are encrypted with this key; the server stops at start-up without a
+usable one)
 
-**Core (optional, app degrades gracefully without):**
-`PORT`, `NODE_ENV`, `APP_BASE_URL`, `FIELD_ENCRYPTION_KEY`,
-`NOMINATIM_CONTACT`, `MFA_ISSUER`
+**Needed in practice (the app boots without it, but not usefully):**
+`APP_BASE_URL` (the base of every emailed or shared link; on Render it is picked up
+from `RENDER_EXTERNAL_URL`, but set it yourself for a custom domain, since passkeys are
+tied to the address)
+
+**Core (optional):**
+`PORT`, `NODE_ENV`, `NOMINATIM_CONTACT`, `MFA_ISSUER`, `TRUST_PROXY` (how many proxies
+sit in front of the app; default 1), `BACKGROUND_JOBS`, `SKIP_SCHEMA_CHECK`
 
 **Render-provided automatically:**
-`RENDER_EXTERNAL_URL` (falls back to/aliases `APP_BASE_URL`)
+`RENDER_EXTERNAL_URL` (falls back to/aliases `APP_BASE_URL`), `RENDER_SERVICE_NAME`,
+`RENDER_GIT_COMMIT` (shown on About App)
 
 **Demo mode (only meaningful on the production demo deployment):**
-`DEMO_RESET_TOKEN`, `DEMO_ADMIN_EMAIL`, `DEMO_ADMIN_PASSWORD`, `DEMO_ALLOW_PASSWORDLESS` (private test demo only),
+`DEMO_RESET_TOKEN`, `DEMO_ADMIN_EMAIL`, `DEMO_ADMIN_PASSWORD`, `DEMO_GUEST_PASSWORD`, `DEMO_DATABASE_URL`, `DEV_DEMO_DATABASE_URL` (the remote reset scripts), `DEMO_TESTING_SITE` (private test demo only: real sends, no published logins), `DEMO_ALLOW_PASSWORDLESS` (older, passwordless only),
 `SEED_MISSIONARY_COUNT`, `SEED_ORGANIZATION_COUNT`
 
 **Integrations (set per-instance, restored into `ChurchSettings` on a demo reset):**
@@ -76,11 +84,14 @@ integration (see [CONTRIBUTING.md § The one rule that matters most](CONTRIBUTIN
 
 ## Background jobs
 
-The worker service runs the scheduled jobs, including the nightly **audit log
-prune** (it deletes entries older than the retention setting, 30, 60 or 90
-days). If the worker isn't running, the audit log keeps growing until it is;
-nothing breaks. The audit log is on by default and records sign-in IP
+The web service runs the scheduled jobs (`backend/src/utils/backgroundJobs.js`),
+including the nightly **audit log prune** (it deletes entries older than the
+retention setting, 30, 60 or 90 days). There is no separate worker service.
+They run only in production, or with `BACKGROUND_JOBS=on`; if they are off the
+audit log keeps growing until they run; nothing breaks. The audit log is on by default and records sign-in IP
 addresses, which matters if you are asked what personal data the app keeps.
+
+A digest or chat post is **due once its scheduled day and hour has passed without a send**, not only while the clock reads that exact hour. If the service was down or restarting at the scheduled hour, the send goes out as soon as it is back (the same day for daily and weekly sends, and later in the month for a monthly or quarterly one), and only once per cycle. A schedule that has never sent waits for its next slot rather than firing the moment it is configured. On a clock-change day with no 2am, a 2am send goes out at 3am.
 
 ## Deploy / rollback
 
@@ -111,22 +122,20 @@ Applies to **either** Render service independently — fixing it on the
 demo doesn't fix dev-test, and vice versa; both need their own reset
 if both received the squashed migration.
 
-**A squashed-migration deploy reports `live`, but the schema never
-actually changed.** A worse variant of the failure above, not just a
-milder one — confirmed directly against dev-test after merging #252:
-the deploy went `live` with no error at all, yet the database was
-still missing every new table the squash was supposed to add. This
-project's squash convention reuses the *original* init migration's own
-name/timestamp (see `CONTRIBUTING.md`'s migration-squash steps), so an
-environment that already has that exact migration name recorded in its
-own `_prisma_migrations` history can have `prisma migrate deploy` treat
-it as already-applied and skip running its SQL entirely, rather than
-failing loudly — deploy status alone can't be trusted to catch this.
-After *any* squash, verify the live schema directly (e.g. list tables,
-or just check for the new model(s) the squash added) rather than
-assuming a green deploy means the schema actually moved — and when in
-doubt, just run the reset (above) regardless of whether the deploy
-reported success or failure.
+**The new version won't start: "Not starting: This database was built from an
+earlier version of migration …".** This is the start-up schema check
+(`backend/src/utils/schemaCheck.js`) doing its job. Before 1.0 the baseline
+migration is edited in place, so a database that applied the old text keeps the
+same migration name: `prisma migrate deploy` reports "No pending migrations" and
+succeeds, and without this check the deploy would go `live` against the old
+tables (a missing column on the first request). Now the server refuses to start,
+the deploy fails its health check, and Render keeps serving the previous
+version. Fix: reset that database and re-enter or restore its data
+([demo/README.md § Recovering after a migration squash](demo/README.md#recovering-after-a-migration-squash)
+for the demo and dev-test; [UPGRADING.md](UPGRADING.md) for a church's own
+install). A message saying a migration "has not been applied" means
+`prisma migrate deploy` did not run first. Only if you are sure the database
+really matches, `SKIP_SCHEMA_CHECK=true` skips the check.
 
 **A branch you expected to still exist is gone after a PR merge.** If
 the repo ever has `delete_branch_on_merge` enabled, merging a PR

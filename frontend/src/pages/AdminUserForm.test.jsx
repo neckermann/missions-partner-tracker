@@ -11,6 +11,7 @@ import { createUser } from "../api/client.js";
 // for a guest.
 vi.mock("../api/client.js", () => ({
   createUser: vi.fn(),
+  fetchCurrentUser: vi.fn().mockResolvedValue({ id: "a", role: "admin", emailReady: true }),
   fetchTrips: vi.fn().mockResolvedValue([]),
   fetchReachablePartners: vi
     .fn()

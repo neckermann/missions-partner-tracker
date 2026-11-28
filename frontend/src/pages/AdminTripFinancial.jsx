@@ -6,7 +6,7 @@ import {
   updateTripBudgetLine,
   deleteTripBudgetLine,
 } from "../api/client.js";
-import { formatDate } from "../utils/format.js";
+import { formatDate, formatCurrency, currencySymbol } from "../utils/format.js";
 import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
 import { mapServerErrorMessage } from "../utils/friendlyError.js";
 import RecordList from "../components/admin/RecordList.jsx";
@@ -120,7 +120,7 @@ export default function AdminTripFinancial() {
           renderItem={(b) => (
             <>
               <Field label="Line item" value={b.label} />
-              <Field label="Estimated" value={`$${b.estimatedAmount}`} />
+              <Field label="Estimated" value={formatCurrency(b.estimatedAmount)} />
             </>
           )}
         />
@@ -134,7 +134,7 @@ export default function AdminTripFinancial() {
       </div>
 
       <div className="admin-section">
-        <h3>Contributions ({`$${raised} raised`})</h3>
+        <h3>Contributions ({`${formatCurrency(raised)} raised`})</h3>
         {/* table-scroll: on a phone the table scrolls sideways inside its section instead of
             widening the whole page. */}
         <div className="table-scroll">
@@ -188,7 +188,7 @@ export default function AdminTripFinancial() {
               />
             </label>
             <label>
-              Amount ($)
+              Amount ({currencySymbol()})
               <input
                 type="number"
                 value={newContribution.amount}
@@ -239,7 +239,7 @@ export default function AdminTripFinancial() {
               />
             </label>
             <label>
-              Estimated amount ($)
+              Estimated amount ({currencySymbol()})
               <input
                 type="number"
                 value={lineModal.form.estimatedAmount}

@@ -40,6 +40,7 @@ export default function AdminSettingsEmail() {
       ...(draft.webhookUsername?.trim() ? { webhookUsername: draft.webhookUsername.trim() } : {}),
       ...(draft.webhookPassword?.trim() ? { webhookPassword: draft.webhookPassword.trim() } : {}),
       inboundEmailAddress: draft.inboundEmailAddress?.trim() || null,
+      skipReview: draft.skipReview,
     });
     setSettings(updated);
     // The sidebar's Email link and the "Unmatched Emails" nav depend on receiveEnabled (see refreshSettings).
@@ -107,7 +108,8 @@ export default function AdminSettingsEmail() {
               type="button"
               className="btn secondary small"
               onClick={handleTestSend}
-              disabled={testing || !settings.outboundConfigured}
+              disabled={testing || !settings.sendEnabled || !settings.outboundConfigured}
+              title={!settings.sendEnabled ? "Turn sending on first" : undefined}
             >
               {testing ? "Sending..." : "Send Test Email"}
             </button>
@@ -119,7 +121,19 @@ export default function AdminSettingsEmail() {
               <strong>{v.sendEnabled ? "Enabled" : "Disabled"}</strong>
               {settings.outboundConfigured ? " · Configured" : " · Not configured"}
             </p>
+            {v.sendEnabled && !settings.outboundConfigured && (
+              <p role="status" style={{ color: "var(--warn)" }}>
+                Email isn't finished setting up. Until a mail account and From address are saved below,
+                nothing is emailed: the app shows a link to copy instead (new users, setup links) and the
+                public Subscribe form says it isn't available.
+              </p>
+            )}
             <p style={{ color: "var(--muted)" }}>From: {v.fromAddress || "Not set"}</p>
+            {!v.sendEnabled && settings.outboundConfigured && (
+              <p style={{ color: "var(--muted)" }}>
+                Sending is switched off, so a test email can't be sent. Turn sending on to try one.
+              </p>
+            )}
             {testResult && <p style={{ color: "var(--muted)" }}>{testResult}</p>}
           </>
         )}
@@ -177,6 +191,7 @@ export default function AdminSettingsEmail() {
             webhookUsername: settings.webhookUsername || "",
             webhookPassword: "",
             inboundEmailAddress: settings.inboundEmailAddress || "",
+            skipReview: settings.skipReview === true,
           }}
           onSave={saveReceive}
           onSaved={reload}
@@ -188,6 +203,11 @@ export default function AdminSettingsEmail() {
               </p>
               <p style={{ color: "var(--muted)" }}>Webhook username: {v.webhookUsername || "Not set"}</p>
               <p style={{ color: "var(--muted)" }}>Inbound address: {v.inboundEmailAddress || "Not set"}</p>
+              <p style={{ color: "var(--muted)" }}>
+                {v.skipReview
+                  ? "Mail from a partner's own address that passes the sender check is filed and announced without review. Everything else waits in Emails to Sort."
+                  : "Every message waits in Emails to Sort until someone files it."}
+              </p>
               <code
                 style={{
                   display: "block",
@@ -213,10 +233,11 @@ export default function AdminSettingsEmail() {
                 </label>
               </div>
               <p style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
-                Lets partners email updates straight into this app — a match against a partner's own email (or
-                any of their household adults') files it as a Newsletter automatically; anything else lands in
-                the <strong>Unmatched Emails</strong> queue. On your Postmark server's Inbound stream Settings
-                tab, check <strong>Include raw email content in JSON payload</strong>, then set the{" "}
+                Lets partners email updates straight into this app — every message waits in the{" "}
+                <strong>Emails to Sort</strong> list until an admin or editor files it (a match against a
+                partner's own email, or any of their household adults', is noted there). On your Postmark
+                server's Inbound stream Settings tab, check{" "}
+                <strong>Include raw email content in JSON payload</strong>, then set the{" "}
                 <strong>Inbound webhook</strong> URL to the address shown below, using the username/password
                 you choose here -- Postmark sends them as HTTP Basic Auth on every request. Pick any dedicated
                 subdomain for partners to send to (never the church's own real inbox).
@@ -231,6 +252,23 @@ export default function AdminSettingsEmail() {
               >
                 https://{"<username>"}:{"<password>"}@{webhookUrl.replace(/^https?:\/\//, "")}
               </code>
+              <div className="admin-checkbox-row" style={{ marginTop: "1rem" }}>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={d.skipReview}
+                    onChange={(e) => set("skipReview", e.target.checked)}
+                  />
+                  File mail from a verified partner without review
+                </label>
+              </div>
+              <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
+                Off by default. When on, a message whose sender address matches exactly one partner{" "}
+                <em>and</em> passes the sender check (SPF or DKIM) is filed as that partner's newsletter and
+                announced straight away, with nobody looking at it first. A sender address can be forged, so
+                leave this off unless you are comfortable with that. Anything that does not match, matches
+                more than one partner, or fails the check still waits in Emails to Sort.
+              </p>
               <label style={{ marginTop: "1rem" }}>
                 Webhook Username
                 <input

@@ -1,6 +1,6 @@
 const express = require("express");
 const prisma = require("../prismaClient");
-const { toPublicPartner } = require("../utils/maskData");
+const { toPublicPartner, MASK_NAME_SELECT } = require("../utils/maskData");
 const { shapeSendingParties } = require("../utils/sendingParty");
 const { requireFeature } = require("../middleware/requireFeature");
 
@@ -37,6 +37,23 @@ async function getRestrictedMaskingSettings() {
   });
 }
 
+// A restricted partner is shown as initials, and for a missionary household those come from its adults. Their names
+// are loaded here, for restricted records only, and used only to make those initials (toPublicPartner never puts
+// an adult in its response; the public tests check that no adult name appears).
+async function withMaskNames(records) {
+  const restricted = records.filter((p) => p?.isRestricted);
+  if (restricted.length === 0) return records;
+  const adults = await prisma.adult.findMany({
+    where: { partnerId: { in: restricted.map((p) => p.id) } },
+    select: { partnerId: true, ...MASK_NAME_SELECT.adults.select },
+  });
+  const byPartner = new Map();
+  for (const adult of adults) {
+    byPartner.set(adult.partnerId, [...(byPartner.get(adult.partnerId) || []), adult]);
+  }
+  return records.map((p) => (p?.isRestricted ? { ...p, adults: byPartner.get(p.id) || [] } : p));
+}
+
 router.get("/", async (req, res, next) => {
   try {
     const where = { isPublic: true, archived: false };
@@ -51,7 +68,7 @@ router.get("/", async (req, res, next) => {
       getRestrictedMaskingSettings(),
     ]);
 
-    const publicList = records
+    const publicList = (await withMaskNames(records))
       .map(shapeSendingParties)
       .map((p) => toPublicPartner(p, settings))
       .filter(Boolean);
@@ -72,7 +89,8 @@ router.get("/:id", async (req, res, next) => {
       getRestrictedMaskingSettings(),
     ]);
 
-    const publicRecord = toPublicPartner(shapeSendingParties(record), settings);
+    const [named] = record ? await withMaskNames([record]) : [record];
+    const publicRecord = toPublicPartner(shapeSendingParties(named), settings);
     if (!publicRecord) return res.status(404).json({ error: "Not found" });
     res.json(publicRecord);
   } catch (err) {

@@ -1,23 +1,43 @@
 const express = require("express");
+const { isOutboundEmailReady, READY_SELECT } = require("../utils/emailReady");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { z } = require("zod");
+const { phoneSchema } = require("../utils/contactFormat");
 const { generateSecret, generateURI, verify: verifyOtp } = require("otplib");
 const QRCode = require("qrcode");
 const prisma = require("../prismaClient");
-const { requireAuth, requireAuthOrMfaSetup } = require("../middleware/requireAuth");
+const { requireAuth, requireAuthAllowPaused, requireAuthOrMfaSetup } = require("../middleware/requireAuth");
 const { setSessionCookie, clearSessionCookie } = require("../utils/jwt");
 const { encryptField, decryptField } = require("../utils/crypto");
 const { appBaseUrl } = require("../utils/dispatchBlurbs");
 const { escapeHtml } = require("../utils/emailDispatchShell");
 const { findValidSetupToken, hashToken, RESET_COOLDOWN_MS } = require("../utils/passwordSetup");
 const { sendWelcomeEmail, sendPasswordResetEmail } = require("../utils/welcomeEmails");
-const { isFeatureEnabled } = require("../utils/features");
-const { listTripGrants, isCareTeamEnabled } = require("../utils/guestAccess");
+const {
+  listTripGrants,
+  isCareTeamEnabled,
+  isTripsEnabled,
+  resolveGuestReach,
+} = require("../utils/guestAccess");
 const { passwordSchema } = require("../utils/password");
 const { recordAuditSafe } = require("../utils/auditLog");
 const { isTwoFactorRequired } = require("../utils/twoFactor");
-const { isDemoDeployment, endOtherSessions } = require("../utils/demoMode");
+const {
+  issueRecoveryCodes,
+  consumeRecoveryCode,
+  countUnusedRecoveryCodes,
+} = require("../utils/recoveryCodes");
+const {
+  isDemoDeployment,
+  isGuardedDemo,
+  endOtherSessions,
+  refuseOnGuardedDemo,
+} = require("../utils/demoMode");
+const accountLoginLimiter = require("../utils/accountLoginLimiter");
+const { configuredOrigin } = require("../utils/passkeys");
+
+const noPasswordChangeOnDemo = refuseOnGuardedDemo("Changing the password");
 const {
   isPasswordlessOn,
   isPasskeySignInOn,
@@ -111,45 +131,73 @@ router.get("/setup-status", async (req, res, next) => {
   }
 });
 
-// Only ever succeeds once: re-checks the user count here rather than trusting
-// an earlier GET, so a second admin can never be created this way.
+// Fixed key for the Postgres advisory lock that makes first-run setup a single step (see below).
+const SETUP_LOCK_KEY = 7204117102;
+
+// Only ever succeeds once. Checking that no account exists and creating the first one are done as ONE
+// step: a transaction that first takes a lock only setup uses, so two requests arriving at the same
+// moment cannot both pass the check (before this, three at once all became admins, and a second
+// request landing while the first was still hashing its password left a second, unseen admin).
+// The password is hashed before the lock so the lock is held only for the check and the writes.
 router.post("/setup", async (req, res, next) => {
   try {
-    const count = await prisma.user.count();
-    if (count > 0) {
-      return res.status(409).json({ error: "Setup has already been completed for this instance." });
-    }
-
     const { email, password } = req.body;
-    if (!email || !password) {
+    // Two ways in, as for any new account: a password (then an authenticator app), or a passkey on this
+    // device with no password at all.
+    const passkeyOnly = req.body.method === "passkey";
+    if (!email || (!passkeyOnly && !password)) {
       return res.status(400).json({ error: "Email and password are required" });
     }
-    const parsedPassword = passwordSchema.safeParse(password);
-    if (!parsedPassword.success) {
-      return res.status(400).json({ error: parsedPassword.error.issues[0].message });
+    if (passkeyOnly && !(await isPasskeySignInOn())) {
+      return res.status(400).json({ error: "Passkeys aren't available on this site." });
+    }
+    if (!passkeyOnly) {
+      const parsedPassword = passwordSchema.safeParse(password);
+      if (!parsedPassword.success) {
+        return res.status(400).json({ error: parsedPassword.error.issues[0].message });
+      }
     }
 
-    const passwordHash = await bcrypt.hash(password, 12);
-    await prisma.user.create({
-      data: {
-        email: email.toLowerCase().trim(),
-        passwordHash,
-        role: "admin",
-        authProvider: "local",
-      },
+    const passwordHash = passkeyOnly ? null : await bcrypt.hash(password, 12);
+    const created = await prisma.$transaction(async (tx) => {
+      // Waits here until any other setup request has finished; released when this transaction ends.
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(${SETUP_LOCK_KEY}::bigint)::text`;
+      if ((await tx.user.count()) > 0) return false;
+
+      const admin = await tx.user.create({
+        data: {
+          email: email.toLowerCase().trim(),
+          passwordHash,
+          role: "admin",
+          authProvider: "local",
+          // Nobody else is on the missions team yet. The contact log and key-date reminders go to whoever
+          // looks after a partner (its care team, else the missions team), so without this they would
+          // notify no one until an admin found the switch on the user's own page.
+          onMissionsTeam: true,
+        },
+      });
+
+      // A fresh install starts with the church-wide two-factor requirement ON;
+      // the first admin can turn it off. Upsert, not create: only zero prior
+      // Users is guaranteed, not zero prior ChurchSettings.
+      await tx.churchSettings.upsert({
+        where: { id: "singleton" },
+        update: { requireTwoFactor: true },
+        create: { id: "singleton", requireTwoFactor: true },
+      });
+      return admin;
     });
 
-    // A fresh install starts with the church-wide two-factor requirement ON;
-    // the first admin can turn it off. Upsert, not create: only zero prior
-    // Users is guaranteed, not zero prior ChurchSettings.
-    await prisma.churchSettings.upsert({
-      where: { id: "singleton" },
-      update: { requireTwoFactor: true },
-      create: { id: "singleton", requireTwoFactor: true },
-    });
-    // No session yet: with the requirement on, an unenrolled account can't use
-    // one. The first admin signs in (POST /login) and is taken through enrolment.
-    res.status(201).json({ ok: true, mfaSetupRequired: true });
+    if (!created) {
+      return res.status(409).json({
+        error:
+          "Setup has already been completed for this instance. If you did not create that account, redeploy to start again.",
+      });
+    }
+    // No session yet: with the requirement on, an unenrolled account can't use one. The enrolment token goes
+    // straight back so the page carries on to adding the second factor (an authenticator app, or the passkey
+    // itself), and finishing that opens the session: no separate sign-in step.
+    res.status(201).json({ ok: true, mfaSetupRequired: true, setupToken: signMfaSetupToken(created) });
   } catch (err) {
     next(err);
   }
@@ -168,6 +216,20 @@ router.post("/login", async (req, res, next) => {
     const { email, password } = req.body;
     if (!email || !password) {
       return res.status(400).json({ error: "Email and password required" });
+    }
+
+    // Too many failed sign-ins for this ACCOUNT, from anywhere (the per-address limits in server.js
+    // can be dodged by changing address). Refused before the password is even checked, so a guesser
+    // learns nothing from the answer. Not on a public demo, whose logins are shared and published.
+    const limitDemo = isGuardedDemo();
+    if (!limitDemo) {
+      const wait = accountLoginLimiter.retryAfterSeconds("login", email);
+      if (wait > 0) {
+        res.set("Retry-After", String(wait));
+        return res.status(429).json({
+          error: `Too many failed sign-ins for this account. Try again in ${Math.ceil(wait / 60)} minute${wait > 60 ? "s" : ""}.`,
+        });
+      }
     }
 
     const user = await prisma.user.findUnique({
@@ -191,6 +253,7 @@ router.post("/login", async (req, res, next) => {
           : user.authProvider !== "local" || !user.passwordHash
             ? "not_a_password_account"
             : "wrong_password";
+      if (!limitDemo) accountLoginLimiter.recordFailure("login", email);
       await recordAuditSafe(null, {
         action: "auth.login_failed",
         target: user || { email: email.toLowerCase().trim() },
@@ -200,6 +263,7 @@ router.post("/login", async (req, res, next) => {
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
+    accountLoginLimiter.clearFailures("login", email);
     res.json(await afterFirstFactor(res, user, req));
   } catch (err) {
     next(err);
@@ -259,9 +323,9 @@ router.post("/passwordless/link/redeem", async (req, res, next) => {
 // valid TOTP code for a session.
 router.post("/mfa/login-verify", async (req, res, next) => {
   try {
-    const { pendingToken, token } = req.body;
-    if (!pendingToken || !token) {
-      return res.status(400).json({ error: "pendingToken and token are required" });
+    const { pendingToken, token, recoveryCode } = req.body;
+    if (!pendingToken || (!token && !recoveryCode)) {
+      return res.status(400).json({ error: "pendingToken and a code are required" });
     }
 
     let decoded;
@@ -277,26 +341,56 @@ router.post("/mfa/login-verify", async (req, res, next) => {
       return res.status(401).json({ error: "Invalid MFA session" });
     }
 
-    const { valid, timeStep } = await verifyOtp({
-      secret: decryptField(user.mfaSecret),
-      token: String(token),
-      // Refuse a code already used: a TOTP code is valid for its whole window,
-      // so without this an observed code could be replayed until it expires.
-      afterTimeStep: user.mfaLastTimeStep ?? undefined,
-    });
+    // Wrong two-factor codes are limited per account too, separately from passwords: someone who has
+    // the password can still only try so many codes, wherever they come from.
+    const limitMfa = isGuardedDemo();
+    if (!limitMfa) {
+      const wait = accountLoginLimiter.retryAfterSeconds("mfa", user.email);
+      if (wait > 0) {
+        res.set("Retry-After", String(wait));
+        return res.status(429).json({
+          error: `Too many wrong codes for this account. Try again in ${Math.ceil(wait / 60)} minute${wait > 60 ? "s" : ""}.`,
+        });
+      }
+    }
+
+    // A recovery code stands in for the authenticator app, so it shares the wrong-code limit above.
+    let valid = false;
+    let timeStep;
+    if (recoveryCode) {
+      valid = await consumeRecoveryCode(user.id, recoveryCode);
+    } else {
+      ({ valid, timeStep } = await verifyOtp({
+        secret: decryptField(user.mfaSecret),
+        token: String(token),
+        // Refuse a code already used: a TOTP code is valid for its whole window,
+        // so without this an observed code could be replayed until it expires.
+        afterTimeStep: user.mfaLastTimeStep ?? undefined,
+      }));
+    }
     if (!valid) {
+      if (!limitMfa) accountLoginLimiter.recordFailure("mfa", user.email);
       await recordAuditSafe(null, {
         action: "auth.login_failed",
         target: user,
         req,
-        details: { reason: "wrong_two_factor_code" },
+        details: { reason: recoveryCode ? "wrong_recovery_code" : "wrong_two_factor_code" },
       });
-      return res.status(401).json({ error: "Invalid code" });
+      return res.status(401).json({
+        error: recoveryCode ? "That recovery code is not valid or was already used" : "Invalid code",
+      });
     }
 
-    await prisma.user.update({ where: { id: user.id }, data: { mfaLastTimeStep: timeStep } });
+    accountLoginLimiter.clearFailures("mfa", user.email);
+    if (recoveryCode) {
+      await recordAuditSafe(null, { action: "auth.recovery_code_used", actor: user, req });
+    } else {
+      await prisma.user.update({ where: { id: user.id }, data: { mfaLastTimeStep: timeStep } });
+    }
 
-    res.json(await completeLogin(res, user, req));
+    const result = await completeLogin(res, user, req);
+    if (recoveryCode) result.recoveryCodesRemaining = await countUnusedRecoveryCodes(user.id);
+    res.json(result);
   } catch (err) {
     next(err);
   }
@@ -304,7 +398,7 @@ router.post("/mfa/login-verify", async (req, res, next) => {
 
 // Looked up fresh from the DB, not echoed from the JWT claims, so mfaEnabled
 // reflects changes since the token was issued.
-router.get("/me", requireAuth, async (req, res, next) => {
+router.get("/me", requireAuthAllowPaused, async (req, res, next) => {
   try {
     const user = await prisma.user.findUnique({ where: { id: req.user.id } });
     // Check `active`, not just existence: a deactivated account must not be told who it is.
@@ -329,6 +423,9 @@ router.get("/me", requireAuth, async (req, res, next) => {
             })
           )?.allowPasskeySignIn === true,
         emailReady: await isEmailReady(),
+        // The address the site is set to (APP_BASE_URL), for the admin banner shown when the browser is at another
+        // one: passkeys only work at this address. Admins only; null when none is set.
+        configuredSiteOrigin: user.role === "admin" ? configuredOrigin() : null,
       },
     });
   } catch (err) {
@@ -338,7 +435,7 @@ router.get("/me", requireAuth, async (req, res, next) => {
 
 // Self-service password change; requires the current password, unlike the
 // admin-only reset in routes/users.js. Open to every role, guests included.
-router.post("/change-password", requireAuth, async (req, res, next) => {
+router.post("/change-password", requireAuth, noPasswordChangeOnDemo, async (req, res, next) => {
   try {
     const { currentPassword, newPassword } = req.body;
     if (!currentPassword || !newPassword) {
@@ -393,14 +490,22 @@ router.post("/password-setup/validate", async (req, res, next) => {
       // The page words a reset (account already has a password) differently from first-time setup.
       reset: Boolean(row.user.passwordHash),
       mfaRequired: row.user.mfaSetupRequired || (await isTwoFactorRequired()),
+      // The guided page offers only what this site allows and what this account can still be given. An
+      // account that already has two-factor is never handed a new one by a link alone (see /complete).
+      hasSecondFactor: Boolean(row.user.mfaEnabled) && Boolean(row.user.passwordHash),
+      passwordAllowed: !(await isPasswordlessOn()),
+      passkeyAllowed: await isPasskeySignInOn(),
     });
   } catch (err) {
     next(err);
   }
 });
 
-router.post("/password-setup/complete", async (req, res, next) => {
+router.post("/password-setup/complete", noPasswordChangeOnDemo, async (req, res, next) => {
   try {
+    if (await isPasswordlessOn()) {
+      return res.status(403).json({ error: "This church signs in with a passkey, not a password" });
+    }
     const { token, password } = req.body || {};
     const parsedPassword = passwordSchema.safeParse(password);
     if (!parsedPassword.success) {
@@ -417,12 +522,25 @@ router.post("/password-setup/complete", async (req, res, next) => {
     // whoever had the old password is signed out (endOtherSessions skips demos,
     // whose logins are shared).
     const isReset = Boolean(row.user.passwordHash);
-    // One transaction: set the password, burn this link, and drop the account's
-    // other outstanding links so none can be replayed.
+    // A passkey-only account (no password yet, but two-factor on) choosing a password is the lost-device
+    // case: its old passkeys go, or the person would be asked for the one they lost.
+    const replacingPasskeys = row.user.mfaEnabled && !isReset;
     await prisma.$transaction([
+      ...(replacingPasskeys
+        ? [
+            prisma.userPasskey.deleteMany({ where: { userId: row.userId } }),
+            prisma.userRecoveryCode.deleteMany({ where: { userId: row.userId } }),
+          ]
+        : []),
+      // One transaction: set the password, burn this link, and drop the account's
+      // other outstanding links so none can be replayed.
       prisma.user.update({
         where: { id: row.userId },
-        data: { passwordHash, ...(isReset ? endOtherSessions() : {}) },
+        data: {
+          passwordHash,
+          ...(isReset || replacingPasskeys ? endOtherSessions() : {}),
+          ...(replacingPasskeys ? { mfaEnabled: false, mfaSecret: null } : {}),
+        },
       }),
       prisma.passwordSetupToken.deleteMany({
         where: { userId: row.userId, tokenHash: { not: hashToken(String(token)) } },
@@ -434,9 +552,64 @@ router.post("/password-setup/complete", async (req, res, next) => {
       actor: row.user,
       req,
     });
-    // Not signed in here on purpose: signing in normally also runs any required
-    // two-factor enrolment.
-    res.json({ ok: true, mfaRequired: row.user.mfaSetupRequired || (await isTwoFactorRequired()) });
+    const mfaRequired = row.user.mfaSetupRequired || (await isTwoFactorRequired());
+    const stillHasSecondFactor = row.user.mfaEnabled && !replacingPasskeys;
+    // An account with no second factor yet goes straight on to adding one, with no extra sign-in: the link
+    // proved the inbox and the page then makes the person enrol an authenticator app (the passkey route is
+    // /password-setup/passkey), and finishing that signs them in. An account that already has two-factor,
+    // and a public demo, get no session from a link alone: they sign in the normal way and meet their
+    // second factor there.
+    if (!stillHasSecondFactor && !isDemoDeployment()) {
+      return res.json({ ok: true, mfaRequired, setupToken: signMfaSetupToken(row.user) });
+    }
+    res.json({ ok: true, mfaRequired });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// The other way to finish a setup link: no password at all, a passkey on this device. Spends the link and
+// hands back a short-lived enrolment token (the same one a forced enrolment uses), which the page uses to
+// register the passkey; registering signs the person in. The link is burned here, so an abandoned attempt
+// needs a new one.
+//
+// A link alone never replaces a second factor someone already has: an account with a password and two-factor
+// is refused. An account with only passkeys (no password, so the passkey was its whole sign-in) is the lost-
+// device case: the link clears its old passkeys first, as an administrator's Reset MFA does.
+router.post("/password-setup/passkey", noPasswordChangeOnDemo, async (req, res, next) => {
+  try {
+    if (!(await isPasskeySignInOn())) {
+      return res.status(400).json({ error: "Passkeys aren't available on this site." });
+    }
+    const row = await findValidSetupToken(String(req.body?.token || ""));
+    if (!row) return res.status(400).json({ error: SETUP_LINK_INVALID });
+    const user = row.user;
+    if (user.mfaEnabled && user.passwordHash) {
+      return res.status(400).json({
+        error:
+          "This account already has two-factor sign-in, which a link can't replace. Sign in, or ask an administrator to reset it.",
+      });
+    }
+    const replacing = user.mfaEnabled && !user.passwordHash;
+    await prisma.$transaction([
+      ...(replacing
+        ? [
+            prisma.userPasskey.deleteMany({ where: { userId: user.id } }),
+            prisma.userRecoveryCode.deleteMany({ where: { userId: user.id } }),
+            prisma.user.update({
+              where: { id: user.id },
+              data: { mfaEnabled: false, mfaSecret: null, ...endOtherSessions() },
+            }),
+          ]
+        : []),
+      prisma.passwordSetupToken.deleteMany({ where: { userId: user.id } }),
+    ]);
+    await recordAuditSafe(null, {
+      action: replacing ? "auth.passkeys_replaced_by_link" : "auth.passkey_setup_started",
+      actor: user,
+      req,
+    });
+    res.json({ ok: true, setupToken: signMfaSetupToken(user) });
   } catch (err) {
     next(err);
   }
@@ -454,9 +627,9 @@ router.post("/password-setup/request", async (req, res) => {
   try {
     const settings = await prisma.churchSettings.findUnique({
       where: { id: "singleton" },
-      select: { enabledFeatures: true },
+      select: READY_SELECT,
     });
-    emailOn = isFeatureEnabled(settings?.enabledFeatures, "outboundEmail");
+    emailOn = isOutboundEmailReady(settings);
   } catch {
     // keep the generic reply
   }
@@ -464,7 +637,7 @@ router.post("/password-setup/request", async (req, res) => {
     emailOn
       ? {
           ok: true,
-          message: "If that email has an account, a link to choose a password is on its way.",
+          message: "If that email has an account, a new link to set up your sign-in is on its way.",
         }
       : {
           ok: true,
@@ -490,6 +663,12 @@ router.post("/password-setup/request", async (req, res) => {
     if (!emailOn || isDemoDeployment()) return;
     if (!user || !user.active || user.authProvider !== "local") return;
     if (!user.passwordHash) {
+      // At most one a minute, as for a reset: otherwise anyone could mail-bomb a person with setup links.
+      const recentSetup = await prisma.passwordSetupToken.findFirst({
+        where: { userId: user.id, usedAt: null, createdAt: { gt: new Date(Date.now() - RESET_COOLDOWN_MS) } },
+        select: { id: true },
+      });
+      if (recentSetup) return;
       await sendWelcomeEmail(user, { requireMfa: user.mfaSetupRequired });
       return;
     }
@@ -554,17 +733,21 @@ router.post("/mfa/verify-setup", requireAuthOrMfaSetup, async (req, res, next) =
 
     // completeLogin re-issues the cookie from this updated row, so only sessions
     // opened before enrolment are invalidated.
-    const updated = await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        mfaEnabled: true,
-        mfaSetupRequired: false,
-        mfaLastTimeStep: timeStep,
-        ...endOtherSessions(),
-      },
+    const { updated, recoveryCodes } = await prisma.$transaction(async (tx) => {
+      const row = await tx.user.update({
+        where: { id: user.id },
+        data: {
+          mfaEnabled: true,
+          mfaSetupRequired: false,
+          mfaLastTimeStep: timeStep,
+          ...endOtherSessions(),
+        },
+      });
+      return { updated: row, recoveryCodes: await issueRecoveryCodes(user.id, tx) };
     });
     await recordAuditSafe(null, { action: "auth.mfa_enabled", actor: updated, req });
-    res.json(await completeLogin(res, updated, req));
+    // The codes come back once, here; the screen makes the person confirm they've saved them.
+    res.json({ ...(await completeLogin(res, updated, req)), recoveryCodes });
   } catch (err) {
     next(err);
   }
@@ -599,9 +782,34 @@ router.post("/mfa/disable", requireAuth, async (req, res, next) => {
         ...endOtherSessions(),
       },
     });
+    await prisma.userRecoveryCode.deleteMany({ where: { userId: user.id } });
     setSessionCookie(res, updated);
     await recordAuditSafe(null, { action: "auth.mfa_disabled", actor: updated, req });
     res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// A fresh set of recovery codes, retiring every older one. Needs the current password for the same reason
+// disabling does, and only an account that has an authenticator app has any use for them.
+router.post("/mfa/recovery-codes", requireAuth, async (req, res, next) => {
+  try {
+    const { password } = req.body;
+    if (!password) return res.status(400).json({ error: "Current password is required" });
+    const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+    if (!user || !user.passwordHash) return res.status(400).json({ error: "Invalid account" });
+    if (!user.mfaEnabled || !user.mfaSecret) {
+      return res
+        .status(400)
+        .json({ error: "Recovery codes go with an authenticator app. Set one up first." });
+    }
+    if (!(await bcrypt.compare(password, user.passwordHash))) {
+      return res.status(401).json({ error: "Current password is incorrect" });
+    }
+    const recoveryCodes = await issueRecoveryCodes(user.id);
+    await recordAuditSafe(null, { action: "auth.recovery_codes_regenerated", actor: user, req });
+    res.json({ recoveryCodes });
   } catch (err) {
     next(err);
   }
@@ -698,7 +906,7 @@ router.put("/profile", requireAuth, async (req, res, next) => {
   try {
     const data = z
       .object({
-        phone: z.string().trim().max(40).nullable().optional(),
+        phone: phoneSchema(z),
         profile: z.string().trim().max(1000).nullable().optional(),
       })
       .parse(req.body);
@@ -740,7 +948,7 @@ async function renderUnsubscribePage(message) {
   const body = typeof message === "function" ? message(highlightColor) : message;
 
   return `<!doctype html>
-<html><head><meta charset="utf-8"><title>Email notifications</title></head>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Email notifications</title></head>
 <body style="font-family:${escapeHtml(fontFamily)};background:#f7f5f0;margin:0;padding:40px 16px;">
 <div style="max-width:420px;margin:0 auto;background:#ffffff;border-radius:10px;overflow:hidden;">
   <div style="background-color:${headerColor};padding:28px 24px;text-align:center;">
@@ -802,6 +1010,25 @@ router.post("/logout", (req, res) => {
   res.json({ ok: true });
 });
 
+// "Sign out of all devices": ends every open session of this account, this browser included. A session is a signed
+// cookie that carries the account's session number (sessionVersion); raising the number makes every cookie issued
+// before it stop working (middleware/requireAuth.js), the same thing a password change does. Useful after signing in
+// on a shared computer or losing a phone. No password is asked for: it can only sign people out, never in.
+// Not on a demo, whose logins are shared: it would sign every visitor out.
+router.post("/logout-all", requireAuth, async (req, res, next) => {
+  try {
+    if (isDemoDeployment()) {
+      return res.status(403).json({ error: "Signing out of all devices isn't available on the public demo" });
+    }
+    await prisma.user.update({ where: { id: req.user.id }, data: { sessionVersion: { increment: 1 } } });
+    clearSessionCookie(res);
+    await recordAuditSafe(null, { action: "auth.logout_all", actor: req.user, req });
+    res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // Followed-partner ids come from a separate query, run only when
 // the scope is hand-picked partners with a real subscription.
 async function sanitizeUser(user) {
@@ -821,8 +1048,13 @@ async function sanitizeUser(user) {
   // [{ id, label, isLead }] for the partners this login is on the care team of,
   // for every role. Empty while the careTeam feature is off (seats are ignored).
   let careTeamSeats = [];
+  // The features a guest's access depends on that the church has switched off (see resolveGuestReach): the app
+  // shows them a plain "paused" page instead of what they were given.
+  let pausedFeatures = [];
   if (user.role === "guest") {
-    const grants = (await listTripGrants(user.id)).filter((g) => g.active);
+    pausedFeatures = (await resolveGuestReach(user.id)).pausedFeatures;
+    // Trip access is tied to the trips switch, like a care team seat to care teams.
+    const grants = (await isTripsEnabled()) ? (await listTripGrants(user.id)).filter((g) => g.active) : [];
     const partners = await prisma.partner.findMany({
       where: { id: { in: grants.map((g) => g.trip.partnerId).filter(Boolean) } },
       select: { id: true, displayName: true, fieldDisplayName: true },
@@ -858,7 +1090,7 @@ async function sanitizeUser(user) {
   let guestReadTripIds = [];
   if (user.role === "guest") {
     const ids = new Set(guestTrips.map((t) => t.id));
-    if (careTeamSeats.length > 0) {
+    if (careTeamSeats.length > 0 && (await isTripsEnabled())) {
       const viaSeats = await prisma.trip.findMany({
         where: { partnerId: { in: careTeamSeats.map((s) => s.id) } },
         select: { id: true },
@@ -880,6 +1112,8 @@ async function sanitizeUser(user) {
     mfaEnabled: user.mfaEnabled,
     authenticatorApp: Boolean(user.mfaEnabled && user.mfaSecret),
     passkeyCount: await prisma.userPasskey.count({ where: { userId: user.id } }),
+    recoveryCodesRemaining:
+      user.mfaEnabled && user.mfaSecret ? await countUnusedRecoveryCodes(user.id) : null,
     cadence: user.cadence,
     digestScope: user.role === "guest" ? "owned" : user.digestScope,
     followedPartnerIds: partnerIds,
@@ -887,6 +1121,7 @@ async function sanitizeUser(user) {
     guestTrips,
     guestReadTripIds,
     careTeamSeats,
+    pausedFeatures,
   };
 }
 

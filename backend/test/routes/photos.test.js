@@ -2,7 +2,14 @@ const { test, describe, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 require("dotenv").config({ quiet: true });
 const prisma = require("../../src/prismaClient");
-const { client, stopServer, removeFixturePartners, FIXTURE_TAG } = require("./helpers");
+const {
+  client,
+  stopServer,
+  removeFixturePartners,
+  ensureTestUsers,
+  removeTestUsers,
+  FIXTURE_TAG,
+} = require("./helpers");
 
 describe("GET /api/photos/:id/raw -- content-type allowlist", () => {
   let unauthenticated;
@@ -11,7 +18,7 @@ describe("GET /api/photos/:id/raw -- content-type allowlist", () => {
   before(async () => {
     unauthenticated = await client();
     const partner = await prisma.partner.create({
-      data: { kind: "missionary", displayName: `${FIXTURE_TAG} Photos content-type test` },
+      data: { kind: "missionary", isPublic: true, displayName: `${FIXTURE_TAG} Photos content-type test` },
     });
     partnerId = partner.id;
   });
@@ -90,5 +97,66 @@ describe("GET /api/photos/:id/raw -- content-type allowlist", () => {
 
     const res = await unauthenticated(`/api/photos/${photo.id}/raw`);
     assert.equal(res.headers.get("cross-origin-resource-policy"), "cross-origin");
+  });
+});
+
+// A photo is open to anyone only while its partner is on the public site and not restricted; otherwise the
+// address alone no longer works and a signed-in session is needed.
+describe("GET /api/photos/:id/raw -- who may fetch it", () => {
+  let unauthenticated;
+  let staff;
+  const ids = {};
+
+  async function makePhoto(label, partnerData) {
+    const partner = await prisma.partner.create({
+      data: { kind: "missionary", displayName: `${FIXTURE_TAG} Photo access ${label}`, ...partnerData },
+    });
+    const photo = await prisma.photo.create({
+      data: {
+        partnerId: partner.id,
+        bytesRow: { create: { bytes: Buffer.from([0x89, 0x50, 0x4e, 0x47]) } },
+        receivedDate: new Date("2026-01-01"),
+        contentType: "image/png",
+      },
+    });
+    return photo.id;
+  }
+
+  before(async () => {
+    await ensureTestUsers();
+    unauthenticated = await client();
+    staff = await client("editor");
+    ids.public = await makePhoto("public", { isPublic: true });
+    ids.hidden = await makePhoto("hidden", { isPublic: false });
+    ids.restricted = await makePhoto("restricted", { isPublic: true, isRestricted: true });
+  });
+
+  after(async () => {
+    await removeFixturePartners();
+    await removeTestUsers();
+    await stopServer();
+  });
+
+  test("a public partner's photo is open to anyone, and cacheable by shared caches", async () => {
+    const res = await unauthenticated(`/api/photos/${ids.public}/raw`);
+    assert.equal(res.status, 200);
+    assert.match(res.headers.get("cache-control"), /^public/);
+  });
+
+  test("a partner who is not public: refused without a sign-in, served to staff", async () => {
+    assert.equal((await unauthenticated(`/api/photos/${ids.hidden}/raw`)).status, 401);
+    const res = await staff(`/api/photos/${ids.hidden}/raw`);
+    assert.equal(res.status, 200);
+    assert.equal(res.headers.get("content-type"), "image/png");
+    assert.match(res.headers.get("cache-control"), /^private/, "never kept by a shared cache");
+  });
+
+  test("a restricted partner's real photo needs a sign-in even though the partner is public", async () => {
+    assert.equal((await unauthenticated(`/api/photos/${ids.restricted}/raw`)).status, 401);
+    assert.equal((await staff(`/api/photos/${ids.restricted}/raw`)).status, 200);
+  });
+
+  test("an unknown photo is a plain 404 for anyone", async () => {
+    assert.equal((await unauthenticated("/api/photos/does-not-exist/raw")).status, 404);
   });
 });

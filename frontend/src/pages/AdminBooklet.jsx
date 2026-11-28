@@ -1,5 +1,6 @@
 import { methodLabel } from "../utils/contactMethods.js";
 import React, { useEffect, useMemo, useState } from "react";
+import { formatPhone } from "../utils/phone.js";
 import { fetchPartners } from "../api/client.js";
 import "../styles/booklet.css";
 import { useSettings } from "../context/SettingsContext.jsx";
@@ -68,7 +69,7 @@ function renderFamilyBlock(m, fields) {
       );
     }
     (m.adults || []).forEach((a) => {
-      const parts = withhold ? [] : [a.phone1, a.email].filter(Boolean).map(escapeHtml);
+      const parts = withhold ? [] : [formatPhone(a.phone1), a.email].filter(Boolean).map(escapeHtml);
       const name = [a.firstName, a.lastName].filter(Boolean).join(" ");
       rows.push(`<p>${escapeHtml(name)}${parts.length ? ` — ${parts.join(" · ")}` : ""}</p>`);
     });
@@ -118,7 +119,9 @@ function renderSendingPartyBlock(m, withhold = false) {
   if (m.sendingChurch?.name) {
     const bits = withhold
       ? []
-      : [contactFullName(m.sendingChurch), m.sendingChurch.phone].filter(Boolean).map(escapeHtml);
+      : [contactFullName(m.sendingChurch), formatPhone(m.sendingChurch.phone)]
+          .filter(Boolean)
+          .map(escapeHtml);
     parts.push(
       `<p><strong>Sending Church:</strong> ${escapeHtml(m.sendingChurch.name)}${bits.length ? ` — ${bits.join(" · ")}` : ""}</p>`
     );
@@ -126,7 +129,7 @@ function renderSendingPartyBlock(m, withhold = false) {
   if (m.sendingOrg?.name) {
     const bits = withhold
       ? []
-      : [contactFullName(m.sendingOrg), m.sendingOrg.phone].filter(Boolean).map(escapeHtml);
+      : [contactFullName(m.sendingOrg), formatPhone(m.sendingOrg.phone)].filter(Boolean).map(escapeHtml);
     parts.push(
       `<p><strong>Sending Org:</strong> ${escapeHtml(m.sendingOrg.name)}${bits.length ? ` — ${bits.join(" · ")}` : ""}</p>`
     );
@@ -139,7 +142,7 @@ function renderOrgContactBlock(o) {
   const rows = [];
   const contactName = contactFullName(o);
   if (contactName) rows.push(`<p><strong>Contact:</strong> ${escapeHtml(contactName)}</p>`);
-  if (o.contactPhone) rows.push(`<p><strong>Phone:</strong> ${escapeHtml(o.contactPhone)}</p>`);
+  if (o.contactPhone) rows.push(`<p><strong>Phone:</strong> ${escapeHtml(formatPhone(o.contactPhone))}</p>`);
   if (o.contactEmail) rows.push(`<p><strong>Email:</strong> ${escapeHtml(o.contactEmail)}</p>`);
   const website = (o.links || []).find((l) => l.type === "website")?.url;
   if (website) rows.push(`<p><strong>Website:</strong> ${escapeHtml(website)}</p>`);
@@ -245,7 +248,7 @@ function buildMissionaryPageHtml(m, accent, fields) {
     <section class="booklet-page" style="--accent:${accent}">
       <div class="booklet-shape shape-a"></div>
       <div class="booklet-shape shape-b"></div>
-      ${fields.showPhoto && m.photos?.[0]?.url ? `<img class="booklet-photo" src="${escapeHtml(m.photos[0].url)}" alt="" />` : ""}
+      ${fields.showPhoto && m.photos?.[0]?.url ? `<img class="booklet-photo" src="${escapeHtml(m.photos[0].rawUrl || m.photos[0].url)}" alt="" />` : ""}
       <p class="booklet-eyebrow">${escapeHtml(m.fieldDisplayName || "")}</p>
       <h2 class="booklet-name">${escapeHtml(m.displayName)}</h2>
       ${fields.showOverview && m.overview ? `<div class="booklet-callout"><p>${escapeHtml(m.overview)}</p></div>` : ""}
@@ -423,7 +426,7 @@ const FIELD_OPTIONS = [
   [
     "showPrayerRequests",
     "Prayer Requests",
-    'Printed at the top of each entry\'s Notes & Prayer page, which this turns on too. Only strategic requests marked both "Show on public profile" and "Include in printed booklet" -- capped per partner below.',
+    'Printed at the top of each entry\'s Notes & Prayer page, which this turns on too. Only ministry requests marked both "Show on public profile" and "Include in printed booklet" -- capped per partner below.',
   ],
   ["showNotesPage", "Notes & Prayer Page (facing page per entry)"],
 ];
@@ -431,7 +434,8 @@ const FIELD_OPTIONS = [
 export default function AdminBooklet() {
   const [partners, setPartners] = useState([]);
   const [includeArchived, setIncludeArchived] = useState(false);
-  const [includeRestricted, setIncludeRestricted] = useState(true);
+  // Off by default: a restricted partner prints with their real name and details, so including them is a choice.
+  const [includeRestricted, setIncludeRestricted] = useState(false);
   const [includeOrganizations, setIncludeOrganizations] = useState(true);
   const [fields, setFields] = useState({
     showPhoto: true,
@@ -505,6 +509,13 @@ export default function AdminBooklet() {
       return next;
     });
   }
+
+  // How many restricted partners the booklet would print with the box ticked, under the other choices.
+  const restrictedCount =
+    missionaries.filter((m) => m.isRestricted && (!m.archived || includeArchived)).length +
+    (includeOrganizations
+      ? organizations.filter((o) => o.isRestricted && (!o.archived || includeArchived)).length
+      : 0);
 
   // Depends on churchContact (replaced wholesale by its effect, never mutated) rather than
   // its individual fields.
@@ -643,6 +654,15 @@ export default function AdminBooklet() {
                   Local &amp; National Organizations
                 </label>
               </div>
+              {includeRestricted && (
+                <p role="status" style={{ color: "var(--warn)", fontSize: "0.85rem", margin: "0.5rem 0 0" }}>
+                  {restrictedCount === 1
+                    ? "1 restricted-access partner is included."
+                    : `${restrictedCount} restricted-access partners are included.`}{" "}
+                  They print with their real names and details, so hand this booklet only to people who may
+                  see them.
+                </p>
+              )}
             </div>
 
             <div className="admin-section">

@@ -44,69 +44,109 @@ an `httpOnly` cookie can't be read by JS at all).
 ## Getting your church running (Render)
 
 **This is the path almost every church should start with.** You don't
-need to know how to code, run a database, or use a command-line tool
-beyond the one short command below — Render hosts the database and the
-app for you, and keeps it updated automatically. If you're planning to
-contribute code to this project instead of running it for your own
-church, see [Local development setup](#local-development-setup)
-further down.
+need to know how to code, run a database, use a terminal, or even have a
+GitHub account: Render hosts the database and the app for you, and keeps
+it updated. If you're planning to contribute code to this project instead
+of running it for your own church, see
+[Local development setup](#local-development-setup) further down.
 
-This repo doesn't run a live deployment itself — it's the open-source
-upstream that your church's own fork deploys from (see
-[Upgrading a fork](#upgrading-a-fork) for how your copy keeps getting
-updates later). The deployment itself goes through
-[Render](https://render.com), via [`render.yaml`](render.yaml) at the
-repo root — a Blueprint that provisions the web service and Postgres
-database (which also holds every uploaded photo, newsletter, and
-document — see [File storage](#file-storage) below, nothing extra to
-provision) in one step:
+**What you need before you start**
 
-1. Make your own copy of this repo, then name it and pick a region:
+- A [Render](https://render.com) account, with a payment card. The web
+  service and the database are paid plans; together they cost about
+  **$13 a month** (the cheapest paid tiers). Nothing else is billed: the
+  database also holds every uploaded photo, newsletter and document, and
+  the scheduled emails and posts run inside the same service.
+- A way to sign in with two proofs, which is required from the very first
+  sign-in (see [Authentication setup](#authentication-setup)): either a
+  passkey on your own phone or computer (your fingerprint, face or screen
+  lock), or a password plus an authenticator app on your phone (Google
+  Authenticator, Authy, 1Password and so on).
+- An email address for the first admin account.
 
-   ```bash
-   npm run name-instance -- your-church-name oregon
-   ```
+The deployment goes through Render, via [`render.yaml`](render.yaml) at the
+root of this repo: a Blueprint that creates one web service and one
+Postgres database in a single step.
 
-   The name becomes your URL (`your-church-name.onrender.com`); the
-   region defaults to `oregon` (valid: `oregon`, `ohio`, `virginia`,
-   `frankfurt`, `singapore` — the database and web service must match).
-   Render's Blueprint deploy has no picker for either, so both have to
-   be set in `render.yaml` before you deploy.
+1. Click **Deploy to Render** (the button is on the
+   [project page](https://github.com/neckermann/missions-partner-tracker#deploy)
+   and at the bottom of the
+   [website](https://missionspartnertracker.com)). Sign in to Render, or
+   create an account and add a card when it asks.
+2. Render shows you what it is about to create (one web service and one
+   database) and asks for a couple of optional values `render.yaml` marks
+   `sync: false` (`MFA_ISSUER`, `NOMINATIM_CONTACT`; see
+   [Environment variables](#environment-variables) below). Leave them
+   blank if you like. `SESSION_SECRET` and `FIELD_ENCRYPTION_KEY` are
+   generated automatically; there is nothing to copy or enter.
+3. Click **Apply**. Render builds the app, applies the database setup as a
+   pre-deploy step, and starts it. This takes several minutes.
+4. When Render says the service is live, open its address (shown at the top
+   of the service's page; it looks like `missions-partner-tracker.onrender.com`,
+   with a few extra letters if that name was taken). A site with no accounts
+   yet sends you straight to the first-run page, `/setup`. **Do this as soon as
+   the deploy finishes:** until the first account exists, whoever reaches
+   `/setup` first creates it. If setup says it has "already been completed" and
+   you did not create that account, redeploy to start again (a new install has
+   no data to lose).
+5. Create your first admin account right in the browser. The page asks
+   **Where will you mostly sign in?** On your own device, choose a passkey (no
+   password to remember, and no recovery codes: that is why the next step is
+   a second administrator). On shared or several computers, choose a password
+   and an authenticator app (scan a QR code, confirm a code, then keep your
+   recovery codes). Either way you are signed in when you finish. You can turn
+   the two-factor requirement off later in Manage Users, but it is on by default.
+6. The first time you reach the admin area you are offered, once, to add a
+   second administrator (skippable, and step 7 below does the same later), and
+   then asked whether to show your partners on a public website. "Not yet" is fine, and you can
+   change it any time under Settings → Privacy and Safety.
+7. **Add a second administrator** (Settings → Manage Users → Add User, role
+   Admin) as soon as someone else you trust can take the role. One
+   administrator who loses a phone has no way back in from inside the app, and
+   the way back is a server command most volunteers cannot run. With two, each
+   can reset the other's two-factor in a click (Manage Users → Reset MFA). Until
+   you do, the bell and the Home page say "You are the only administrator".
 
-   **Choose the region carefully: it cannot be changed afterwards.**
-   Render won't move an existing service, and editing this later just
-   makes every Blueprint sync fail silently while the site keeps
-   running. Getting it wrong means destroying and recreating both the
-   service and the database.
-2. Render Dashboard → **New → Blueprint** → pick your fork. The first
-   time you do this with a private fork, Render needs its GitHub App
-   authorized on that repo (Dashboard → Account Settings → GitHub →
-   Configure) — a one-time step.
-3. Render prompts for the handful of optional variables `render.yaml`
-   marks `sync: false` (`MFA_ISSUER`, etc. — see
-   [Environment variables](#environment-variables) below); leave them
-   blank to skip those optional features for now. `SESSION_SECRET` and
-   `FIELD_ENCRYPTION_KEY` are generated automatically, nothing to enter.
-4. Apply the blueprint. Render builds, runs `prisma migrate deploy` as a
-   pre-deploy step, and starts the app — no separate migration step to
-   remember.
-5. Visit your new site and go to `/setup` (or just `/login` — a fresh
-   instance redirects there automatically) to create your first admin
-   account, right in the browser. No shell access, no
-   `DATABASE_URL`/`createAdmin.js` needed — the point of a one-click
-   deploy is defeated if the very first login still requires a terminal.
-   A new install **requires two-factor from the start** (see
-   [Authentication setup](#authentication-setup)), so after creating the
-   account you sign in once and set up an authenticator app on your phone
-   (scan a QR code, confirm a code). You can turn the requirement off later
-   in Manage Users, but it's on by default.
+**The region is Oregon, and cannot be changed afterwards.** Render won't move
+an existing service, so a church that wants a different region (`ohio`,
+`virginia`, `frankfurt` or `singapore`) or its own service name has to set it
+before the first deploy, which needs the advanced path below.
 
-Costs about $13/mo on Render's cheapest paid tiers — free tier exists
-but isn't viable for anything long-lived (the web service sleeps after
-15min idle, and the database gets deleted after 90 days). Every push to
-your fork's `main` redeploys automatically; `.github/workflows/ci.yml`
-runs the test suite and a real end-to-end Playwright pass on every PR
-and push, independent of deployment.
+**Your address.** Render gives your site its own `onrender.com` address and
+the app uses it for the links in the emails it sends (setup links, unsubscribe
+links, passkeys). If you later put the site on your own domain, set
+`APP_BASE_URL` to that address (see [Environment variables](#environment-variables)).
+
+**Updates.** Your site follows this project's `main` branch: when a new release
+is published, Render rebuilds and redeploys it automatically; there is nothing
+to click. Before 1.0 a release can need the database started over, in which
+case the new version refuses to start and your current one keeps running (see
+[UPGRADING.md](UPGRADING.md)). Download a backup before upgrades (see
+[Database backups](#database-backups)).
+
+**Advanced: your own fork, a different region or a custom name.** The button
+deploys this project exactly as it is, and Render Blueprints cannot prompt for
+a service name or region, so choosing either means editing `render.yaml` in a
+copy of the repo first. Make your own fork on GitHub, then from a terminal in
+your copy:
+
+```bash
+npm run name-instance -- your-church-name oregon
+git commit -am "Name the Render services for this instance"
+git push
+```
+
+The name becomes your address (`your-church-name.onrender.com`). Then
+**Render Dashboard → New → Blueprint** and pick your fork (a private fork needs
+Render's GitHub App authorized on it first: Dashboard → Account Settings →
+GitHub → Configure). With a fork, updates come from you pulling this project's
+changes into it (see [Upgrading a fork](#upgrading-a-fork)).
+
+Costs about $13/mo on Render's cheapest paid tiers. A free tier exists but
+isn't viable for anything long-lived (the web service sleeps after 15min idle,
+and the database gets deleted after 90 days). `.github/workflows/ci.yml` runs
+the test suite and a real end-to-end Playwright pass on every PR and push to
+this project, independent of your deployment.
 
 Once you're up and running, [Environment variables](#environment-variables)
 and [Feature toggles](#feature-toggles) below cover what to configure
@@ -119,52 +159,22 @@ instead? See [Deploying to production](#deploying-to-production) further
 down — same app, same steps in spirit, just without Render's one-click
 Blueprint doing the provisioning for you.
 
-### Skipping the worker service
+### The scheduled jobs
 
-If your church has no plans to use **any** of GroupMe, WhatsApp, the
-email prayer/admin digest, or automated trip reminders, you don't need
-`missions-partner-tracker-worker` at all — it's the one Blueprint
-service whose only job is running those four schedules (see
-`backend/src/worker.js`'s own header comment). Everything else —
-creating/editing partners, prayer requests, one-time needs, trip
-applications, and every admin-triggered send (a welcome email, a
-meeting invite, an application-approval notice) — runs inline in the
-main web service and needs nothing from the worker.
+The email digests, GroupMe and WhatsApp posts, trip and key-date reminders,
+scheduled reports and the nightly audit clean-up all run inside the same web
+service as the site itself (`backend/src/utils/backgroundJobs.js`). There is
+no separate worker service to deploy, pay for, or forget about, and nothing
+extra to configure: they start by themselves in production, and take a
+database lock first so that only one copy ever runs them (during a deploy
+Render briefly runs the old and new versions together).
 
-**Render's Blueprint spec has no "optional" or "conditional" service
-field** — confirmed by checking the
-[official Blueprint YAML reference](https://render.com/docs/blueprint-spec),
-which documents every service field this app's `render.yaml` uses but
-nothing that skips a service conditionally. So there's no one-click
-toggle; the realistic path is:
-
-1. Apply the Blueprint as normal (step 4 above) — both services get
-   created.
-2. Render Dashboard → the worker service (`missions-partner-tracker-
-   worker`) → Settings → delete it. Deleting it does not touch the web
-   service, the database, or any data.
-
-**Adding it back later**, if you change your mind: Render's own docs
-don't clearly say whether re-running a Blueprint sync recreates a
-service you deleted by hand while it's still listed in `render.yaml` —
-so don't rely on that. The confirmed-safe path is Dashboard → **New →
-Background Worker** → same repo/branch as your web service → same
-build command
-(`cd frontend && npm install --include=dev && npm run build && cd
-../backend && npm install --include=dev`) and start command (`cd
-backend && node src/worker.js`) `render.yaml` already defines for it →
-set `DATABASE_URL` (same database as the web service),
-`FIELD_ENCRYPTION_KEY` (copied by hand from the web service's
-Environment tab — see `render.yaml`'s own comment on why this must
-match exactly, never generated fresh), and `NODE_ENV=production`.
-
-**One real gap to know about**: nothing in the admin UI currently
-checks whether the worker is actually running. If you delete it, every
-setting that only takes effect through it (GroupMe/WhatsApp pairing
-and schedule, the email digest schedule, trip reminder lead times)
-still saves normally with no warning that it'll never actually fire —
-the admin Dispatch Settings page shows a static reminder of this, but
-nothing dynamic (no live "worker is/isn't running" check exists yet).
+**If you deployed from an earlier version of this Blueprint** it also made a
+`missions-partner-tracker-worker` service. It is no longer needed (two copies
+would be harmless, since the lock lets only one run the jobs, but you would be
+paying for nothing): in the Render Dashboard open that service → Settings →
+delete it. Deleting it does not touch the web service, the database, or any
+data.
 
 ## Environment variables
 
@@ -177,10 +187,12 @@ full file with inline comments):
 | `PORT` | No | Defaults to 4000 |
 | `NODE_ENV` | No | `development` or `production` — must be exactly `production` on a real deployment, or the session cookie isn't marked secure/HTTPS-only. Render and most PaaS platforms set this for you; a self-hosted server/container needs it set by hand. |
 | `SESSION_SECRET` | Yes | Signs the session cookie (see [Authentication setup](#authentication-setup)). Generate a long random value, e.g. `openssl rand -base64 48`. See [Rotating SESSION_SECRET](#rotating-session_secret) below |
-| `FIELD_ENCRYPTION_KEY` | Recommended | Encrypts every reversibly-stored secret at rest: two-factor (MFA) secrets, plus the Postmark server token, GroupMe access token, Joshua Project API key, and WhatsApp session. Generate with `npm run generate-secrets`. Without it the app still runs, but MFA enrollment and any of those integrations fail. See [Rotating FIELD_ENCRYPTION_KEY](#rotating-field_encryption_key) below |
+| `FIELD_ENCRYPTION_KEY` | Yes (the Render button makes one for you) | Encrypts every reversibly-stored secret at rest: two-factor (MFA) secrets, plus the Postmark server token, GroupMe access token, Joshua Project API key, and WhatsApp session. Generate with `npm run generate-secrets`. The app refuses to start without a usable key (32 bytes, base64), the same as `SESSION_SECRET`: two-factor sign-in is required from the first sign-in and cannot be set up without it. Keep it somewhere durable. See [Rotating FIELD_ENCRYPTION_KEY](#rotating-field_encryption_key) below |
 | `NOMINATIM_CONTACT` | Recommended | Your contact email, sent with geocoding requests per [Nominatim's usage policy](https://operations.osmfoundation.org/policies/nominatim/) |
 | `MFA_ISSUER` | No | Name shown in a user's authenticator app when they enroll in MFA; defaults to "Missions Partner Tracker Admin" |
-| `APP_BASE_URL` | No | This app's own public URL, no trailing slash — needed for the dispatch queue's own links: the GroupMe newsletter dispatch's link, the email digest's "read the source" / "read the full newsletter" links, and the digest's own unsubscribe link (see [GroupMe dispatch](USER_GUIDE.md#groupme-dispatch-admin-only) and [Pending Dispatches](USER_GUIDE.md#pending-dispatches)). On Render this is picked up automatically from `RENDER_EXTERNAL_URL`; set it explicitly elsewhere. Leave unset and those links just don't appear. |
+| `APP_BASE_URL` | On Render: no. Elsewhere: yes | This app's own public URL, no trailing slash — needed for every link the app puts in a message or builds for you: setup, password-reset and sign-in links, survey and trip links, passkeys, the email digest's unsubscribe link, and the dispatch queue's own links: the GroupMe newsletter dispatch's link and the email digest's "read the source" / "read the full newsletter" links (see [GroupMe dispatch](USER_GUIDE.md#groupme-dispatch-admin-only) and [Updates to Share](USER_GUIDE.md#updates-to-share)). On Render this is picked up automatically from `RENDER_EXTERNAL_URL`, so you need not set it; set it yourself if you use your own domain or host elsewhere. Leave it unset elsewhere and those links just don't appear (and a setup or sign-in link can't be built). |
+| `TRUST_PROXY` | No | How many reverse proxies sit in front of the app, from `0` to `10`; the default `1` is right for Render and for a single nginx or load balancer. Sets where the sign-in rate limits read the visitor's address (see [Rate limiting](#rate-limiting)). `0` if the app is reached directly; `2` for two proxies (Cloudflare in front of Render). |
+| `BACKGROUND_JOBS` | No | `on` or `off` to force the scheduled jobs and the WhatsApp connection on or off. Left unset they run when `NODE_ENV=production` and not otherwise, so a laptop pointed at a database with real email settings never sends anything on its own. |
 
 There's nothing to configure for the frontend separately — it's served by
 the backend and always calls `/api` on its own origin.
@@ -200,8 +212,7 @@ prayer digest nested under Email (Sending) since it depends on it), and
 **Integrations** (AI Features, Joshua Project).
 
 **Without email.** Email (Sending) is optional. Where an email would have gone out, the app hands you what you need
-instead: trip invites, setup links and survey links appear with a copy button; queued updates wait on Pending
-Dispatches with **Copy the updates that are ready**; key dates show a copyable list on My partners; scheduled report
+instead: trip invites, setup links and survey links appear with a copy button; queued updates wait on Updates to Share with **Copy the updates that are ready**; key dates show a copyable list on My partners; scheduled report
 emails are replaced by the Reports page and its download. A few things need real email and say so (passwordless
 sign-in, the public prayer digest). Enabled Features shows a "Without email" line on each feature where it matters.
 
@@ -209,8 +220,8 @@ sign-in, the public prayer digest). Enabled Features shows a "Without email" lin
 
 | Feature | Default | Notes |
 |---|---|---|
-| Public directory | On | The public list/search view at the site's root (`/`). Off shows a short "this isn't public" page there instead. |
-| Public map | On | The public map view (`/map`). Same off-behavior as above. Independent of the directory toggle — a church can run either one alone, or both, or neither; the partner-detail page stays reachable as long as at least one of the two is on. |
+| Public directory | **Off** | The public list/search view at the site's root (`/`). **Off on a new install:** the first time an admin reaches the admin area they are asked once whether to turn on the public directory and map ("Not yet" is fine), and it can be changed any time under Settings → Privacy and Safety. Off shows a short "this isn't public" page there instead. |
+| Public map | **Off** | The public map view (`/map`). Same off-behavior as above. Independent of the directory toggle — a church can run either one alone, or both, or neither; the partner-detail page stays reachable as long as at least one of the two is on. |
 | Newsletters & Docs | On | Newsletters and documents (survey responses, signed policies, etc.) on missionary/organization pages and their own admin section. |
 | Prayer requests | On | The Prayer Requests admin section, and the prayer request list on missionary/organization pages. |
 | One-time needs | On | The One-Time Needs admin section, and the one-time needs list on missionary/organization pages. Only gates the standalone `/api/support-needs` CRUD — a need can still be added via a missionary/organization's own edit form either way (a narrower gap than the other toggles here). |
@@ -219,18 +230,18 @@ sign-in, the public prayer digest). Enabled Features shows a "Without email" lin
 | Public trip discovery | **Off** | The public Trip Opportunities listing (`/trips`) and plain, id-addressed application links. Also requires Mission trips to be on. A church can run trips entirely by private link with this off and Mission trips on — see [§ Trips](#trips) below. |
 | Print booklet | On | The printable prayer & support directory generator. |
 | Reports | On | A question-based hub of read-only reports over existing data (support, prayer requests, one-time needs, data completeness, trips, mailing list, users & access, and more), each with URL-backed filters, summary tiles, CSV download, and a print view. Reports can be saved (private or shared) and, for an admin, scheduled as a recurring email. See [USER_GUIDE.md § Reports](USER_GUIDE.md#reports). |
-| GroupMe dispatch | **Off** | Queues new prayer requests, one-time needs, and newsletters — plus a prayer request's recorded answer and a one-time need's funding decision — for GroupMe, sent out to their own configured Topics on the schedule configured at Settings → Dispatch Settings, or via manual send from Pending Dispatches. Configured entirely in the UI (Settings → GroupMe) with the admin's own personal access token, not a bot — GroupMe's Bots API has no awareness of Topics. Off by default since it's the one feature here that posts to a third-party service on its own, not just on request. See [USER_GUIDE.md § GroupMe dispatch](USER_GUIDE.md#groupme-dispatch-admin-only). |
+| GroupMe dispatch | **Off** | Queues new prayer requests, one-time needs, and newsletters — plus a prayer request's recorded answer and a one-time need's funding decision — for GroupMe, sent out to their own configured Topics on the schedule configured at Settings → Sending Updates, or via manual send from Updates to Share. Configured entirely in the UI (Settings → GroupMe) with the admin's own personal access token, not a bot — GroupMe's Bots API has no awareness of Topics. Off by default since it's the one feature here that posts to a third-party service on its own, not just on request. See [USER_GUIDE.md § GroupMe dispatch](USER_GUIDE.md#groupme-dispatch-admin-only). |
 | WhatsApp dispatch | **Off** | The same three dispatch types as GroupMe, posted to their own groups inside one WhatsApp community, on the same daily schedule and content-type mutes as GroupMe (a church can run either or both). Configured entirely in the UI (Settings → WhatsApp): link a **dedicated** phone number by scanning a QR code, pick the community, then a group per dispatch type. Off by default because it's an **unofficial** connection — see [Dispatch: WhatsApp](#dispatch-whatsapp) below before turning it on. See [USER_GUIDE.md § WhatsApp dispatch](USER_GUIDE.md#whatsapp-dispatch-admin-only). |
-| Care teams | **Off** | Give each partner a care team: one Lead plus Members, all logins, who keep in touch with them. A care team member can do what an editor can for their own partner, except that **what they enter is held in Pending Dispatches for you to approve before it's sent anywhere**, they can't record a decision on a one-time need, and they never see monthly support. A Guest can be given a partner this way instead of a trip. See [USER_GUIDE.md § Care teams](USER_GUIDE.md#care-teams). Turning it off hides all of it and ignores the seats for access; nothing is deleted. Adds a *Care team coverage* report. |
-| Key-date reminders | **Off** | Reminds whoever looks after each partner (its care team, else your **missions team**) about coming birthdays (including children), wedding anniversaries and supported-since milestones (the first year, then every fifth), a week ahead by default (Settings → Partner Care → Timing sets 1 to 60 days, and how many days without contact make a partner "quiet", 7 to 365): on the bell, in each person's **email digest** (dates 90 and 30 days out, each once; Settings → Partner Care → Timing sets the earlier heads-ups, up to three), and in **one short email** for the final stretch, sent at 7am church time only on days something is due and only to someone whose digest wouldn't reach them before the date. It doesn't need Care teams; the email needs **Email (Sending)** and is sent by the worker. A partner with no care team goes to your **missions team** (the people marked "On the missions team" under Settings → Partner Care or on a user; you can rename the group there), who also see those partners on My partners and under "Partners to reach out to" (staff only: a Guest is never on it). Anyone can turn off their own daily email under My account → Key-date email; the bell alert stays. With Email (Sending) off, **My partners** shows the list the email would have sent, with **Copy this week's list**. A public demo keeps this on for the bell but never sends the email; logging a contact with the topic "Key date" clears a reminder. Restricted partners are named by initials only. |
+| Care teams | **Off** | Give each partner a care team: one Lead plus Members, all logins, who keep in touch with them. A care team member can do what an editor can for their own partner, except that **what they enter is held in Updates to Share for you to approve before it's sent anywhere**, they can't record a decision on a one-time need, and they never see monthly support. A Guest can be given a partner this way instead of a trip. See [USER_GUIDE.md § Care teams](USER_GUIDE.md#care-teams). Turning it off hides all of it and ignores the seats for access; nothing is deleted. Adds a *Care team coverage* report. |
+| Key-date reminders | **On** | Reminds whoever looks after each partner (its care team, else your **missions team**) about coming birthdays (including children), wedding anniversaries and supported-since milestones (the first year, then every fifth), a week ahead by default (Settings → Partner Care → Key-date timing sets 1 to 60 days; the same page's Quiet partners card sets how many days without contact make a partner "quiet", 7 to 365): on the bell, in each person's **email digest** (dates 90 and 30 days out, each once; Settings → Partner Care → Key-date timing sets the earlier heads-ups, up to three), and in **one short email** for the final stretch, sent at 7am church time only on days something is due and only to someone whose digest wouldn't reach them before the date. It doesn't need Care teams; the email needs **Email (Sending)** and is sent by the scheduled jobs. A partner with no care team goes to your **missions team** (the people marked "On the missions team" under Settings → Partner Care or on a user; you can rename the group there), who also see those partners on My partners and under "Partners to reach out to" (staff only: a Guest is never on it). Anyone can turn off their own daily email under My account → Key-date email; the bell alert stays. With Email (Sending) off, **My partners** shows the list the email would have sent, with **Copy this week's list**. A public demo keeps this on for the bell but never sends the email; logging a contact with the topic "Key date" clears a reminder. Restricted partners are named by initials only. |
 | Support preferences | **Off** | A menu of ways your church can support partners (housing while they are home, airport pick-up, prayer, care packages and so on), which you edit under Settings → Support Preferences, and each partner's choices from it, shown as a card on their page and recorded by staff or the people who look after them. Doesn't need Care teams. Never shown publicly, in the booklet or in dispatches; a trip leader doesn't see it. Adds a "Support preferences" report. |
 | Partner surveys | **Off** | Build short surveys (a check-in, an annual update, a poll) under Settings → Surveys and send each partner a personal link to answer, or fill one in for them from their page. Answers show on the partner's page for staff (and their care team, when Care teams is on) only. A person starts every send; nothing is emailed automatically, and the app never emails a restricted partner or one marked not to be contacted directly. Doesn't need Care teams; sending the links needs Email (Sending) and `APP_BASE_URL` (without email you copy each link instead). Adds a "Survey responses" report. Questions can be linked to a part of the partner's record (phone, email, preferred contact method, emergency contact, photo): a differing answer waits on **Survey Updates** for an admin or editor to approve, edit or reject, and is never applied automatically. Starter templates are built in. |
-| Audit log | **On** | Records who did what and when for sensitive actions (sign-ins and failed sign-ins, role and access changes, settings changes, deletes, backups, restricted-partner changes and views) and adds an admin-only **Settings → Audit log** page with filters and CSV export. Entries are kept for 30, 60 or 90 days (default 90) and pruned nightly by the worker, even if the feature is later turned off. Secrets are never stored. It is on by default because it records nothing before it is on; sign-in entries include the IP address (personal data), so a church that doesn't want that can turn it off here. See [USER_GUIDE.md § Audit log](USER_GUIDE.md#audit-log-admin-only). |
-| Contact log | **Off** | Record every call, text, email, visit or card with a partner, show a contact card (primary contact, preferred method, one-tap call/text/email/WhatsApp) on each partner page, and flag partners nobody has been in touch with for 90 days. Adds an **My partners** tab for care team members, a "Partners to reach out to" alert, and feeds the Last heard from report. A partner marked not safe to contact shows staff's special instructions instead of the buttons, and is left out of the printed booklet's contact details. Entries are internal only. |
+| Audit Log | **On** | Records who did what and when for sensitive actions (sign-ins and failed sign-ins, role and access changes, settings changes, deletes, backups, restricted-partner changes and views) and adds an admin-only **Settings → Audit Log** page with filters and CSV export. Entries are kept for 30, 60 or 90 days (default 90) and pruned nightly by the scheduled jobs, even if the feature is later turned off. Secrets are never stored. It is on by default because it records nothing before it is on; sign-in entries include the IP address (personal data), so a church that doesn't want that can turn it off here. See [USER_GUIDE.md § Audit Log](USER_GUIDE.md#audit-log-admin-only). |
+| Contact log | **On** | Record every call, text, email, visit or card with a partner, show a contact card (primary contact, preferred method, one-tap call/text/email/WhatsApp) on each partner page, and flag partners nobody has been in touch with for 90 days. Adds an **My partners** tab for care team members, a "Partners to reach out to" alert, and feeds the Last heard from report. A partner marked not safe to contact shows staff's special instructions instead of the buttons, and is left out of the printed booklet's contact details. Entries are internal only. |
 | Joshua Project stats | **Off** | Shows country-level unreached-people-group statistics on a partner's page (public and admin). Requires an API key, set at Settings → Integrations, under Joshua Project ([free key](https://joshuaproject.net/api/request)). The Country Code (FIPS) field on Serving Location only appears once this is on — turning it on after partners already exist means going back into each one's Serving Location to enter the code manually or re-trigger the auto-lookup (see [USER_GUIDE.md § Editing a partner](USER_GUIDE.md#editing-a-partner)). |
 | AI Features | **Off** | Adds a "Scan for requests" button on each newsletter/document that's PDF, JPEG, PNG, or `.eml` (Word/Excel aren't supported). Sends that one file to Claude (Anthropic's API) to look for prayer requests and one-time financial needs, then shows them for review — nothing is added until you explicitly accept a suggestion. Requires an API key, set at Settings → Integrations, under AI Features ([get one at console.anthropic.com](https://console.anthropic.com/settings/keys), pay-per-scan, a few cents/month at typical volume). Off by default even once the key is configured, since it's the one feature here that sends data to a third party. |
 | Email (Sending) | **Off** | Enables outbound email through a configured [Postmark](https://postmarkapp.com) account, set at Settings → Email. Today's only sender is the batched dispatch digest (see [§ Email (Postmark)](#email-postmark) below), plus Send Test Email on that same settings page. Independent of Email (Receiving) below — a church can turn on either, both, or neither. |
-| Email (Receiving) | **Off** | Lets partners email newsletter updates straight into this app via a Postmark inbound webhook, auto-filed to the matching partner or queued in Unmatched Emails otherwise. Set up on the same Settings → Email page as Sending, independently toggled. Also sets the one informational **Inbound Email Address** field — purely display, not required for the webhook itself. See [§ Email (Postmark)](#email-postmark) below. |
+| Email (Receiving) | **Off** | Lets partners email newsletter updates straight into this app via a Postmark inbound webhook, held in Emails to Sort for a quick review, then assigned to the matching partner. Set up on the same Settings → Email page as Sending, independently toggled. Also sets the one informational **Inbound Email Address** field — purely display, not required for the webhook itself. See [§ Email (Postmark)](#email-postmark) below. |
 | Public prayer digest | **Off** | Lets anyone subscribe (no login) to email digests of prayer-request updates, from the public **Subscribe** page (`/subscribe`) or from a single partner's own page — for all partners or just the ones they pick. Also requires Public directory and Email (Sending) to be on — shown nested under Email (Sending) on this page, and its checkbox can't be turned on until that one is. See [§ Dispatch: GroupMe, the admin digest, and the public digest](#dispatch-groupme-the-admin-digest-and-the-public-digest) below. |
 
 ![The Admin Features dialog, with the Contact log, Key-date reminders and Care teams toggles](docs/assets/screenshots/enabled-features-admin.png)
@@ -245,18 +256,18 @@ deleted: turning it back on brings the records back.
 |---|---|---|
 | Public trip discovery | Mission trips | No public Trip Opportunities page. A trip's own private application links still work. |
 | Public prayer digest | Public directory and Email (Sending) | No public Subscribe page. |
-| Key-date reminders | Care teams. The daily email also needs Email (Sending). | No key-date alert on the bell or Home. Without Email (Sending) the bell alert still works and no email goes out. |
-| Support preferences | Care teams | No Support Preferences card or settings page, and no Support preferences survey question. |
-| Partner surveys | Care teams. Emailed links also need Email (Sending) and `APP_BASE_URL`. | No Surveys settings, card, Survey Updates page or bell items. Without Email (Sending), **Get link** still makes a personal link to send yourself. |
-| Contact log | Care teams, for "who should reach out" and the bell | No log, contact card log or My partners follow-ups. A contact card still shows who to reach. |
+| Key-date reminders | Nothing else. The daily email also needs Email (Sending); who is reminded follows each partner's care team when Care teams is on, and the missions team otherwise. | No key-date alert on the bell or Home. Without Email (Sending) the bell alert still works and no email goes out. |
+| Support preferences | Nothing else (Care teams is optional) | No Support Preferences card or settings page, and no Support preferences survey question. |
+| Partner surveys | Nothing else. Emailed links also need Email (Sending) and `APP_BASE_URL`. | No Surveys settings, card, Survey Updates page or bell items. Without Email (Sending), **Get link** still makes a personal link to send yourself. |
+| Contact log | Nothing else. Care teams is optional: with it the log and the bell follow each partner's care team, without it the missions team | No log, contact card log or My partners follow-ups. A contact card still shows who to reach. |
 | Email (Sending) | A Postmark account (Settings, Email) | No email anywhere: trip emails fall back to "tell people yourself" wording, survey links use **Get link**, and the daily key-date and digest emails stop. |
 | Email (Receiving) | A Postmark account and its inbound webhook | Newsletters are not filed by email. |
 | GroupMe / WhatsApp dispatch | Their own connection settings | Nothing is posted there. |
 | AI Features | An Anthropic API key, and Newsletters & Docs to have something to scan | No automatic prayer request or need extraction. |
-| Joshua Project stats | A Joshua Project API key, and a country code (FIPS) on the partner | No country statistics on partner pages. |
+| Joshua Project stats | A Joshua Project API key, and a country code on the partner | No country statistics on partner pages. |
 
 Features that only add pages or sections (Prayer requests, One-time needs, Monthly support,
-Newsletters & Docs, Mission trips, Reports, Print booklet, Audit log) can each be left off without
+Newsletters & Docs, Mission trips, Reports, Print booklet, Audit Log) can each be left off without
 affecting any other feature, with two small exceptions: the Contact Log also lists church visits and
 newsletter filings, and its "Updates to pass on" box reads decided needs and answered prayers, so those
 lines disappear when One-time needs, Prayer requests or Newsletters & Docs is off.
@@ -268,11 +279,10 @@ check on the relevant route(s), not a database migration.
 All of this lives under **Settings**, an expandable group in
 the admin sidebar itself (not a separate page with its own tab bar) —
 click it to reveal, in order: **About & Branding** (Church Info/address and
-branding together on one page), **Manage Users**, **Audit log**, and
+branding together on one page), **Manage Users**, **Audit Log**, and
 **Enabled Features**; then the settings for the features you've turned on
 (**Trips**, **Care Teams**, and **Communications** — Email, GroupMe,
-WhatsApp, Dispatch Settings, which itself includes a read-only Email
-Dispatch Subscribers section, not a separate nav link — and
+WhatsApp, Sending Updates, which itself includes a read-only Who gets update emails section, not a separate nav link — and
 **Integrations**: AI Features, Joshua Project); and last **About App**
 (runtime/database diagnostics plus database backups, on one page — see
 [§ Database backups](#database-backups) below). The Settings home page
@@ -290,11 +300,15 @@ tied to the site's address, so set `APP_BASE_URL` to the address people use (its
 host name is the passkey's identity) and keep it stable; if the church moves to
 a new domain, existing passkeys stop working and people add them again (an
 authenticator app is unaffected). **Reset MFA** on a user clears their app and
-passkeys.
+passkeys. A passkey also works only at that one address, so if you open the
+site by another one (the bare domain instead of `www`, or the old
+`onrender.com` address after adding a custom domain), an admin sees a banner at
+the top saying which address the site is set to, and a person whose passkey is
+refused is told the same instead of a bare "couldn't be verified".
 
 **Passwordless sign-in** (#386, Settings → Manage Users) is an optional
 church-wide switch for churches that have outbound email working: nobody signs
-in with a password (switch on **Passkey sign-in** under Settings → Users to also show a **Sign in with a passkey** button beside the password form); a person with a passkey signs in with it alone, and anyone
+in with a password (the sign-in page always offers **Sign in with a passkey** first, except on a public demo); a person with a passkey signs in with it alone, and anyone
 without one gets a one-time emailed link (valid 15 minutes) and is then taken
 through adding a passkey. It needs working outbound email and a passkey on the
 admin turning it on, implies the two-factor requirement, is refused on a demo,
@@ -334,11 +348,19 @@ A few things worth knowing operationally:
   it off for themselves. Before turning it on, make sure the admins have
   enrolled: the switch only works for an admin who has set up two-factor
   on their own account, and it shows how many active accounts haven't
-  yet. If someone loses their authenticator, Manage Users' **Reset MFA**
-  clears it and they enrol again at next sign-in. It is on by default for
+  yet. When someone sets up an authenticator app they are shown **ten
+  recovery codes** (each works once) and must tick that they have saved
+  them; a lost phone is then a recovery code at the sign-in screen, and
+  **My Account → Two-factor → Make a new set of recovery codes** replaces
+  the set. If someone loses their authenticator *and* their codes,
+  another admin's Manage Users **Reset MFA** clears it and they enrol
+  again at next sign-in. A sole admin has no other admin: whoever runs the
+  server clears it from the command line (see
+  [Locked out of two-factor](#locked-out-of-two-factor)), so add a second
+  administrator you trust. It is on by default for
   a new install (the first-run setup turns it on), off on an install that
   predates it, can't be turned on for the public demo, and changes to it are in the
-  [Audit log](USER_GUIDE.md#audit-log-admin-only). No role is special:
+  [Audit Log](USER_GUIDE.md#audit-log-admin-only). No role is special:
   a Guest is treated like everyone else. See
   [USER_GUIDE.md § Your account settings](USER_GUIDE.md#your-account-settings)
   for the user-facing flow.
@@ -391,7 +413,27 @@ design:
 | `/api/auth/mfa/verify-setup`, `/api/auth/mfa/disable`, `/api/auth/change-password` | 10 requests / 15 min — these sit behind a session, but a session isn't a guess limiter, and each one checks a short code or the current password |
 | `/api/public/*` (directory, map, country stats, public settings) | 120 requests / min |
 
-These aren't env-configurable — if your instance needs different limits
+**Per account, as well as per address.** An address can be dodged, so sign-in is
+also limited by *account*: after 10 failed password sign-ins for the same email
+within 15 minutes (and, separately, 10 wrong two-factor codes), that account's
+sign-in is refused with a "try again in N minutes" message from any address,
+even for the right password, until the oldest failures age out. A successful
+sign-in clears the count. Someone who knows an email can therefore make that
+account wait by failing on purpose; it lasts at most 15 minutes. It is held in
+memory (a restart clears it), and is off on a public demo, whose logins are
+shared.
+
+**Behind a proxy, set `TRUST_PROXY` correctly.** The per-address limits read the
+visitor's address from the `X-Forwarded-For` header, so the app has to know how
+many proxies sit in front of it. It assumes **one** (Render, or nginx or a load
+balancer in front), which is right for the Render install. Set `TRUST_PROXY=0`
+if the app is reached directly with nothing in front of it (otherwise a visitor
+can write their own address into that header and never hit a limit), or
+`TRUST_PROXY=2` if there are two (for example Cloudflare in front of Render;
+otherwise every visitor shares the proxy's address and one limit). The app logs
+what it assumed when it starts in production.
+
+The per-address limits aren't env-configurable — if your instance needs different limits
 (e.g. a very high-traffic public site), edit the `rateLimit(...)` calls in
 `server.js` directly. A legitimate user hitting one during normal use gets
 a `429` response; that's a sign the limit needs raising for your traffic,
@@ -416,7 +458,7 @@ above instead.
    cp .env.example .env       # fill in DATABASE_URL, SESSION_SECRET, etc. — see reference above
    npm install
    npm run prisma:migrate     # creates tables
-   npm run seed                # optional: ~35 fake partners for demoing the UI
+   npm run seed                # optional: ~35 fake partners for demoing the UI (sample users get unknown random passwords)
    node prisma/createAdmin.js you@yourchurch.org "SomeStrongPassword!"
    npm run dev                  # http://localhost:4000
    ```
@@ -481,16 +523,13 @@ well for a small church team:
 | Database | [Neon](https://neon.tech), [Supabase](https://supabase.com), [Railway](https://railway.app), or any managed/self-hosted Postgres |
 | App | [Railway](https://railway.app), [Fly.io](https://fly.io), a plain VPS running `npm run start` behind nginx + `pm2` — anything that can run a long-lived Node process. There's no Dockerfile in this repo, so a platform that builds straight from a Node buildpack needs the least setup. Whatever you use needs to run the frontend build (`cd frontend && npm run build`) *before* starting the backend, so `backend/public` is populated. |
 
-This is two long-lived processes now, not one (#271 Phase B): `npm run
-start` (`src/server.js`) answers web requests, and `npm run start:worker`
-(`src/worker.js`) runs the email/GroupMe/trip-reminder schedulers and the
-WhatsApp connection. Both need to stay running continuously -- `pm2` (or
-your platform's equivalent) should manage both as separate long-lived
-processes, not one restarting the other. Run exactly one copy of the
-worker regardless of how many copies of the web process you run: every
-scheduled digest, reminder, and WhatsApp/GroupMe post only ever needs to
-fire once per schedule, and running two worker copies would fire
-everything twice.
+It is one long-lived process: `npm run start` (`src/server.js`) answers web
+requests **and** runs the scheduled jobs and the WhatsApp connection, so it
+needs to stay running continuously (`pm2` or your platform's equivalent
+should restart it if it exits). The jobs start only in production
+(`NODE_ENV=production`); set `BACKGROUND_JOBS=on` or `off` to force them either
+way. You may run more than one copy: a database lock makes sure only one runs
+the jobs, so every scheduled digest, reminder and post still fires once.
 
 Wherever you land, the deployment steps are the same shape regardless of
 provider:
@@ -500,14 +539,12 @@ provider:
 2. Build the frontend (`cd frontend && npm run build`) — this writes into
    `backend/public`, so do this *before* the next step.
 3. Deploy the backend (including the now-populated `backend/public`),
-   starting both `npm run start` and `npm run start:worker` as separate
-   processes, with every variable from the
+   starting it with `npm run start`, with every variable from the
    [Environment variables table](#environment-variables) set as that
-   platform's environment/config vars on *both* processes — never commit
-   `.env`. `FIELD_ENCRYPTION_KEY` specifically must be the exact same
-   value on both; the worker decrypts tokens the web process encrypted; a
-   different key on either side breaks decryption for whichever
-   credentials were written under the other one.
+   platform's environment/config vars — never commit `.env`. If you run
+   more than one copy, `FIELD_ENCRYPTION_KEY` must be the exact same
+   value on all of them; a different key on one breaks decryption of
+   credentials written under another.
 4. Visit your new site and go to `/setup` to create your first admin
    account right in the browser — or, if you'd rather do it from a
    shell with `DATABASE_URL` set, `node prisma/createAdmin.js
@@ -658,7 +695,7 @@ login. In practice that means:
 If you need *staff* (admins, editors, viewers) who can see some partners but
 not others, this app can't express that, and pretending otherwise with
 roles would be worse than saying so plainly. A Guest is the supported way to
-limit someone to particular trips or partners. The Pending Dispatches page's own held-row
+limit someone to particular trips or partners. The Updates to Share page's own held-row
 text (see [§ Restricted-partner dispatch
 review](#restricted-partner-dispatch-review)) follows this same
 rule — it's not role-gated, since `GET /api/prayer-requests` and `GET
@@ -674,6 +711,53 @@ env vars) **instantly invalidates every currently-issued session token**,
 logging everyone out. That's the correct, expected behavior if you ever
 suspect the value has leaked — do it, then have everyone log back in.
 There's no partial/soft rotation; it's all-or-nothing by design.
+
+### Locked out of two-factor
+
+**The short version, for a church with one administrator who lost their phone:**
+
+1. First try your **recovery codes** (you were shown ten when you set up two-factor): on the sign-in page choose
+   "Use a recovery code".
+2. No codes? **Ask your second administrator** to open Manage Users, click your name and choose **Reset MFA**. You
+   sign in with your password and set two-factor up again. This is why a second administrator matters.
+3. No second administrator? Someone who can open the server's shell (on Render, your web service's **Shell** tab)
+   runs the command below. **Or, with no shell at all, anyone who can open the database** (on Render, the
+   database's page → **Connect** → the `psql` command, or any SQL tool with the same connection string) can do the
+   same thing by hand, see "Straight in the database" below. If nobody at the church can do either, it is the one
+   place this app needs a developer; write down who that would be now, while nothing is wrong.
+
+Someone who has lost their authenticator app, their passkeys and their recovery codes needs two-factor
+cleared. Another admin does it from **Manage Users → Reset MFA**. If the person locked out is the only admin,
+whoever runs the server does it from a shell with the same `DATABASE_URL` as the app (on Render, the
+service's **Shell** tab):
+
+```bash
+cd backend && npm run clear-two-factor -- you@yourchurch.org
+```
+
+It removes that account's authenticator secret, passkeys and recovery codes and signs the account out
+everywhere; nothing else about the account changes. The next password sign-in goes straight to setting
+two-factor up again and shows a new set of recovery codes. The action is recorded in the audit log.
+If the password is lost too, use `node prisma/createAdmin.js <email> "<new password>"` first.
+
+**Straight in the database** (no shell, no command): whoever can run SQL against the app's database can make the
+same change by hand. This is the same thing `clear-two-factor` does, in one transaction, so nothing is left
+half done. Replace the email, run it, then sign in with the password and set two-factor up again:
+
+```sql
+BEGIN;
+DELETE FROM "UserPasskey"      WHERE "userId" = (SELECT "id" FROM "User" WHERE "email" = 'you@yourchurch.org');
+DELETE FROM "UserRecoveryCode" WHERE "userId" = (SELECT "id" FROM "User" WHERE "email" = 'you@yourchurch.org');
+UPDATE "User"
+   SET "mfaEnabled" = false, "mfaSecret" = NULL, "mfaLastTimeStep" = NULL,
+       "sessionVersion" = "sessionVersion" + 1
+ WHERE "email" = 'you@yourchurch.org';
+COMMIT;
+```
+
+It signs the account out everywhere (the session number goes up). This route does not write the audit-log entry
+the command does. If the password is lost too, a new one needs a bcrypt hash (cost 12) of the new password
+in `"User"."passwordHash"`; it is simpler to use `createAdmin.js` above, or have a second admin reset it.
 
 ### Rotating FIELD_ENCRYPTION_KEY
 
@@ -692,6 +776,12 @@ re-entered from their own settings page). Only rotate this if you
 suspect it's actually leaked; otherwise leave it alone indefinitely.
 
 ### Restricted-country masking policy
+
+**Settings → Privacy and Safety** (always in the menu, whatever features are on) holds the choices that
+go with it: whether the public directory and map are on, whether a restricted partner's public name is
+their initials or a generic label, and whether updates about restricted partners are recorded for
+sending. Only staff can change whether a partner is shown publicly or restricted; a care-team Guest
+can edit the rest of their partner's page but not those two switches.
 
 Every missionary/organization record has an `isRestricted` flag —
 enabling it masks the name (missionaries only), precise GPS, and overview
@@ -739,12 +829,18 @@ webhook includes the entire raw email (headers, body, attachments) in
 one request, which this app stores as a `.eml` file, exactly like a
 manually-uploaded newsletter. If the sender's address matches exactly
 one partner — either that partner's own Contact Email (organizations) or
-any of their household adults' email addresses (missionaries) — it's
-filed as a Newsletter automatically, scannable by AI Features
-like any other. If zero partners match, or more than one does, it lands
-in the **Unmatched Emails** queue instead of guessing, where any
-logged-in admin or editor can view the raw email and assign it to the
-right partner (or an admin can discard it). Setup:
+any of their household adults' email addresses (missionaries) — that is
+noted, but a sender address can be forged, so by default **every**
+message waits in the **Emails to Sort** queue, where any logged-in
+admin or editor can view the raw email and assign it to the right
+partner as a Newsletter (scannable by AI Features like any other), or an
+admin can discard it. Nothing is ever deleted automatically. On
+**Settings → Email → Receiving**, an admin can tick **File mail from a
+verified partner without review**: a message whose sender matches exactly
+one partner *and* passes the sender check (SPF, or DKIM) is then filed
+as that partner's Newsletter and announced at once; anything that does not
+match, matches more than one partner, or fails the check still waits. It
+is off by default. Setup:
 
 1. Create a free Postmark account (or reuse the one from Sending above —
    the same server can run both an outbound and an inbound stream).
@@ -781,7 +877,7 @@ right partner (or an admin can discard it). Setup:
 somewhere that makes an obviously church-branded inbound address risky
 (`updates@yourchurch.org` reads as exactly what it is) can be given a
 separate, non-church-branded domain to send to instead — landing in the
-exact same auto-file / Unmatched Emails flow as everyone else. This
+exact same Emails to Sort review flow as everyone else. This
 app's webhook doesn't care which domain mail arrived at: it
 authenticates by the Basic Auth credentials in the URL and files by the
 sender's own address, not by the recipient domain, so one app endpoint
@@ -822,8 +918,8 @@ directly against the code, not assumed:
 | Trip meeting invites, reschedules, day-before reminders | **Sending** | RSVP itself (see below) needs no email at all once the participant has the link. |
 | Trip meeting **RSVP tracking** (yes/no/maybe) | **Sending only** | Deliberately link-based, not reply-based — a participant clicks one of three token-verified links in their invite email; nothing needs to come back in. **Receiving is not required for this**, by design (see `TripMeetingRsvp` in `schema.prisma`). |
 | Scheduled report emails | **Sending** | |
-| Partners emailing newsletters/updates in, auto-filed to their record | **Receiving** | Works with Sending off — this direction doesn't send anything itself. |
-| Unmatched Emails review queue | **Receiving** | Same as above. |
+| Partners emailing newsletters/updates in, held for a quick review, then filed to their record | **Receiving** | Works with Sending off — this direction doesn't send anything itself. |
+| Emails to Sort review queue | **Receiving** | Same as above. |
 
 Receiving-only is a complete, valid setup on its own (lets partners send
 updates in, with no outbound capability at all); Sending-only is just as
@@ -839,7 +935,7 @@ transit and encryption at rest; Postmark itself (distinct from its data
 centers) hasn't undergone its own independent SOC audit. Postmark
 retains inbound message content for **45 days by default** before it's
 purged from their side; this app's own copy (the stored `.eml`, whether
-filed as a Newsletter or still sitting in the Unmatched Emails queue) is
+filed as a Newsletter or still sitting in the Emails to Sort queue) is
 what persists afterward — a church shouldn't rely on Postmark itself as
 a second copy past that window.
 
@@ -894,7 +990,7 @@ know before turning it on:
 - **Schedule and message size.** WhatsApp sends once a day, at an
   admin-set hour, with three independent content-type mutes (Prayer
   Requests / One-Time Needs / Newsletters) — both configured on Site
-  Administration → Dispatch Settings. GroupMe and WhatsApp are both
+  Administration → Sending Updates. GroupMe and WhatsApp are both
   chat-style, near-real-time channels, which is why they're scheduled
   on that one shared daily-hour field and the same three mutes rather
   than each getting its own — not because WhatsApp borrows GroupMe's
@@ -911,7 +1007,7 @@ Every event a partner generates — a prayer request created or
 answered, a one-time need created or decided, a newsletter arriving —
 is recorded once, in a shared `DispatchRecord` table, with exactly one
 exception: a restricted partner's event is only recorded at all if
-**Restricted partners** (below) is on. Everything else about how it
+**Record updates about restricted partners** (Settings → Privacy and Safety; see below) is on. Everything else about how it
 actually reaches someone is a question of *delivery*, answered
 identically by one shared rule regardless of channel: GroupMe, the
 admin digest, and the public digest each independently decide, at the
@@ -972,9 +1068,7 @@ all structurally absent from the public one:
 
 Both email digests share one subject-line template, signature, and
 layout choice (Classic — text only, or Snapshot — adds each partner's
-photo/field/overview), all admin-configurable on the same Dispatch
-Settings page. Full walkthrough of each control: [USER_GUIDE.md § Email Dispatch
-Customization](USER_GUIDE.md#email-dispatch-customization).
+photo/field/overview), all admin-configurable on the same Sending Updates page. Full walkthrough of each control: [USER_GUIDE.md § How the update email looks](USER_GUIDE.md#how-the-update-email-looks).
 
 A restricted-access partner's content is masked on every channel —
 name reduced to initials, photo to a silhouette, no source link —
@@ -991,7 +1085,7 @@ either way.
 **Schedules.** The admin and public digests share three cadence tiers
 — biweekly, monthly, or quarterly — each admin and public subscriber
 picks for themselves; the church sets the actual day/time those tiers
-fire on the Dispatch Settings page. GroupMe and WhatsApp's shared
+fire on the Sending Updates page. GroupMe and WhatsApp's shared
 daily hour is a completely separate, independent setting on the same
 page — a church can run the chat channels and the email tiers on
 entirely different schedules.
@@ -1014,7 +1108,7 @@ UTC on Render, never a church's own local time). Changing the timezone
 takes effect on the next restart/deploy, not instantly.
 
 **Which tiers are even offered.** Each of the three cadence tiers can
-be turned off from the same Dispatch Settings page's Email Schedule
+be turned off from the same Sending Updates page's Email Schedule
 section — biweekly is off by default (an existing admin's suggested
 starting point), monthly and quarterly are on. Turning a tier off
 removes it from both cadence pickers (an admin's own Account Settings,
@@ -1031,6 +1125,36 @@ A subscriber's own already-saved cadence always stays visible and
 selectable on their picker even after an admin disables it — an
 admin's own Account Settings only, since the public forms are
 new-subscriber-only and have no existing choice to preserve.
+
+### Alerts when a channel is on but cannot send
+
+Switching a channel on is not the same as it being able to send. Until
+the rest is filled in, updates wait in the queue or are skipped, and
+nothing used to say so. Admins (only admins) now get an alert on the
+bell and the Home page for each of these states, and each alert opens
+the page that fixes it:
+
+| Alert | When it shows | Where it takes you |
+|---|---|---|
+| **Email isn't finished setting up** | Email (Sending) is on, but there is no mail account or From address yet. | Settings → Email |
+| **Update emails have no schedule, so none will go out** | Email can send, but the Email Schedule has no day and no time. | Settings → Sending Updates |
+| **The email schedule is only half set** | A rhythm is ticked with no day for it (Biweekly needs a weekday; Monthly and Quarterly need a day of the month), or a day is set with no time. | Settings → Sending Updates |
+| **GroupMe isn't finished setting up** | GroupMe is on, but there is no access token, or no group has been chosen. | Settings → GroupMe |
+| **WhatsApp isn't finished setting up** | WhatsApp is on, but no phone has been linked, or no community has been chosen to post in. | Settings → WhatsApp |
+| **Chat posts have no send time, so none will go out** | GroupMe or WhatsApp is on, but the daily posting time is not set. | Settings → Sending Updates |
+
+An alert stays listed until the thing is fixed (or the channel is
+switched off); opening the bell only stops it counting as new. The
+email schedule alerts wait until email itself is set up, so you are
+told about one thing at a time. A WhatsApp number that was linked and
+has since dropped its connection is a separate alert, **WhatsApp
+connection dropped**.
+
+**Send Test Email** (Settings → Email) is greyed out while sending is
+switched off, with a line saying why; it used to answer "Not found".
+
+These alerts only report. They do not add a default schedule or change
+who is subscribed.
 
 ### Urgent dispatch
 
@@ -1057,7 +1181,7 @@ For a restricted partner specifically, a second checkbox — **Review
 and approve now** — appears alongside **Mark as urgent**, admin/editor
 only. Checking it confirms, at creation time, that the exact text just
 typed is safe to send verbatim, and clears the review hold right then
-instead of requiring a separate visit to Pending Dispatches
+instead of requiring a separate visit to Updates to Share
 afterward. It's a shortcut for the same review step described in
 [§ Restricted-partner dispatch
 review](#restricted-partner-dispatch-review), not a send of its
@@ -1091,7 +1215,7 @@ confirmation without the second. Turning **Public prayer digest** off
 again stops delivery to already-confirmed subscribers immediately, not
 just new signups.
 
-An **Email Dispatch Subscribers** section on the same Dispatch Settings page
+An **Who gets update emails** section on the same Sending Updates page
 (visible whenever the public digest is on) shows how many admins and
 public visitors are subscribed — counts only, never an email address.
 
@@ -1122,7 +1246,7 @@ human reading the real content can judge. Newsletters aren't affected —
 a restricted partner's newsletter dispatch is already fully
 suppressed, nothing to review.
 
-On the Pending Dispatches page, a held item shows an amber
+On the Updates to Share page, a held item shows an amber
 **Awaiting review** badge, and the row itself already shows the real
 (unmasked) text — not the generic placeholder — regardless of who's
 looking; that text was never actually protected by hiding it here, since
@@ -1135,8 +1259,7 @@ it's accepted, one of two ways:
 - **Approve** — a one-click path for text that's already fine as-is.
   Shows the real text in the confirmation prompt, nothing to edit.
 - **Edit** — opens the same reveal-and-edit view available on any
-  queued item (see [USER_GUIDE.md § Pending
-  Dispatches](USER_GUIDE.md#pending-dispatches)), but for a held
+  queued item (see [USER_GUIDE.md § Updates to Share](USER_GUIDE.md#updates-to-share)), but for a held
   item, saving carries the same confirmation and also clears the hold —
   the button reads **Save and Approve** rather than plain **Save** to
   make that consequence explicit.
@@ -1148,8 +1271,8 @@ as any other recorded event. Editing again later overwrites the
 previously reviewed text.
 
 A church that would rather not run a review step at all — fully
-automated, nobody checking a queue — can leave **Restricted partners**
-off on the Dispatch Settings page (the default). With it off, a restricted
+automated, nobody checking a queue — can leave **Record updates about
+restricted partners** off on **Settings → Privacy and Safety** (the default). With it off, a restricted
 partner's events are never recorded in the first place, for any type;
 there's nothing to hold and nothing to review, since there's nothing
 recorded. Turning it on takes on the review responsibility above in
@@ -1392,7 +1515,7 @@ live:
   collected, with no admin involved — an admin logging one here is the
   fallback for a document that arrived by some other means. A document
   can also reach a participant's file when an unrelated inbound email
-  from them is assigned to them from the Unmatched Emails queue.
+  from them is assigned to them from the Emails to Sort queue.
 
 **Two feature flags, not one** — see [§ Feature toggles](#feature-toggles)
 above:
@@ -1564,6 +1687,24 @@ server-side: downloading is the only copy that exists, so store it
 somewhere safe immediately (a password manager's file storage, an
 encrypted drive — somewhere only trusted people can reach).
 
+Downloading asks for **your password again**, so a borrowed or stolen
+signed-in browser can't pull the file on its own. It also offers to
+**lock the file with a passphrase** (recommended). A locked file is
+saved with a `.locked` ending and can't be opened without the
+passphrase — and the passphrase is not stored anywhere, so **if you lose
+it, nobody can open that backup, including us**. Keep the passphrase
+somewhere separate from the file (a password manager, or written down
+in a safe place). Unlocked downloads still work, but anyone who gets
+one can read everything in it.
+
+The backup is built and sent a piece at a time, so it works however many photos and files you have, even on the smallest hosting plan, and the file is the same format as before. It does read the database twice to make one consistent copy, so a large backup takes a little longer to start downloading. If a download is interrupted, discard the partial file: the restore command refuses it.
+
+Nothing in the app backs up your database, so it reminds you. An admin sees
+a banner and a **Time to check your backups** item on the bell, and, **when
+Email (Sending) is on**, also gets a short email about once a month (never on
+a public demo). Dismissing the banner holds the email back for 30 days too,
+and **turning the reminder off for good** on the System Info page stops both.
+
 ![The Backups section of the About App page: a Back up now button and the opt-out for the periodic reminder](docs/assets/screenshots/backups-settings.png)
 
 **This file is the most sensitive thing this app can produce.** It
@@ -1582,11 +1723,29 @@ at all.
 
 #### Restoring a backup
 
-Restoring is deliberately **CLI-only** — there's no "restore" button in
-the UI. An untested restore path makes the backup button theater, and a
-one-click restore is also a one-click way to destroy a production
-database, so this stays a deliberate, typed command rather than a click
-an admin could fire by accident.
+There are two ways to put a backup back. Both **replace everything** with
+the backup's contents and both check the file first (its checksum, and that
+it was made for this version of the app's database).
+
+**In the app** (no command line needed): **Settings → About App → Restore
+from a backup…**. **Step 1** downloads a copy of what the site holds right
+now (it asks for your password, and can lock the copy with a passphrase), so
+a restore you regret can be undone by restoring that copy; the restore will
+not run without one made in the last 15 minutes. **Step 2** asks for the
+backup file, **your password again**, the file's passphrase if it was
+locked, and the word `RESTORE` typed exactly. The file is checked from start
+to end before anything changes (its checksum, its row counts, the passphrase,
+and that it was made for this version of the database). While it runs, which
+can take a few minutes, the site refuses every other change and scheduled
+emails wait; the whole restore is one database transaction, so if anything
+fails partway nothing is changed. Afterwards you are signed out, and a linked
+WhatsApp number needs linking again. Every restore, and every refused
+attempt, is in the audit log. It is for admins only and is switched off on a
+public demo. The file is kept on the server's disk only while it is read, and
+a backup over 1 GB is refused with a pointer to the command below.
+
+**From the command line**, for a backup too large for the app, a site that
+won't start, or an empty new database:
 
 **On Render** (the documented deployment path — see
 [Getting your church running](#getting-your-church-running-render)):
@@ -1595,17 +1754,22 @@ an admin could fire by accident.
    on every paid web service (the documented minimum tier already), opens
    a real terminal on your running instance, and needs no SSH keys or
    local setup.
-2. Upload the backup file somewhere the Shell can reach it — the
-   simplest path is a temporary, unlisted file host, or `scp`/SFTP if
-   you've set up SSH access instead of the dashboard Shell (see
-   [Render's SSH docs](https://render.com/docs/ssh)). Download it onto
-   the instance, e.g. `curl -o backup.ndjson.gz "<url>"`.
-3. From the Shell, in the `backend` directory:
+2. Get the backup file onto the instance **without exposing it**. Prefer
+   `scp`/SFTP if you've set up SSH access instead of the dashboard Shell
+   (see [Render's SSH docs](https://render.com/docs/ssh)). Do **not**
+   put an unlocked backup on a public or "anyone with the link" file
+   host: it holds every partner (restricted ones unmasked) and every
+   user's password hash. If you must stage it through a file-sharing
+   service, only use a backup you locked with a passphrase, a service
+   that needs a sign-in to download, and a link that expires.
+3. From the Shell, in the `backend` directory (a locked file asks for
+   its passphrase, or set `BACKUP_PASSPHRASE` for that one command):
    ```bash
    npm run backup:restore -- backup.ndjson.gz
    ```
-4. Delete the uploaded file from wherever you staged it in step 2 once
-   the restore succeeds — it's as sensitive as the original download.
+4. Delete the file from the instance and from wherever you staged it
+   once the restore succeeds — it's as sensitive as the original
+   download.
 
 **Anywhere else** (self-hosted, another platform): run the same command
 from a machine with `DATABASE_URL` set to the target database and this

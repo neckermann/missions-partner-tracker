@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { login, createAccount, createAccountUnsignedIn, totpCode } from "./helpers.js";
+import { login, createAccount, createAccountUnsignedIn, totpCode, submitLoginForm } from "./helpers.js";
 
 // The church-wide two-factor requirement as people meet it: an admin who hasn't enrolled can't
 // turn it on, and is told why; with it on, an account that hasn't enrolled (an editor, a
@@ -56,14 +56,15 @@ test.describe("Two-factor requirement", () => {
       .first()
       .fill(await totpCode(secret));
     await page.getByRole("button", { name: /Confirm/ }).click();
+    // Recovery codes are shown once; the way on stays closed until the person says they saved them.
+    await page.getByLabel(/I have saved these codes/).check();
+    await page.getByRole("button", { name: "Continue to the site" }).click();
     await page.waitForURL(/\/admin/);
   }
 
   async function signInThroughTheScreen(page, { email, password }) {
     await page.goto("/login");
-    await page.fill('input[type="email"]', email);
-    await page.fill('input[type="password"]', password);
-    await page.click('button[type="submit"]');
+    await submitLoginForm(page, email, password);
   }
 
   test("an admin who hasn't set up two-factor can't turn the requirement on, and is told why", async () => {
@@ -146,9 +147,7 @@ test.describe("Two-factor requirement", () => {
       .catch(() => {});
     await page.waitForURL(/\/login/);
     // Back at sign-in; signing in again takes them through enrolment.
-    await page.fill('input[type="email"]', editor.email);
-    await page.fill('input[type="password"]', editor.password);
-    await page.click('button[type="submit"]');
+    await submitLoginForm(page, editor.email, editor.password);
     await expect(page.getByText(/Enter this code manually|scan/i).first()).toBeVisible();
 
     await setRequirement(false);

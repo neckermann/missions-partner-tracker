@@ -3,8 +3,17 @@ const assert = require("node:assert/strict");
 require("dotenv").config({ quiet: true });
 const zlib = require("zlib");
 const prisma = require("../../src/prismaClient");
-const { buildBackup, parseBackup, restoreRows } = require("../../src/utils/backup");
-const { client, stopServer, ensureTestUsers, removeTestUsers, FIXTURE_TAG } = require("./helpers");
+const { buildBackup, parseBackup, restoreRows, BYTES_FIELDS } = require("../../src/utils/backup");
+const fs = require("fs");
+const path = require("path");
+const {
+  client,
+  stopServer,
+  ensureTestUsers,
+  removeTestUsers,
+  FIXTURE_TAG,
+  TEST_PASSWORD,
+} = require("./helpers");
 
 let admin;
 let editor;
@@ -48,25 +57,64 @@ after(async () => {
   await stopServer();
 });
 
-describe("GET /api/backups/download", () => {
-  test("admin gets a gzip attachment", async () => {
-    const res = await admin("/api/backups/download");
+describe("POST /api/backups/download", () => {
+  const post = (who, body) => who("/api/backups/download", { method: "POST", body });
+
+  test("admin with the right password gets a gzip attachment", async () => {
+    const res = await post(admin, { password: TEST_PASSWORD });
     assert.equal(res.status, 200);
     assert.equal(res.headers.get("content-type"), "application/gzip");
     assert.match(res.headers.get("content-disposition"), /^attachment; filename="backup-.*\.ndjson\.gz"$/);
   });
 
+  test("a wrong or missing password is refused", async () => {
+    const wrong = await post(admin, { password: "not-the-password" });
+    assert.equal(wrong.status, 401);
+    assert.equal((await post(admin, {})).status, 400);
+    assert.equal((await post(admin, { password: "" })).status, 400);
+  });
+
+  test("the old GET link no longer downloads anything", async () => {
+    const res = await admin("/api/backups/download");
+    assert.ok([404, 405].includes(res.status), `GET gave ${res.status}`);
+  });
+
+  test("with a passphrase the file is locked: a different type and name, and not a gzip", async () => {
+    const res = await post(admin, { password: TEST_PASSWORD, passphrase: "correct horse battery" });
+    assert.equal(res.status, 200);
+    assert.equal(res.headers.get("content-type"), "application/octet-stream");
+    assert.match(res.headers.get("content-disposition"), /\.ndjson\.gz\.locked"$/);
+    assert.ok(String(res.body).startsWith("MPTBAK2"), "it is the streamed locked format, not plain gzip");
+  });
+
+  test("a passphrase that is too short is refused", async () => {
+    const res = await post(admin, { password: TEST_PASSWORD, passphrase: "short" });
+    assert.equal(res.status, 400);
+    assert.match(res.body.error, /at least 8/);
+  });
+
   test("editor and viewer are refused -- this is a site-wide admin action, not per-record data", async () => {
-    assert.equal((await editor("/api/backups/download")).status, 403);
-    assert.equal((await viewer("/api/backups/download")).status, 403);
+    assert.equal((await post(editor, { password: TEST_PASSWORD })).status, 403);
+    assert.equal((await post(viewer, { password: TEST_PASSWORD })).status, 403);
   });
 
   test("unauthenticated is refused", async () => {
-    assert.equal((await unauthenticated("/api/backups/download")).status, 401);
+    assert.equal((await post(unauthenticated, { password: TEST_PASSWORD })).status, 401);
   });
 });
 
 describe("backup/restore round trip", () => {
+  test("a passphrase-locked backup unlocks to exactly the same checksummed file", async () => {
+    const { encryptBackup, decryptBackup } = require("../../src/utils/backupCrypto");
+    const { buffer, manifest } = await buildBackup(prisma);
+    const locked = encryptBackup(buffer, "correct horse battery");
+    const parsed = parseBackup(
+      zlib.gunzipSync(decryptBackup(locked, "correct horse battery")).toString("utf8")
+    );
+    assert.equal(parsed.manifest.checksum, manifest.checksum);
+    assert.throws(() => decryptBackup(locked, "wrong passphrase!"), /Wrong passphrase/);
+  });
+
   test("buildBackup's checksum is exactly what parseBackup verifies, with matching row counts", async () => {
     const { buffer, manifest } = await buildBackup(prisma);
     const text = zlib.gunzipSync(buffer).toString("utf8");
@@ -118,6 +166,82 @@ describe("backup/restore round trip", () => {
 
     await prisma.partnerFile.delete({ where: { id: file.id } });
     await prisma.partner.delete({ where: { id: partner.body.id } });
+  });
+
+  // Reads prisma/schema.prisma as text, independently of the code under test, so the
+  // list of binary columns can't drift the way a hand-kept one did (surveyUpload.bytes
+  // was left out and every restore failed on that table).
+  test("every Bytes column in the schema is encoded for backup", () => {
+    const schema = fs.readFileSync(path.join(__dirname, "..", "..", "prisma", "schema.prisma"), "utf8");
+    const expected = {};
+    for (const block of schema.matchAll(/^model (\w+) \{([\s\S]*?)^\}/gm)) {
+      const [, name, body] = block;
+      if (name === "WhatsAppAuthEntry" || name === "SpentPasskeyChallenge") continue; // excluded from backups on purpose
+      for (const line of body.split("\n")) {
+        const m = line.trim().match(/^(\w+)\s+Bytes\??(\s|$)/);
+        if (m) (expected[name.charAt(0).toLowerCase() + name.slice(1)] ||= []).push(m[1]);
+      }
+    }
+    assert.ok(Object.keys(expected).length >= 7, "should have found the schema's Bytes columns");
+    assert.deepEqual(
+      Object.fromEntries(Object.entries(BYTES_FIELDS).map(([k, v]) => [k, [...v].sort()])),
+      Object.fromEntries(Object.entries(expected).map(([k, v]) => [k, [...v].sort()]))
+    );
+  });
+
+  // The bug found by the review: a survey photo waiting for approval made the backup
+  // unrestorable, because its bytes were not base64-encoded.
+  test("a survey photo waiting for approval survives a full backup/restore round trip", async () => {
+    const partner = await admin("/api/partners", {
+      method: "POST",
+      body: { kind: "missionary", displayName: `${FIXTURE_TAG} Survey Upload Fixture` },
+    });
+    const survey = await prisma.survey.create({ data: { title: `${FIXTURE_TAG} Survey`, status: "open" } });
+    const response = await prisma.surveyResponse.create({
+      data: { surveyId: survey.id, partnerId: partner.body.id },
+    });
+    const originalBytes = Buffer.from("not really a photo \x00\x01\xff", "latin1");
+    const upload = await prisma.surveyUpload.create({
+      data: {
+        responseId: response.id,
+        partnerId: partner.body.id,
+        contentType: "image/jpeg",
+        fileSize: originalBytes.length,
+        bytes: originalBytes,
+      },
+    });
+
+    try {
+      const { buffer } = await buildBackup(prisma);
+      const { rowsByModel } = parseBackup(zlib.gunzipSync(buffer).toString("utf8"));
+      const exported = rowsByModel.surveyUpload.find((r) => r.id === upload.id);
+      assert.ok(exported, "the waiting photo should appear in the backup");
+      assert.ok(Buffer.isBuffer(exported.bytes), "decoded bytes should be a real Buffer");
+      assert.ok(originalBytes.equals(exported.bytes), "bytes should round-trip exactly");
+
+      // Remove the chain, then restore just it from the backup's own rows.
+      await prisma.surveyUpload.delete({ where: { id: upload.id } });
+      await prisma.surveyResponse.delete({ where: { id: response.id } });
+      await prisma.survey.delete({ where: { id: survey.id } });
+      await prisma.partner.delete({ where: { id: partner.body.id } });
+      await restoreRows(prisma, {
+        partner: rowsByModel.partner.filter((r) => r.id === partner.body.id),
+        survey: rowsByModel.survey.filter((r) => r.id === survey.id),
+        surveyResponse: rowsByModel.surveyResponse.filter((r) => r.id === response.id),
+        surveyUpload: [exported],
+      });
+      const restored = await prisma.surveyUpload.findUnique({ where: { id: upload.id } });
+      assert.ok(restored, "the waiting photo should exist again");
+      assert.ok(
+        originalBytes.equals(Buffer.from(restored.bytes)),
+        "restored bytes should match the original"
+      );
+    } finally {
+      await prisma.surveyUpload.deleteMany({ where: { id: upload.id } });
+      await prisma.surveyResponse.deleteMany({ where: { id: response.id } });
+      await prisma.survey.deleteMany({ where: { id: survey.id } });
+      await prisma.partner.deleteMany({ where: { id: partner.body.id } });
+    }
   });
 
   test("restoreRows recreates a deleted partner from its backed-up row", async () => {

@@ -1,7 +1,9 @@
 import React, { useState } from "react";
+import EmailInput from "../components/shared/EmailInput.jsx";
+import { formatPhone } from "../utils/phone.js";
 import { useOutletContext } from "react-router-dom";
 import { updateTrip, generateApplicationLink, addTripParticipant } from "../api/client.js";
-import { isMinorForTrip } from "../utils/format.js";
+import { isMinorForTrip, formatCurrency } from "../utils/format.js";
 import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
 import ApplicationQuestionsEditor from "../components/admin/ApplicationQuestionsEditor.jsx";
 import Table from "../components/shared/Table.jsx";
@@ -111,7 +113,7 @@ export default function AdminTripTeam() {
     {
       key: "reach",
       label: "Phone / Email",
-      render: (p) => [p.phone, p.email].filter(Boolean).join(" · ") || "—",
+      render: (p) => [formatPhone(p.phone), p.email].filter(Boolean).join(" · ") || "—",
     },
     {
       key: "support",
@@ -120,7 +122,7 @@ export default function AdminTripTeam() {
         const raised = (trip.contributions || [])
           .filter((c) => c.participantId === p.id)
           .reduce((s, c) => s + c.amount, 0);
-        return `$${raised}${p.supportRaisingGoal ? ` / $${p.supportRaisingGoal}` : ""}`;
+        return `${formatCurrency(raised)}${p.supportRaisingGoal ? ` / ${formatCurrency(p.supportRaisingGoal)}` : ""}`;
       },
     },
     {
@@ -330,7 +332,7 @@ export default function AdminTripTeam() {
             </label>
             <label>
               Email
-              <input
+              <EmailInput
                 value={newParticipant.email}
                 onChange={(e) => setNewParticipant((f) => ({ ...f, email: e.target.value }))}
               />

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { prepareImage } from "../utils/prepareImage.js";
 import { useParams, useSearchParams } from "react-router-dom";
 import PublicSiteHeader from "../components/PublicSiteHeader.jsx";
 import DemoBanner from "../components/DemoBanner.jsx";
@@ -13,7 +14,9 @@ import {
   tripMeetingIcsUrl,
   tripMeetingRsvpUrl,
 } from "../api/client.js";
-import { formatDate, formatFileSize } from "../utils/format.js";
+import { formatDate, formatFileSize, formatCurrency } from "../utils/format.js";
+import { formatChurchDateTime } from "../utils/churchTime.js";
+import { useSettings } from "../context/SettingsContext.jsx";
 import SignatureCapture from "../components/SignatureCapture.jsx";
 import { buildCalendarLinks, meetingDescription } from "../utils/calendarLinks.js";
 import CopyButton from "../components/shared/CopyButton.jsx";
@@ -72,6 +75,7 @@ export default function PublicTripParticipant() {
   const { shareToken } = useParams();
   const [searchParams] = useSearchParams();
   const accessToken = searchParams.get("token");
+  const { timezone } = useSettings();
   const [data, setData] = useState(null);
   const [notFound, setNotFound] = useState(false);
   const [signingId, setSigningId] = useState(null);
@@ -150,9 +154,16 @@ export default function PublicTripParticipant() {
 
   async function handleDraftPhotoChange(file) {
     if (!file) return;
-    const dataUrl = await readFileAsDataUrl(file);
+    // Checked and shrunk before it is read, so a phone photo isn't sent at full size.
+    setPageSaveError("");
+    const prepared = await prepareImage(file, { allowed: ["image/jpeg", "image/png", "image/webp"] });
+    if (prepared.error) {
+      setPageSaveError(prepared.error);
+      return;
+    }
+    const dataUrl = await readFileAsDataUrl(prepared.file);
     setPageDraftPhotoDataUrl(dataUrl);
-    setPageDraftPhotoContentType(file.type);
+    setPageDraftPhotoContentType(prepared.file.type);
   }
 
   async function handleSavePage(e) {
@@ -242,7 +253,7 @@ export default function PublicTripParticipant() {
               )}
             </span>
             <span style={{ color: "var(--muted)", fontWeight: 400 }}>
-              {data.supportRaisingGoal ? `of $${data.supportRaisingGoal} goal` : ""}
+              {data.supportRaisingGoal ? `of ${formatCurrency(data.supportRaisingGoal)} goal` : ""}
             </span>
           </div>
           <div
@@ -393,12 +404,10 @@ export default function PublicTripParticipant() {
                   </div>
                   <div style={{ fontSize: "0.85rem", color: "var(--muted)" }}>
                     {seg.departureAirport}
-                    {seg.departureAt &&
-                      ` — ${new Date(seg.departureAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}`}
+                    {seg.departureAt && ` — ${formatChurchDateTime(seg.departureAt, timezone)}`}
                     {" → "}
                     {seg.arrivalAirport}
-                    {seg.arrivalAt &&
-                      ` — ${new Date(seg.arrivalAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}`}
+                    {seg.arrivalAt && ` — ${formatChurchDateTime(seg.arrivalAt, timezone)}`}
                   </div>
                 </li>
               ))}
@@ -422,7 +431,7 @@ export default function PublicTripParticipant() {
                 >
                   <div style={{ fontWeight: 600 }}>
                     {m.title ? `${m.title} — ` : ""}
-                    {formatDate(m.startAt)} {m.location ? `— ${m.location}` : ""}
+                    {formatChurchDateTime(m.startAt, timezone)} {m.location ? `— ${m.location}` : ""}
                   </div>
                   <div style={{ fontSize: "0.85rem", display: "flex", gap: "0.8rem", flexWrap: "wrap" }}>
                     {m.meetingLink && (

@@ -76,21 +76,46 @@ describe("AdminBooklet restricted-access filtering", () => {
     // Preview content settles once the fetched partners land.
     await waitFor(() => expect(getPreviewHtml()).toContain("Open Missionary"));
 
-    // Restricted-access defaults to checked (includeRestricted starts
-    // true) -- both restricted entries print until the admin unchecks it.
-    expect(getPreviewHtml()).toContain("Restricted Missionary");
-    expect(getPreviewHtml()).toContain("Restricted Org");
-
-    fireEvent.click(screen.getByRole("checkbox", { name: "Restricted-access" }));
-
-    await waitFor(() => expect(getPreviewHtml()).not.toContain("Restricted Missionary"));
+    // Restricted-access is unticked when the page opens: neither restricted entry prints until it is ticked.
+    expect(screen.getByRole("checkbox", { name: "Restricted-access" })).not.toBeChecked();
+    expect(getPreviewHtml()).not.toContain("Restricted Missionary");
     // Guards the restricted-organization leak: the organizations filter never checked
     // isRestricted, so this line printed anyway.
     expect(getPreviewHtml()).not.toContain("Restricted Org");
+    expect(screen.queryByText(/restricted-access partners? (is|are) included/)).toBeNull();
 
-    // Unaffected entries keep printing either way.
+    // Unaffected entries print either way.
     expect(getPreviewHtml()).toContain("Open Missionary");
     expect(getPreviewHtml()).toContain("Open Org");
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Restricted-access" }));
+    await waitFor(() => expect(getPreviewHtml()).toContain("Restricted Missionary"));
+    expect(getPreviewHtml()).toContain("Restricted Org");
+    expect(getPreviewHtml()).toContain("Open Missionary");
+  });
+
+  it("says how many restricted partners are included, with a caution, once ticked", async () => {
+    fetchPartners.mockResolvedValue([
+      RESTRICTED_MISSIONARY,
+      { ...RESTRICTED_MISSIONARY, id: "m-restricted-archived", archived: true },
+      OPEN_MISSIONARY,
+      RESTRICTED_ORG,
+    ]);
+    render(<AdminBooklet />);
+    await waitFor(() => expect(getPreviewHtml()).toContain("Open Missionary"));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Restricted-access" }));
+    // The archived one is not counted while Archived is unticked.
+    expect(await screen.findByText(/2 restricted-access partners are included\./)).toBeInTheDocument();
+    expect(screen.getByText(/real names and details/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Archived" }));
+    expect(await screen.findByText(/3 restricted-access partners are included\./)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Local & National Organizations" }));
+    expect(await screen.findByText(/2 restricted-access partners are included\./)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Restricted-access" }));
+    expect(screen.queryByText(/restricted-access partners? (is|are) included/)).toBeNull();
   });
 });
 
@@ -117,7 +142,7 @@ describe("AdminBooklet contact details and the contact level (#288)", () => {
     fetchPartners.mockResolvedValue([withAdult({ contactLevel: "normal" })]);
     render(<AdminBooklet />);
     await waitFor(() => expect(getPreviewHtml()).toContain("Open Missionary"));
-    expect(getPreviewHtml()).toContain("555-111-2222");
+    expect(getPreviewHtml()).toContain("(555) 111-2222");
     expect(getPreviewHtml()).toContain("dana@example.org");
     expect(getPreviewHtml()).toContain("Phone call");
   });
@@ -129,7 +154,7 @@ describe("AdminBooklet contact details and the contact level (#288)", () => {
     const html = getPreviewHtml();
     expect(html).toContain("Dana Reed");
     expect(html).toContain("Details withheld");
-    expect(html).not.toContain("555-111-2222");
+    expect(html).not.toContain("(555) 111-2222");
     expect(html).not.toContain("dana@example.org");
     expect(html).not.toContain("Phone call");
     expect(html).not.toContain("Secret staff reason");
@@ -160,7 +185,7 @@ describe("AdminBooklet contact details and the contact level (#288)", () => {
     expect(html).not.toContain("PO Box 99");
     expect(html).toContain("Home Church");
     expect(html).not.toContain("Ruth Aide");
-    expect(html).not.toContain("555-999-0000");
+    expect(html).not.toContain("(555) 999-0000");
   });
 
   it("still prints them for a partner who is safe to contact", async () => {
@@ -171,7 +196,7 @@ describe("AdminBooklet contact details and the contact level (#288)", () => {
     expect(html).toContain("12 Hidden Lane");
     expect(html).toContain("PO Box 99");
     expect(html).toContain("Ruth Aide");
-    expect(html).toContain("555-999-0000");
+    expect(html).toContain("(555) 999-0000");
   });
 });
 

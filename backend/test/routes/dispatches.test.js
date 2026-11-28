@@ -21,7 +21,7 @@ let partnerId;
 async function createPrayerRequest(requestText) {
   const res = await admin("/api/prayer-requests", {
     method: "POST",
-    body: { partnerId, category: "situational", requestText, dateReceived: "2026-01-01" },
+    body: { partnerId, category: "strategic", requestText, dateReceived: "2026-01-01" },
   });
   assert.equal(res.status, 201, `fixture setup failed: ${JSON.stringify(res.body)}`);
   return res.body.id;
@@ -68,7 +68,7 @@ before(async () => {
   await prisma.churchSettings.upsert({
     where: { id: "singleton" },
     update: {
-      enabledFeatures: {},
+      enabledFeatures: { outboundEmail: true },
       chatDispatchPrayerRequests: true,
       chatDispatchOneTimeNeeds: true,
       chatDispatchNewsletters: true,
@@ -216,7 +216,10 @@ describe("GET/PUT /api/settings/dispatches -- admin gate and defaults", () => {
 
 describe("GET /api/dispatches/pending -- any logged-in role", () => {
   test("a viewer can list the queue", async () => {
-    await prisma.churchSettings.update({ where: { id: "singleton" }, data: { enabledFeatures: {} } });
+    await prisma.churchSettings.update({
+      where: { id: "singleton" },
+      data: { enabledFeatures: { outboundEmail: true } },
+    });
     const requestText = `${FIXTURE_TAG} viewer can see this`;
     await createPrayerRequest(requestText);
 
@@ -240,7 +243,7 @@ describe("GET /api/dispatches/pending -- any logged-in role", () => {
     const requestText = `${FIXTURE_TAG} restricted partner's real prayer request text`;
     const created = await admin("/api/prayer-requests", {
       method: "POST",
-      body: { partnerId: restrictedId, category: "situational", requestText, dateReceived: "2026-01-01" },
+      body: { partnerId: restrictedId, category: "strategic", requestText, dateReceived: "2026-01-01" },
     });
     assert.equal(created.status, 201, JSON.stringify(created.body));
 
@@ -284,7 +287,7 @@ describe("GET /api/dispatches/pending -- any logged-in role", () => {
     const requestText = `${FIXTURE_TAG} restricted partner's text, initials off`;
     const created = await admin("/api/prayer-requests", {
       method: "POST",
-      body: { partnerId: restrictedId, category: "situational", requestText, dateReceived: "2026-01-01" },
+      body: { partnerId: restrictedId, category: "strategic", requestText, dateReceived: "2026-01-01" },
     });
     assert.equal(created.status, 201, JSON.stringify(created.body));
 
@@ -349,7 +352,7 @@ describe("GET /api/dispatches/urgent-recipient-count", () => {
   test("returns real counts, cadence-blind, when outboundEmail and publicPrayerDigest are both on", async () => {
     await prisma.churchSettings.update({
       where: { id: "singleton" },
-      data: { enabledFeatures: { outboundEmail: true, publicPrayerDigest: true } },
+      data: { enabledFeatures: { outboundEmail: true, publicDirectory: true, publicPrayerDigest: true } },
     });
     const sub = await prisma.publicSubscriber.create({
       data: { email: "urgent-count-test@example.test", confirmedAt: new Date(), allPartners: true },
@@ -361,7 +364,10 @@ describe("GET /api/dispatches/urgent-recipient-count", () => {
       assert.ok(res.body.publicCount >= 1);
     } finally {
       await prisma.publicSubscriber.delete({ where: { id: sub.id } });
-      await prisma.churchSettings.update({ where: { id: "singleton" }, data: { enabledFeatures: {} } });
+      await prisma.churchSettings.update({
+        where: { id: "singleton" },
+        data: { enabledFeatures: { outboundEmail: true } },
+      });
     }
   });
 
@@ -408,7 +414,10 @@ describe("GET /api/dispatches/urgent-recipient-count", () => {
       assert.equal(res.body.publicCount, 0);
     } finally {
       await prisma.publicSubscriber.delete({ where: { id: sub.id } });
-      await prisma.churchSettings.update({ where: { id: "singleton" }, data: { enabledFeatures: {} } });
+      await prisma.churchSettings.update({
+        where: { id: "singleton" },
+        data: { enabledFeatures: { outboundEmail: true } },
+      });
     }
   });
 });
@@ -463,7 +472,7 @@ describe("restricted-partner notification review & edit (#187)", () => {
       method: "POST",
       body: {
         partnerId: restrictedPartnerId,
-        category: "situational",
+        category: "strategic",
         requestText,
         dateReceived: "2026-01-01",
       },
@@ -598,7 +607,7 @@ describe("restricted-partner notification review & edit (#187)", () => {
         method: "POST",
         body: {
           partnerId: restrictedPartnerId,
-          category: "situational",
+          category: "strategic",
           requestText,
           dateReceived: "2026-01-01",
         },
@@ -637,7 +646,7 @@ describe("restricted-partner notification review & edit (#187)", () => {
       method: "POST",
       body: {
         partnerId: restrictedPartnerId,
-        category: "situational",
+        category: "strategic",
         requestText,
         dateReceived: "2026-01-01",
         approveNow: true,
@@ -662,7 +671,7 @@ describe("restricted-partner notification review & edit (#187)", () => {
       method: "POST",
       body: {
         partnerId: restrictedPartnerId,
-        category: "situational",
+        category: "strategic",
         requestText,
         dateReceived: "2026-01-01",
         approveNow: false,

@@ -17,6 +17,7 @@ const QRCode = require("qrcode");
 const { Client } = require("pg");
 const prisma = require("../prismaClient");
 const { parseDatabaseUrl } = require("./databaseUrl");
+const { isGuardedDemoInstance } = require("./demoMode");
 const { useDbAuthState, clearAuthState } = require("./whatsappAuthState");
 
 // Fixed: every instance must use the same number to contend for the same lock.
@@ -446,6 +447,11 @@ function requireConnected() {
 // The third ({}) argument is required: baileys-antiban's wrapped sendMessage
 // reads `options.circuitBreaker` unguarded, so a 2-argument call throws.
 async function sendText(jid, text) {
+  // A public demo sends nothing to a real number or group (utils/demoMode.js).
+  if (await isGuardedDemoInstance()) {
+    console.log("[demo] WhatsApp message not sent");
+    return;
+  }
   requireConnected();
   await runtime.sock.sendMessage(jid, { text }, {});
 }

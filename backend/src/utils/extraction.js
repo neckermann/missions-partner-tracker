@@ -4,6 +4,7 @@ const { z } = require("zod");
 const { simpleParser } = require("mailparser");
 const prisma = require("../prismaClient");
 const { decryptField } = require("./crypto");
+const { isGuardedDemo } = require("./demoMode");
 
 // Matches the fields PrayerRequest/SupportNeed need on create; dateReceived/
 // requestDate aren't extracted (the caller defaults them to the source's
@@ -124,6 +125,12 @@ async function buildFileBlock({ bytes, contentType, fileName }) {
 }
 
 async function extractRequestsFromFile(record) {
+  // A public demo never spends the owner's AI key on a visitor's upload (utils/demoMode.js).
+  if (isGuardedDemo()) {
+    const err = new Error("AI request scanning isn't available on the public demo");
+    err.status = 403;
+    throw err;
+  }
   const fileBlock = await buildFileBlock(record);
   const { anthropic, model } = await client();
 

@@ -3,6 +3,7 @@ import Modal from "../Modal.jsx";
 import { createPrayerRequest, createSupportNeed } from "../../api/client.js";
 import { useSettings } from "../../context/SettingsContext.jsx";
 
+import { currencySymbol } from "../../utils/format.js";
 // `scan` is the extractFromPartnerFile call (passed in so this component knows nothing about the
 // file); it runs once on mount. Nothing is written until the admin clicks Add on a card.
 // sourceFileId rides along on save so the created row links back to the file. `onChange` fires
@@ -107,12 +108,6 @@ export default function ExtractionReviewModal({
 
   async function addNeed(i) {
     const n = oneTimeNeeds[i];
-    if (!n.requestedAmount) {
-      setOneTimeNeeds((list) =>
-        list.map((x, idx) => (idx === i ? { ...x, cardError: "Enter a dollar amount before adding" } : x))
-      );
-      return;
-    }
     setOneTimeNeeds((list) =>
       list.map((x, idx) => (idx === i ? { ...x, state: "saving", cardError: "" } : x))
     );
@@ -120,7 +115,8 @@ export default function ExtractionReviewModal({
       await createSupportNeed({
         partnerId,
         description: n.description,
-        requestedAmount: n.requestedAmount,
+        // A letter that names no figure adds a need with no amount (saved as 0, shown as "No amount").
+        requestedAmount: n.requestedAmount ?? 0,
         requestDate: defaultDate,
         sourceFileId,
       });
@@ -184,8 +180,8 @@ export default function ExtractionReviewModal({
                 onChange={(e) => updatePrayerRequest(i, "category", e.target.value)}
                 style={{ marginBottom: "0.5rem" }}
               >
-                <option value="strategic">Strategic</option>
-                <option value="situational">Situational</option>
+                <option value="strategic">Ministry</option>
+                <option value="situational">Everyday</option>
               </select>
               <textarea
                 value={r.requestText}
@@ -231,7 +227,7 @@ export default function ExtractionReviewModal({
                 style={{ width: "100%" }}
               />
               <label style={{ display: "block", marginTop: "0.5rem", fontWeight: "normal" }}>
-                Amount ($)
+                Amount ({currencySymbol()}, optional)
                 <input
                   type="number"
                   min="1"

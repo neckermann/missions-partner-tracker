@@ -1,5 +1,9 @@
 import React, { useEffect, useRef, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import EmailInput from "../components/shared/EmailInput.jsx";
+import PhoneField from "../components/shared/PhoneField.jsx";
+import { formatPhone } from "../utils/phone.js";
+import NeedDecisionFields from "../components/admin/NeedDecisionFields.jsx";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   fetchPartner,
   updatePartner,
@@ -63,6 +67,7 @@ import Breadcrumb from "../components/shared/Breadcrumb.jsx";
 import LastEdited from "../components/shared/LastEdited.jsx";
 import EditableSection from "../components/admin/EditableSection.jsx";
 import AddressFields, { roundGps } from "../components/admin/AddressFields.jsx";
+import WebAddressInput from "../components/shared/WebAddressInput.jsx";
 import PresetOrCustomSelect from "../components/admin/PresetOrCustomSelect.jsx";
 import { TRIP_TYPE_PRESETS } from "../components/admin/TripFormFields.jsx";
 import QuickActionModal from "../components/shared/QuickActionModal.jsx";
@@ -79,10 +84,13 @@ import { supportNeedStatus } from "../utils/supportNeedStatus.js";
 import { truncate } from "../utils/truncate.js";
 import { useSettings } from "../context/SettingsContext.jsx";
 import { getFipsCode } from "../utils/countryFipsCodes.js";
+import { isoCountryCode } from "../utils/countryIsoCodes.js";
+import { sentForReviewNote } from "../utils/heldForReview.js";
 import {
   formatDateLong,
   formatDate,
   formatCurrency,
+  formatRequestedAmount,
   toDateInputValue,
   todayInputValue,
 } from "../utils/format.js";
@@ -178,7 +186,7 @@ export default function AdminPartnerDetail() {
     languages: [],
     tripTypes: [],
   });
-  const { churchName, enabledFeatures } = useSettings();
+  const { churchName, enabledFeatures, ownerGroupName } = useSettings();
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
   const { settings: churchSettings } = useChurchSettings();
   const confirmBeforeCreate = useUrgentApprovalGate({ confirmDialog, enabledFeatures });
@@ -593,6 +601,8 @@ export default function AdminPartnerDetail() {
         approvedAmount: item.approvedAmount,
         approvedDate: item.approvedDate,
         decisionNote: item.decisionNote,
+        handledBy: item.handledBy || "",
+        metDate: item.metDate ? String(item.metDate).slice(0, 10) : "",
       },
     });
     setActiveModal("view-need");
@@ -609,6 +619,8 @@ export default function AdminPartnerDetail() {
       requestDate: needDetail.form.requestDate,
       notes: needDetail.form.notes || null,
       sourceFileId: needDetail.form.sourceFileId,
+      handledBy: needDetail.form.handledBy || null,
+      metDate: needDetail.form.metDate || null,
     });
     await reload();
   }
@@ -691,6 +703,9 @@ export default function AdminPartnerDetail() {
 
   const physical = addressByType(p.addresses, "physical") || {};
   const mailing = addressByType(p.addresses, "mailing") || {};
+  // Where a new phone number for this partner's own people most likely belongs: the country they serve in.
+  // Unknown or blank leaves the picker on the church's country.
+  const servingCountry = isoCountryCode(physical.country) || undefined;
 
   // Addresses are replaced as a pair on the server, so a section editing one
   // of them has to send the other back untouched or it would be deleted.
@@ -832,6 +847,7 @@ export default function AdminPartnerDetail() {
                   <input
                     type="checkbox"
                     checked={d.isPublic}
+                    disabled={isGuest}
                     onChange={(e) => set("isPublic", e.target.checked)}
                   />
                   Show on public site
@@ -840,11 +856,24 @@ export default function AdminPartnerDetail() {
                   <input
                     type="checkbox"
                     checked={d.isRestricted}
+                    disabled={isGuest}
                     onChange={(e) => set("isRestricted", e.target.checked)}
                   />
                   Restricted-access location
                 </label>
               </div>
+              {isGuest && (
+                <p style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
+                  Only staff can change whether this {isOrg ? "organization" : "partner"} is shown publicly or
+                  restricted.
+                </p>
+              )}
+              {isAdmin && (
+                <p style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
+                  What a restricted partner shows publicly, and how to change it:{" "}
+                  <Link to="/admin/settings/privacy">Privacy and Safety</Link>.
+                </p>
+              )}
             </>
           )}
         />
@@ -978,9 +1007,9 @@ export default function AdminPartnerDetail() {
                 <>
                   <Field label="Name" value={[a.firstName, a.lastName].filter(Boolean).join(" ")} />
                   <Field label="Birthday" value={formatDateLong(a.birthday)} />
-                  <Field label="Phone 1" value={a.phone1} />
-                  <Field label="Phone 2" value={a.phone2} />
-                  <Field label="Email" value={a.email} />
+                  <Field label="Phone 1" value={formatPhone(a.phone1)} copy="phone" whose={a.firstName} />
+                  <Field label="Phone 2" value={formatPhone(a.phone2)} copy="phone" whose={a.firstName} />
+                  <Field label="Email" value={a.email} copy="email" whose={a.firstName} />
                   {a.isPrimaryContact && <Field label="Primary contact" value="Yes" />}
                 </>
               )}
@@ -1000,8 +1029,8 @@ export default function AdminPartnerDetail() {
                   isPrimaryContact: !!a.isPrimaryContact,
                   firstName: a.firstName || "",
                   lastName: a.lastName || "",
-                  phone1: a.phone1 || "",
-                  phone2: a.phone2 || "",
+                  phone1: formatPhone(a.phone1),
+                  phone2: formatPhone(a.phone2),
                   email: a.email || "",
                   birthday: toDateInputValue(a.birthday),
                 })
@@ -1067,7 +1096,7 @@ export default function AdminPartnerDetail() {
               }
               value={{
                 name: p.emergencyContactName || "",
-                phone: p.emergencyContactPhone || "",
+                phone: formatPhone(p.emergencyContactPhone),
                 email: p.emergencyContactEmail || "",
               }}
               view={(v) => (
@@ -1083,13 +1112,15 @@ export default function AdminPartnerDetail() {
                     Name
                     <input value={d.name} onChange={(e) => set("name", e.target.value)} />
                   </label>
-                  <label>
-                    Phone
-                    <input value={d.phone} onChange={(e) => set("phone", e.target.value)} />
-                  </label>
+                  <PhoneField
+                    label="Phone"
+                    inputMode="tel"
+                    value={d.phone}
+                    onChange={(e) => set("phone", e.target.value)}
+                  />
                   <label>
                     Email
-                    <input value={d.email} onChange={(e) => set("email", e.target.value)} />
+                    <EmailInput value={d.email} onChange={(e) => set("email", e.target.value)} />
                   </label>
                 </div>
               )}
@@ -1145,8 +1176,8 @@ export default function AdminPartnerDetail() {
                     )}
                   </label>
                   {enabledFeatures.joshuaProject && (
-                    <label title="Looks up Joshua Project's country statistics for this field/region -- nothing else uses this field. Auto-fills from the country entered below, but Joshua Project uses the older FIPS codes, not ISO -- they disagree for some countries, so correct it here if the stats below look wrong.">
-                      Country Code (FIPS/ISO)
+                    <label title="Looks up Joshua Project's country statistics for this field/region -- nothing else uses this field. Auto-fills from the country entered below, but Joshua Project uses its own country codes, which differ from the usual ones for some countries, so correct it here if the stats below look wrong.">
+                      Country Code
                       <input
                         value={d.fipsCountryCode}
                         onChange={(e) => set("fipsCountryCode", e.target.value)}
@@ -1194,7 +1225,7 @@ export default function AdminPartnerDetail() {
               orgType: p.orgType || "Local",
               contactFirstName: p.contactFirstName || "",
               contactLastName: p.contactLastName || "",
-              contactPhone: p.contactPhone || "",
+              contactPhone: formatPhone(p.contactPhone),
               contactEmail: p.contactEmail || "",
             }}
             view={(v) => (
@@ -1243,19 +1274,30 @@ export default function AdminPartnerDetail() {
                           onChange={(e) => set("contactLastName", e.target.value)}
                         />
                       </label>
-                      <label>
-                        Contact Phone
-                        <input value={d.contactPhone} onChange={(e) => set("contactPhone", e.target.value)} />
-                      </label>
+                      <PhoneField
+                        label="Contact Phone"
+                        inputMode="tel"
+                        country={servingCountry}
+                        value={d.contactPhone}
+                        onChange={(e) => set("contactPhone", e.target.value)}
+                      />
                       <label>
                         Contact Email
-                        <input value={d.contactEmail} onChange={(e) => set("contactEmail", e.target.value)} />
+                        <EmailInput
+                          value={d.contactEmail}
+                          onChange={(e) => set("contactEmail", e.target.value)}
+                        />
                       </label>
                     </>
                   )}
                 </div>
                 <div style={{ marginTop: "1rem" }}>
-                  <AddressFields value={d.address} onChange={(addr) => set("address", addr)} showMailFlags />
+                  <AddressFields
+                    value={d.address}
+                    onChange={(addr) => set("address", addr)}
+                    showMailFlags
+                    mailing
+                  />
                 </div>
               </>
             )}
@@ -1283,7 +1325,7 @@ export default function AdminPartnerDetail() {
                   contactFirstName: p[key]?.contactFirstName || "",
                   contactLastName: p[key]?.contactLastName || "",
                   contactEmail: p[key]?.contactEmail || "",
-                  phone: p[key]?.phone || "",
+                  phone: formatPhone(p[key]?.phone),
                   websiteLink: p[key]?.websiteLink || "",
                   mailingAddress: { ...emptyAddress, ...(p[key]?.mailingAddress || {}) },
                   ...(key === "sendingChurch" ? { sentByOurChurch: p.sentByOurChurch } : {}),
@@ -1363,21 +1405,30 @@ export default function AdminPartnerDetail() {
                       </label>
                       <label>
                         Contact Email
-                        <input value={d.contactEmail} onChange={(e) => set("contactEmail", e.target.value)} />
+                        <EmailInput
+                          value={d.contactEmail}
+                          onChange={(e) => set("contactEmail", e.target.value)}
+                        />
                       </label>
-                      <label>
-                        Phone
-                        <input value={d.phone} onChange={(e) => set("phone", e.target.value)} />
-                      </label>
+                      <PhoneField
+                        label="Phone"
+                        inputMode="tel"
+                        value={d.phone}
+                        onChange={(e) => set("phone", e.target.value)}
+                      />
                       <label>
                         Website
-                        <input value={d.websiteLink} onChange={(e) => set("websiteLink", e.target.value)} />
+                        <WebAddressInput
+                          value={d.websiteLink}
+                          onChange={(e) => set("websiteLink", e.target.value)}
+                        />
                       </label>
                     </div>
                     <h4 style={{ marginTop: "1rem" }}>Mailing Address</h4>
                     <AddressFields
                       value={d.mailingAddress}
                       onChange={(addr) => set("mailingAddress", addr)}
+                      mailing
                     />
                   </>
                 )}
@@ -1493,7 +1544,7 @@ export default function AdminPartnerDetail() {
               title="Prayer Requests"
               count={collections.prayerRequests.length}
               items={prayerRequestsLoadMore.visible.map((r) => ({
-                text: `${truncate(r.requestText, 60)} · ${r.category === "strategic" ? "Strategic" : "Situational"}`,
+                text: `${truncate(r.requestText, 60)} · ${r.category === "strategic" ? "Ministry" : "Everyday"}`,
                 onClick: () => openPrayerDetail(r),
               }))}
               hasMore={prayerRequestsLoadMore.hasMore}
@@ -1600,7 +1651,7 @@ export default function AdminPartnerDetail() {
                 title="One-Time Needs"
                 count={collections.needRequests.length}
                 items={needRequestsLoadMore.visible.map((n) => ({
-                  text: `${truncate(n.description, 60)} · ${formatCurrency(n.requestedAmount)} · ${
+                  text: `${truncate(n.description, 60)} · ${formatRequestedAmount(n.requestedAmount)} · ${
                     supportNeedStatus(n).label
                   }`,
                   onClick: () => openNeedDetail(n),
@@ -1757,7 +1808,12 @@ export default function AdminPartnerDetail() {
       </div>
 
       {activeModal === "add-prayer" && (
-        <QuickActionModal title="Add Prayer Request" onClose={closeModal} onSubmit={submitAddPrayerRequest}>
+        <QuickActionModal
+          title="Add Prayer Request"
+          onClose={closeModal}
+          onSubmit={submitAddPrayerRequest}
+          savedNote={limited ? sentForReviewNote(ownerGroupName) : undefined}
+        >
           <PrayerRequestFormFields
             form={prayerForm}
             setForm={setPrayerForm}
@@ -1797,7 +1853,12 @@ export default function AdminPartnerDetail() {
       {activeModal === "view-prayer" &&
         prayerDetail &&
         (canEditPrayer(prayerDetail.form) ? (
-          <QuickActionModal title="Prayer Request" onClose={closeModal} onSubmit={submitPrayerDetail}>
+          <QuickActionModal
+            title="Prayer Request"
+            onClose={closeModal}
+            onSubmit={submitPrayerDetail}
+            savedNote={limited ? sentForReviewNote(ownerGroupName) : undefined}
+          >
             <PrayerRequestFormFields
               form={prayerDetail.form}
               setForm={setPrayerDetailForm}
@@ -1824,7 +1885,7 @@ export default function AdminPartnerDetail() {
           <Modal title="Prayer Request" onClose={closeModal}>
             <Field
               label="Category"
-              value={prayerDetail.form.category === "strategic" ? "Strategic" : "Situational"}
+              value={prayerDetail.form.category === "strategic" ? "Ministry" : "Everyday"}
             />
             <Field label="Date Received" value={formatDateLong(prayerDetail.form.dateReceived)} />
             <Field label="Prayer Request" value={prayerDetail.form.requestText} />
@@ -1859,35 +1920,13 @@ export default function AdminPartnerDetail() {
       )}
 
       {activeModal === "decide-need" && (
-        <QuickActionModal title="Record Decision" onClose={closeModal} onSubmit={submitRecordDecision}>
-          <div className="form-grid">
-            <label>
-              Approved Amount ($)
-              <input
-                type="number"
-                min="0"
-                value={needDecisionForm.approvedAmount}
-                onChange={(e) => setNeedDecisionForm((f) => ({ ...f, approvedAmount: e.target.value }))}
-                required
-              />
-            </label>
-            <label>
-              Approved Date
-              <input
-                type="date"
-                value={needDecisionForm.approvedDate}
-                onChange={(e) => setNeedDecisionForm((f) => ({ ...f, approvedDate: e.target.value }))}
-                required
-              />
-            </label>
-            <label style={{ gridColumn: "1 / -1" }}>
-              Decision Note
-              <input
-                value={needDecisionForm.decisionNote}
-                onChange={(e) => setNeedDecisionForm((f) => ({ ...f, decisionNote: e.target.value }))}
-              />
-            </label>
-          </div>
+        <QuickActionModal
+          title="Record Decision"
+          onClose={closeModal}
+          onSubmit={submitRecordDecision}
+          submitDisabled={needDecisionForm.approvedAmount === "" || !needDecisionForm.approvedDate}
+        >
+          <NeedDecisionFields decision={needDecisionForm} setDecision={setNeedDecisionForm} />
         </QuickActionModal>
       )}
 
@@ -1920,7 +1959,7 @@ export default function AdminPartnerDetail() {
         ) : (
           <Modal title="One-Time Need" onClose={closeModal}>
             <Field label="Description" value={needDetail.form.description} />
-            <Field label="Requested Amount" value={formatCurrency(needDetail.form.requestedAmount)} />
+            <Field label="Requested Amount" value={formatRequestedAmount(needDetail.form.requestedAmount)} />
             <Field label="Request Date" value={formatDateLong(needDetail.form.requestDate)} />
             <Field label="Notes" value={needDetail.form.notes} />
             <Field
@@ -1933,6 +1972,11 @@ export default function AdminPartnerDetail() {
               showEmpty
             />
             <Field label="Decision Note" value={needDetail.form.decisionNote} />
+            <Field label="Someone's on it" value={needDetail.form.handledBy} />
+            <Field
+              label="Met on"
+              value={needDetail.form.metDate ? formatDateLong(needDetail.form.metDate) : ""}
+            />
           </Modal>
         ))}
 
@@ -2042,23 +2086,23 @@ export default function AdminPartnerDetail() {
                 onChange={(e) => adultCrud.setForm((f) => ({ ...f, birthday: e.target.value }))}
               />
             </label>
-            <label>
-              Phone 1
-              <input
-                value={adultCrud.form.phone1}
-                onChange={(e) => adultCrud.setForm((f) => ({ ...f, phone1: e.target.value }))}
-              />
-            </label>
-            <label>
-              Phone 2
-              <input
-                value={adultCrud.form.phone2}
-                onChange={(e) => adultCrud.setForm((f) => ({ ...f, phone2: e.target.value }))}
-              />
-            </label>
+            <PhoneField
+              label="Phone 1"
+              inputMode="tel"
+              country={servingCountry}
+              value={adultCrud.form.phone1}
+              onChange={(e) => adultCrud.setForm((f) => ({ ...f, phone1: e.target.value }))}
+            />
+            <PhoneField
+              label="Phone 2"
+              inputMode="tel"
+              country={servingCountry}
+              value={adultCrud.form.phone2}
+              onChange={(e) => adultCrud.setForm((f) => ({ ...f, phone2: e.target.value }))}
+            />
             <label>
               Email
-              <input
+              <EmailInput
                 value={adultCrud.form.email}
                 onChange={(e) => adultCrud.setForm((f) => ({ ...f, email: e.target.value }))}
               />
@@ -2228,7 +2272,7 @@ export default function AdminPartnerDetail() {
             </label>
             <label>
               URL
-              <input
+              <WebAddressInput
                 value={linkCrud.form.url}
                 onChange={(e) => linkCrud.setForm((f) => ({ ...f, url: e.target.value }))}
                 placeholder="https://..."

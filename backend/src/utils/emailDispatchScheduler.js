@@ -1,7 +1,6 @@
 // In-process scheduler for both triggers: the email dispatch's three cadence
-// tiers and GroupMe/WhatsApp's daily-hour chat schedule. Runs in the worker's
-// single instance (no cron service); if ever scaled to 2+ instances, node-cron's
-// `distributed: true` is the fix.
+// tiers and GroupMe/WhatsApp's daily-hour chat schedule. Runs in the web process
+// (no cron service); the database lock in backgroundJobs.js keeps it to one running instance.
 //
 // The two registrations tick every minute but check different schedule fields,
 // so they stay independent. Both call clearDispatchRecords() at the end of their
@@ -10,7 +9,8 @@
 //
 // Hour/day checks use plain Date getters, so process.env.TZ must match the
 // church's local time (see server.js's startup read of ChurchSettings.timezone).
-const cron = require("node-cron");
+const cron = require("./pausableCron");
+const { mostRecentWeeklySlot, mostRecentMonthlySlot, isSlotDue } = require("./sendSlots");
 const prisma = require("../prismaClient");
 const { sendDigestTier } = require("./emailDispatchDelivery");
 const { runGroupMePass } = require("./groupmeChannel");
@@ -47,47 +47,43 @@ const MIN_GAP_MS = {
 
 // Pure (no I/O, no Date.now()) so it's testable with a fixed `now`, independent
 // of host timezone (test/emailDispatchScheduler.test.js).
+// Due once the most recent scheduled day and hour has passed without a send (utils/sendSlots.js), so a worker that
+// was down at the exact hour, or a clock-change day with no 2am, no longer skips the send.
 function shouldFlushBiweeklyEmailDispatch(settings, now) {
   if (settings?.emailDispatchDayOfWeek == null || settings?.emailDispatchHour == null) return false; // not configured yet
-  if (now.getDay() !== settings.emailDispatchDayOfWeek || now.getHours() !== settings.emailDispatchHour)
-    return false;
-  const sinceLast = settings.lastBiweeklyEmailDispatchSentAt
-    ? now - settings.lastBiweeklyEmailDispatchSentAt
-    : Infinity;
-  return sinceLast >= MIN_GAP_MS.biweekly;
+  const slot = mostRecentWeeklySlot(now, settings.emailDispatchDayOfWeek, settings.emailDispatchHour);
+  return isSlotDue(slot, settings.lastBiweeklyEmailDispatchSentAt, MIN_GAP_MS.biweekly, now);
 }
 
 function shouldFlushMonthlyEmailDispatch(settings, now) {
   if (settings?.emailDispatchDayOfMonth == null || settings?.emailDispatchHour == null) return false; // not configured yet
-  if (now.getDate() !== settings.emailDispatchDayOfMonth || now.getHours() !== settings.emailDispatchHour) {
-    return false;
-  }
-  const sinceLast = settings.lastMonthlyEmailDispatchSentAt
-    ? now - settings.lastMonthlyEmailDispatchSentAt
-    : Infinity;
-  return sinceLast >= MIN_GAP_MS.monthly;
+  const slot = mostRecentMonthlySlot(now, settings.emailDispatchDayOfMonth, settings.emailDispatchHour);
+  return isSlotDue(slot, settings.lastMonthlyEmailDispatchSentAt, MIN_GAP_MS.monthly, now);
 }
 
 function shouldFlushQuarterlyEmailDispatch(settings, now) {
   if (settings?.emailDispatchDayOfMonth == null || settings?.emailDispatchHour == null) return false; // not configured yet
-  if (now.getDate() !== settings.emailDispatchDayOfMonth || now.getHours() !== settings.emailDispatchHour) {
-    return false;
-  }
-  const sinceLast = settings.lastQuarterlyEmailDispatchSentAt
-    ? now - settings.lastQuarterlyEmailDispatchSentAt
-    : Infinity;
-  return sinceLast >= MIN_GAP_MS.quarterly;
+  const slot = mostRecentMonthlySlot(now, settings.emailDispatchDayOfMonth, settings.emailDispatchHour);
+  return isSlotDue(slot, settings.lastQuarterlyEmailDispatchSentAt, MIN_GAP_MS.quarterly, now);
 }
 
-// Stamps `column` on every row in `ids`, then the matching ChurchSettings
-// last-sent cursor; shared by the three tier blocks.
+// Stamps `column` on every row that reached at least one recipient, then the matching
+// ChurchSettings last-sent cursor; shared by the three tier blocks. A row whose every send
+// failed is NOT stamped (it goes out in the next scheduled pass for this tier, not silently
+// lost) and keeps its error note, which the "Dispatch send failures" alert reads; a row that
+// reached some recipients but failed for another is stamped and keeps its error too.
 async function runEmailDispatchTier(tier, column, cursorField, settings, now) {
-  const { consideredIds } = await sendDigestTier(tier, settings);
-  if (consideredIds.length > 0) {
+  const { deliveredIds, failedIds } = await sendDigestTier(tier, settings);
+  if (deliveredIds.length > 0) {
     await prisma.dispatchRecord.updateMany({
-      where: { id: { in: consideredIds } },
-      data: { [column]: now, emailError: null },
+      where: { id: { in: deliveredIds } },
+      data: { [column]: now },
     });
+    const failed = new Set(failedIds);
+    const clean = deliveredIds.filter((id) => !failed.has(id));
+    if (clean.length > 0) {
+      await prisma.dispatchRecord.updateMany({ where: { id: { in: clean } }, data: { emailError: null } });
+    }
   }
   await prisma.churchSettings.update({ where: { id: "singleton" }, data: { [cursorField]: now } });
 }
@@ -184,6 +180,7 @@ module.exports = {
   startEmailDispatchScheduler,
   startGroupMeScheduler,
   checkAndMaybeFlushEmailDispatch,
+  runEmailDispatchTier,
   checkAndMaybeFlushGroupMe,
   shouldFlushBiweeklyEmailDispatch,
   shouldFlushMonthlyEmailDispatch,

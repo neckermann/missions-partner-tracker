@@ -14,12 +14,11 @@ reset-demo-db-remote.js` needs to recover the live demo database
   `ChurchSettings` on every reset. Never commit this file -- `.gitignore`
   already excludes every `.env`/`.env.*` anywhere in the repo.
 - **`render.yaml`** -- the demo's own Render Blueprint: the production
-  web service, the background worker (#271 Phase B -- schedulers and the
-  WhatsApp connection, split out of the web service), plus the nightly
-  reset cron job, including the four demo-only env vars
+  web service (which also runs the scheduled jobs and the WhatsApp
+  connection; there is no separate worker), plus the nightly reset cron job, including the four demo-only env vars
   (`DEMO_RESET_TOKEN`, `DEMO_ADMIN_EMAIL/PASSWORD`, `PEXELS_API_KEY`) that
   must never appear on a real church's instance -- all four stay on the
-  web service only, the worker needs none of them. Record-keeping only
+  web service only. Record-keeping only
   right now -- Render isn't actively syncing from this file; it's what to
   restore from if the demo's services were ever deleted and had to be
   rebuilt.
@@ -39,7 +38,7 @@ the banner read, so the banner always shows what the seed actually created:
 | `care.member@<admin's domain>` | the same as the demo admin's (`DEMO_ADMIN_PASSWORD`) | Four partners they're on the care team for: the same partner page an editor has minus monthly funding, their own prayer requests and one-time needs (no decisions), Newsletters & Docs, and a read-only view of those partners' trips. What they enter is saved but held in Pending Dispatches until the admin approves it. |
 | `trip.leader@<admin's domain>` | same                                                 | One upcoming trip they manage, plus its partner read-only. No needs, no money.                                                                                                                                                                                                                                              |
 
-The demo also has the **Audit log** on, with example entries written by the seed
+The demo also has the **Audit Log** on, with example entries written by the seed
 (`seedAuditLogDemo` in `backend/prisma/seed.js`): sign-ins, a couple of failed ones, a role
 change, a guest's trip access given and removed, care team changes, settings changes, a backup
 download, deletes, and views of a restricted partner. They sit inside the default 90-day
@@ -75,7 +74,7 @@ works. Because the logins are shared, a demo never asks anyone for a second fact
 when one has been added, and adding or removing one doesn't end the sessions other visitors have
 open. My account says so. The next reset removes whatever was added.
 
-The one exception is the owner's own test deployment (the dev demo): set `DEMO_ALLOW_PASSWORDLESS=true` on its web service and an admin can switch it on there to try it (it needs an account with a passkey and working email, and the next reset turns it off again). **Never set it on a demo the public can reach**: it would end password sign-in for the shared logins.
+The one exception is the owner's own test deployment (the dev demo): set `DEMO_TESTING_SITE=true` (or the older, narrower `DEMO_ALLOW_PASSWORDLESS=true`) on its web service and an admin can switch it on there to try it (it needs an account with a passkey and working email, and the next reset turns it off again). **Never set it on a demo the public can reach**: it would end password sign-in for the shared logins.
 
 The church-wide **Passwordless sign-in** switch is still refused and ignored on a demo (it also
 needs working email, which a demo never has). It is shown in the documentation screenshots,
@@ -87,15 +86,41 @@ wizard can be walked end to end; the older completed trips carry debriefs; partn
 preferences; the care team's contact timeline, updates to pass on and key-date alerts are
 populated; and the trip applications carry answers to the church-wide and trip questions.
 
-## What a demo never does
+## What a guarded demo never does
+
+A public demo (`DEMO_RESET_TOKEN` set) is **guarded**. Anyone can sign in with its published logins, so
+it must not be able to hurt you or anyone else:
+
+- **Nothing leaves the app.** Email (single and batch), GroupMe posts and WhatsApp messages are logged
+  (`[demo] ... not sent`) and reported as sent, but never reach Postmark, GroupMe or WhatsApp.
+- **No AI spend.** The AI request scan is refused (403).
+- **No lock-out.** Changing a password (your own or another account's), sending a setup link and
+  completing one are refused, so one visitor cannot sign the others out until the next reset.
+- **No tampering with integrations.** Saving the GroupMe, Postmark, WhatsApp, Joshua Project or AI-key
+  settings is refused.
+- **A reset does not bring the keys back.** `reset-demo-data.js` ignores `ANTHROPIC_API_KEY`, `GROUPME_*`,
+  `POSTMARK_API_KEY`, `FROM_EMAIL_ADDRESS` and the webhook values on a guarded demo (so those features stay
+  off there) and unlinks any paired WhatsApp number. You can leave those variables set on the service; the
+  guarded demo will not use them. Remove them anyway if you do not need them.
+
+**The owner's own test deployment** (the dev demo) is the exception: set `DEMO_TESTING_SITE=true` on its
+web service and none of the above applies, so you can try real sends and take screenshots of emails and
+chat posts. It also stops the banner publishing that site's logins, so give it its own `DEMO_ADMIN_EMAIL`
+and `DEMO_ADMIN_PASSWORD` (the published guest accounts use the admin password unless
+`DEMO_GUEST_PASSWORD` is set; if neither is set they fall back to a default that is in this repository).
+Set it on the web service only: there is no separate worker any more, so the scheduled jobs see the same
+setting. The two remote reset scripts say which they are:
+`reset-demo-db-remote.js` is always guarded, `reset-dev-db-remote.js` is always the test deployment.
+Keep its address private anyway.
+
+## What a demo never does (scheduled email)
 
 A demo must not send email to its seeded accounts (they are fake addresses, so
 the mail only bounces and spends the email plan). Two things guarantee that. The
 reset script and the seed turn every feature on **except** the list in
 `backend/src/utils/demoMode.js`, which is where a scheduled-email feature would
 be kept off (today the list is empty). And the daily key-date job returns early
-on a demo (`DEMO_RESET_TOKEN`, or the `demoMode` flag the reset writes, which is what the worker
-process sees), as do the other scheduled emails, so no schedule can email a demo's team members
+on a demo (`DEMO_RESET_TOKEN`, or the `demoMode` flag the reset writes, which the scheduled jobs also read), as do the other scheduled emails, so no schedule can email a demo's team members
 even though **Key-date reminders are on**: a visitor sees the "Key dates coming
 up" alert on the bell and Home page, but nothing is ever sent. To keep another
 scheduled-email feature off a demo, add its key to that list.
@@ -109,7 +134,10 @@ own `_prisma_migrations` table has no record of, so the next deploy's
 `preDeployCommand` (`prisma migrate deploy`) fails -- expected, not a
 sign anything is broken. Render doesn't cut over on a failed pre-deploy,
 so the demo stays up on the old version the whole time this is being
-fixed.
+fixed. (If the deploy does get as far as starting, the server's own start-up
+check refuses to run on the old database -- "Not starting: This database was
+built from an earlier version of migration ..." -- and the deploy fails the
+same safe way; see RUNBOOK.md.)
 
 Fix: `cd backend && npm run demo:reset:remote` for the live public demo,
 or `npm run dev:reset:remote` for the dev-test service (both read

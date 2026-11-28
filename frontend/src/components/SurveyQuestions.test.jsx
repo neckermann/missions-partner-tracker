@@ -97,3 +97,118 @@ describe("SurveyQuestions", () => {
     expect(describeSavedAnswer(saved[2])).toBe("Prayer, Meals");
   });
 });
+
+describe("SurveyQuestions linked fields (#548)", () => {
+  const base = { choices: [], allowOther: false, required: false, maxLength: null, labels: null };
+  const linked = [
+    { ...base, id: "p", kind: "text", label: "Best phone", inputType: "tel" },
+    { ...base, id: "e", kind: "text", label: "Best email", inputType: "email" },
+    { ...base, id: "n", kind: "text", label: "Contact name", inputType: "line", maxLength: 120 },
+    { ...base, id: "x", kind: "text", label: "Anything else", inputType: null },
+  ];
+
+  it("gives a phone, an email and a short line a single-line box of the right type, and anything else a text area", () => {
+    render(<SurveyQuestions questions={linked} answers={{}} onChange={() => {}} />);
+    const phone = screen.getByLabelText("Best phone");
+    expect(phone.tagName).toBe("INPUT");
+    expect(phone).toHaveAttribute("type", "tel");
+    expect(phone).toHaveAttribute("inputmode", "tel");
+    expect(phone).toHaveAttribute("autocomplete", "tel");
+    const email = screen.getByLabelText("Best email");
+    expect(email.tagName).toBe("INPUT");
+    expect(email).toHaveAttribute("type", "email");
+    expect(email).toHaveAttribute("autocomplete", "email");
+    const name = screen.getByLabelText("Contact name");
+    expect(name.tagName).toBe("INPUT");
+    expect(name).toHaveAttribute("type", "text");
+    expect(name).toHaveAttribute("maxlength", "120");
+    expect(screen.getByLabelText("Anything else").tagName).toBe("TEXTAREA");
+  });
+
+  it("passes on the international number typed in the phone box", () => {
+    const onChange = vi.fn();
+    render(<SurveyQuestions questions={linked} answers={{}} onChange={onChange} />);
+    fireEvent.change(screen.getByLabelText("Best phone"), { target: { value: "(506) 555-0259" } });
+    expect(onChange).toHaveBeenCalledWith("p", { value: "+15065550259" });
+  });
+
+  it("shows a contact method's choices in words and answers with the stored value", () => {
+    const method = {
+      ...base,
+      id: "m",
+      kind: "single",
+      label: "How do you prefer to be contacted?",
+      choices: ["call", "text", "whatsapp"],
+      labels: { call: "Phone call", text: "Text message", whatsapp: "WhatsApp" },
+      inputType: "contactMethod",
+    };
+    const onChange = vi.fn();
+    render(<SurveyQuestions questions={[method]} answers={{}} onChange={onChange} />);
+    expect(screen.getByLabelText("Phone call")).toBeInTheDocument();
+    expect(screen.getByLabelText("Text message")).toBeInTheDocument();
+    expect(screen.queryByText("call")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText("Text message"));
+    expect(onChange).toHaveBeenCalledWith("m", { value: "text", other: "" });
+  });
+
+  it("describes a saved phone the usual way and a saved contact method in words", () => {
+    const phone = { ...linked[0], questionId: "p" };
+    expect(describeSavedAnswer({ kind: "text", value: "+15065550259" }, [], phone)).toBe("(506) 555-0259");
+    const method = { inputType: "contactMethod", labels: { text: "Text message" } };
+    expect(describeSavedAnswer({ kind: "single", value: "text" }, [], method)).toBe("Text message");
+    expect(describeSavedAnswer({ kind: "text", value: "hello" }, [], null)).toBe("hello");
+  });
+});
+
+describe("SurveyQuestions phone and email help (#548)", () => {
+  const base = { choices: [], allowOther: false, required: false, maxLength: null, labels: null };
+  const qs = [
+    { ...base, id: "p", kind: "text", label: "Best phone", inputType: "tel" },
+    { ...base, id: "e", kind: "text", label: "Best email", inputType: "email" },
+  ];
+
+  function Harness() {
+    const [answers, setAnswers] = useState({});
+    return (
+      <SurveyQuestions
+        questions={qs}
+        answers={answers}
+        onChange={(id, patch) => setAnswers((a) => ({ ...a, [id]: { ...a[id], ...patch } }))}
+      />
+    );
+  }
+
+  it("shapes a phone as it is typed, the same as every other phone box", () => {
+    render(<Harness />);
+    const phone = screen.getByLabelText("Best phone");
+    fireEvent.change(phone, { target: { value: "5065550259" } });
+    expect(phone).toHaveValue("(506) 555-0259");
+    fireEvent.change(phone, { target: { value: "+442079460958" } });
+    expect(phone).toHaveValue("+44 20 7946 0958");
+  });
+
+  it("says in plain words, when the box is left, that a phone or email can't be one", () => {
+    render(<Harness />);
+    const phone = screen.getByLabelText("Best phone");
+    // Letters never get into the box (the shaping keeps only what a number can hold), so the hint is for a number that is
+    // the wrong length: a local number with no area code.
+    fireEvent.change(phone, { target: { value: "555-0100" } });
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    fireEvent.blur(phone);
+    expect(screen.getByRole("status")).toHaveTextContent(/doesn't look like a phone number/);
+    const email = screen.getByLabelText("Best email");
+    fireEvent.change(email, { target: { value: "not an email" } });
+    fireEvent.blur(email);
+    expect(screen.getAllByRole("status")).toHaveLength(2);
+    fireEvent.change(phone, { target: { value: "5065550259" } });
+    fireEvent.change(email, { target: { value: "sam@example.org" } });
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+
+  it("never blocks the answer: even an unfinished number is passed on, shaped", () => {
+    const onChange = vi.fn();
+    render(<SurveyQuestions questions={qs} answers={{}} onChange={onChange} />);
+    fireEvent.change(screen.getByLabelText("Best phone"), { target: { value: "555" } });
+    expect(onChange).toHaveBeenCalledWith("p", { value: "(555)" });
+  });
+});

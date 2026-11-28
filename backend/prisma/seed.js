@@ -13,6 +13,7 @@ const {
 const { generateShareToken } = require("../src/utils/tripAccessToken");
 const { demoDisabledFeatureFlags } = require("../src/utils/demoMode");
 const { replaceQuestions, replaceRequirementItems, answerRows } = require("../src/utils/tripTemplates");
+const { makeDisplayCopy } = require("../src/utils/photoCopies");
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
 
@@ -64,7 +65,7 @@ function dateBetween(startYearsAgo, endYearsAgo) {
   return dateYearsAgo(randInt(endYearsAgo, startYearsAgo));
 }
 function fakePhone() {
-  return `(${randInt(200, 999)}) 555-${String(randInt(0, 9999)).padStart(4, "0")}`;
+  return `+1${randInt(200, 999)}555${String(randInt(0, 9999)).padStart(4, "0")}`;
 }
 
 const US_CITY_POOL = [
@@ -1278,7 +1279,7 @@ const ADDITIONAL_USERS = [
 
 // More users across roles, active state and MFA-required, so Manage Users has variety.
 // mfaSetupRequired, not mfaEnabled: mfaEnabled with no real TOTP secret would lock the account
-// out. Fixed, obviously fake password: these accounts only populate the list. None get a
+// out. Random, unknown password (unusablePasswordHash): these accounts only populate the list. None get a
 // cadence: their @example.org addresses (RFC 2606) are non-deliverable, and a demo reset must
 // never attempt a digest send.
 //
@@ -1357,10 +1358,10 @@ async function seedTripsDemo() {
             firstName: "James",
             lastName: "Okonkwo",
             email: "james.okonkwo@example.org",
-            phone: "555-0198",
+            phone: "+15555550198",
             emergencyContactFirstName: "Grace",
             emergencyContactLastName: "Okonkwo",
-            emergencyContactPhone: "555-0142",
+            emergencyContactPhone: "+15555550142",
             emergencyContactEmail: "grace.okonkwo@example.org",
             addressLine1: "482 Maple Street",
             city: "Rock Island",
@@ -1386,10 +1387,10 @@ async function seedTripsDemo() {
             firstName: "Derek",
             lastName: "Palmquist",
             email: "derek.palmquist@example.org",
-            phone: "555-0176",
+            phone: "+15555550176",
             emergencyContactFirstName: "Wendy",
             emergencyContactLastName: "Palmquist",
-            emergencyContactPhone: "555-0177",
+            emergencyContactPhone: "+15555550177",
             addressLine1: "19 Birch Court",
             city: "Davenport",
             stateProvinceRegion: "IA",
@@ -1462,7 +1463,7 @@ async function seedTripsDemo() {
             // Only shown when ChurchSettings.collectDonorContactInfo is on (set
             // below).
             donorEmail: "friend.of.priya@example.org",
-            donorPhone: "555-0199",
+            donorPhone: "+15555550199",
             amount: 200,
             method: "check",
             receivedDate: dateBetween(0, 0),
@@ -1500,7 +1501,12 @@ async function seedTripsDemo() {
       if (photo) {
         await prisma.tripParticipant.update({
           where: { id: john.id },
-          data: { photoBytesRow: { create: { photo: photo.bytes } }, photoContentType: photo.contentType },
+          data: {
+            photoBytesRow: {
+              create: { photo: photo.bytes, displayBytes: await makeDisplayCopy(photo.bytes) },
+            },
+            photoContentType: photo.contentType,
+          },
         });
       }
     }
@@ -1516,7 +1522,7 @@ async function seedTripsDemo() {
       firstName: "David",
       lastName: "Kim",
       email: "david.kim@example.org",
-      phone: "555-0171",
+      phone: "+15555550171",
       role: "Logistics",
       supportRaisingGoal: 1200,
       shareToken: generateShareToken(),
@@ -1542,7 +1548,12 @@ async function seedTripsDemo() {
       if (photo) {
         await prisma.tripParticipant.update({
           where: { id: david.id },
-          data: { photoBytesRow: { create: { photo: photo.bytes } }, photoContentType: photo.contentType },
+          data: {
+            photoBytesRow: {
+              create: { photo: photo.bytes, displayBytes: await makeDisplayCopy(photo.bytes) },
+            },
+            photoContentType: photo.contentType,
+          },
         });
       }
     }
@@ -1559,7 +1570,7 @@ async function seedTripsDemo() {
       firstName: "Amara",
       lastName: "Chukwu",
       email: "amara.chukwu@example.org",
-      phone: "555-0163",
+      phone: "+15555550163",
       status: "approved",
       reviewedAt: dateBetween(6, 2),
       reviewedById: admin?.id || null,
@@ -1571,7 +1582,7 @@ async function seedTripsDemo() {
       country: "USA",
       emergencyContactFirstName: "Chidi",
       emergencyContactLastName: "Chukwu",
-      emergencyContactPhone: "555-0164",
+      emergencyContactPhone: "+15555550164",
       emergencyContactEmail: "chidi.chukwu@example.org",
       dateOfBirth: new Date(Date.UTC(1995, 6, 19)),
       responses: {
@@ -1942,7 +1953,12 @@ async function seedTripsDemo() {
       if (photo) {
         await prisma.tripParticipant.update({
           where: { id: marcus.id },
-          data: { photoBytesRow: { create: { photo: photo.bytes } }, photoContentType: photo.contentType },
+          data: {
+            photoBytesRow: {
+              create: { photo: photo.bytes, displayBytes: await makeDisplayCopy(photo.bytes) },
+            },
+            photoContentType: photo.contentType,
+          },
         });
       }
     }
@@ -2000,7 +2016,7 @@ async function seedTripsDemo() {
         firstName: "Hannah",
         lastName: "Weiss",
         email: "hannah.weiss@example.org",
-        phone: "555-0184",
+        phone: "+15555550184",
         status: "approved",
         reviewedAt: dateBetween(1, 0),
         reviewedById: admin?.id || null,
@@ -2066,7 +2082,7 @@ async function seedTripsDemo() {
       firstName: "Lily",
       lastName: "Thompson",
       email: "lily.thompson@example.org",
-      phone: "555-0211",
+      phone: "+15555550211",
       status: "approved",
       reviewedAt: dateBetween(1, 0),
       reviewedById: admin?.id || null,
@@ -2079,11 +2095,11 @@ async function seedTripsDemo() {
       parentGuardianFirstName: "Karen",
       parentGuardianLastName: "Thompson",
       parentGuardianRelationship: "Mother",
-      parentGuardianPhone: "555-0212",
+      parentGuardianPhone: "+15555550212",
       parentGuardianEmail: "karen.thompson@example.org",
       emergencyContactFirstName: "Karen",
       emergencyContactLastName: "Thompson",
-      emergencyContactPhone: "555-0212",
+      emergencyContactPhone: "+15555550212",
       emergencyContactEmail: "karen.thompson@example.org",
     },
   });
@@ -2224,7 +2240,7 @@ async function seedTripsDemo() {
       firstName: "Noah",
       lastName: "Castellano",
       email: "noah.castellano@example.org",
-      phone: "555-0233",
+      phone: "+15555550233",
       status: "approved",
       reviewedAt: dateBetween(3, 2),
       reviewedById: admin?.id || null,
@@ -2232,11 +2248,11 @@ async function seedTripsDemo() {
       parentGuardianFirstName: "Diane",
       parentGuardianLastName: "Castellano",
       parentGuardianRelationship: "Mother",
-      parentGuardianPhone: "555-0234",
+      parentGuardianPhone: "+15555550234",
       parentGuardianEmail: "diane.castellano@example.org",
       emergencyContactFirstName: "Diane",
       emergencyContactLastName: "Castellano",
-      emergencyContactPhone: "555-0234",
+      emergencyContactPhone: "+15555550234",
       emergencyContactEmail: "diane.castellano@example.org",
       addressLine1: "212 Hawthorn Lane",
       city: "Moline",
@@ -2416,19 +2432,27 @@ async function seedTripsDemo() {
 // Phone and a short profile for the demo logins, so care team lists and the trip Team page show them.
 // Fictional 555-01xx numbers.
 const DEMO_USER_DETAILS = {
-  "Pat Reynolds": { phone: "555-0101", profile: "Missions pastor. Easiest to reach by text, weekdays." },
-  "Casey Nguyen": { phone: "555-0102", profile: "Handles partner newsletters. Email is best." },
-  "Jordan Lee": { phone: "555-0103", profile: "Retired nurse; visits partners when they are in town." },
-  "Dana Whitfield": { phone: "555-0104", profile: "Prays for our Asia partners. Free after 6pm." },
-  "Chris Alvarez": { phone: "555-0105", profile: "Leads our summer trips. Best reached by phone." },
-  "Sam Okafor": { phone: "555-0106", profile: null },
+  "Pat Reynolds": { phone: "+15555550101", profile: "Missions pastor. Easiest to reach by text, weekdays." },
+  "Casey Nguyen": { phone: "+15555550102", profile: "Handles partner newsletters. Email is best." },
+  "Jordan Lee": { phone: "+15555550103", profile: "Retired nurse; visits partners when they are in town." },
+  "Dana Whitfield": { phone: "+15555550104", profile: "Prays for our Asia partners. Free after 6pm." },
+  "Chris Alvarez": { phone: "+15555550105", profile: "Leads our summer trips. Best reached by phone." },
+  "Sam Okafor": { phone: "+15555550106", profile: null },
 };
 const userDetails = (firstName, lastName) => DEMO_USER_DETAILS[`${firstName} ${lastName}`] || {};
+
+// The populate-the-list accounts get a password nobody knows: a random one, hashed and never printed
+// or stored anywhere else. The old shared fixed password was in the repo, so anyone could have
+// signed in to a seeded copy that was left running. (The two published demo logins use
+// demoGuestPassword() instead, by design.) To sign in as one of these, reset its password in Manage Users.
+async function unusablePasswordHash(bcrypt) {
+  return bcrypt.hash(require("crypto").randomBytes(32).toString("hex"), 12);
+}
 
 async function seedAdditionalUsers() {
   console.log(`Seeding ${ADDITIONAL_USERS.length} additional admin users...`);
   const bcrypt = require("bcryptjs");
-  const passwordHash = await bcrypt.hash("SeedDemoUser2026!", 12);
+  const passwordHash = await unusablePasswordHash(bcrypt);
   for (const u of ADDITIONAL_USERS) {
     const email = `${slugify(`${u.firstName} ${u.lastName}`)}@example.org`;
     await prisma.user.upsert({
@@ -2514,7 +2538,7 @@ async function seedNotificationQueue() {
 // Two demo logins are published (demo/README.md): a care team member and a trip leader. They are
 // the exception to "MFA is required for a guest": a shared, published account can't enrol an
 // authenticator without locking out other visitors, so they are created with mfaSetupRequired
-// off. Everything else is a populate-the-list account with the fixed fake password.
+// off. Everything else is a populate-the-list account with an unknown random password.
 // Defined once in src/utils/demoLogins.js, which the demo banner also reads.
 const {
   demoCareMemberEmail,
@@ -2533,7 +2557,7 @@ async function seedCareTeamsDemo() {
     notifySupportNeedCreated,
   } = require("../src/utils/dispatchRecording");
   const publishedHash = await bcrypt.hash(demoGuestPassword(), 12);
-  const fakeHash = await bcrypt.hash("SeedDemoUser2026!", 12);
+  const fakeHash = await unusablePasswordHash(bcrypt);
 
   const makeGuest = (email, firstName, lastName, { published, lapsed }) =>
     prisma.user.upsert({
@@ -2828,7 +2852,7 @@ async function seedContactLogDemo() {
           "Please don't call or text them. Go through their sending organization, who relay messages.",
         contactViaName: "Mission office",
         contactViaRole: "Sending organization",
-        contactViaPhone: "(555) 010-0199",
+        contactViaPhone: "+15550100199",
         contactViaEmail: "office@sending-org.example.org",
       },
     });
@@ -3640,6 +3664,10 @@ async function main() {
     );
   }
 
+  // A freshly created database has no settings row yet (the app makes it on first use); the seed
+  // updates it below, so make sure it exists.
+  await prisma.churchSettings.upsert({ where: { id: "singleton" }, update: {}, create: { id: "singleton" } });
+
   const churchSettings = await prisma.churchSettings.findUnique({ where: { id: "singleton" } });
   const admin = await prisma.user.findFirst({ where: { role: "admin" } });
   const attribution = admin ? { createdById: admin.id, updatedById: admin.id } : {};
@@ -3767,7 +3795,7 @@ async function main() {
         links: { create: buildLinks(`${last.toLowerCase()}family`) },
         photos: {
           create: {
-            bytesRow: { create: { bytes: photo.bytes } },
+            bytesRow: { create: { bytes: photo.bytes, displayBytes: await makeDisplayCopy(photo.bytes) } },
             contentType: photo.contentType,
             receivedDate: dateBetween(1, 0),
           },
@@ -3913,7 +3941,7 @@ async function main() {
         tripLogisticsNotes: chance(0.5) ? pick(LOGISTICS_NOTES) : null,
         photos: {
           create: {
-            bytesRow: { create: { bytes: logo.bytes } },
+            bytesRow: { create: { bytes: logo.bytes, displayBytes: await makeDisplayCopy(logo.bytes) } },
             contentType: logo.contentType,
             receivedDate: dateBetween(1, 0),
           },

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
+import PartnerLinkButton from "../components/admin/PartnerLinkButton.jsx";
+import { HeldForReviewNote } from "../components/admin/GuestNotice.jsx";
 import PageHeader from "../components/shared/PageHeader.jsx";
-import { Link } from "react-router-dom";
 import {
   fetchPrayerRequests,
   createPrayerRequest,
@@ -24,6 +25,7 @@ import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
 import useChurchSettings from "../hooks/useChurchSettings.js";
 import useUrgentApprovalGate from "../hooks/useUrgentApprovalGate.jsx";
 import { useSettings } from "../context/SettingsContext.jsx";
+import { sentForReviewNote } from "../utils/heldForReview.js";
 import LoadMoreButton from "../components/LoadMoreButton.jsx";
 import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
 import FilterBar from "../components/shared/FilterBar.jsx";
@@ -59,7 +61,7 @@ const emptyNewRequest = {
 // stays a card layout, not <Table>: each row has a variable-height request, an inline edit
 // form and an inline "Record Answer" form that don't fit table cells.
 export default function AdminPrayerRequests() {
-  const { enabledFeatures } = useSettings();
+  const { enabledFeatures, ownerGroupName } = useSettings();
   // Whether any channel exists to deliver a recorded event; see hasEnabledChannel in
   // PrayerRequestSection.jsx. Shared precondition for "Mark as urgent" and canApproveNow.
   const hasEnabledChannel =
@@ -78,8 +80,8 @@ export default function AdminPrayerRequests() {
         type: "select",
         options: [
           { value: "all", label: "All" },
-          { value: "strategic", label: "Strategic" },
-          { value: "situational", label: "Situational" },
+          { value: "strategic", label: "Ministry" },
+          { value: "situational", label: "Everyday" },
         ],
       },
       { name: "dateRange", label: "Received", type: "select", options: DATE_RANGE_OPTIONS },
@@ -279,6 +281,7 @@ export default function AdminPrayerRequests() {
           ]}
         />
       )}
+      <HeldForReviewNote />
       <PageHeader
         title="Prayer Requests"
         subtitle={`${requests.length} on file · ${answeredCount} answered so far`}
@@ -340,7 +343,7 @@ export default function AdminPrayerRequests() {
           {
             key: "category",
             label: "Category",
-            render: (request) => (request.category === "strategic" ? "Strategic" : "Situational"),
+            render: (request) => (request.category === "strategic" ? "Ministry" : "Everyday"),
           },
           { key: "requestText", label: "Request", render: (request) => truncate(request.requestText, 80) },
           {
@@ -381,7 +384,12 @@ export default function AdminPrayerRequests() {
       <LoadMoreButton hasMore={hasMore} remaining={remaining} onClick={showMore} />
 
       {activeModal === "add" && (
-        <QuickActionModal title="Add Prayer Request" onClose={closeModal} onSubmit={submitAddRequest}>
+        <QuickActionModal
+          title="Add Prayer Request"
+          onClose={closeModal}
+          onSubmit={submitAddRequest}
+          savedNote={limited ? sentForReviewNote(ownerGroupName) : undefined}
+        >
           <PrayerRequestFormFields
             form={newRequest}
             setForm={setNewRequest}
@@ -433,13 +441,13 @@ export default function AdminPrayerRequests() {
       {activeModal === "view" &&
         requestDetail &&
         (canEditRow({ partnerId: requestDetail.form.partnerId, ...requestDetail.form }) ? (
-          <QuickActionModal title="Prayer Request" onClose={closeModal} onSubmit={submitRequestDetail}>
-            <Link
-              to={`/admin/partners/${requestDetail.form.partnerId}`}
-              style={{ display: "inline-block", marginBottom: "0.75rem" }}
-            >
-              Go to partner →
-            </Link>
+          <QuickActionModal
+            title="Prayer Request"
+            onClose={closeModal}
+            onSubmit={submitRequestDetail}
+            savedNote={limited ? sentForReviewNote(ownerGroupName) : undefined}
+          >
+            <PartnerLinkButton partnerId={requestDetail.form.partnerId} partners={partners} />
             {!isGuest && <LastEdited name={requestDetail.lastEditedByName} at={requestDetail.lastEditedAt} />}
             <PrayerRequestFormFields
               form={requestDetail.form}
@@ -465,16 +473,11 @@ export default function AdminPrayerRequests() {
           </QuickActionModal>
         ) : (
           <Modal title="Prayer Request" onClose={closeModal}>
-            <Link
-              to={`/admin/partners/${requestDetail.form.partnerId}`}
-              style={{ display: "inline-block", marginBottom: "0.75rem" }}
-            >
-              Go to partner →
-            </Link>
+            <PartnerLinkButton partnerId={requestDetail.form.partnerId} partners={partners} />
             {!isGuest && <LastEdited name={requestDetail.lastEditedByName} at={requestDetail.lastEditedAt} />}
             <Field
               label="Category"
-              value={requestDetail.form.category === "strategic" ? "Strategic" : "Situational"}
+              value={requestDetail.form.category === "strategic" ? "Ministry" : "Everyday"}
             />
             <Field label="Date Received" value={formatDateLong(requestDetail.form.dateReceived)} />
             <Field label="Prayer Request" value={requestDetail.form.requestText} />

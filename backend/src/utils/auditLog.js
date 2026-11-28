@@ -13,16 +13,23 @@
 const prisma = require("../prismaClient");
 const { isFeatureEnabled } = require("./features");
 
-// code -> { label, category }; categories group the Audit log page's filter.
+// code -> { label, category }; categories group the Audit Log page's filter.
 const AUDIT_ACTIONS = {
   "auth.login_success": { label: "Signed in", category: "Sign-in" },
   "auth.login_failed": { label: "Failed sign-in", category: "Sign-in" },
   "auth.password_changed": { label: "Changed their password", category: "Sign-in" },
+  "auth.logout_all": { label: "Signed out of all devices", category: "Sign-in" },
   "auth.password_set": { label: "Set a password from a setup link", category: "Sign-in" },
   "auth.password_reset": { label: "Reset the password from an emailed link", category: "Sign-in" },
   "auth.password_reset_requested": { label: "Requested a password reset", category: "Sign-in" },
   "auth.mfa_enabled": { label: "Turned on two-factor authentication", category: "Sign-in" },
   "auth.mfa_disabled": { label: "Turned off two-factor authentication", category: "Sign-in" },
+  "auth.recovery_code_used": { label: "Signed in with a recovery code", category: "Sign-in" },
+  "auth.recovery_codes_regenerated": { label: "Made a new set of recovery codes", category: "Sign-in" },
+  "auth.mfa_cleared_by_server": {
+    label: "Two-factor cleared from the server's command line",
+    category: "Sign-in",
+  },
   "auth.sign_in_link_requested": { label: "Asked for an emailed sign-in link", category: "Sign-in" },
   "auth.passkey_added": { label: "Added a passkey", category: "Sign-in" },
   "auth.passkey_removed": { label: "Removed a passkey", category: "Sign-in" },
@@ -52,6 +59,9 @@ const AUDIT_ACTIONS = {
   "survey.update_rejected": { label: "Rejected a change from a survey answer", category: "Data" },
 
   "backup.downloaded": { label: "Downloaded a backup", category: "Data" },
+  "backup.download_refused": { label: "Backup download refused (wrong password)", category: "Data" },
+  "backup.restored": { label: "Restored the site from a backup", category: "Data" },
+  "backup.restore_refused": { label: "Backup restore refused", category: "Data" },
 
   "partner.restricted_changed": { label: "Changed a partner's restricted status", category: "Restricted" },
   "partner.restricted_viewed": { label: "Viewed a restricted partner", category: "Restricted" },
@@ -180,7 +190,7 @@ async function recordRestrictedView({ viewer, partner, req, now = new Date() }) 
   });
 }
 
-// Delete events older than the retention window. Runs daily in the worker and
+// Delete events older than the retention window. Runs daily in the scheduled jobs and
 // whether or not the feature is currently on, so turning it off doesn't leave
 // old rows behind forever.
 async function pruneAuditLog({ now = new Date() } = {}) {

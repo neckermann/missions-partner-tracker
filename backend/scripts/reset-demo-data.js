@@ -9,7 +9,7 @@ const path = require("path");
 const { execFileSync } = require("child_process");
 const prisma = require("../src/prismaClient");
 const { FEATURE_KEYS } = require("../src/utils/features");
-const { demoDisabledFeatureFlags } = require("../src/utils/demoMode");
+const { demoDisabledFeatureFlags, isGuardedDemo } = require("../src/utils/demoMode");
 const { encryptField } = require("../src/utils/crypto");
 const { listGroups, listTopics } = require("../src/utils/groupmeChannel");
 
@@ -92,7 +92,9 @@ async function resetDemoData() {
       whatsappNewsletterGroupName: true,
     },
   });
-  const whatsappSnapshot = existingWhatsAppSettings?.whatsappPairedAt ? existingWhatsAppSettings : null;
+  // A guarded public demo does not keep a linked WhatsApp number across resets (the reset unlinks it).
+  const whatsappSnapshot =
+    existingWhatsAppSettings?.whatsappPairedAt && !isGuardedDemo() ? existingWhatsAppSettings : null;
 
   // Drops and recreates the schema from migrations, rather than maintaining a cascade-aware
   // deleteMany order. `npx` is a .cmd file on Windows, which Node can't launch without a shell
@@ -135,18 +137,25 @@ async function resetDemoData() {
   // never committed. Their feature toggles are turned on only when the matching key exists, as
   // are GroupMe and Postmark: a toggle with no key behind it does nothing or errors on click,
   // which is worse than starting off.
+  //
+  // A guarded public demo (utils/demoMode.js) never gets the paid or outward-facing keys back (Anthropic,
+  // GroupMe, Postmark), even if the service still has them set: a visitor could spend them or post to a
+  // real group. Those features simply stay off there. The owner's own test deployment
+  // (DEMO_TESTING_SITE=true) restores them as before.
+  const guarded = isGuardedDemo();
+  if (guarded) console.log("Guarded public demo: not restoring the Anthropic, GroupMe or Postmark keys.");
   const joshuaProjectApiKey = process.env.JOSHUA_PROJECT_API_KEY;
-  const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
-  const groupmeConfig = await resolveGroupmeConfig();
+  const anthropicApiKey = guarded ? undefined : process.env.ANTHROPIC_API_KEY;
+  const groupmeConfig = guarded ? null : await resolveGroupmeConfig();
 
   // Postmark's server token covers sending and receiving, but sending needs a From address and
   // receiving needs the inbound webhook's basic-auth credentials (routes/inboundEmail.js).
   // Pointing Postmark's inbound webhook at /api/inbound-email/postmark is done by hand in
   // Postmark's dashboard; it isn't stored in ChurchSettings.
-  const postmarkApiKey = process.env.POSTMARK_API_KEY;
-  const fromEmailAddress = process.env.FROM_EMAIL_ADDRESS;
-  const webhookUsername = process.env.WEBHOOK_USERNAME;
-  const webhookPassword = process.env.WEBHOOK_PASSWORD;
+  const postmarkApiKey = guarded ? undefined : process.env.POSTMARK_API_KEY;
+  const fromEmailAddress = guarded ? undefined : process.env.FROM_EMAIL_ADDRESS;
+  const webhookUsername = guarded ? undefined : process.env.WEBHOOK_USERNAME;
+  const webhookPassword = guarded ? undefined : process.env.WEBHOOK_PASSWORD;
   const outboundEmailReady = Boolean(postmarkApiKey && fromEmailAddress);
   const inboundEmailReady = Boolean(postmarkApiKey && webhookUsername && webhookPassword);
 
@@ -206,7 +215,7 @@ async function resetDemoData() {
     contactFirstName: "Alex",
     contactLastName: "Morgan",
     contactEmail: "missions@example.org",
-    phone: "(309) 555-0100",
+    phone: "+13095550100",
     websiteLink: "https://missions.example.org",
     addressLine1: "100 Fellowship Way",
     city: "Rock Island",

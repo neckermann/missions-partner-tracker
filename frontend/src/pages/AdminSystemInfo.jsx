@@ -4,6 +4,8 @@ import { fetchSystemInfo, updateChurchSettings } from "../api/client.js";
 import useChurchSettings from "../hooks/useChurchSettings.js";
 import SettingsPageHeader from "../components/admin/SettingsPageHeader.jsx";
 import EditableSection from "../components/admin/EditableSection.jsx";
+import BackupDownloadModal from "../components/admin/BackupDownloadModal.jsx";
+import RestoreBackupModal from "../components/admin/RestoreBackupModal.jsx";
 
 function formatBytes(bytes) {
   if (!bytes && bytes !== 0) return "Unknown";
@@ -26,12 +28,10 @@ function InfoRow({ label, value }) {
   );
 }
 
-function downloadBackup() {
-  window.open("/api/backups/download", "_blank");
-}
-
 export default function AdminSystemInfo() {
   const [info, setInfo] = useState(null);
+  const [downloading, setDownloading] = useState(false);
+  const [restoring, setRestoring] = useState(false);
   const [infoError, setInfoError] = useState("");
 
   const { settings, error: settingsError } = useChurchSettings();
@@ -143,9 +143,20 @@ export default function AdminSystemInfo() {
           sensitive file this app can produce: store it somewhere only trusted people can reach, and if one is
           ever exposed, rotate <code>SESSION_SECRET</code> (see ADMIN_GUIDE.md).
         </p>
-        <button type="button" className="btn" onClick={downloadBackup}>
+        <button type="button" className="btn" onClick={() => setDownloading(true)}>
           Download Backup
         </button>
+        {downloading && <BackupDownloadModal onClose={() => setDownloading(false)} />}
+        <h4 style={{ marginTop: "1.5rem" }}>Restore from a backup</h4>
+        <p style={{ color: "var(--muted)" }}>
+          Put a downloaded backup back. This replaces everything on the site with the backup's contents, so it
+          first downloads a copy of what is here now so you can undo it, then asks for your password and a
+          typed confirmation.
+        </p>
+        <button type="button" className="btn danger" onClick={() => setRestoring(true)}>
+          Restore from a backup…
+        </button>
+        {restoring && <RestoreBackupModal onClose={() => setRestoring(false)} />}
       </div>
 
       {settingsError ? (

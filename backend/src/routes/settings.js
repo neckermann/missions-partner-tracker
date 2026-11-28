@@ -1,5 +1,7 @@
 const express = require("express");
+const { optionalWebAddress } = require("../utils/webAddress");
 const { z } = require("zod");
+const { phoneSchema, emailSchema } = require("../utils/contactFormat");
 const prisma = require("../prismaClient");
 const { requireAuth, requireRole } = require("../middleware/requireAuth");
 const { matchesFileSignature } = require("../utils/fileSignature");
@@ -7,12 +9,18 @@ const { FEATURES, FEATURE_KEYS } = require("../utils/features");
 const { encryptField } = require("../utils/crypto");
 const { isTwoFactorRequired } = require("../utils/twoFactor");
 const { isPasswordlessOn, passwordlessBlocker } = require("../utils/passwordless");
-const { isDemoDeployment } = require("../utils/demoMode");
+const { isDemoDeployment, refuseOnGuardedDemo } = require("../utils/demoMode");
+const { applyChurchTimezone } = require("../utils/timezone");
+const { isValidCurrency } = require("../utils/money");
+const { isValidPhoneCountry, setPhoneCountry } = require("../utils/phoneCountry");
+
+const noIntegrationChangesOnDemo = refuseOnGuardedDemo("Changing integration settings");
 const { makeExtResolver, uploadFilteredBy } = require("../utils/upload");
 
 // General/logo settings. GroupMe, WhatsApp, Email, Trips and Dispatches settings live in sibling
 // settings*.js files mounted at the same /api/settings prefix from server.js.
 const { loadChurchLists } = require("../utils/tripTemplates");
+const { shrinkLogo } = require("../utils/photoCopies");
 const {
   KEY_DATE_LEAD_RANGE,
   CONTACT_STALE_RANGE,
@@ -87,11 +95,11 @@ const settingsSchema = z.object({
   stateProvinceRegion: z.string().optional().nullable(),
   postalCode: z.string().optional().nullable(),
   country: z.string().optional().nullable(),
-  phone: z.string().optional().nullable(),
+  phone: phoneSchema(z),
   contactFirstName: z.string().optional().nullable(),
   contactLastName: z.string().optional().nullable(),
-  contactEmail: z.string().optional().nullable(),
-  websiteLink: z.string().optional().nullable(),
+  contactEmail: emailSchema(z),
+  websiteLink: optionalWebAddress(),
   partnerTermSingular: z.string().optional().nullable(),
   partnerTermPlural: z.string().optional().nullable(),
   ownerGroupName: z.string().trim().max(60).optional().nullable(),
@@ -99,6 +107,8 @@ const settingsSchema = z.object({
   usePartnerTermInAdmin: z.boolean().optional(),
   publicTagline: z.string().optional().nullable(),
   aboutText: z.string().optional().nullable(),
+  subscribePassage: z.string().trim().max(4000).optional().nullable(),
+  subscribePassageSource: z.string().trim().max(120).optional().nullable(),
   primaryColor: brandColorSchema(),
   headerColor: brandColorSchema(),
   highlightColor: brandColorSchema(),
@@ -133,6 +143,20 @@ const settingsSchema = z.object({
     .string()
     .refine((tz) => Intl.supportedValuesOf("timeZone").includes(tz), "Not a valid IANA timezone")
     .optional(),
+  // The church-wide currency (see schema.prisma): a code Intl knows, so a typo can never reach a message.
+  currency: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .refine(isValidCurrency, "Not a currency code this server knows (for example USD, EUR, CAD)")
+    .optional(),
+  // The country a phone number typed without a "+" is read in (see schema.prisma).
+  defaultPhoneCountry: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .refine(isValidPhoneCountry, "Not a country code this server knows (for example US, GB, KE)")
+    .optional(),
 });
 
 // GET /api/settings (any logged-in role) — null if never configured yet.
@@ -150,6 +174,8 @@ router.get("/", async (req, res, next) => {
           id: true,
           churchName: true,
           aboutText: true,
+          subscribePassage: true,
+          subscribePassageSource: true,
           publicTagline: true,
           partnerTermSingular: true,
           partnerTermPlural: true,
@@ -168,6 +194,8 @@ router.get("/", async (req, res, next) => {
           contactLastName: true,
           contactEmail: true,
           timezone: true,
+          currency: true,
+          defaultPhoneCountry: true,
           brandFont: true,
           headerColor: true,
           highlightColor: true,
@@ -297,6 +325,10 @@ router.put("/", requireRole("admin"), async (req, res, next) => {
         inboundEmailWebhookPassword: true,
       },
     });
+    // A changed time zone applies to the scheduled jobs and every "today" at once; it used to wait for a restart.
+    if (data.timezone !== undefined) applyChurchTimezone(updated.timezone);
+    // ...and a changed phone country applies to the next number saved without a +, at once.
+    if (data.defaultPhoneCountry !== undefined) setPhoneCountry(updated.defaultPhoneCountry);
     res.json(shapeSettings(updated));
   } catch (err) {
     next(err);
@@ -317,21 +349,24 @@ router.post("/logo", requireRole("admin"), upload.single("image"), async (req, r
       return res.status(400).json({ error: "File content doesn't match its declared image type" });
     }
 
+    // Shrunk at upload (at most 800px wide, in its own format so transparency survives): it is on every page.
+    const logo = await shrinkLogo(req.file.buffer, signatureMime);
+
     const updated = await prisma.churchSettings.upsert({
       where: { id: "singleton" },
       create: {
         id: "singleton",
-        logoContentType: signatureMime,
+        logoContentType: logo.contentType,
         updatedById: req.user.id,
-        logoRow: { create: { logoBytes: req.file.buffer } },
+        logoRow: { create: { logoBytes: logo.bytes } },
       },
       update: {
-        logoContentType: signatureMime,
+        logoContentType: logo.contentType,
         updatedById: req.user.id,
         logoRow: {
           upsert: {
-            create: { logoBytes: req.file.buffer },
-            update: { logoBytes: req.file.buffer },
+            create: { logoBytes: logo.bytes },
+            update: { logoBytes: logo.bytes },
           },
         },
       },
@@ -384,7 +419,7 @@ function registerApiKeySetting(path, field, textField) {
   });
 
   // PUT (admin only).
-  router.put(`/${path}`, requireRole("admin"), async (req, res, next) => {
+  router.put(`/${path}`, requireRole("admin"), noIntegrationChangesOnDemo, async (req, res, next) => {
     try {
       const body = schema.parse(req.body);
       const fields = body.apiKey ? { [field]: encryptField(body.apiKey) } : {};

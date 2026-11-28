@@ -8,9 +8,7 @@ export const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD || "TryTheDemo2026!
 
 export async function login(page, email = ADMIN_EMAIL, password = ADMIN_PASSWORD) {
   await page.goto("/login");
-  await page.fill('input[type="email"]', email);
-  await page.fill('input[type="password"]', password);
-  await page.click('button[type="submit"]');
+  await submitLoginForm(page, email, password);
   await page.waitForURL(/\/admin/);
 }
 
@@ -186,3 +184,11 @@ export async function createAccountUnsignedIn(adminPage, { role, suffix, ...extr
 
 // The code an authenticator app would show for a secret.
 export const totpCode = (secret) => generateTotp({ secret });
+
+// The sign-in page is two short steps: the email and Continue, then the password and Sign in.
+export async function submitLoginForm(page, email, password) {
+  await page.fill('input[type="email"]', email);
+  await page.click('button[type="submit"]');
+  await page.fill('input[type="password"]', password);
+  await page.click('button[type="submit"]');
+}

@@ -5,6 +5,7 @@ const prisma = require("../prismaClient");
 const { requireAuth, requireRole } = require("../middleware/requireAuth");
 const { requireFeature } = require("../middleware/requireFeature");
 const whatsappClient = require("../utils/whatsappClient");
+const { refuseOnGuardedDemo } = require("../utils/demoMode");
 
 const router = express.Router();
 router.use(requireAuth);
@@ -76,6 +77,8 @@ const whatsappSchema = z.object({
 // polled every couple of seconds while the pairing screen is open).
 const whatsappPairLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10 });
 const whatsappGate = [requireFeature("whatsapp"), requireRole("admin")];
+// Changing the connection is refused on a public demo (utils/demoMode.js); reading it is not.
+const whatsappWriteGate = [...whatsappGate, refuseOnGuardedDemo("Changing integration settings")];
 
 router.get("/whatsapp", ...whatsappGate, async (req, res, next) => {
   try {
@@ -92,7 +95,7 @@ router.get("/whatsapp", ...whatsappGate, async (req, res, next) => {
 
 // A plain partial update, like PUT /groupme. Picking a different community clears the three group
 // picks (they belonged to the old one) unless the same request sets them again.
-router.put("/whatsapp", ...whatsappGate, async (req, res, next) => {
+router.put("/whatsapp", ...whatsappWriteGate, async (req, res, next) => {
   try {
     const body = whatsappSchema.parse(req.body);
     const current = await prisma.churchSettings.findUnique({
@@ -154,7 +157,7 @@ router.put("/whatsapp", ...whatsappGate, async (req, res, next) => {
 });
 
 // Starts pairing; the QR is read back from /whatsapp/pair/status.
-router.post("/whatsapp/pair", whatsappPairLimiter, ...whatsappGate, async (req, res, next) => {
+router.post("/whatsapp/pair", whatsappPairLimiter, ...whatsappWriteGate, async (req, res, next) => {
   try {
     const current = await prisma.churchSettings.findUnique({
       where: { id: "singleton" },
@@ -202,7 +205,7 @@ router.get("/whatsapp/communities/:communityId/groups", ...whatsappGate, async (
 // Unlinks the number for good: WhatsApp drops the linked device, the
 // stored session is wiped, and the saved community/group picks are
 // cleared (they belonged to that number's memberships).
-router.post("/whatsapp/unlink", ...whatsappGate, async (req, res, next) => {
+router.post("/whatsapp/unlink", ...whatsappWriteGate, async (req, res, next) => {
   try {
     await whatsappClient.unlink();
     const updated = await prisma.churchSettings.updateMany({

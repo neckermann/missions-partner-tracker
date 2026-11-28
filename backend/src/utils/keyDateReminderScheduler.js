@@ -1,5 +1,5 @@
-// The daily key-date email: its own cron in the worker, like
-// tripReminderScheduler.js. One church-local tick a day (the worker applies
+// The daily key-date email: its own cron among the scheduled jobs, like
+// tripReminderScheduler.js. One church-local tick a day (the process applies
 // ChurchSettings.timezone to TZ); mail goes out ONLY on a day something is due and
 // not yet mailed to that person.
 //
@@ -8,7 +8,7 @@
 // year's is a new row, and a failed send leaves no row so tomorrow retries while
 // the date is in the window. Needs keyDates + outboundEmail.
 
-const cron = require("node-cron");
+const cron = require("./pausableCron");
 const prisma = require("../prismaClient");
 const { isFeatureEnabled } = require("./features");
 const { sendEmail } = require("./email");
@@ -17,11 +17,12 @@ const { loadOpenKeyDates } = require("./keyDateQueries");
 const { buildKeyDateEmail } = require("./keyDateReminderEmail");
 const { isDemoInstance } = require("./demoMode");
 const { digestComesBefore } = require("./digestSchedule");
+const { churchToday } = require("./today");
 
 const rowKey = (userId, i) => `${userId}|${i.partnerId}|${i.kind}|${i.subjectId}|${i.date}|${i.tier ?? 0}`;
 
 // `send` and `today` are injectable so the run is testable without Postmark.
-async function checkAndSendKeyDateReminders({ today = new Date(), send = sendEmail } = {}) {
+async function checkAndSendKeyDateReminders({ today = churchToday(), send = sendEmail } = {}) {
   // A public demo never sends these: its team members are fake addresses, so mail
   // would bounce and spend the email plan. The demo reset keeps keyDates off too
   // (utils/demoMode.js); this is the backstop for a visitor enabling it.

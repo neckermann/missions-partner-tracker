@@ -229,6 +229,67 @@ describe("AI request scanning route is gated by the feature flag", () => {
 // record.bytes was undefined and buildFileBlock's Buffer.from(undefined) threw a 500 on every
 // scan, before extraction.js's client() could check for an API key. With no key configured in
 // this file's tests, correctly loaded bytes reach the expected "not configured" 400.
+describe("C12: a restricted partner's letter needs a confirmation before it leaves the app", () => {
+  let restrictedFileId;
+  let plainFileId;
+
+  before(async () => {
+    await prisma.churchSettings.update({
+      where: { id: "singleton" },
+      data: { enabledFeatures: { aiExtraction: true }, anthropicApiKey: null },
+    });
+    const mk = async (isRestricted, name) => {
+      const partner = await prisma.partner.create({
+        data: { kind: "missionary", displayName: `${FIXTURE_TAG} ${name}`, isRestricted },
+      });
+      const file = await prisma.partnerFile.create({
+        data: {
+          partnerId: partner.id,
+          kind: "newsletter",
+          receivedDate: new Date("2026-03-01"),
+          fileName: "letter.pdf",
+          contentType: "application/pdf",
+          bytesRow: { create: { bytes: Buffer.from("%PDF-fixture") } },
+        },
+      });
+      return file.id;
+    };
+    restrictedFileId = await mk(true, "Restricted scan");
+    plainFileId = await mk(false, "Plain scan");
+  });
+
+  after(async () => {
+    await removeFixturePartners();
+  });
+
+  test("without the confirmation a restricted partner's scan is stopped with a plain warning, before any key check", async () => {
+    const res = await admin(`/api/partner-files/${restrictedFileId}/extract`, { method: "POST" });
+    assert.equal(res.status, 409);
+    assert.equal(res.body.needsConfirmation, true);
+    assert.match(res.body.error, /restricted/i);
+    assert.match(res.body.error, /outside AI service/);
+  });
+
+  test("with the confirmation it goes on (here to the 'not configured' answer, since no key is saved)", async () => {
+    const res = await admin(`/api/partner-files/${restrictedFileId}/extract`, {
+      method: "POST",
+      body: { confirmRestricted: true },
+    });
+    assert.equal(res.status, 400);
+    assert.match(res.body.error, /AI request scanning isn't configured/);
+  });
+
+  test("an unrestricted partner's scan asks for nothing", async () => {
+    const res = await admin(`/api/partner-files/${plainFileId}/extract`, { method: "POST" });
+    assert.equal(res.status, 400);
+    assert.match(res.body.error, /AI request scanning isn't configured/);
+  });
+
+  test("a viewer cannot scan at all", async () => {
+    assert.equal((await viewer(`/api/partner-files/${plainFileId}/extract`, { method: "POST" })).status, 403);
+  });
+});
+
 describe("the scan endpoint actually loads the file's bytes before calling Claude", () => {
   let partnerId;
   let fileId;

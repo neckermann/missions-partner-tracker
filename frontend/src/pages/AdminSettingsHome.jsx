@@ -12,6 +12,13 @@ function buildSections(enabledFeatures) {
         "Church info, contact details, public-site tagline, colors, font, logo, and partner terminology.",
     },
     {
+      to: "/admin/settings/privacy",
+      title: "Privacy and Safety",
+      icon: "🔒",
+      description:
+        "What the public can see, and extra care for partners in sensitive places: initials, and whether updates about them are recorded.",
+    },
+    {
       to: "/admin/settings/users",
       title: "Manage Users",
       icon: "👥",
@@ -19,7 +26,7 @@ function buildSections(enabledFeatures) {
     },
     enabledFeatures.auditTrail && {
       to: "/admin/settings/audit",
-      title: "Audit log",
+      title: "Audit Log",
       icon: "📜",
       description: "Who did what and when: sign-ins, access and settings changes, deletes, backups.",
     },
@@ -63,17 +70,17 @@ function buildSections(enabledFeatures) {
       to: "/admin/settings/groupme",
       title: "GroupMe",
       icon: "💬",
-      description: "Connect a GroupMe group for dispatches.",
+      description: "Connect a GroupMe group to post updates to.",
     },
     enabledFeatures.whatsapp && {
       to: "/admin/settings/whatsapp",
       title: "WhatsApp",
       icon: "📱",
-      description: "Connect a WhatsApp community for dispatches.",
+      description: "Connect a WhatsApp community to post updates to.",
     },
     (enabledFeatures.groupme || enabledFeatures.whatsapp || enabledFeatures.outboundEmail) && {
       to: "/admin/settings/dispatches",
-      title: "Dispatches",
+      title: "Sending Updates",
       icon: "🗓️",
       description: "Subscriber counts, the restricted-partner safety gate, and send schedules.",
     },

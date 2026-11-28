@@ -47,20 +47,23 @@ model Partner {
   //   "caution"   -- reachable, but follow contactInstructions (and only the ticked contactChannels, when any);
   //   "no_direct" -- don't contact them directly: the Contact card hides their number and email and
   //                  shows contactVia* and contactInstructions instead.
-  contactLevel        String   @default("normal")
+  contactLevel        String    @default("normal")
   // "caution" only: the ways it is ok to reach them ("call", "text", "email", "whatsapp",
   // "signal", "messenger", "other"). Empty means any.
-  contactChannels     String[] @default([])
+  contactChannels     String[]  @default([])
   // Shown for "caution" and "no_direct". Free text, staff-facing.
-  contactInstructions String?  @db.Text
+  contactInstructions String?   @db.Text
   // "no_direct" only: the person to go through instead.
   contactViaName      String?
   contactViaRole      String?
   contactViaPhone     String?
   contactViaEmail     String?
+  // "Not this season": until this day the partner is not called quiet (My partners, the bell and the care
+  // chat posts leave them out). Staff-facing and optional. A follow-up date someone set on purpose still counts.
+  contactSnoozedUntil DateTime? @db.Date
   // Missionary-only: this church is the sending church. Distinct from SendingParty, which
   // describes whichever church sends them.
-  sentByOurChurch     Boolean  @default(false)
+  sentByOurChurch     Boolean   @default(false)
   // Organization-only: the person to reach at the organization (a missionary is their own
   // contact, so null for that kind).
   contactFirstName    String?
@@ -367,9 +370,11 @@ model TripParticipant {
 // Split off from TripParticipant so plain queries never load the image. Shares its primary key
 // with the parent (one-to-one).
 model TripParticipantPhoto {
-  id          String          @id
-  participant TripParticipant @relation(fields: [id], references: [id], onDelete: Cascade)
-  photo       Bytes
+  id           String          @id
+  participant  TripParticipant @relation(fields: [id], references: [id], onDelete: Cascade)
+  photo        Bytes
+  // The copy pages show (JPEG, at most 800px); null when the photo was small enough to show as it is. See utils/photoCopies.js.
+  displayBytes Bytes?
 }
 
 // A submitted application to a trip accepting applications. Answers are TripApplicationAnswer
@@ -965,6 +970,13 @@ model SupportNeed {
   notes           String?   @db.Text
   createdAt       DateTime  @default(now())
 
+  // Where the need stands in real life, apart from the church's funding decision above. handledBy is who has
+  // taken it on ("Someone's on it": a person or a group, free text); metDate is the day it was covered, by this
+  // church or anyone else ("Met"). Both optional and independent of approvedAmount: a need can be met with no
+  // decision recorded, or declined and still met elsewhere.
+  handledBy String?
+  metDate   DateTime? @db.Date
+
   // Same as PrayerRequest.isUrgent.
   isUrgent Boolean @default(false)
 
@@ -1202,9 +1214,11 @@ model Photo {
 }
 
 model PhotoBytes {
-  id    String @id
-  photo Photo  @relation(fields: [id], references: [id], onDelete: Cascade)
-  bytes Bytes
+  id           String @id
+  photo        Photo  @relation(fields: [id], references: [id], onDelete: Cascade)
+  bytes        Bytes
+  // The copy pages show (JPEG, at most 800px); null when the photo was small enough to show as it is. See utils/photoCopies.js.
+  displayBytes Bytes?
 }
 
 // Single-row table describing the church running this instance: white-labels the app and
@@ -1234,20 +1248,25 @@ model ChurchSettings {
   // edited).
   usePartnerTermInAdmin Boolean @default(false)
 
-  publicTagline   String? // short subtitle under the public map/directory header
-  aboutText       String?             @db.Text // optional blurb shown on the public directory
+  publicTagline          String? // short subtitle under the public map/directory header
+  aboutText              String?             @db.Text // optional blurb shown on the public directory
+  // A passage of Scripture shown above the public Subscribe form, and where it is from ("Ephesians 6:18, ESV").
+  // Empty (nothing shown) until a church sets one; the app ships no passage of its own, since the church picks
+  // the translation and the text may be under a licence.
+  subscribePassage       String?             @db.Text
+  subscribePassageSource String?
   // Three brand colors: primaryColor is the ACCENT (buttons, links, headings, letterhead),
   // headerColor the header and admin sidebar background, highlightColor
   // hover/focus/active/selected feedback.
-  primaryColor    String? // hex, overrides --brand-color; ACCENT role
-  headerColor     String? // hex, overrides --brand-header-color; header + admin sidebar background
-  highlightColor  String? // hex, overrides --brand-highlight-color; hover/focus/active/selected feedback
-  brandFont       String? // literal CSS font-family stack (not an abstract key), overrides --brand-font; curated choices offered in AdminSettingsBranding.jsx
+  primaryColor           String? // hex, overrides --brand-color; ACCENT role
+  headerColor            String? // hex, overrides --brand-header-color; header + admin sidebar background
+  highlightColor         String? // hex, overrides --brand-highlight-color; hover/focus/active/selected feedback
+  brandFont              String? // literal CSS font-family stack (not an abstract key), overrides --brand-font; curated choices offered in AdminSettingsBranding.jsx
   // The site logo's bytes live in ChurchSettingsLogo. Public, served unauthenticated at GET
   // /api/public/settings/logo/raw; API responses synthesize `logo: { url } | null` instead of
   // returning bytes.
-  logoContentType String?
-  logoRow         ChurchSettingsLogo?
+  logoContentType        String?
+  logoRow                ChurchSettingsLogo?
 
   // GroupMe integration (utils/groupmeChannel.js). The user's own personal access token, not a
   // bot: Topics are subgroups addressed by their own id through the ordinary messages
@@ -1392,6 +1411,17 @@ model ChurchSettings {
   // next restart, since changing TZ mid-process is unreliable.
   timezone String @default("America/Chicago")
 
+  // The one currency every money amount in the app is shown in (an ISO 4217 code such as "USD" or "EUR").
+  // Amounts are stored as whole numbers with no currency of their own, so changing this changes how every
+  // existing amount reads, it does not convert anything. Validated against Intl.supportedValuesOf("currency").
+  currency String @default("USD")
+
+  // The country a phone number typed without a "+" is read in (an ISO 3166-1 code such as "US" or "GB").
+  // Phones are saved in international form (utils/contactFormat.js), so this only decides how a number
+  // typed without a country code is understood; it never changes a saved number. Validated against the
+  // codes libphonenumber knows (utils/phoneCountry.js).
+  defaultPhoneCountry String @default("US")
+
   // Content-type mutes for the chat channels only (GroupMe, WhatsApp); email dispatches
   // include every content type they are allowed to. Default true.
   chatDispatchPrayerRequests     Boolean @default(true)
@@ -1426,11 +1456,11 @@ model ChurchSettings {
 
   // Days ahead a key date is raised (bell and daily email agree), and days without a logged
   // contact before a partner is "quiet".
-  keyDateLeadDays  Int @default(7)
+  keyDateLeadDays    Int   @default(7)
   // Earlier heads-ups for a key date, in days before it (default 90 and 30). They ride in the email digest;
   // the final one (keyDateLeadDays) goes out on its own when the next digest would come too late.
   keyDateAdvanceDays Int[] @default([90, 30])
-  contactStaleDays Int @default(90)
+  contactStaleDays   Int   @default(90)
 
   // Email dispatch customization; null subject/signature means the built-in default
   // (DEFAULT_SUBJECT_TEMPLATE in emailDispatchShell.js). Shared by the admin and public
@@ -1478,6 +1508,12 @@ model ChurchSettings {
   // The address partners were told (outside this app) to send newsletters to, under the
   // inbound domain set in Postmark. Display only.
   inboundEmailAddress String?
+
+  // Skip the review for a sender the app can vouch for. Off (the default): every inbound message waits in
+  // Unmatched Emails until an admin or editor assigns it. On: a message from an address that matches exactly
+  // one partner AND whose SPF/DKIM check passed is filed as that partner's newsletter and announced at once.
+  // Anything else is still held. The From address can be forged, so this trades review for convenience.
+  inboundEmailSkipReview Boolean @default(false)
 
   // The church-wide application questions, requirement checklist and the two pick-from
   // libraries are real rows (ApplicationQuestion, RequirementTemplateItem; scope "template" or
@@ -1552,6 +1588,7 @@ model User {
   onMissionsTeam Boolean @default(false)
 
   passkeys         UserPasskey[]
+  recoveryCodes    UserRecoveryCode[]
   signInLinkTokens SignInLinkToken[]
 
   // Opt-in admin digest email, self-service. null = not subscribed; otherwise the cadence tier
@@ -1823,6 +1860,20 @@ model UserPasskey {
   label        String
   createdAt    DateTime  @default(now())
   lastUsedAt   DateTime?
+
+  @@index([userId])
+}
+
+// One-time codes that get a person back in when they lose their authenticator app. Ten are made when
+// they enrol (and again on request, which retires every older code). Only a SHA-256 of each code is
+// kept; a code is high-entropy and random, so a fast hash is enough. usedAt is set the one time it works.
+model UserRecoveryCode {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  codeHash  String    @unique
+  createdAt DateTime  @default(now())
+  usedAt    DateTime?
 
   @@index([userId])
 }

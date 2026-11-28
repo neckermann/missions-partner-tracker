@@ -46,12 +46,12 @@ function baseUser(overrides = {}) {
 }
 
 async function openEmailDispatchSection() {
-  await waitFor(() => expect(screen.getByRole("button", { name: /Email Dispatch/ })).toBeInTheDocument());
-  fireEvent.click(screen.getByRole("button", { name: /Email Dispatch/ }));
+  await waitFor(() => expect(screen.getByRole("button", { name: /Email updates/ })).toBeInTheDocument());
+  fireEvent.click(screen.getByRole("button", { name: /Email updates/ }));
 }
 
 function cadenceSelect() {
-  return screen.getByLabelText("Digest cadence");
+  return screen.getByLabelText("How often");
 }
 
 beforeEach(() => {
@@ -59,7 +59,7 @@ beforeEach(() => {
   fetchPartners.mockResolvedValue([]);
 });
 
-describe("AccountSettings -- Email Dispatch cadence picker", () => {
+describe("AccountSettings -- Email updates cadence picker", () => {
   it("offers only the enabled tiers (plus 'No automatic digest') when the admin has no saved cadence", async () => {
     cadenceTiersEnabled = { biweekly: false, monthly: true, quarterly: true };
     fetchCurrentUser.mockResolvedValue(baseUser({ cadence: null }));
@@ -164,6 +164,6 @@ describe("AccountSettings -- what the digest covers", () => {
     fetchCurrentUser.mockResolvedValue(baseUser({ role: "guest", careTeamSeats: [] }));
     render(<AccountSettings />);
     await screen.findByText("Change Password");
-    expect(screen.queryByRole("button", { name: /Email Dispatch/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Email updates/ })).toBeNull();
   });
 });

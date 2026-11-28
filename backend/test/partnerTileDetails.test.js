@@ -50,3 +50,12 @@ test("returns null for a missing partner (e.g. deleted since the dispatch was re
   assert.equal(partnerTileDetails(null), null);
   assert.equal(partnerTileDetails(undefined), null);
 });
+
+test("a partner who is not on the public site gets the silhouette, not a photo address a mail client cannot open", () => {
+  const person = { kind: "missionary", adults: [], children: [], photos: [{ id: "p1" }] };
+  process.env.APP_BASE_URL = "https://example.test";
+  const hidden = partnerTileDetails({ ...person, isPublic: false });
+  const open = partnerTileDetails({ ...person, isPublic: true });
+  assert.doesNotMatch(hidden.photoSrc, /\/api\/photos\//);
+  assert.match(open.photoSrc, /\/api\/photos\/p1$/);
+});

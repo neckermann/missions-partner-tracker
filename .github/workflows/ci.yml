@@ -180,6 +180,10 @@ jobs:
       E2E_BASE_URL: http://localhost:4000
       E2E_ADMIN_EMAIL: e2e@example.com
       E2E_ADMIN_PASSWORD: E2eOnlyPassword123!
+      # The route tests, the app and the browser all run in a US zone, not UTC: a date-only value that arrives as
+      # UTC midnight reads as the previous day anywhere west of UTC, which is where date bugs hide and UTC
+      # never shows them. (The unit-test job already does the same, with America/Los_Angeles.)
+      TZ: America/Chicago
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -215,7 +219,6 @@ jobs:
           cd backend
           npx prisma migrate deploy
           npm run seed
-          node prisma/createAdmin.js "$E2E_ADMIN_EMAIL" "$E2E_ADMIN_PASSWORD"
 
       # Runs here rather than in the backend-tests job because these boot
       # the real app against a real database -- that job deliberately has
@@ -224,6 +227,18 @@ jobs:
       - name: Run backend route tests
         run: cd backend && npm run test:routes
 
+      # The e2e admin is created AFTER the route tests on purpose: the first-run
+      # setup tests (firstAdminSetup.test.js) need a database with no accounts but
+      # their own fixtures, and skip themselves otherwise. SEED_DEMO_EXTRAS=false
+      # above means the seed creates no users, so this is the only account.
+      - name: Create the e2e admin
+        run: cd backend && node prisma/createAdmin.js "$E2E_ADMIN_EMAIL" "$E2E_ADMIN_PASSWORD"
+
+      # The public directory and map are off by default too (a new install
+      # publishes nothing until the church chooses), but the e2e suite drives the
+      # public pages, and the route tests above leave whatever flags they last
+      # restored, so both are switched on here with trips.
+      #
       # Trips (#252) ships with defaultEnabled: false (it now also gates
       # public-facing surfaces, so "on by default" stopped making sense --
       # see features.js's own comment) -- but the e2e suite still expects
@@ -239,14 +254,14 @@ jobs:
       # each restoring to whatever existed when *that file* started -- so
       # setting this any earlier gets silently overwritten by the time the
       # route tests finish, before the app Playwright drives ever boots.
-      - name: Enable the trips feature for e2e
+      - name: Enable the trips feature and the public site for e2e
         run: |
           cd backend
           node -e "
             const prisma = require('./src/prismaClient');
             (async () => {
               const existing = await prisma.churchSettings.findUnique({ where: { id: 'singleton' } });
-              const enabledFeatures = { ...(existing?.enabledFeatures || {}), trips: true };
+              const enabledFeatures = { ...(existing?.enabledFeatures || {}), trips: true, publicDirectory: true, publicMap: true };
               await prisma.churchSettings.upsert({
                 where: { id: 'singleton' },
                 create: { id: 'singleton', enabledFeatures },

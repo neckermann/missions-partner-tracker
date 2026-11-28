@@ -1,5 +1,10 @@
 import axios from "axios";
-import { startRegistration, startAuthentication, browserSupportsWebAuthn } from "@simplewebauthn/browser";
+import {
+  startRegistration,
+  startAuthentication,
+  browserSupportsWebAuthn,
+  browserSupportsWebAuthnAutofill,
+} from "@simplewebauthn/browser";
 
 // Same-origin "/api": Vite proxies it in dev (vite.config.js), Express serves both in production.
 export const api = axios.create({
@@ -126,6 +131,68 @@ export async function fetchVersionCheck() {
 export async function fetchSystemInfo() {
   const { data } = await api.get("/system-info");
   return data;
+}
+
+// A failed backup call answers with JSON but arrives as a Blob (the success answer is a file), so the plain
+// message is read out of it here.
+async function blobErrorMessage(err) {
+  const blob = err.response?.data;
+  if (blob && typeof blob.text === "function") {
+    try {
+      err.message = JSON.parse(await blob.text()).error || err.message;
+    } catch {
+      // keep the original message
+    }
+  }
+  return err;
+}
+
+// Saves a file the server sent as the answer, under the name it chose; returns that name.
+function saveResponseFile(res, fallbackName) {
+  const name = /filename="([^"]+)"/.exec(res.headers["content-disposition"] || "")?.[1] || fallbackName;
+  const url = URL.createObjectURL(res.data);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = name;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  return name;
+}
+
+// Asks for the admin's password again (and, if given, locks the file with a passphrase), then saves the file
+// the server sends.
+export async function downloadBackup({ password, passphrase }) {
+  let res;
+  try {
+    res = await api.post(
+      "/backups/download",
+      { password, ...(passphrase ? { passphrase } : {}) },
+      { responseType: "blob" }
+    );
+  } catch (err) {
+    throw await blobErrorMessage(err);
+  }
+  return saveResponseFile(res, "backup.ndjson.gz");
+}
+
+// Restores a backup file, REPLACING everything on the site. The caller must have downloaded a copy of the
+// current data in the last 15 minutes (downloadBackup above); the server refuses otherwise. Returns
+// { restored, rows }. On any failure nothing was changed and the thrown error carries the server's plain message.
+export async function restoreBackup({ file, password, confirmation, passphrase }) {
+  const form = new FormData();
+  form.append("file", file);
+  form.append("password", password);
+  form.append("confirmation", confirmation);
+  if (passphrase) form.append("passphrase", passphrase);
+  try {
+    // Can take several minutes on a large backup.
+    const { data } = await api.post("/backups/restore", form, { timeout: 30 * 60 * 1000 });
+    return data;
+  } catch (err) {
+    throw new Error(err.response?.data?.error || "The restore didn't go through. Nothing was changed.");
+  }
 }
 
 export async function fetchBackupCheck() {
@@ -807,6 +874,12 @@ export async function fetchPrayerRequests(params = {}) {
   return data;
 }
 
+// The Sunday prayer sheet: { date, cadence, group, totalPartners, partners } (backend/src/utils/prayerSheet.js).
+export async function fetchPrayerSheet({ date, cadence, perPartner } = {}) {
+  const { data } = await api.get("/prayer-sheet", { params: { date, cadence, perPartner } });
+  return data;
+}
+
 export async function createPrayerRequest(payload) {
   const { data } = await api.post("/prayer-requests", payload);
   return data;
@@ -842,8 +915,13 @@ export async function updatePartnerFile(id, data) {
 }
 
 // Returns { prayerRequests, oneTimeNeeds }; nothing is persisted until the caller adds each.
-export async function extractFromPartnerFile(id) {
-  const { data } = await api.post(`/partner-files/${id}/extract`);
+// A restricted partner's letter is only sent once the caller confirms (confirmRestricted: true); until then
+// the server answers 409 with needsConfirmation.
+export async function extractFromPartnerFile(id, { confirmRestricted = false } = {}) {
+  const { data } = await api.post(
+    `/partner-files/${id}/extract`,
+    confirmRestricted ? { confirmRestricted: true } : {}
+  );
   return data;
 }
 
@@ -852,9 +930,11 @@ export async function fetchSetupStatus() {
   return data; // { needed, passwordless, passwordReset: booleans }
 }
 
-export async function completeSetup(email, password) {
-  const { data } = await api.post("/auth/setup", { email, password });
-  return data; // { user } — the backend also sets the session cookie, same as login
+// First-run account creation. `method` is "password" or "passkey" (no password); either way the reply holds an
+// enrolment token the page uses to add the second factor, and adding it opens the session.
+export async function completeSetup(email, password, method = "password") {
+  const { data } = await api.post("/auth/setup", { email, password, method });
+  return data; // { ok, mfaSetupRequired, setupToken }
 }
 
 export async function login(email, password) {
@@ -864,9 +944,19 @@ export async function login(email, password) {
   return data;
 }
 
-export async function verifyMfaLogin(pendingToken, token) {
-  const { data } = await api.post("/auth/mfa/login-verify", { pendingToken, token });
+// `code` is the 6-digit authenticator code, or, with `{ recovery: true }`, a one-time recovery code.
+export async function verifyMfaLogin(pendingToken, code, { recovery = false } = {}) {
+  const { data } = await api.post(
+    "/auth/mfa/login-verify",
+    recovery ? { pendingToken, recoveryCode: code } : { pendingToken, token: code }
+  );
   return data;
+}
+
+// A fresh set of recovery codes (the old ones stop working). Needs the current password.
+export async function regenerateRecoveryCodes(password) {
+  const { data } = await api.post("/auth/mfa/recovery-codes", { password });
+  return data; // { recoveryCodes }
 }
 
 export async function setupMfa() {
@@ -956,6 +1046,18 @@ export async function signInWithPasskeyOnly() {
   return data;
 }
 
+// The same passkey sign-in, offered by the browser itself from the email box (its autofill list), so a person with a
+// passkey taps it without pressing anything. Waits until one is picked; starting any other passkey request cancels it.
+export async function signInWithPasskeyAutofill() {
+  const { data: begin } = await api.post("/auth/passkeys/passwordless/options");
+  const response = await startAuthentication({ optionsJSON: begin.options, useBrowserAutofill: true });
+  const { data } = await api.post("/auth/passkeys/passwordless/verify", {
+    challengeToken: begin.challengeToken,
+    response,
+  });
+  return data;
+}
+
 export async function requestSignInLink(email) {
   const { data } = await api.post("/auth/passwordless/email-link", { email });
   return data;
@@ -966,11 +1068,16 @@ export async function redeemSignInLink(token) {
   return data;
 }
 
-export { browserSupportsWebAuthn };
+export { browserSupportsWebAuthn, browserSupportsWebAuthnAutofill };
 
 export async function logout() {
   // The session is an httpOnly cookie JS can't clear, so this is a real request.
   await api.post("/auth/logout");
+}
+
+// Ends every open session of this account, this browser included (the server also clears this browser's cookie).
+export async function logoutEverywhere() {
+  await api.post("/auth/logout-all");
 }
 
 export async function fetchCurrentUser() {
@@ -1051,6 +1158,12 @@ export async function validatePasswordSetup(token) {
 }
 export async function completePasswordSetup(token, password) {
   const { data } = await api.post("/auth/password-setup/complete", { token, password });
+  return data;
+}
+// The other way to finish a setup link: no password, a passkey. Spends the link and returns the enrolment token
+// the passkey is then registered with (registering signs the person in).
+export async function startPasskeyLinkSetup(token) {
+  const { data } = await api.post("/auth/password-setup/passkey", { token });
   return data;
 }
 export async function requestPasswordSetupLink(email) {
@@ -1257,7 +1370,7 @@ export async function fetchReachablePartners() {
   return data;
 }
 
-// Audit log. Empty filters are dropped, not sent as "".
+// Audit Log. Empty filters are dropped, not sent as "".
 const withoutBlanks = (params) => Object.fromEntries(Object.entries(params).filter(([, v]) => v));
 export async function fetchAuditLog(params = {}) {
   const { data } = await api.get("/audit", { params: withoutBlanks(params) });

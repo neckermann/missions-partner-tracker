@@ -22,6 +22,7 @@ const {
   consumeChallenge,
   toB64u,
   fromB64u,
+  wrongAddressMessage,
 } = require("../utils/passkeys");
 
 // Passkeys as a second sign-in factor (#386). Mounted at /api/auth/passkeys by routes/auth.js,
@@ -127,10 +128,14 @@ module.exports = function passkeyRoutes({ completeLogin }) {
           expectedRPID: rp.rpID,
         });
       } catch {
-        return res.status(400).json({ error: "That passkey couldn't be verified" });
+        return res
+          .status(400)
+          .json({ error: wrongAddressMessage(req) || "That passkey couldn't be verified" });
       }
       if (!verification.verified || !verification.registrationInfo) {
-        return res.status(400).json({ error: "That passkey couldn't be verified" });
+        return res
+          .status(400)
+          .json({ error: wrongAddressMessage(req) || "That passkey couldn't be verified" });
       }
       const { credential } = verification.registrationInfo;
       const label = body.label || `Passkey ${user._count.passkeys + 1}`;
@@ -276,7 +281,7 @@ module.exports = function passkeyRoutes({ completeLogin }) {
       const passkey = await prisma.userPasskey.findFirst({
         where: { userId, credentialId: response.id },
       });
-      const fail = async (reason) => {
+      const fail = async (reason, message) => {
         if (user) {
           await recordAuditSafe(null, {
             action: "auth.login_failed",
@@ -285,7 +290,7 @@ module.exports = function passkeyRoutes({ completeLogin }) {
             details: { reason },
           });
         }
-        return res.status(401).json({ error: "That passkey didn't work" });
+        return res.status(401).json({ error: message || "That passkey didn't work" });
       };
       if (!user || !user.active || !user.mfaEnabled || !passkey) return fail("passkey_unknown");
       const challenge = await consumeChallenge(challengeToken, { purpose: "login", userId });
@@ -307,7 +312,8 @@ module.exports = function passkeyRoutes({ completeLogin }) {
           },
         });
       } catch {
-        return fail("passkey_invalid");
+        const wrong = wrongAddressMessage(req);
+        return fail(wrong ? "passkey_wrong_address" : "passkey_invalid", wrong);
       }
       if (!verification.verified) return fail("passkey_invalid");
       await prisma.userPasskey.update({
@@ -320,9 +326,8 @@ module.exports = function passkeyRoutes({ completeLogin }) {
     }
   });
 
-  // The passkey is the whole sign-in: no password, no pending token. Available when the church allows it
-  // (allowPasskeySignIn, offered beside the password form) or passwordless mode is on (which removes
-  // the password form). User verification is required, so it is as strong as password plus a second step. No email is asked for, so
+  // The passkey is the whole sign-in: no password, no pending token. Always available (the first thing on the
+  // sign-in page) except on a public demo. User verification is required, so it is as strong as password plus a second step. No email is asked for, so
   // nothing here reveals which addresses have accounts: the browser offers the passkeys it holds
   // for this site and the answer names the credential.
 
@@ -353,7 +358,7 @@ module.exports = function passkeyRoutes({ completeLogin }) {
           : null;
       const challenge = await consumeChallenge(challengeToken, { purpose: "passwordless", userId: "" });
       const user = passkey?.user;
-      const fail = async (reason) => {
+      const fail = async (reason, message) => {
         if (user) {
           await recordAuditSafe(null, {
             action: "auth.login_failed",
@@ -362,7 +367,7 @@ module.exports = function passkeyRoutes({ completeLogin }) {
             details: { reason },
           });
         }
-        return res.status(401).json({ error: "That passkey didn't work" });
+        return res.status(401).json({ error: message || "That passkey didn't work" });
       };
       if (!challenge || !passkey || !user.active || user.authProvider !== "local") {
         return fail("passkey_unknown");
@@ -384,7 +389,8 @@ module.exports = function passkeyRoutes({ completeLogin }) {
           },
         });
       } catch {
-        return fail("passkey_invalid");
+        const wrong = wrongAddressMessage(req);
+        return fail(wrong ? "passkey_wrong_address" : "passkey_invalid", wrong);
       }
       if (!verification.verified) return fail("passkey_invalid");
       await prisma.userPasskey.update({

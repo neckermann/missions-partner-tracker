@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { fetchDispatchSettings, updateDispatchSettings, fetchScopedDigestSummary } from "../api/client.js";
 import { useSettings } from "../context/SettingsContext.jsx";
 import { joinWithAnd } from "../utils/urgentSend.js";
@@ -32,8 +33,8 @@ function hourSummary(value) {
   return value == null ? "Not set" : hourLabel(value);
 }
 
-// Email dispatch schedule, chat-channel schedule and content mutes, the cross-channel
-// restricted-partner safety gate, and email appearance, each its own EditableSection card.
+// Email dispatch schedule, chat-channel schedule and content mutes, and email appearance, each its own
+// EditableSection card. (The restricted-partner settings moved to Settings → Privacy and Safety.)
 // The review queue lives on the separate "Pending Dispatches" page.
 export default function AdminDispatchSettings() {
   const { enabledFeatures } = useSettings();
@@ -55,7 +56,7 @@ export default function AdminDispatchSettings() {
   }
 
   useEffect(() => {
-    reload().catch(() => setLoadError("Couldn't load dispatch settings."));
+    reload().catch(() => setLoadError("Couldn't load the sending settings."));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabledFeatures.publicPrayerDigest]);
 
@@ -67,7 +68,7 @@ export default function AdminDispatchSettings() {
   if (loadError) {
     return (
       <div className="admin-shell">
-        <SettingsPageHeader title="Dispatch Settings" />
+        <SettingsPageHeader title="Sending Updates" />
         <p className="form-error" role="alert">
           {loadError}
         </p>
@@ -79,7 +80,7 @@ export default function AdminDispatchSettings() {
   return (
     <div className="admin-shell">
       <SettingsPageHeader
-        title="Dispatch Settings"
+        title="Sending Updates"
         actions={
           <TemplatePackButtons
             importLabel="Import wording…"
@@ -89,28 +90,15 @@ export default function AdminDispatchSettings() {
         }
       />
       <p style={{ color: "var(--muted)" }}>
-        Schedules for the admin/public email dispatch and for {chatLabel || "GroupMe/WhatsApp"}, the chat
-        channels' own content-type mutes, the restricted-partner safety gate, and email dispatch appearance.
-        To review or edit what's currently queued, see the <strong>Pending Dispatches</strong> page in the
-        main menu.
-      </p>
-      <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
-        Every schedule on this page only fires from the separate background worker process, not the main site
-        -- a church that skipped deploying it (see{" "}
-        <a
-          href="https://missionspartnertracker.com/admin-guide.html#skipping-the-worker-service"
-          target="_blank"
-          rel="noreferrer"
-        >
-          Admin Guide
-        </a>
-        ) can still edit these settings, but nothing here will ever actually send until that worker is
-        running.
+        Schedules for the admin and public update emails and for {chatLabel || "GroupMe/WhatsApp"}, the chat
+        channels' choice of what gets posted, and how the update email looks. The settings for partners in
+        sensitive places are under <Link to="/admin/settings/privacy">Privacy and Safety</Link>. To review or
+        edit what's currently queued, see the <strong>Updates to Share</strong> page in the main menu.
       </p>
 
       {enabledFeatures.publicPrayerDigest && (
         <div className="admin-section">
-          <h3>Email Dispatch Subscribers</h3>
+          <h3>Who gets update emails</h3>
           <p style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
             Who's subscribed to the email prayer digest -- admins via Account Settings, and the public via the
             Subscribe page or a partner's own public page. Counts only, no email addresses.
@@ -130,72 +118,10 @@ export default function AdminDispatchSettings() {
         </div>
       )}
 
-      <div style={{ marginTop: "1rem" }}>
-        <EditableSection
-          title="Restricted Partners"
-          value={{
-            allowRestrictedPartnerDispatch: settings.allowRestrictedPartnerDispatch,
-            restrictedPartnerInitialsEnabled: settings.restrictedPartnerInitialsEnabled,
-          }}
-          onSave={savePartial}
-          onSaved={reload}
-          view={(v) => (
-            <>
-              <p>{v.allowRestrictedPartnerDispatch ? "Recorded, subject to review" : "Never recorded"}</p>
-              <p>
-                {v.restrictedPartnerInitialsEnabled === false
-                  ? "Initials off -- shown with a generic label instead"
-                  : "Initials shown (e.g. “J.R.”)"}
-              </p>
-            </>
-          )}
-          edit={(d, set) => (
-            <>
-              <p style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
-                The one safety setting that applies equally to every dispatch channel this church has enabled,
-                not just one. Off (default) means a restricted-access partner's events are never recorded at
-                all -- nothing to hold, nothing to review, since nothing's queued. On records them like anyone
-                else, subject to review -- either from the Pending Dispatches page afterward, or right away
-                with the "Review and approve now" checkbox when the prayer request or one-time need is first
-                created. Either path clears a row for every channel at once, including an urgent send.
-              </p>
-              <div className="admin-checkbox-row">
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={d.allowRestrictedPartnerDispatch}
-                    onChange={(e) => set("allowRestrictedPartnerDispatch", e.target.checked)}
-                  />
-                  Restricted partners
-                </label>
-              </div>
-              <p style={{ color: "var(--muted)", fontSize: "0.9rem", marginTop: "0.75rem" }}>
-                A restricted partner's masked public name is their initials (e.g. "J.R.") everywhere one can
-                surface -- the public site, GroupMe/WhatsApp messages, and email digests. For a small country,
-                initials plus country can be enough to re-identify who that is to someone who knows the local
-                mission community. On (default) keeps today's behavior. Off shows a generic field label (e.g.
-                "Southeast Asia") instead, if one is set on the partner's record, or a fixed generic label
-                otherwise.
-              </p>
-              <div className="admin-checkbox-row">
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={d.restrictedPartnerInitialsEnabled !== false}
-                    onChange={(e) => set("restrictedPartnerInitialsEnabled", e.target.checked)}
-                  />
-                  Show initials for restricted partners
-                </label>
-              </div>
-            </>
-          )}
-        />
-      </div>
-
       {enabledFeatures.outboundEmail && (
         <div style={{ marginTop: "1rem" }}>
           <EditableSection
-            title="Email Dispatch Customization"
+            title="How the update email looks"
             value={{
               emailDispatchLayout: settings.emailDispatchLayout || "classic",
               emailDispatchSubjectTemplate: settings.emailDispatchSubjectTemplate || "",
@@ -304,15 +230,14 @@ export default function AdminDispatchSettings() {
             edit={(d, set) => (
               <>
                 <p style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
-                  The cadence each admin (from their own <a href="/admin/account">Account Settings</a>) and
-                  each public subscriber (from the Subscribe page or a partner's own "follow this partner"
-                  form) picks for themselves. Nothing sends on a given tier until its schedule here is
-                  actually set.
+                  How often each admin (from their own <a href="/admin/account">Account Settings</a>) and each
+                  public subscriber (from the Subscribe page or a partner's own "follow this partner" form)
+                  picks to hear from you. Nothing sends for a choice until its schedule here is actually set.
                 </p>
                 <p style={{ margin: "0 0 0.5rem", color: "var(--muted)", fontSize: "0.9rem" }}>
-                  Which tiers to offer at all (#209). Turning a tier off moves anyone currently on it to the
-                  first tier still enabled, in order Monthly, Quarterly, Biweekly -- a one-time move, not
-                  reversible by re-enabling the tier later. At least one tier must stay enabled.
+                  Choose which options people can pick. Turning one off moves anyone on it to the first option
+                  still on, in order Monthly, Quarterly, Biweekly -- a one-time move, not undone by turning it
+                  back on later. At least one option must stay on.
                 </p>
                 <div className="admin-checkbox-row" style={{ marginBottom: "1rem" }}>
                   <label>
@@ -366,7 +291,7 @@ export default function AdminDispatchSettings() {
                     }
                     style={{ width: "auto" }}
                   >
-                    <option value="">Not set -- these tiers won't send</option>
+                    <option value="">Not set -- these emails won't send</option>
                     {Array.from({ length: 28 }, (_, i) => i + 1).map((day) => (
                       <option key={day} value={day}>
                         {day}
@@ -375,7 +300,7 @@ export default function AdminDispatchSettings() {
                   </select>
                 </label>
                 <label htmlFor="email-dispatch-hour" style={{ marginTop: "1rem" }}>
-                  Time (shared by all three tiers)
+                  Time of day (the same for all three)
                   <HourSelect
                     id="email-dispatch-hour"
                     value={d.emailDispatchHour}
@@ -433,7 +358,7 @@ export default function AdminDispatchSettings() {
             edit={(d, set) => (
               <>
                 <p style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
-                  A single daily batch time, not a weekly/monthly tier --{" "}
+                  A single daily time, not a weekly or monthly schedule --{" "}
                   {chatNames.length > 1
                     ? "these are near-real-time, chat-style channels"
                     : "this is a near-real-time, chat-style channel"}
@@ -451,9 +376,9 @@ export default function AdminDispatchSettings() {
                 </label>
 
                 <p style={{ margin: "1.25rem 0 0.5rem", color: "var(--muted)", fontSize: "0.9rem" }}>
-                  Mute any content type you don't want posted to {chatLabel} -- unlike the email dispatches,
-                  which always include everything they're allowed to, chat benefits from finer control since
-                  it's a live conversation, not a periodic email.
+                  Untick anything you don't want posted to {chatLabel} -- unlike the update emails, which
+                  always include everything they're allowed to, chat benefits from finer control since it's a
+                  live conversation, not a periodic email.
                 </p>
                 <div className="admin-checkbox-row">
                   <label>

@@ -8,6 +8,25 @@ describe("isFeatureEnabled", () => {
     assert.equal(isFeatureEnabled(null, "partnerFiles"), true);
   });
 
+  // A new install should be useful straight away: these two are the core of keeping in touch with partners,
+  // and a church can still switch either off (an explicit false wins).
+  test("the contact log and key-date reminders are on for a church that has never chosen", () => {
+    for (const key of ["contactLog", "keyDates"]) {
+      assert.equal(isFeatureEnabled({}, key), true, key);
+      assert.equal(isFeatureEnabled(null, key), true, key);
+      assert.equal(isFeatureEnabled({ [key]: false }, key), false, `${key} can be turned off`);
+    }
+  });
+
+  // A new install publishes nothing until the church chooses (A2b of the November 2026 review).
+  test("the public directory and map are off for a church that has never chosen, and can be turned on", () => {
+    for (const key of ["publicDirectory", "publicMap"]) {
+      assert.equal(isFeatureEnabled({}, key), false, key);
+      assert.equal(isFeatureEnabled(null, key), false, key);
+      assert.equal(isFeatureEnabled({ [key]: true }, key), true, `${key} can be turned on`);
+    }
+  });
+
   test("an explicit false overrides the default-enabled state", () => {
     assert.equal(isFeatureEnabled({ partnerFiles: false }, "partnerFiles"), false);
   });
@@ -94,9 +113,15 @@ describe("isFeatureEnabled", () => {
   describe("withoutEmail (what you get when Email (Sending) is off)", () => {
     const { FEATURES } = require("../src/utils/features");
 
+    test("some features do carry a note (so the loop below is not checking nothing)", () => {
+      assert.ok(Object.values(FEATURES).filter((f) => "withoutEmail" in f).length >= 3);
+    });
+
     test("a note is one real sentence, and a feature that needs email to be switched on has one", () => {
       for (const [key, f] of Object.entries(FEATURES)) {
-        if (f.withoutEmail !== undefined) {
+        // A note, where a feature has one, must be a real sentence. (`in`, not `!== undefined`: a note set to
+        // undefined or left empty is a missing note, and has to fail.)
+        if ("withoutEmail" in f) {
           assert.ok(
             typeof f.withoutEmail === "string" && f.withoutEmail.trim().length > 20,
             `${key}: say what you get`

@@ -3,13 +3,39 @@ import { Navigate, Outlet, useLocation } from "react-router-dom";
 import AdminSidebar from "./AdminSidebar.jsx";
 import UpdateBanner from "./UpdateBanner.jsx";
 import BackupReminder from "./BackupReminder.jsx";
+import SiteAddressBanner from "./SiteAddressBanner.jsx";
+import GuestNotice from "./GuestNotice.jsx";
 import ErrorBoundary from "../ErrorBoundary.jsx";
 import useCurrentUser from "../../hooks/useCurrentUser.js";
+import FeaturePausedPage from "../FeaturePausedPage.jsx";
 
 // Shared shell for every /admin/* route, mounted once so the sidebar persists across navigation.
 export default function AdminLayout() {
   const location = useLocation();
-  const { isGuest, guestTripIds, guestReadTripIds, careTeamSeats, loading } = useCurrentUser();
+  const {
+    isGuest,
+    guestTripIds,
+    guestReadTripIds,
+    careTeamSeats,
+    pausedFeatures = [],
+    loading,
+  } = useCurrentUser();
+
+  // A guest whose every grant depends on a feature the church has switched off has nothing left to open: say so
+  // plainly (the server refuses everything but this answer, middleware/requireAuth.js). Access returns unchanged
+  // when the feature is switched back on.
+  if (
+    !loading &&
+    isGuest &&
+    pausedFeatures.length > 0 &&
+    guestTripIds.length === 0 &&
+    careTeamSeats.length === 0
+  ) {
+    return <FeaturePausedPage features={pausedFeatures} signOut />;
+  }
+  // A guest who still has care team partners but whose trips are paused sees the same page where trips were.
+  const tripsPausedHere =
+    !loading && isGuest && pausedFeatures.includes("trips") && location.pathname.startsWith("/admin/trips");
 
   // A guest is a scoped login: its granted trips, a read-only look at their partners, and "My
   // account". Checked here because every /admin/* route renders through this layout. The backend
@@ -45,10 +71,12 @@ export default function AdminLayout() {
   return (
     <div className="admin-layout-wrapper">
       <UpdateBanner />
+      <SiteAddressBanner />
       <BackupReminder />
       <div className="admin-layout">
         <AdminSidebar />
         <main className="admin-main">
+          <GuestNotice />
           {/* Inside the shell rather than around it, so one broken page
               leaves the sidebar and nav usable instead of blanking the whole
               admin app. Keyed on the path because an error boundary latches:
@@ -60,7 +88,7 @@ export default function AdminLayout() {
               loads, instead of just this content area. */}
           <ErrorBoundary key={location.pathname} homeHref="/admin" homeLabel="the dashboard">
             <Suspense fallback={<div className="admin-shell">Loading…</div>}>
-              <Outlet />
+              {tripsPausedHere ? <FeaturePausedPage features={["trips"]} /> : <Outlet />}
             </Suspense>
           </ErrorBoundary>
         </main>

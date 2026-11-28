@@ -21,7 +21,7 @@ function setupTtlHours(role) {
 // A "forgot password" link is short-lived: the person is at their inbox, and a stale one is only a risk.
 const RESET_TTL_HOURS = 1;
 // At most one reset email per account in this window, so nobody can use the form to flood an inbox.
-const RESET_COOLDOWN_MS = 60 * 1000;
+const RESET_COOLDOWN_MS = 15 * 1000;
 
 function generateToken() {
   return crypto.randomBytes(32).toString("base64url");

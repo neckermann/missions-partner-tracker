@@ -5,9 +5,10 @@ const { DIGEST_RECIPIENT_ROLES } = require("./digestRoles");
 const { resolveDigestScope } = require("./digestScope");
 const { isFeatureEnabled } = require("./features");
 const { sendEmailBatch } = require("./email");
-const { buildBlurb } = require("./dispatchBlurbs");
+const { buildBlurb, DISPATCH_PARTNER_SELECT } = require("./dispatchBlurbs");
 const { loadOpenKeyDates } = require("./keyDateQueries");
 const { CHANNELS, isEligibleForChannel } = require("./dispatchEligibility");
+const { churchToday } = require("./today");
 const {
   buildEmailDispatchMessage,
   buildUnsubscribeUrl,
@@ -48,6 +49,7 @@ async function fetchPartnerTileDetailsById(partnerIds) {
       id: true,
       kind: true,
       isRestricted: true,
+      isPublic: true,
       fieldDisplayName: true,
       supportingSince: true,
       overviewShort: true,
@@ -80,7 +82,7 @@ async function recordKeyDatesMailed(userId, keyDates) {
 async function keyDatesForDigest(userIds, settings) {
   const byUser = new Map();
   if (!isFeatureEnabled(settings?.enabledFeatures, "keyDates") || userIds.length === 0) return byUser;
-  const open = await loadOpenKeyDates(new Date(), { withAdvance: true });
+  const open = await loadOpenKeyDates(churchToday(), { withAdvance: true });
   if (open.length === 0) return byUser;
 
   const optedOut = new Set(
@@ -111,11 +113,14 @@ async function keyDatesForDigest(userIds, settings) {
 
 // The reusable core: given rows and an assembled recipient list (tier-filtered
 // for scheduled sends, cadence-blind for urgent; see sendUrgentDispatch), builds
-// each recipient's message and sends in chunks. Returns the Set of row ids
-// included in at least one send; the caller stamps the column(s).
+// each recipient's message and sends in chunks. Returns { deliveredIds, failedIds }:
+// the row ids that reached at least one recipient (the caller stamps those, and only those:
+// a row whose every send failed must stay unstamped so it goes out in a later pass), and the
+// row ids a failed send would have carried (their error note must not be cleared).
 async function sendToRecipients(rows, partnerById, recipients, settings, keyDatesByUser = new Map()) {
-  const consideredIds = new Set();
-  if (recipients.length === 0) return consideredIds;
+  const deliveredIds = new Set();
+  const failedIds = new Set();
+  if (recipients.length === 0) return { deliveredIds, failedIds };
 
   const needsTiles = settings?.emailDispatchLayout === "snapshot";
   const partnerDetailsById = needsTiles
@@ -138,9 +143,12 @@ async function sendToRecipients(rows, partnerById, recipients, settings, keyDate
     // Key dates only go to staff recipients, and a person with nothing else still gets them.
     const keyDates = recipient.kind === CHANNELS.EMAIL_ADMIN ? keyDatesByUser.get(recipient.id) || [] : [];
     if (eligibleRows.length === 0 && keyDates.length === 0) continue;
-    eligibleRows.forEach((row) => consideredIds.add(row.id));
 
-    const blurbs = eligibleRows.map((row) => buildBlurb(row, partnerById.get(row.partnerId))).filter(Boolean);
+    // Only the currency is passed on: this path has never given buildBlurb the rest of the settings, and
+    // handing them over would change how a restricted partner's name is masked in these emails.
+    const blurbs = eligibleRows
+      .map((row) => buildBlurb(row, partnerById.get(row.partnerId), { currency: settings?.currency }))
+      .filter(Boolean);
     const content =
       recipient.kind === CHANNELS.EMAIL_ADMIN
         ? buildAdminEmailDispatchContent(blurbs, partnerDetailsById, settings, keyDates)
@@ -162,41 +170,58 @@ async function sendToRecipients(rows, partnerById, recipients, settings, keyDate
     });
   }
 
+  let sentAny = false; // whether any message has already gone out in this pass
   for (let i = 0; i < messages.length; i += BATCH_CHUNK_SIZE) {
     const chunk = messages.slice(i, i + BATCH_CHUNK_SIZE);
     // sendEmailBatch returns one entry per message in submission order, each with
     // its own success/failure, so a bad address affects no other message. Batching
     // reduces API calls, not emails sent or billed (see email.js).
-    const results = await sendEmailBatch(chunk.map((m) => m.payload));
+    let results;
+    try {
+      results = await sendEmailBatch(chunk.map((m) => m.payload));
+    } catch (err) {
+      // The provider failed outright for this chunk. If nothing has gone out yet, let the error stop the pass:
+      // the caller leaves everything unmarked and tries again on the next minute, and nobody gets two. If
+      // earlier chunks already went out, finishing the pass is the only way not to send them again on that
+      // retry, so this chunk is recorded as failed like any other failed message and the pass carries on.
+      if (!sentAny) throw err;
+      console.error("Email dispatch batch failed after earlier batches went out:", err.message);
+      results = chunk.map(() => ({ ErrorCode: -1, Message: `Provider error: ${err.message}` }));
+    }
     for (const [idx, result] of results.entries()) {
       if (result.ErrorCode !== 0) {
         console.error(`Email dispatch to ${chunk[idx].payload.To} failed:`, result.Message);
+        chunk[idx].rowIds.forEach((id) => failedIds.add(id));
         await prisma.dispatchRecord.updateMany({
           where: { id: { in: chunk[idx].rowIds } },
           data: { emailError: result.Message || "Unknown delivery failure" },
         });
         continue;
       }
-      // Delivered: record the key-date heads-ups it carried so none repeats (a failed send records nothing and retries).
+      // Delivered: this message's rows reached someone, and the key-date heads-ups it carried are recorded so
+      // none repeats (a failed send records nothing and retries).
+      sentAny = true;
+      chunk[idx].rowIds.forEach((id) => deliveredIds.add(id));
       await recordKeyDatesMailed(chunk[idx].userId, chunk[idx].keyDates);
     }
   }
 
-  return consideredIds;
+  return { deliveredIds, failedIds };
 }
 
 // The scheduled send pass for one cadence tier ("biweekly"|"monthly"|"quarterly").
-// Returns { consideredIds } for emailDispatchScheduler.js to stamp with this
+// Returns { deliveredIds, failedIds } (arrays) for emailDispatchScheduler.js to stamp with this
 // tier's column; empty, touching nothing, if outboundEmail is off or nothing to send.
 async function sendDigestTier(tier, settings) {
-  if (!isFeatureEnabled(settings?.enabledFeatures, "outboundEmail")) return { consideredIds: [] };
-  if (await isDemoInstance()) return { consideredIds: [] };
+  if (!isFeatureEnabled(settings?.enabledFeatures, "outboundEmail"))
+    return { deliveredIds: [], failedIds: [] };
+  if (await isDemoInstance()) return { deliveredIds: [], failedIds: [] };
 
   const rows = await prisma.dispatchRecord.findMany({ orderBy: { createdAt: "asc" } });
 
   const partners = await prisma.partner.findMany({
     where: { id: { in: [...new Set(rows.map((row) => row.partnerId))] } },
-    select: { id: true, displayName: true, fieldDisplayName: true, isRestricted: true, isPublic: true },
+    select: DISPATCH_PARTNER_SELECT,
   });
   const partnerById = new Map(partners.map((p) => [p.id, p]));
 
@@ -237,7 +262,7 @@ async function sendDigestTier(tier, settings) {
     admins.map((u) => u.id),
     settings
   );
-  if (rows.length === 0 && keyDatesByUser.size === 0) return { consideredIds: [] };
+  if (rows.length === 0 && keyDatesByUser.size === 0) return { deliveredIds: [], failedIds: [] };
   const adminRecipients = await Promise.all(
     admins.map(async (u) => normalizeRecipient(u, CHANNELS.EMAIL_ADMIN, await resolveDigestScope(u)))
   );
@@ -246,8 +271,14 @@ async function sendDigestTier(tier, settings) {
     ...publicSubscribers.map((s) => normalizeRecipient(s, CHANNELS.EMAIL_PUBLIC)),
   ];
 
-  const consideredIds = await sendToRecipients(rows, partnerById, recipients, settings, keyDatesByUser);
-  return { consideredIds: [...consideredIds] };
+  const { deliveredIds, failedIds } = await sendToRecipients(
+    rows,
+    partnerById,
+    recipients,
+    settings,
+    keyDatesByUser
+  );
+  return { deliveredIds: [...deliveredIds], failedIds: [...failedIds] };
 }
 
 module.exports = {

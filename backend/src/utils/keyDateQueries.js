@@ -7,6 +7,7 @@
 const prisma = require("../prismaClient");
 const { isFeatureEnabled } = require("./features");
 const { toUtcDay, DAY_MS } = require("../reporting/definitions");
+const { churchToday } = require("./today");
 const { upcomingKeyDates, isHandled, reminderTier } = require("./keyDates");
 const { careTimings } = require("./careSettings");
 const { ownersByPartner } = require("./ownership");
@@ -21,12 +22,12 @@ async function keyDatesSettings() {
   return { enabled, keyDateLeadDays, keyDateAdvanceDays };
 }
 
-// Every open key date in the window, each with its recipients. `today` is a UTC-day Date. Returns [] while the features are off.
+// Every open key date in the window, each with its recipients. `today` is the current moment (churchToday() reads it in the church's own time zone). Returns [] while the features are off.
 //   item: { partnerId, partner:{...}, kind, subjectId, who, occasion, date,
 //           daysUntil, turning, recipientIds:[userId], tier }
 // `tier` is 0 inside the final window (what the bell and the daily email use); with { withAdvance: true }
 // the window reaches out to the earliest advance heads-up (what the digest uses) and `tier` is the threshold.
-async function loadOpenKeyDates(today = new Date(), { withAdvance = false } = {}) {
+async function loadOpenKeyDates(today = churchToday(), { withAdvance = false } = {}) {
   const { enabled, keyDateLeadDays, keyDateAdvanceDays } = await keyDatesSettings();
   if (!enabled) return [];
   const day = toUtcDay(today);
@@ -45,7 +46,16 @@ async function loadOpenKeyDates(today = new Date(), { withAdvance = false } = {}
       anniversary: true,
       supportingSince: true,
       commissionedAt: true,
-      adults: { select: { id: true, firstName: true, lastName: true, birthday: true } },
+      adults: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          birthday: true,
+          isPrimaryContact: true,
+          createdAt: true,
+        },
+      },
       children: { select: { id: true, firstName: true, lastName: true, birthday: true } },
     },
   });
@@ -82,7 +92,7 @@ async function loadOpenKeyDates(today = new Date(), { withAdvance = false } = {}
 }
 
 // The open key dates that go to one login.
-async function loadOpenKeyDatesFor(userId, today = new Date(), options) {
+async function loadOpenKeyDatesFor(userId, today = churchToday(), options) {
   const all = await loadOpenKeyDates(today, options);
   return all.filter((i) => i.recipientIds.includes(userId));
 }

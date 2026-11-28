@@ -1,4 +1,5 @@
 const express = require("express");
+const { optionalWebAddress } = require("../utils/webAddress");
 const { z } = require("zod");
 const prisma = require("../prismaClient");
 const { requireAuth, requireRole } = require("../middleware/requireAuth");
@@ -24,7 +25,7 @@ const tripsSettingsSelect = {
 };
 
 const tripsSettingsSchema = z.object({
-  onlineGivingUrl: z.string().trim().optional().nullable(),
+  onlineGivingUrl: optionalWebAddress(),
   onlineGivingInstructions: z.string().optional().nullable(),
   collectDonorContactInfo: z.boolean().optional(),
   collectApplicantAddress: z.boolean().optional(),

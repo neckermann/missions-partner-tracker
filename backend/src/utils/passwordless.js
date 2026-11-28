@@ -2,7 +2,7 @@
 // Whether it's on, whether it can be turned on, and the emailed sign-in link live
 // here; the routes are in routes/auth.js and routes/passkeys.js.
 const prisma = require("../prismaClient");
-const { isDemoDeployment } = require("./demoMode");
+const { isDemoDeployment, isTestingSite } = require("./demoMode");
 const { isFeatureEnabled } = require("./features");
 const { appBaseUrl } = require("./dispatchBlurbs");
 const { hashToken, generateToken } = require("./passwordSetup");
@@ -12,21 +12,18 @@ const LINK_TTL_MINUTES = 15;
 const LINK_COOLDOWN_MS = 60 * 1000;
 
 // Never on a public demo (shared logins, no email), whatever a leftover value says. The one exception
-// is the owner's own test deployment: DEMO_ALLOW_PASSWORDLESS=true lets an admin switch it on there
+// is the owner's own test deployment: DEMO_TESTING_SITE=true (or the older DEMO_ALLOW_PASSWORDLESS=true) lets an admin switch it on there
 // (the next reset turns it off again). Never set it on a demo the public can reach.
 function demoBlocksPasswordless() {
-  return isDemoDeployment() && process.env.DEMO_ALLOW_PASSWORDLESS !== "true";
+  return isDemoDeployment() && !isTestingSite() && process.env.DEMO_ALLOW_PASSWORDLESS !== "true";
 }
 
-// Whether the passkey-only sign-in routes exist: the church offers it beside passwords, or passwordless
-// mode is on (which needs it). Off by default; the sign-in page only shows the button when this is true.
-async function isPasskeySignInOn(db = prisma) {
-  if (await isPasswordlessOn(db)) return true;
-  const settings = await db.churchSettings.findUnique({
-    where: { id: "singleton" },
-    select: { allowPasskeySignIn: true },
-  });
-  return settings?.allowPasskeySignIn === true;
+// Whether the passkey-only sign-in routes exist. Always: "Sign in with a passkey" is the first thing on the sign-in
+// page (the old church setting, allowPasskeySignIn, is no longer read; the column stays so no migration is needed).
+// Not on a public demo, whose logins are shared (a visitor could otherwise fill an account with passkeys and use them).
+// The owner's test deployment (DEMO_TESTING_SITE) may.
+async function isPasskeySignInOn() {
+  return !(isDemoDeployment() && !isTestingSite());
 }
 
 async function isPasswordlessOn(db = prisma) {

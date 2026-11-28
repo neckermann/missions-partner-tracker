@@ -112,7 +112,7 @@ describe("with no way to send (the email-off option for dispatches)", () => {
     channels = { outboundEmail: false, groupme: true, whatsapp: false };
     fetchPendingDispatches.mockResolvedValue([ready]);
     render(<AdminPendingDispatches />);
-    await screen.findByText("Pending Dispatches");
+    await screen.findByText("Updates to Share");
     expect(screen.queryByText("Nothing here goes out on its own")).toBeNull();
   });
 
@@ -120,7 +120,7 @@ describe("with no way to send (the email-off option for dispatches)", () => {
     channels = { outboundEmail: false, groupme: false, whatsapp: false };
     fetchPendingDispatches.mockResolvedValue([held]);
     render(<AdminPendingDispatches />);
-    await screen.findByText("Pending Dispatches");
+    await screen.findByText("Updates to Share");
     expect(screen.queryByText("Nothing here goes out on its own")).toBeNull();
   });
 });

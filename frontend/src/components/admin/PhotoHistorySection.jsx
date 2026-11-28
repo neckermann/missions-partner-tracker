@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { prepareImage } from "../../utils/prepareImage.js";
+import { formatFileSize } from "../../utils/format.js";
 import { uploadPartnerImage, deletePartnerPhoto } from "../../api/client.js";
 import { formatDate, todayInputValue } from "../../utils/format.js";
 import useConfirmDialog from "../../hooks/useConfirmDialog.jsx";
@@ -20,6 +22,8 @@ export default function PhotoHistorySection({
   const [file, setFile] = useState(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [preparing, setPreparing] = useState(false);
+  const [note, setNote] = useState("");
 
   // Preview only, not a crop editor: shows what object-fit: cover will keep in the two shapes the
   // photo ends up in (Partner Detail's circle, Directory's rect card), so bad framing is caught
@@ -89,9 +93,35 @@ export default function PhotoHistorySection({
                 // Extensions alongside MIME types: a HEIC file (iPhone default) doesn't reliably report a MIME
                 // type the file picker can filter on (same as resolveImageExt on the backend).
                 accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
-                onChange={(e) => setFile(e.target.files[0] || null)}
+                onChange={async (e) => {
+                  const input = e.target;
+                  const picked = input.files[0] || null;
+                  setError("");
+                  setNote("");
+                  setFile(null);
+                  if (!picked) return;
+                  setPreparing(true);
+                  const prepared = await prepareImage(picked);
+                  setPreparing(false);
+                  if (prepared.error) {
+                    setError(prepared.error);
+                    input.value = "";
+                    return;
+                  }
+                  if (prepared.shrunk)
+                    setNote(
+                      `Resized to ${formatFileSize(prepared.after)} (it was ${formatFileSize(prepared.before)}).`
+                    );
+                  setFile(prepared.file);
+                }}
                 required
               />
+              {preparing && <span role="status">Resizing the photo…</span>}
+              {note && !preparing && (
+                <span role="status" style={{ color: "var(--muted)", fontWeight: "normal" }}>
+                  {note}
+                </span>
+              )}
             </label>
             {previewUrl && (
               <div>
@@ -138,6 +168,8 @@ export default function PhotoHistorySection({
               >
                 <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
                   <img
+                    loading="lazy"
+                    decoding="async"
                     src={p.url}
                     alt=""
                     className="missionary-thumb"
@@ -157,7 +189,12 @@ export default function PhotoHistorySection({
                   </div>
                 </div>
                 <div className="table-actions">
-                  <a href={p.url} target="_blank" rel="noreferrer" className="btn secondary small">
+                  <a
+                    href={p.rawUrl || p.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="btn secondary small"
+                  >
                     View
                   </a>
                   {canDelete && (

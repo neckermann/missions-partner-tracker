@@ -108,4 +108,108 @@ describe("AdminSurveyUpdates", () => {
     expect(approveSurveyUpdate).toHaveBeenCalledWith("u2");
     expect(approveSurveyUpdate).not.toHaveBeenCalledWith("u3");
   });
+
+  it("shows a phone and a contact method the way a person reads them, the same for Now and Suggested (#548)", async () => {
+    fetchSurveyUpdates.mockResolvedValue([
+      {
+        ...phone,
+        id: "r1",
+        inputType: "tel",
+        problem: null,
+        currentValue: "(506) 555-0259",
+        proposedValue: "+15065550260",
+      },
+      {
+        ...phone,
+        id: "r2",
+        field: "contactMethod",
+        fieldLabel: "How they prefer to be contacted",
+        inputType: "contactMethod",
+        problem: null,
+        currentValue: "call",
+        proposedValue: "whatsapp",
+      },
+    ]);
+    renderPage();
+    expect(await screen.findByText("(506) 555-0260")).toBeInTheDocument();
+    expect(screen.getByText("(506) 555-0259")).toBeInTheDocument();
+    expect(screen.getByText("Phone call")).toBeInTheDocument();
+    expect(screen.getByText("WhatsApp")).toBeInTheDocument();
+    expect(screen.queryByText("+15065550260")).not.toBeInTheDocument();
+  });
+
+  it("says why a suggestion that isn't a real value can't be approved, and offers Edit and Reject instead (#548)", async () => {
+    fetchSurveyUpdates.mockResolvedValue([
+      {
+        ...phone,
+        id: "j1",
+        inputType: "tel",
+        currentValue: "(506) 555-0259",
+        proposedValue: "dsafdsfsadf",
+        problem:
+          "That doesn't look like a phone number. Include the area code, or start with + and the country code.",
+      },
+    ]);
+    renderPage();
+    expect(await screen.findByText("dsafdsfsadf")).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      /Can't be approved as it is: That doesn't look like a phone number/
+    );
+    expect(screen.getByRole("button", { name: "Approve" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Edit" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Reject" })).toBeEnabled();
+    expect(approveSurveyUpdate).not.toHaveBeenCalled();
+  });
+
+  it("edits a phone in a phone box, and a contact method from the fixed list (#548)", async () => {
+    fetchSurveyUpdates.mockResolvedValue([
+      {
+        ...phone,
+        id: "e1",
+        inputType: "tel",
+        problem: "That doesn't look like a phone number.",
+        proposedValue: "12",
+      },
+      {
+        ...phone,
+        id: "e2",
+        field: "contactMethod",
+        fieldLabel: "How they prefer to be contacted",
+        inputType: "contactMethod",
+        problem: null,
+        currentValue: "call",
+        proposedValue: "text",
+      },
+    ]);
+    renderPage();
+    await screen.findByText("Text message");
+    const edits = screen.getAllByRole("button", { name: "Edit" });
+    fireEvent.click(edits[0]);
+    const box = await screen.findByLabelText("Value to put on their record");
+    expect(box).toHaveAttribute("type", "tel");
+    fireEvent.change(box, { target: { value: "(506) 555-0259" } });
+    fireEvent.click(screen.getByRole("button", { name: "Approve with this value" }));
+    await waitFor(() => expect(approveSurveyUpdate).toHaveBeenCalledWith("e1", "(506) 555-0259"));
+  });
+
+  it("approves only the suggestions that are ready, and says how many (#548)", async () => {
+    fetchSurveyUpdates.mockResolvedValue([
+      { ...phone, id: "g1", inputType: "tel", problem: null },
+      { ...phone, id: "g2", field: "primaryEmail", fieldLabel: "Email", inputType: "email", problem: null },
+      {
+        ...phone,
+        id: "g3",
+        inputType: "tel",
+        proposedValue: "nope",
+        problem: "That doesn't look like a phone number.",
+      },
+    ]);
+    renderPage();
+    const button = await screen.findByRole("button", { name: "Approve the 2 that are ready" });
+    fireEvent.click(button);
+    await waitFor(() => expect(approveSurveyUpdate).toHaveBeenCalledTimes(2));
+    expect(approveSurveyUpdate).toHaveBeenCalledWith("g1");
+    expect(approveSurveyUpdate).toHaveBeenCalledWith("g2");
+    expect(approveSurveyUpdate).not.toHaveBeenCalledWith("g3");
+  });
 });

@@ -28,7 +28,7 @@ const emptyRequirementForm = {
 
 // Label/kind are fixed at creation, so the edit popup shows them read-only.
 export default function AdminTripRequirements() {
-  const { trip, reload, requirementLibrary, confirmDialog, canWrite } = useOutletContext();
+  const { trip, reload, requirementLibrary, confirmDialog, canWrite, emailOff } = useOutletContext();
   const [error, setError] = useState("");
   const [manualEmailRecipients, setManualEmailRecipients] = useState(null); // [{ name, email, url }] | null
   const [requirementLibraryPick, setRequirementLibraryPick] = useState("");
@@ -178,8 +178,10 @@ export default function AdminTripRequirements() {
         <h3>Trip Requirements</h3>
         <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
           What this trip needs from each participant -- a document to upload, or a plain task an admin checks
-          off (e.g. "Attended orientation call"). Give one a due date to see it flagged once overdue; add a
-          reminder lead time to have anyone who hasn't fulfilled it emailed automatically before it's due.
+          off (e.g. "Attended orientation call"). Give one a due date to see it flagged once overdue
+          {emailOff
+            ? ". Email isn't set up on this site, so no reminders are sent: a reminder lead time does nothing until it is, and you will need to remind people yourself."
+            : "; add a reminder lead time to have anyone who hasn't fulfilled it emailed automatically before it's due."}
         </p>
         {canWrite && requirementLibrary.length > 0 && (
           <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", marginBottom: "0.75rem" }}>
@@ -254,8 +256,14 @@ export default function AdminTripRequirements() {
                 View
               </button>{" "}
               {canWrite && (
-                <button type="button" className="btn-remove" onClick={() => handleDeleteDocument(d.id)}>
-                  ✕
+                <button
+                  type="button"
+                  className="btn-remove"
+                  onClick={() => handleDeleteDocument(d.id)}
+                  title="Delete this document"
+                  aria-label={`Delete ${d.title || d.fileName}`}
+                >
+                  Delete
                 </button>
               )}
             </li>

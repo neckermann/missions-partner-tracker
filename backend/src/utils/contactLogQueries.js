@@ -44,11 +44,13 @@ async function loadAssignedPartners(userId, today = new Date()) {
     contactLevel: true,
     contactChannels: true,
     contactEmail: true,
+    contactSnoozedUntil: true,
     adults: { select: { firstName: true, birthday: true, email: true, isPrimaryContact: true } },
     children: { select: { firstName: true, birthday: true } },
     contactLogs: { select: { id: true, contactDate: true, followUpDate: true, createdAt: true } },
     prayerRequests: { where: { status: "ongoing" }, select: { id: true } },
-    needRequests: { where: { approvedAmount: null }, select: { id: true } },
+    // Awaiting a decision; one already met (metDate) needs none.
+    needRequests: { where: { approvedAmount: null, metDate: null }, select: { id: true } },
   };
   // The partners this login looks after (utils/ownership.js): its care team seats, plus, on the missions
   // team, every partner with no team of its own.
@@ -93,8 +95,14 @@ async function loadAssignedPartners(userId, today = new Date()) {
     // contact, or joining the team if never contacted) or the follow-up date,
     // whichever came first. The notification uses the latest to detect NEW items.
     const quietSince = new Date(toUtcDay(last || seatSince).getTime() + contactStaleDays * DAY_MS);
+    // A partner nobody has contacted yet counts quiet from the day they joined this person's list, not from
+    // the first minute (a new install, or a partner just added, is not instantly overdue). And "not this
+    // season" (contactSnoozedUntil) keeps a partner out of quiet until that day.
+    const quietDays = daysSinceContact ?? daysBetween(today, toUtcDay(seatSince));
+    const snoozed = !!p.contactSnoozedUntil && toUtcDay(today) < toUtcDay(p.contactSnoozedUntil);
+    const isQuiet = !snoozed && quietDays >= contactStaleDays;
     const dueDates = [];
-    if (daysSinceContact === null || daysSinceContact >= contactStaleDays) dueDates.push(quietSince);
+    if (isQuiet) dueDates.push(quietSince);
     if (followUpDue) dueDates.push(toUtcDay(followUp));
     const overdueSince = dueDates.length ? new Date(Math.min(...dueDates)) : null;
 
@@ -107,7 +115,9 @@ async function loadAssignedPartners(userId, today = new Date()) {
       viaMissionsTeam: viaMissionsTeam === true,
       lastContact: last ? toUtcDay(last).toISOString().slice(0, 10) : null,
       daysSinceContact,
-      quiet: daysSinceContact === null || daysSinceContact >= contactStaleDays,
+      daysOnList: daysBetween(today, toUtcDay(seatSince)),
+      quiet: isQuiet,
+      snoozedUntil: snoozed ? toUtcDay(p.contactSnoozedUntil).toISOString().slice(0, 10) : null,
       followUpDate: followUp ? toUtcDay(followUp).toISOString().slice(0, 10) : null,
       followUpDue,
       overdueSince: overdueSince ? overdueSince.toISOString().slice(0, 10) : null,
@@ -120,12 +130,9 @@ async function loadAssignedPartners(userId, today = new Date()) {
     };
   });
 
-  // Longest quiet first; never-contacted partners lead the list.
-  rows.sort(
-    (a, b) =>
-      (b.daysSinceContact ?? 99999) - (a.daysSinceContact ?? 99999) ||
-      a.displayName.localeCompare(b.displayName)
-  );
+  // Longest quiet first; a never-contacted partner is ranked by how long they have been on the list.
+  const rank = (r) => r.daysSinceContact ?? r.daysOnList;
+  rows.sort((a, b) => rank(b) - rank(a) || a.displayName.localeCompare(b.displayName));
   return rows;
 }
 

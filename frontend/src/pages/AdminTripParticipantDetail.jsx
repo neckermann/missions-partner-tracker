@@ -1,4 +1,8 @@
 import React, { useEffect, useState, useCallback } from "react";
+import { prepareImage } from "../utils/prepareImage.js";
+import EmailInput from "../components/shared/EmailInput.jsx";
+import PhoneField from "../components/shared/PhoneField.jsx";
+import { formatPhone } from "../utils/phone.js";
 import { applicationAnswerList } from "../utils/applicationAnswers.js";
 import { useParams, Link } from "react-router-dom";
 import {
@@ -12,7 +16,7 @@ import {
   updateTripParticipant,
   tripParticipantPhotoUrl,
 } from "../api/client.js";
-import { formatDate, isMinorForTrip } from "../utils/format.js";
+import { formatDate, isMinorForTrip, currencySymbol } from "../utils/format.js";
 import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
 import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
 import EditableSection from "../components/admin/EditableSection.jsx";
@@ -20,10 +24,14 @@ import Breadcrumb from "../components/shared/Breadcrumb.jsx";
 import LastEdited from "../components/shared/LastEdited.jsx";
 import ManualSendNotice from "../components/shared/ManualSendNotice.jsx";
 import { mapServerErrorMessage } from "../utils/friendlyError.js";
+import { welcomeNotSentMessage } from "../utils/setupLinkMessages.js";
 import useCurrentUser from "../hooks/useCurrentUser.js";
 import RecordUnavailable, { loadErrorStatus } from "../components/shared/RecordUnavailable.jsx";
 import GiveGuestAccessModal from "../components/admin/GiveGuestAccessModal.jsx";
 import CopyButton from "../components/shared/CopyButton.jsx";
+import CopyValue from "../components/shared/CopyValue.jsx";
+
+const PARTICIPANT_PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
 function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
@@ -51,6 +59,7 @@ export default function AdminTripParticipantDetail() {
   const [loadError, setLoadError] = useState(null); // 404/403 when the trip can't be shown
   const [settings, setSettings] = useState(null);
   const [error, setError] = useState("");
+  const [photoProblem, setPhotoProblem] = useState("");
   const [manualAccessLink, setManualAccessLink] = useState(null); // { email?, url } | null
   const [showGuestAccess, setShowGuestAccess] = useState(false);
   const [docFile, setDocFile] = useState(null);
@@ -163,7 +172,10 @@ export default function AdminTripParticipantDetail() {
       setManualAccessLink({ email: created.email, url: created.welcomeEmail.manualSetupUrl });
     } else if (created.welcomeEmail && !created.welcomeEmail.sent && !created.welcomeEmail.skipped) {
       setError(
-        `${created.email} now has guest access, but the welcome email couldn't be sent (${created.welcomeEmail.error}). Use "Send setup link" on their row in Manage Users to try again.`
+        welcomeNotSentMessage(created.email, created.welcomeEmail, {
+          created: "now has guest access",
+          retryHint: 'Use "Send setup link" on their row in Manage Users to try again.',
+        })
       );
     }
   }
@@ -277,7 +289,7 @@ export default function AdminTripParticipantDetail() {
           firstName: participant.firstName || "",
           lastName: participant.lastName || "",
           email: participant.email || "",
-          phone: participant.phone || "",
+          phone: formatPhone(participant.phone),
           role: participant.role || "",
           addressLine1: participant.addressLine1 || "",
           addressLine2: participant.addressLine2 || "",
@@ -287,13 +299,13 @@ export default function AdminTripParticipantDetail() {
           country: participant.country || "",
           emergencyContactFirstName: participant.emergencyContactFirstName || "",
           emergencyContactLastName: participant.emergencyContactLastName || "",
-          emergencyContactPhone: participant.emergencyContactPhone || "",
+          emergencyContactPhone: formatPhone(participant.emergencyContactPhone),
           emergencyContactEmail: participant.emergencyContactEmail || "",
           dateOfBirth: participant.dateOfBirth ? participant.dateOfBirth.slice(0, 10) : "",
           parentGuardianFirstName: participant.parentGuardianFirstName || "",
           parentGuardianLastName: participant.parentGuardianLastName || "",
           parentGuardianRelationship: participant.parentGuardianRelationship || "",
-          parentGuardianPhone: participant.parentGuardianPhone || "",
+          parentGuardianPhone: formatPhone(participant.parentGuardianPhone),
           parentGuardianEmail: participant.parentGuardianEmail || "",
         }}
         onSave={(draft) =>
@@ -356,8 +368,8 @@ export default function AdminTripParticipantDetail() {
             <div className="form-grid">
               <ViewField label="First name" value={v.firstName} />
               <ViewField label="Last name" value={v.lastName} />
-              <ViewField label="Email" value={v.email} />
-              <ViewField label="Phone" value={v.phone} />
+              <ViewField label="Email" value={v.email} copy="email" whose={v.firstName} />
+              <ViewField label="Phone" value={v.phone} copy="phone" whose={v.firstName} />
               <ViewField label="Role" value={v.role} />
             </div>
             <h4 style={{ margin: "0.75rem 0 0.4rem" }}>Address</h4>
@@ -373,8 +385,18 @@ export default function AdminTripParticipantDetail() {
             <div className="form-grid">
               <ViewField label="First Name" value={v.emergencyContactFirstName} />
               <ViewField label="Last Name" value={v.emergencyContactLastName} />
-              <ViewField label="Phone" value={v.emergencyContactPhone} />
-              <ViewField label="Email" value={v.emergencyContactEmail} />
+              <ViewField
+                label="Phone"
+                value={v.emergencyContactPhone}
+                copy="phone"
+                whose={v.emergencyContactFirstName}
+              />
+              <ViewField
+                label="Email"
+                value={v.emergencyContactEmail}
+                copy="email"
+                whose={v.emergencyContactFirstName}
+              />
             </div>
             <h4 style={{ margin: "0.75rem 0 0.4rem" }}>Date of birth</h4>
             <div className="form-grid">
@@ -385,8 +407,18 @@ export default function AdminTripParticipantDetail() {
               <ViewField label="Parent/guardian first name" value={v.parentGuardianFirstName} />
               <ViewField label="Parent/guardian last name" value={v.parentGuardianLastName} />
               <ViewField label="Relationship" value={v.parentGuardianRelationship} />
-              <ViewField label="Parent/guardian phone" value={v.parentGuardianPhone} />
-              <ViewField label="Parent/guardian email" value={v.parentGuardianEmail} />
+              <ViewField
+                label="Parent/guardian phone"
+                value={v.parentGuardianPhone}
+                copy="phone"
+                whose={v.parentGuardianFirstName}
+              />
+              <ViewField
+                label="Parent/guardian email"
+                value={v.parentGuardianEmail}
+                copy="email"
+                whose={v.parentGuardianFirstName}
+              />
             </div>
           </div>
         )}
@@ -403,12 +435,14 @@ export default function AdminTripParticipantDetail() {
               </label>
               <label>
                 Email
-                <input value={draft.email} onChange={(e) => set("email", e.target.value)} />
+                <EmailInput value={draft.email} onChange={(e) => set("email", e.target.value)} />
               </label>
-              <label>
-                Phone
-                <input value={draft.phone} onChange={(e) => set("phone", e.target.value)} />
-              </label>
+              <PhoneField
+                label="Phone"
+                inputMode="tel"
+                value={draft.phone}
+                onChange={(e) => set("phone", e.target.value)}
+              />
               <label>
                 Role
                 <input
@@ -464,16 +498,15 @@ export default function AdminTripParticipantDetail() {
                   onChange={(e) => set("emergencyContactLastName", e.target.value)}
                 />
               </label>
-              <label>
-                Phone
-                <input
-                  value={draft.emergencyContactPhone}
-                  onChange={(e) => set("emergencyContactPhone", e.target.value)}
-                />
-              </label>
+              <PhoneField
+                label="Phone"
+                inputMode="tel"
+                value={draft.emergencyContactPhone}
+                onChange={(e) => set("emergencyContactPhone", e.target.value)}
+              />
               <label>
                 Email
-                <input
+                <EmailInput
                   value={draft.emergencyContactEmail}
                   onChange={(e) => set("emergencyContactEmail", e.target.value)}
                 />
@@ -514,16 +547,15 @@ export default function AdminTripParticipantDetail() {
                   onChange={(e) => set("parentGuardianRelationship", e.target.value)}
                 />
               </label>
-              <label>
-                Parent/guardian phone
-                <input
-                  value={draft.parentGuardianPhone}
-                  onChange={(e) => set("parentGuardianPhone", e.target.value)}
-                />
-              </label>
+              <PhoneField
+                label="Parent/guardian phone"
+                inputMode="tel"
+                value={draft.parentGuardianPhone}
+                onChange={(e) => set("parentGuardianPhone", e.target.value)}
+              />
               <label>
                 Parent/guardian email
-                <input
+                <EmailInput
                   value={draft.parentGuardianEmail}
                   onChange={(e) => set("parentGuardianEmail", e.target.value)}
                 />
@@ -624,7 +656,7 @@ export default function AdminTripParticipantDetail() {
         )}
         edit={(draft, set) => (
           <label style={{ maxWidth: 220 }}>
-            Support-raising goal ($)
+            Support-raising goal ({currencySymbol()})
             <input
               type="number"
               value={draft.supportRaisingGoal}
@@ -679,12 +711,25 @@ export default function AdminTripParticipantDetail() {
                       accept="image/jpeg,image/png,image/webp"
                       aria-label={`Photo of ${participant.firstName} ${participant.lastName}`}
                       onChange={async (e) => {
-                        const file = e.target.files[0];
-                        if (!file) return;
-                        set("photoDataUrl", await readFileAsDataUrl(file));
-                        set("photoContentType", file.type);
+                        const input = e.target;
+                        const picked = input.files[0];
+                        if (!picked) return;
+                        setPhotoProblem("");
+                        const prepared = await prepareImage(picked, { allowed: PARTICIPANT_PHOTO_TYPES });
+                        if (prepared.error) {
+                          setPhotoProblem(prepared.error);
+                          input.value = "";
+                          return;
+                        }
+                        set("photoDataUrl", await readFileAsDataUrl(prepared.file));
+                        set("photoContentType", prepared.file.type);
                       }}
                     />
+                    {photoProblem && (
+                      <p className="form-error" role="alert" style={{ margin: "0.3rem 0 0" }}>
+                        {photoProblem}
+                      </p>
+                    )}
                   </div>
                 </div>
                 <label style={{ display: "block", marginTop: "0.6rem" }}>
@@ -744,8 +789,14 @@ export default function AdminTripParticipantDetail() {
                 View
               </button>{" "}
               {canWrite && (
-                <button type="button" className="btn-remove" onClick={() => handleDeleteDocument(d.id)}>
-                  ✕
+                <button
+                  type="button"
+                  className="btn-remove"
+                  onClick={() => handleDeleteDocument(d.id)}
+                  title="Delete this document"
+                  aria-label={`Delete ${d.title || d.fileName}`}
+                >
+                  Delete
                 </button>
               )}
             </li>
@@ -801,11 +852,24 @@ export default function AdminTripParticipantDetail() {
   );
 }
 
-function ViewField({ label, value }) {
+// `copy` ("phone" or "email") adds a copy button beside the value; `whose` names the person for its label.
+function ViewField({ label, value, copy, whose }) {
   return (
     <div>
       <div style={{ fontSize: "0.75rem", color: "var(--muted)", fontWeight: 600 }}>{label}</div>
-      <div>{value || "—"}</div>
+      <div>
+        {value ? (
+          copy ? (
+            <CopyValue kind={copy} value={String(value)} whose={whose}>
+              {value}
+            </CopyValue>
+          ) : (
+            value
+          )
+        ) : (
+          "—"
+        )}
+      </div>
     </div>
   );
 }

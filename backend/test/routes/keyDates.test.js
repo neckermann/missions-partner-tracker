@@ -332,8 +332,10 @@ describe("key dates: the feature gates", () => {
     await setFeatures({ careTeam: false });
     await prisma.user.update({ where: { id: editorUser.id }, data: { onMissionsTeam: true } });
     try {
-      // A guest whose only reach was that seat has none now, so their session is refused.
-      assert.equal((await g("/api/notifications/summary")).status, 401, "careTeam off: the seat is ignored");
+      // A guest whose only reach was that seat has none now: refused, and told it is paused.
+      const refused = await g("/api/notifications/summary");
+      assert.equal(refused.status, 403, "careTeam off: the seat is ignored");
+      assert.equal(refused.body.code, "feature_paused");
       assert.ok((await category(editor)).count >= 1, "careTeam off: the missions team gets it");
       assert.equal((await admin("/api/care-team/" + partner.id)).status, 404);
     } finally {

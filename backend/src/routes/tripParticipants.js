@@ -2,7 +2,9 @@
 // approving an application becomes a participant through the same tx.tripParticipant.create path as
 // the direct-add route.
 const express = require("express");
+const { isOutboundEmailReady, READY_SELECT } = require("../utils/emailReady");
 const { z } = require("zod");
+const { phoneSchema, emailSchema } = require("../utils/contactFormat");
 const prisma = require("../prismaClient");
 const { requireAuth, requireRole, requireTripScope } = require("../middleware/requireAuth");
 const { isSeatOnly } = require("../utils/seatTripView");
@@ -31,9 +33,9 @@ const {
   buildTripDatesIcs,
   sendLateJoinerCatchUpEmails,
 } = require("../utils/tripEmails");
-const { isFeatureEnabled } = require("../utils/features");
 const { decodePhotoDataUrl } = require("../utils/participantPhoto");
 const { participantSchema, defaultParticipantGoal } = require("../utils/tripParticipantSchema");
+const { makeDisplayCopy } = require("../utils/photoCopies");
 
 const router = express.Router();
 router.use(requireAuth);
@@ -42,7 +44,7 @@ router.use(requireFeature("trips"));
 async function getSettings() {
   return prisma.churchSettings.findUnique({
     where: { id: "singleton" },
-    select: { enabledFeatures: true, allowPublicSupportRaisingLinks: true },
+    select: { ...READY_SELECT, allowPublicSupportRaisingLinks: true },
   });
 }
 
@@ -149,7 +151,7 @@ router.put(
         application.trip.startDate &&
         application.trip.endDate
       ) {
-        if (isFeatureEnabled(settings?.enabledFeatures, "outboundEmail")) {
+        if (isOutboundEmailReady(settings)) {
           await sendParticipantEmail(
             updated.participant,
             `You're on the team: ${application.trip.name || application.trip.type || "your trip"}`,
@@ -197,9 +199,7 @@ router.post(
   requireTripScope("id"),
   async (req, res, next) => {
     try {
-      const data = participantSchema
-        .extend({ email: z.string().email().optional().nullable() })
-        .parse(req.body);
+      const data = participantSchema.extend({ email: emailSchema(z) }).parse(req.body);
       const trip = await prisma.trip.findUnique({
         where: { id: req.params.id },
         include: { meetings: true, requirements: true },
@@ -228,7 +228,7 @@ router.post(
 
       let teamWelcomeEmail = null;
       if (trip.status !== "completed" && trip.startDate && trip.endDate) {
-        if (isFeatureEnabled(settings?.enabledFeatures, "outboundEmail")) {
+        if (isOutboundEmailReady(settings)) {
           await sendParticipantEmail(
             participant,
             `You're on the team: ${trip.name || trip.type || "your trip"}`,
@@ -294,8 +294,8 @@ router.post(
 const adminParticipantUpdateSchema = z.object({
   firstName: z.string().min(1).optional(),
   lastName: z.string().min(1).optional(),
-  email: z.string().optional().nullable(),
-  phone: z.string().optional().nullable(),
+  email: emailSchema(z),
+  phone: phoneSchema(z),
   role: z.string().optional().nullable(),
   supportRaisingGoal: z.coerce.number().int().optional().nullable(),
   // Address/emergency contact: plain editable record-keeping, same trust level as firstName/phone above.
@@ -307,8 +307,8 @@ const adminParticipantUpdateSchema = z.object({
   country: z.string().optional().nullable(),
   emergencyContactFirstName: z.string().optional().nullable(),
   emergencyContactLastName: z.string().optional().nullable(),
-  emergencyContactPhone: z.string().optional().nullable(),
-  emergencyContactEmail: z.string().optional().nullable(),
+  emergencyContactPhone: phoneSchema(z),
+  emergencyContactEmail: emailSchema(z),
   // Optional here -- this is the admin-side edit of an existing
   // participant record, not the public application (where dateOfBirth is
   // always required -- see publicTripApplications.js).
@@ -316,8 +316,8 @@ const adminParticipantUpdateSchema = z.object({
   parentGuardianFirstName: z.string().optional().nullable(),
   parentGuardianLastName: z.string().optional().nullable(),
   parentGuardianRelationship: z.string().optional().nullable(),
-  parentGuardianPhone: z.string().optional().nullable(),
-  parentGuardianEmail: z.string().optional().nullable(),
+  parentGuardianPhone: phoneSchema(z),
+  parentGuardianEmail: emailSchema(z),
   story: z.string().optional().nullable(),
   photo: z.string().optional().nullable(),
   photoContentType: z.string().optional().nullable(),
@@ -336,7 +336,10 @@ router.put(
       const data = { ...rest };
       if (photo) {
         const decoded = decodePhotoDataUrl(photo, photoContentType);
-        data.photoBytesRow = { upsert: { create: { photo: decoded }, update: { photo: decoded } } };
+        const displayBytes = await makeDisplayCopy(decoded);
+        data.photoBytesRow = {
+          upsert: { create: { photo: decoded, displayBytes }, update: { photo: decoded, displayBytes } },
+        };
       }
       if (photo && photoContentType) data.photoContentType = photoContentType;
 
@@ -364,7 +367,7 @@ router.post(
       const participant = await prisma.tripParticipant.findUnique({ where: { id: req.params.id } });
       if (!participant) return res.status(404).json({ error: "Not found" });
       const settings = await getSettings();
-      if (isFeatureEnabled(settings?.enabledFeatures, "outboundEmail")) {
+      if (isOutboundEmailReady(settings)) {
         await sendParticipantEmail(
           participant,
           "Your trip access link",
