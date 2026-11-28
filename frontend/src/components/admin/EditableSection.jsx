@@ -77,6 +77,17 @@ export default function EditableSection({
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <h3 style={{ flex: 1, marginBottom: 0 }}>{title}</h3>
+          {/* A phone has no hover cue, so say the card opens for editing. Decorative: the card is already a
+              button, and its whole body is the click target. */}
+          {canEdit && (
+            <span
+              className="editable-hint"
+              aria-hidden="true"
+              style={{ color: "var(--muted)", fontSize: "0.85rem", marginRight: actions ? "0.75rem" : 0 }}
+            >
+              Edit
+            </span>
+          )}
           {actions && (
             // Not interactive itself: stops clicks/keydowns on the inner buttons bubbling to the card handler.
             // eslint-disable-next-line jsx-a11y/no-static-element-interactions

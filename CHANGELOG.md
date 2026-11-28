@@ -18,6 +18,7 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ### Fixed
 
+- An editable card on a partner's page now shows a small "Edit" word in its header, so it is clear on a phone (which has no hover) that the card opens for editing. The whole card is still the click target.
 - Print Booklet starts without the facing Notes & Prayer page, which roughly halves the page count. Prayer requests print on that page, so they start unticked too; tick either to bring it back.
 - An admin who is not on the missions team and looks after no partner now sees a line on Home saying why no partner reminders come to them, with a link to choose who is on the team, instead of a Home with no explanation. Only while contact log or key dates is on.
 - An urgent update no longer emails staff who have not chosen to get email. It still skips the wait for a schedule, but only reaches logins that have picked a digest schedule (a new login has not until they do under My account), and the count in the "send urgently" confirmation matches. Public subscribers, GroupMe and WhatsApp are unchanged.

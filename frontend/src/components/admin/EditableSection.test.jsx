@@ -55,3 +55,29 @@ describe("EditableSection", () => {
     expect(onSave).not.toHaveBeenCalled();
   });
 });
+
+describe("EditableSection edit hint", () => {
+  it("shows a small Edit word on a card you can edit, and not on a read-only one", () => {
+    const { container, rerender } = render(
+      <EditableSection
+        title="Overview"
+        value={{ a: 1 }}
+        view={() => <p>x</p>}
+        edit={() => <p>y</p>}
+        onSave={() => {}}
+      />
+    );
+    expect(container.querySelector(".editable-hint")?.textContent).toBe("Edit");
+    rerender(
+      <EditableSection
+        title="Overview"
+        value={{ a: 1 }}
+        view={() => <p>x</p>}
+        edit={() => <p>y</p>}
+        onSave={() => {}}
+        canEdit={false}
+      />
+    );
+    expect(container.querySelector(".editable-hint")).toBeNull();
+  });
+});
