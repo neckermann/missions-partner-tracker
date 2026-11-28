@@ -309,3 +309,23 @@ describe("AdminBooklet accent resolution", () => {
     expect(getCoverAccent()).toMatch(/^#[0-9A-Fa-f]{6}$/);
   });
 });
+
+describe("AdminBooklet notes page default", () => {
+  const notesPages = () => (getPreviewHtml().match(/booklet-notes-page/g) || []).length;
+
+  it("starts with no notes page, which also leaves prayer requests off", async () => {
+    fetchPartners.mockResolvedValue([OPEN_MISSIONARY]);
+    render(<AdminBooklet />);
+    await waitFor(() => expect(getPreviewHtml()).toContain("Open Missionary"));
+    expect(screen.getByRole("checkbox", { name: /Notes & Prayer Page/ })).not.toBeChecked();
+    expect(notesPages()).toBe(0);
+  });
+
+  it("ticking the notes page adds one facing page per entry", async () => {
+    fetchPartners.mockResolvedValue([OPEN_MISSIONARY]);
+    render(<AdminBooklet />);
+    await waitFor(() => expect(getPreviewHtml()).toContain("Open Missionary"));
+    fireEvent.click(screen.getByRole("checkbox", { name: /Notes & Prayer Page/ }));
+    await waitFor(() => expect(notesPages()).toBeGreaterThan(0));
+  });
+});

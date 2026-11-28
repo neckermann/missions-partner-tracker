@@ -922,7 +922,8 @@ decorative shapes, bold accent rules, and a rectangular photo) — choose
 who's included (archived, restricted-access, organizations), and what
 shows on each page (photo, overview, location, address, family info,
 sending church/org, and an optional facing **Notes & Prayer Page** with
-ruled lines for the reader's own handwritten notes). **Restricted-access
+ruled lines for the reader's own handwritten notes, which starts unticked, so a
+booklet is half as many pages until you tick it). **Restricted-access
 partners are left out until you tick the box** (it is unticked when
 the page opens); once ticked, the page says how many restricted
 partners are included and cautions that they print with their real
