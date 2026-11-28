@@ -369,7 +369,7 @@ const lastHeardFrom = {
     });
     return { partners, contactLogOn, filesOn, prayersOn, defaultStaleDays };
   },
-  compute({ partners, contactLogOn, filesOn, prayersOn, defaultStaleDays }, params, { today }) {
+  compute({ partners, contactLogOn, filesOn = true, prayersOn = true, defaultStaleDays }, params, { today }) {
     const asOf = params.asOf || today;
     const staleDays = params.staleDays ?? defaultStaleDays ?? 90;
     const latest = (list, key) => list.reduce((m, x) => (!m || x[key] > m ? x[key] : m), null);
