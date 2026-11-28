@@ -43,13 +43,19 @@ async function makeGuest(tag) {
   const password = "RouteTestKeyDate123!";
   const user = await prisma.user.upsert({
     where: { email },
-    update: { passwordHash: await bcrypt.hash(password, 4), role: "guest", active: true },
+    update: {
+      passwordHash: await bcrypt.hash(password, 4),
+      role: "guest",
+      active: true,
+      lastLoginAt: new Date(),
+    },
     create: {
       email,
       firstName: tag,
       passwordHash: await bcrypt.hash(password, 4),
       role: "guest",
       authProvider: "local",
+      lastLoginAt: new Date(), // has signed in: a seat held only by an invite does not take reminders
       active: true,
     },
   });

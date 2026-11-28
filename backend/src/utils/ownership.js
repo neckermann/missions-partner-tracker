@@ -1,7 +1,9 @@
 // Who looks after a partner: the one rule every "which partners are mine?" and "who gets this reminder?"
 // feature uses (key-date reminders, My partners, the reach-out and updates-to-pass-on alerts).
 //
-//   1. The partner's own care team (its active members), when Care teams is on and the partner has one.
+//   1. The partner's own care team (its active members who have signed in at least once), when Care teams is on
+//      and the partner has one. A person who was only invited, and has not yet signed in, cannot see or act on
+//      a reminder, so until they do the partner's reminders stay with the missions team.
 //   2. Otherwise the church's missions team: every active, non-guest login with onMissionsTeam.
 //
 // A church that never turns Care teams on is simply the second case for every partner. The group's name is
@@ -9,6 +11,10 @@
 
 const prisma = require("../prismaClient");
 const { isFeatureEnabled } = require("./features");
+
+// A care team seat that can act on reminders: an active login that has signed in. A pending invite (no
+// sign-in yet) holds the seat but does not take reminders away from the missions team.
+const ACTIVE_CARER = { active: true, lastLoginAt: { not: null } };
 
 async function careTeamsOn() {
   const settings = await prisma.churchSettings.findUnique({
@@ -28,12 +34,12 @@ async function missionsTeamIds() {
   return rows.map((r) => r.id);
 }
 
-// The partner's own team: Map(partnerId -> [userId]) of active members, empty when Care teams is off.
+// The partner's own team: Map(partnerId -> [userId]) of active members who have signed in, empty when Care teams is off.
 async function careTeamsByPartner(partnerIds) {
   const map = new Map();
   if (partnerIds.length === 0 || !(await careTeamsOn())) return map;
   const seats = await prisma.careTeamMember.findMany({
-    where: { partnerId: { in: partnerIds }, user: { active: true } },
+    where: { partnerId: { in: partnerIds }, user: ACTIVE_CARER },
     select: { partnerId: true, userId: true },
   });
   seats.forEach((s) => map.set(s.partnerId, [...(map.get(s.partnerId) || []), s.userId]));
@@ -67,7 +73,7 @@ async function partnersOwnedBy(userId) {
     const partners = await prisma.partner.findMany({
       where: {
         archived: false,
-        ...(teamsOn ? { careTeam: { none: { user: { active: true } } } } : {}),
+        ...(teamsOn ? { careTeam: { none: { user: ACTIVE_CARER } } } : {}),
       },
       select: { id: true, createdAt: true },
     });
