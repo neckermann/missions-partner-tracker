@@ -103,7 +103,7 @@ async function redeemSignInLink(token, now = new Date()) {
 
 // The emailed link itself.
 async function sendSignInLinkEmail(user) {
-  const { renderEmail, blocks } = require("./emailTemplate");
+  const { renderEmail, blocks, SHARED_INBOX_NOTE } = require("./emailTemplate");
   const { sendEmail } = require("./email");
   const settings = await prisma.churchSettings.findUnique({ where: { id: "singleton" } });
   const { token } = await issueSignInLink(user);
@@ -121,6 +121,7 @@ async function sendSignInLinkEmail(user) {
       blocks.note(
         `This link works once and expires in ${LINK_TTL_MINUTES} minutes. After you sign in you'll be asked to add a passkey, so next time you can sign in with your fingerprint, face or screen lock.`
       ),
+      blocks.note(SHARED_INBOX_NOTE),
     ],
     footerNote: "Didn't ask for this? You can safely ignore it -- nobody can sign in without the link.",
   });

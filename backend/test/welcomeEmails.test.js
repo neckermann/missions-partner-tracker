@@ -67,3 +67,32 @@ test("tokens are random, url-safe, and hashed deterministically", () => {
   assert.equal(hashToken(a), hashToken(a));
   assert.notEqual(hashToken(a), a);
 });
+
+test("every email with a sign-in or setup link says not to forward it (#592)", () => {
+  const { buildPasswordResetEmail } = require("../src/utils/welcomeEmails");
+  const { SHARED_INBOX_NOTE } = require("../src/utils/emailTemplate");
+  const welcome = buildWelcomeEmail({
+    ...base,
+    user: { firstName: "Sam", role: "editor" },
+    requireMfa: false,
+  });
+  const reset = buildPasswordResetEmail({
+    user: { firstName: "Sam" },
+    resetUrl: "https://app.example/set-password?token=abc",
+    expiresInHours: 1,
+    settings,
+  });
+  for (const m of [welcome, reset]) {
+    assert.match(m.text, /Don't forward this email/);
+    assert.match(m.text, /shared address such as missions@/);
+    assert.match(m.html, /Don&#39;t forward this email|Don't forward this email/);
+  }
+  assert.match(SHARED_INBOX_NOTE, /ask an administrator/);
+});
+
+test("the welcome email's button and wording match the new-account page", () => {
+  const m = buildWelcomeEmail({ ...base, user: { firstName: "Sam", role: "editor" }, requireMfa: true });
+  assert.match(m.html, /Set up your sign-in/);
+  assert.doesNotMatch(m.html, /Choose your password/);
+  assert.match(m.text, /a passkey on your own phone or computer/);
+});
