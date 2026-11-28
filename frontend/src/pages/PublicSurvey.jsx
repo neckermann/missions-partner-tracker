@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { prepareImage } from "../utils/prepareImage.js";
 import { useParams } from "react-router-dom";
 import PublicSiteHeader from "../components/PublicSiteHeader.jsx";
@@ -21,6 +21,16 @@ export default function PublicSurvey() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [photos, setPhotos] = useState([]);
+  // Answers a "finish later" save could not keep: [{ questionId, label, error }].
+  const [skipped, setSkipped] = useState([]);
+  const resultRef = useRef(null);
+  // Counts sends, so the result is scrolled into view after each one has been drawn.
+  const [sends, setSends] = useState(0);
+
+  useEffect(() => {
+    // The result is beside the buttons, but on a long survey on a phone those can be off screen: bring it into view.
+    if (sends > 0) resultRef.current?.scrollIntoView?.({ block: "center" });
+  }, [sends]);
 
   useEffect(() => {
     let cancelled = false;
@@ -68,15 +78,19 @@ export default function PublicSurvey() {
   async function send(submit) {
     setBusy(true);
     setError("");
+    setSkipped([]);
     try {
       const payload = answersToPayload(survey.questions, answers);
-      if (submit) await submitPublicSurvey(token, payload);
-      else await savePublicSurvey(token, payload);
+      const result = submit
+        ? await submitPublicSurvey(token, payload)
+        : await savePublicSurvey(token, payload);
+      setSkipped(result?.skipped || []);
       setState(submit ? "done" : "saved");
     } catch (err) {
       setError(err.response?.data?.error || "Something went wrong. Please try again.");
     } finally {
       setBusy(false);
+      setSends((n) => n + 1);
     }
   }
 
@@ -95,16 +109,6 @@ export default function PublicSurvey() {
         {(state === "ready" || state === "saved" || state === "done") && survey && (
           <>
             {survey.intro && <p style={{ whiteSpace: "pre-wrap", color: "var(--muted)" }}>{survey.intro}</p>}
-            {state === "done" && (
-              <p role="status" style={{ color: "var(--accent)" }}>
-                Thank you, your answers are in. You can change them below until the survey closes.
-              </p>
-            )}
-            {state === "saved" && (
-              <p role="status" style={{ color: "var(--accent)" }}>
-                Saved. You can come back to this same link to finish later.
-              </p>
-            )}
             <SurveyQuestions
               questions={survey.questions}
               answers={answers}
@@ -114,11 +118,39 @@ export default function PublicSurvey() {
               photos={photos}
               supportMenu={survey.supportMenu}
             />
-            {error && (
-              <p className="form-error" role="alert">
-                {error}
-              </p>
-            )}
+            {/* Where the person is looking after pressing a button, not above the questions. */}
+            <div ref={resultRef}>
+              {error && (
+                <p className="form-error" role="alert">
+                  {error}
+                </p>
+              )}
+              {!error && state === "done" && (
+                <p role="status" style={{ color: "var(--accent)" }}>
+                  Thank you, your answers are in. You can change them below until the survey closes.
+                </p>
+              )}
+              {!error && state === "saved" && skipped.length === 0 && (
+                <p role="status" style={{ color: "var(--accent)" }}>
+                  Saved. You can come back to this same link to finish later.
+                </p>
+              )}
+              {!error && skipped.length > 0 && (
+                <div role="alert" className="form-error">
+                  <p style={{ margin: "0 0 0.25rem" }}>
+                    {state === "done" ? "Your answers are in, except for these" : "Saved, except for these"}:
+                  </p>
+                  <ul style={{ margin: 0, paddingLeft: "1.2rem" }}>
+                    {skipped.map((item) => (
+                      <li key={item.questionId}>
+                        <strong>{item.label}</strong>: {item.error}
+                      </li>
+                    ))}
+                  </ul>
+                  <p style={{ margin: "0.25rem 0 0" }}>Please fix them and save again.</p>
+                </div>
+              )}
+            </div>
             <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
               <button type="button" className="btn" disabled={busy} onClick={() => send(true)}>
                 {state === "done" ? "Update my answers" : "Submit"}

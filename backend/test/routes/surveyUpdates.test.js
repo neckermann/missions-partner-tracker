@@ -573,18 +573,26 @@ describe("survey packs and updates", () => {
     assert.equal(by["Reach you by"].labels.whatsapp, "WhatsApp");
     assert.equal(by.Phone.field, undefined, "the record's field name is never sent to the partner");
 
-    // Junk is refused with the question's name, and nothing is kept.
+    // Junk is reported with the question's name and nothing invalid is kept. A "finish later" save still succeeds
+    // (the rest of the answers are kept); submitting refuses the lot.
     const put = (answers) => anon(`/api/public/surveys/${token}`, { method: "PUT", body: { answers } });
+    const submitAnswers = (answers) =>
+      anon(`/api/public/surveys/${token}/submit`, { method: "POST", body: { answers } });
     const junkPhone = await put([{ questionId: qid.Phone, value: "dsafdsfsadf" }]);
-    assert.equal(junkPhone.status, 400);
-    assert.match(junkPhone.body.error, /^Phone: That doesn't look like a phone number/);
+    assert.equal(junkPhone.status, 200);
+    assert.equal(junkPhone.body.skipped[0].label, "Phone");
+    assert.match(junkPhone.body.skipped[0].error, /^That doesn't look like a phone number/);
     const junkEmail = await put([{ questionId: qid.Email, value: "not an email" }]);
-    assert.equal(junkEmail.status, 400);
-    assert.match(junkEmail.body.error, /^Email: That doesn't look like an email address/);
+    assert.equal(junkEmail.status, 200);
+    assert.equal(junkEmail.body.skipped[0].label, "Email");
+    assert.match(junkEmail.body.skipped[0].error, /^That doesn't look like an email address/);
     const longName = await put([{ questionId: qid["Contact name"], value: "x".repeat(121) }]);
-    assert.equal(longName.status, 400);
-    assert.match(longName.body.error, /120 characters/);
+    assert.equal(longName.status, 200);
+    assert.match(longName.body.skipped[0].error, /120 characters/);
     assert.equal(await prisma.surveyAnswer.count({ where: { response: { surveyId: made.id } } }), 0);
+    const strictPhone = await submitAnswers([{ questionId: qid.Phone, value: "dsafdsfsadf" }]);
+    assert.equal(strictPhone.status, 400);
+    assert.match(strictPhone.body.error, /^Phone: That doesn't look like a phone number/);
 
     // Staff filling it in for the partner go through the same check.
     const staff = await editor(`/api/surveys/${made.id}/partner/${partner.id}`, {
@@ -608,7 +616,12 @@ describe("survey packs and updates", () => {
     assert.equal(valueOf("Email"), "old@example.test");
     assert.equal(valueOf("Contact name"), "Sam Doe");
     const badChoice = await put([{ questionId: qid["Reach you by"], value: "Ping me" }]);
-    assert.equal(badChoice.status, 400, "a choice that was typed into the question is not offered");
+    assert.equal(badChoice.status, 200, "a finish-later save still succeeds");
+    assert.equal(
+      badChoice.body.skipped[0].label,
+      "Reach you by",
+      "a choice that was typed in is not offered"
+    );
 
     const submit = await anon(`/api/public/surveys/${token}/submit`, {
       method: "POST",

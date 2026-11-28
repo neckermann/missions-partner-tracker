@@ -247,6 +247,49 @@ describe("surveys", () => {
     await editor(`/api/surveys/${survey.id}`, { method: "PUT", body: { status: "open" } });
   });
 
+  test("'save and finish later' keeps the valid answers and says which it could not keep; submit stays all-or-nothing", async () => {
+    const mate = (
+      await admin("/api/partners", {
+        method: "POST",
+        body: { kind: "missionary", displayName: `${FIXTURE_TAG} surveyR` },
+      })
+    ).body;
+    const { token, tokenHash, expiresAt } = newInviteToken();
+    await prisma.surveyInvite.create({
+      data: { surveyId: survey.id, partnerId: mate.id, tokenHash, expiresAt, sentAt: new Date() },
+    });
+    const form = (await anon(`/api/public/surveys/${token}`)).body;
+    const text = form.questions.find((q) => q.kind === "text");
+    const day = form.questions.find((q) => q.kind === "single");
+    const answers = [
+      { questionId: text.id, value: "Doing well" },
+      { questionId: day.id, value: "Not a day on the list" },
+    ];
+
+    const draft = await anon(`/api/public/surveys/${token}`, { method: "PUT", body: { answers } });
+    assert.equal(draft.status, 200, JSON.stringify(draft.body));
+    assert.equal(draft.body.saved, true);
+    assert.equal(draft.body.skipped.length, 1);
+    assert.equal(draft.body.skipped[0].questionId, day.id);
+    assert.equal(draft.body.skipped[0].label, day.label);
+    assert.ok(draft.body.skipped[0].error, "says why");
+    const back = await anon(`/api/public/surveys/${token}`);
+    assert.deepEqual(
+      back.body.answers.map((a) => a.questionId),
+      [text.id],
+      "the valid answer was kept and the invalid one was not"
+    );
+
+    const strict = await anon(`/api/public/surveys/${token}/submit`, { method: "POST", body: { answers } });
+    assert.equal(strict.status, 400, "submitting still refuses the whole thing");
+
+    const clean = await anon(`/api/public/surveys/${token}`, {
+      method: "PUT",
+      body: { answers: [{ questionId: text.id, value: "Still well" }] },
+    });
+    assert.deepEqual(clean.body.skipped, []);
+  });
+
   test("sending needs outbound email, and lists who can be reached", async () => {
     const send = await editor(`/api/surveys/${survey.id}/send`, {
       method: "POST",

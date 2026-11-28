@@ -103,3 +103,42 @@ describe("PublicSurvey", () => {
     expect(screen.getByRole("button", { name: "Update my answers" })).toBeInTheDocument();
   });
 });
+
+describe("PublicSurvey: where the result shows, and what a save could not keep", () => {
+  it("shows the saved and thank-you messages after the questions, beside the buttons, not above them", async () => {
+    fetchPublicSurvey.mockResolvedValue(survey);
+    renderPage();
+    const question = await screen.findByRole("textbox", { name: /How are you/ });
+    fireEvent.click(screen.getByRole("button", { name: "Save and finish later" }));
+    const saved = await screen.findByText(/Saved. You can come back/);
+    expect(question.compareDocumentPosition(saved) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const submitBtn = screen.getByRole("button", { name: "Submit" });
+    expect(saved.compareDocumentPosition(submitBtn) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("brings the result into view after a save", async () => {
+    const scroll = vi.fn();
+    window.HTMLElement.prototype.scrollIntoView = scroll;
+    fetchPublicSurvey.mockResolvedValue(survey);
+    renderPage();
+    fireEvent.click(await screen.findByRole("button", { name: "Save and finish later" }));
+    await screen.findByText(/Saved. You can come back/);
+    await waitFor(() => expect(scroll).toHaveBeenCalled());
+  });
+
+  it("names each answer a finish-later save could not keep, and does not say everything was saved", async () => {
+    fetchPublicSurvey.mockResolvedValue(survey);
+    savePublicSurvey.mockResolvedValue({
+      saved: true,
+      submitted: false,
+      skipped: [{ questionId: "q2", label: "Phone", error: "That doesn't look like a phone number." }],
+    });
+    renderPage();
+    fireEvent.click(await screen.findByRole("button", { name: "Save and finish later" }));
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Saved, except for these");
+    expect(alert).toHaveTextContent("Phone: That doesn't look like a phone number.");
+    expect(alert).toHaveTextContent("Please fix them and save again");
+    expect(screen.queryByText(/Saved. You can come back/)).toBeNull();
+  });
+});

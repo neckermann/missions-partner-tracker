@@ -108,7 +108,12 @@ async function save(req, res, next, submit) {
       submit,
     });
     if (result.error) return res.status(400).json({ error: result.error });
-    res.json({ saved: true, submitted: Boolean(result.response.submittedAt) });
+    res.json({
+      saved: true,
+      submitted: Boolean(result.response.submittedAt),
+      // Answers a "finish later" save could not keep (and why); the rest were saved.
+      skipped: result.skipped || [],
+    });
   } catch (err) {
     next(err);
   }
