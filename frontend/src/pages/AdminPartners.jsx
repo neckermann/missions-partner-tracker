@@ -347,7 +347,10 @@ export default function AdminPartners() {
       )}
 
       {showAssigned ? (
-        <AssignedPartnersTable />
+        <AssignedPartnersTable
+          show={searchParams.get("show")}
+          onShowAll={() => setSearchParams({ assigned: "1" }, { replace: true })}
+        />
       ) : (
         <>
           <FilterBar

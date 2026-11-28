@@ -1574,9 +1574,12 @@ reach, so it isn't offered at all rather than doing nothing silently.
 
 Checking it and saving sends that item immediately — to GroupMe, to
 admins, and to confirmed public subscribers, whichever of those your
-church currently has turned on — bypassing everyone's own chosen
-schedule. You'll see a confirmation naming the real number of admins
-and public subscribers about to be notified before it actually sends.
+church currently has turned on — without waiting for anyone's schedule.
+It only emails people who have chosen to get email (a staff login has to
+pick a schedule under My account first; a new login has not, so on a new
+install no staff are emailed until they do; they still see it in the app
+and in chat). You'll see a confirmation naming the real number of admins
+and public subscribers about to be emailed before it actually sends.
 
 What it doesn't bypass: a restricted partner's item still waits on
 review exactly as it would without the checkbox (see [Reviewing a

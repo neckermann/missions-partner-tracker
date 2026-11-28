@@ -626,7 +626,7 @@ describe("contact log: needs-attention notification and the Last heard from repo
     let cat = find(await g("/api/notifications/summary"));
     assert.ok(cat, "a care team guest sees the category");
     assert.equal(cat.count, 1);
-    assert.equal(cat.linkTo, "/admin/partners?assigned=1");
+    assert.equal(cat.linkTo, "/admin/partners?assigned=1&show=reachout");
 
     await log(admin, entry(partner.id, { contactDate: new Date().toISOString().slice(0, 10) }));
     cat = find(await g("/api/notifications/summary"));
