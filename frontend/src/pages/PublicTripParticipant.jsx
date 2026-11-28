@@ -190,7 +190,7 @@ export default function PublicTripParticipant() {
   if (notFound) {
     return (
       <div>
-        <PublicSiteHeader title="Trip" />
+        <PublicSiteHeader plain title="Trip" />
         <div className="admin-shell">
           <p>This page couldn't be found.</p>
         </div>
@@ -206,7 +206,7 @@ export default function PublicTripParticipant() {
   return (
     <div>
       <meta name="robots" content="noindex" />
-      <PublicSiteHeader title={`${data.firstName} ${data.lastName || ""}`} />
+      <PublicSiteHeader plain title={`${data.firstName} ${data.lastName || ""}`} />
       <DemoBanner />
       <div className="admin-shell" style={{ maxWidth: 680 }}>
         {/* Same card in both render modes: one header, one layout to maintain. */}

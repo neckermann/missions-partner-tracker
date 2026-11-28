@@ -96,7 +96,7 @@ export default function PublicSurvey() {
 
   return (
     <div>
-      <PublicSiteHeader title={survey?.title || "Survey"} />
+      <PublicSiteHeader plain title={survey?.title || "Survey"} />
       <DemoBanner />
       <div className="admin-shell" style={{ maxWidth: 640 }}>
         {state === "loading" && <p>Loading…</p>}

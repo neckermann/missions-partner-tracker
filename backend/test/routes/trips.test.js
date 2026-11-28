@@ -183,6 +183,70 @@ describe("Trips: restricted-partner handling -- three different rules, not one",
   });
 });
 
+describe("Trips: a link to a trip that is not taking applications says so", () => {
+  test("private and public links answer 404 with applications_closed; restricted trips do not name themselves", async () => {
+    const partner = await createPartner();
+    const trip = await admin("/api/trips", {
+      method: "POST",
+      body: {
+        partnerId: partner.id,
+        status: "accepting_applications",
+        isPublic: true,
+        type: "Construction",
+        name: "Closing Trip",
+      },
+    });
+    assert.equal(trip.status, 201);
+    const token = (await admin(`/api/trips/${trip.body.id}/generate-application-link`, { method: "POST" }))
+      .body.applicationShareToken;
+    assert.equal((await anon(`/api/public/trips/by-token/${token}`)).status, 200);
+
+    const closed = await admin(`/api/trips/${trip.body.id}`, {
+      method: "PUT",
+      body: { status: "completed" },
+    });
+    assert.equal(closed.status, 200, JSON.stringify(closed.body));
+
+    for (const path of [`/api/public/trips/by-token/${token}`, `/api/public/trips/${trip.body.id}`]) {
+      const res = await anon(path);
+      assert.equal(res.status, 404, path);
+      assert.equal(res.body.code, "applications_closed", path);
+      assert.equal(res.body.tripName, "Closing Trip", path);
+    }
+
+    // Not public: the plain route still says nothing about it.
+    await admin(`/api/trips/${trip.body.id}`, { method: "PUT", body: { isPublic: false } });
+    const hidden = await anon(`/api/public/trips/${trip.body.id}`);
+    assert.equal(hidden.status, 404);
+    assert.equal(hidden.body.code, undefined);
+
+    // An unknown token is still just "Not found".
+    const unknown = await anon("/api/public/trips/by-token/not-a-real-token");
+    assert.equal(unknown.status, 404);
+    assert.equal(unknown.body.code, undefined);
+  });
+
+  test("a restricted partner's closed trip does not give its name", async () => {
+    const partner = await createPartner({ isRestricted: true });
+    const trip = await admin("/api/trips", {
+      method: "POST",
+      body: {
+        partnerId: partner.id,
+        status: "accepting_applications",
+        type: "Construction",
+        name: "Secret Place Trip",
+      },
+    });
+    const token = (await admin(`/api/trips/${trip.body.id}/generate-application-link`, { method: "POST" }))
+      .body.applicationShareToken;
+    await admin(`/api/trips/${trip.body.id}`, { method: "PUT", body: { status: "completed" } });
+    const res = await anon(`/api/public/trips/by-token/${token}`);
+    assert.equal(res.body.code, "applications_closed");
+    assert.equal(res.body.tripName, null);
+    assert.ok(!JSON.stringify(res.body).includes("Secret Place"));
+  });
+});
+
 describe("Trips: lost-link recovery enumeration prevention", () => {
   test("response is identical whether or not the email matches anything", async () => {
     const partner = await createPartner();
