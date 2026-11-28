@@ -57,6 +57,13 @@ test("supportChange classifies new, increase, decrease, ended, unchanged", () =>
   assert.equal(d.supportChange([entry(100, "2025-01-01"), entry(150, "2026-05-01")], from, to).delta, 50);
 });
 
+test("prayerState: a request dated after the day reported on is open for 0 days, not minus one", () => {
+  const day = (s) => new Date(`${s}T00:00:00Z`);
+  const r = d.prayerState({ status: "ongoing", dateReceived: day("2026-06-02") }, day("2026-06-01"));
+  assert.equal(r.ageDays, 0);
+  assert.equal(r.bucket, "0-30 days");
+});
+
 test("prayerState: open ages bucket, answered gets days-to-answer, untracked is neither", () => {
   const today = day("2026-06-01");
   const open = d.prayerState({ status: "ongoing", dateReceived: day("2026-05-20") }, today);

@@ -118,7 +118,8 @@ function prayerState(request, asOf) {
     };
   }
   if (request.status === "ongoing") {
-    const ageDays = daysBetween(asOf, request.dateReceived);
+    // A request dated after the day being reported on (tomorrow, say) has been open for no days, not minus one.
+    const ageDays = Math.max(0, daysBetween(asOf, request.dateReceived));
     return { state: "open", daysToAnswer: null, ageDays, bucket: ageBucket(ageDays) };
   }
   return { state: "untracked", daysToAnswer: null, ageDays: null, bucket: null };

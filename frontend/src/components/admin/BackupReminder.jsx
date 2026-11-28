@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { fetchBackupCheck } from "../../api/client.js";
+import useCurrentUser from "../../hooks/useCurrentUser.js";
 import useNotifications from "../../hooks/useNotifications.js";
 
 const PROVIDER_MESSAGES = {
@@ -19,16 +20,19 @@ const PROVIDER_MESSAGES = {
 // here only for provider detection (cosmetic message content).
 export default function BackupReminder() {
   const [provider, setProvider] = useState(null);
+  const { isAdmin, loading } = useCurrentUser();
   const { categories, markSeen } = useNotifications();
   const category = categories.find((c) => c.key === "timeToCheckBackups");
 
   useEffect(() => {
+    // Admins only: anyone else would get a 403 on every page.
+    if (loading || !isAdmin) return;
     fetchBackupCheck()
       .then((data) => setProvider(data?.provider || "other"))
       .catch(() => {
-        // Not an admin, or the check failed: no reminder, never an error.
+        // The check failed: no reminder, never an error.
       });
-  }, []);
+  }, [isAdmin, loading]);
 
   if (!provider || !category || category.count === 0) return null;
 
