@@ -8,6 +8,7 @@ import PublicTripOpportunities from "./pages/PublicTripOpportunities.jsx";
 import PublicTripApplication from "./pages/PublicTripApplication.jsx";
 import PublicTripParticipant from "./pages/PublicTripParticipant.jsx";
 import PublicTripAccessRecovery from "./pages/PublicTripAccessRecovery.jsx";
+import NotFound from "./pages/NotFound.jsx";
 import PublicSurvey from "./pages/PublicSurvey.jsx";
 import Login from "./pages/Login.jsx";
 import SignInLink from "./pages/SignInLink.jsx";
@@ -432,7 +433,10 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                   <Route path="users" element={<AdminUsers />} />
                   <Route path="users/new" element={<AdminUserForm />} />
                 </Route>
+                {/* An unknown address under /admin: a message inside the shell, not a blank page. */}
+                <Route path="*" element={<NotFound inAdmin />} />
               </Route>
+              <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>
         </ErrorBoundary>
