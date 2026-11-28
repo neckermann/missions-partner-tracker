@@ -759,3 +759,72 @@ describe("Trips: adding or approving a participant catches up on existing requir
     );
   });
 });
+
+describe("Trips: turning on public fundraising pages after people were added", () => {
+  test("gives everyone already on a team a page, and keeps the ones they had", async () => {
+    const partner = await createPartner();
+    const trip = await admin("/api/trips", {
+      method: "POST",
+      body: { partnerId: partner.id, type: "Construction", startDate: "2027-06-15", endDate: "2027-06-22" },
+    });
+    assert.equal(trip.status, 201);
+    await setTripsSettings({ allowPublicSupportRaisingLinks: false });
+    const made = await Promise.all(
+      ["Early One", "Early Two"].map((firstName, i) =>
+        prisma.tripParticipant.create({
+          data: {
+            tripId: trip.body.id,
+            firstName,
+            email: `early-${i}-${Date.now()}@example.test`,
+            shareToken: null,
+          },
+        })
+      )
+    );
+    const keeper = await prisma.tripParticipant.create({
+      data: {
+        tripId: trip.body.id,
+        firstName: "Has One",
+        email: `has-one-${Date.now()}@example.test`,
+        shareToken: "existing-token-123",
+      },
+    });
+
+    const res = await admin("/api/settings/trips", {
+      method: "PUT",
+      body: { allowPublicSupportRaisingLinks: true },
+    });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+
+    const after = await prisma.tripParticipant.findMany({
+      where: { id: { in: [...made.map((m) => m.id), keeper.id] } },
+    });
+    for (const p of after.filter((p) => p.id !== keeper.id))
+      assert.ok(p.shareToken, `${p.firstName} now has a page`);
+    assert.equal(
+      after.find((p) => p.id === keeper.id).shareToken,
+      "existing-token-123",
+      "an existing one is kept"
+    );
+  });
+
+  test("turning it off, or saving something else, does not hand out pages", async () => {
+    await setTripsSettings({ allowPublicSupportRaisingLinks: false });
+    const partner = await createPartner();
+    const trip = await admin("/api/trips", {
+      method: "POST",
+      body: { partnerId: partner.id, type: "Construction", startDate: "2027-06-15", endDate: "2027-06-22" },
+    });
+    const p = await prisma.tripParticipant.create({
+      data: {
+        tripId: trip.body.id,
+        firstName: "No Page",
+        email: `no-page-${Date.now()}@example.test`,
+        shareToken: null,
+      },
+    });
+    await admin("/api/settings/trips", { method: "PUT", body: { enableTripBudgeting: false } });
+    assert.equal((await prisma.tripParticipant.findUnique({ where: { id: p.id } })).shareToken, null);
+    await setTripsSettings({ allowPublicSupportRaisingLinks: true });
+  });
+});

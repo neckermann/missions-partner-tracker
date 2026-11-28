@@ -7,6 +7,7 @@ const { requireFeature } = require("../middleware/requireFeature");
 const { APPLICATION_QUESTION_SCHEMA, REQUIREMENT_TEMPLATE_SCHEMA } = require("../utils/applicationQuestions");
 const { loadChurchLists, replaceQuestions, replaceRequirementItems } = require("../utils/tripTemplates");
 
+const { generateShareToken } = require("../utils/tripAccessToken");
 const router = express.Router();
 router.use(requireAuth);
 
@@ -88,6 +89,10 @@ router.put("/trips", requireFeature("trips"), requireRole("admin"), async (req, 
     } = tripsSettingsSchema.parse(req.body);
     // #394: the four lists are real rows; each one sent replaces that list whole, in its order.
     const updated = await prisma.$transaction(async (tx) => {
+      const before = await tx.churchSettings.findUnique({
+        where: { id: "singleton" },
+        select: { allowPublicSupportRaisingLinks: true },
+      });
       const row = await tx.churchSettings.upsert({
         where: { id: "singleton" },
         create: { id: "singleton", ...data, updatedById: req.user.id },
@@ -98,6 +103,21 @@ router.put("/trips", requireFeature("trips"), requireRole("admin"), async (req, 
       if (tripQuestionLibrary) await replaceQuestions(tx, "library", null, tripQuestionLibrary);
       if (tripRequirementTemplate) await replaceRequirementItems(tx, "template", tripRequirementTemplate);
       if (tripRequirementLibrary) await replaceRequirementItems(tx, "library", tripRequirementLibrary);
+      // A fundraising page is made when someone joins a team, but only while this setting is on. Turning it on
+      // later used to leave everyone already on a team without one, so give them theirs now (never replacing one
+      // that exists).
+      if (data.allowPublicSupportRaisingLinks === true && !before?.allowPublicSupportRaisingLinks) {
+        const missing = await tx.tripParticipant.findMany({
+          where: { shareToken: null },
+          select: { id: true },
+        });
+        for (const p of missing) {
+          await tx.tripParticipant.update({
+            where: { id: p.id },
+            data: { shareToken: generateShareToken() },
+          });
+        }
+      }
       return row;
     });
     res.json({ ...updated, ...(await loadChurchLists()) });
