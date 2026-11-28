@@ -6,7 +6,7 @@
 // blob: docs/assets/guide.js reimplements GitHub's heading-slug algorithm so the
 // #anchors resolve). They are project documentation, not church branding, so
 // they aren't configurable per fork.
-const { renderEmail, blocks } = require("./emailTemplate");
+const { renderEmail, blocks, SHARED_INBOX_NOTE } = require("./emailTemplate");
 const { buildSetupUrl, setupTtlHours, RESET_TTL_HOURS } = require("./passwordSetup");
 
 const DOCS_BASE = "https://missionspartnertracker.com";
@@ -56,19 +56,20 @@ function buildWelcomeEmail({ user, setupUrl, expiresInHours, settings, requireMf
     greetingName: user.firstName,
     blocks: [
       blocks.paragraph(intro),
-      blocks.button(setupUrl, "Choose your password"),
+      blocks.button(setupUrl, "Set up your sign-in"),
       blocks.note(
         `This link works once and expires in ${expiry}. If it expires, you can request a new one from the sign-in page.`
       ),
       requireMfa
         ? blocks.paragraph(
-            "After you choose a password you'll be asked to set up two-factor authentication. You'll need an authenticator app on your phone -- we'll walk you through choosing and installing one."
+            "You'll choose how you will sign in: a passkey on your own phone or computer (your fingerprint, face or screen lock), or a password plus an authenticator app on your phone. We'll walk you through it."
           )
         : null,
+      blocks.note(SHARED_INBOX_NOTE),
       blocks.links("Helpful links:", guides),
     ],
     footerNote:
-      "Didn't expect this email? You can safely ignore it -- no account is active until you choose a password.",
+      "Didn't expect this email? You can safely ignore it -- no account is active until you set up your sign-in.",
   });
 }
 
@@ -113,6 +114,7 @@ function buildPasswordResetEmail({ user, resetUrl, expiresInHours, settings }) {
         `Someone asked to reset the password for your account on ${church}'s missions tracker.`
       ),
       blocks.button(resetUrl, "Choose a new password"),
+      blocks.note(SHARED_INBOX_NOTE),
       blocks.note(
         `This link works once and expires in ${describeExpiry(expiresInHours)}. Other devices signed in to your account will be signed out when you choose a new password.`
       ),

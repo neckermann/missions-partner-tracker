@@ -128,4 +128,9 @@ function renderEmail({ settings, subject, eyebrow, greetingName, blocks: list, f
   return message;
 }
 
-module.exports = { renderEmail, blocks, safeUrl };
+// Added to every email that carries a link which lets whoever opens it set up how to sign in to an account (#592):
+// a forwarded message, or a shared inbox such as missions@, would otherwise hand the account to anyone who reads it.
+const SHARED_INBOX_NOTE =
+  "Don't forward this email. Whoever opens this link can set up how to sign in to your account, so if several people read this inbox (a shared address such as missions@), ask an administrator to send it to you another way instead.";
+
+module.exports = { renderEmail, blocks, safeUrl, SHARED_INBOX_NOTE };

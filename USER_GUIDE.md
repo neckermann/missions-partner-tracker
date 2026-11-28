@@ -1252,7 +1252,7 @@ public demo.
 **+ Add User** opens its own page: email, name,
 role (Admin, Editor, Viewer, or Guest — pick at least one trip for a
 Guest), then how they'll get access — **Send a welcome email** (on
-by default) emails them a one-time "Choose your password" link so you
+by default) emails them a one-time "Set up your sign-in" link so you
 never type or see their password; **Require two-factor authentication at
 first sign-in** can be turned on at the same time. **With email off**
 (or switched on but not finished setting up) the page never offers to
