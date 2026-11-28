@@ -960,8 +960,8 @@ export async function verifyMfaLogin(pendingToken, code, { recovery = false } = 
 }
 
 // A fresh set of recovery codes (the old ones stop working). Needs the current password.
-export async function regenerateRecoveryCodes(password) {
-  const { data } = await api.post("/auth/mfa/recovery-codes", { password });
+export async function regenerateRecoveryCodes(password, proof) {
+  const { data } = await api.post("/auth/mfa/recovery-codes", proof ? { passkeyProof: proof } : { password });
   return data; // { recoveryCodes }
 }
 
@@ -1025,8 +1025,19 @@ export async function registerPasskey(label, setupToken) {
   return data;
 }
 
-export async function removePasskey(id, password) {
-  const { data } = await api.delete(`/auth/passkeys/${id}`, { data: { password } });
+// A fresh touch of one of the person's own passkeys, as proof it is them in place of a password (an account made
+// with a passkey alone has none). The result goes with the action as `passkeyProof`.
+export async function confirmWithPasskey() {
+  const { data: begin } = await api.post("/auth/passkeys/reauth/options");
+  const response = await startAuthentication({ optionsJSON: begin.options });
+  return { challengeToken: begin.challengeToken, response };
+}
+
+// `proof` (from confirmWithPasskey) replaces the password for an account that has none.
+export async function removePasskey(id, password, proof) {
+  const { data } = await api.delete(`/auth/passkeys/${id}`, {
+    data: proof ? { passkeyProof: proof } : { password },
+  });
   return data;
 }
 

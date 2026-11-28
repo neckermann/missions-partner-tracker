@@ -94,7 +94,49 @@ async function consumeChallenge(token, { purpose, userId }) {
 const toB64u = (buf) => Buffer.from(buf).toString("base64url");
 const fromB64u = (s) => new Uint8Array(Buffer.from(String(s), "base64url"));
 
+// A fresh passkey touch as proof of who is at the keyboard, in place of the password, for the few actions that ask
+// for one (removing a passkey, making new recovery codes). Someone whose account has no password (a passkey-only
+// account) has no other way to prove it. `proof` is { challengeToken, response } from /reauth/options and the
+// browser's answer. The challenge is single use, bound to this person, and the credential must be one of theirs.
+// Returns true or false, never why, so a refusal reveals nothing.
+async function verifyFreshPasskey(req, userId, proof) {
+  const { verifyAuthenticationResponse } = require("@simplewebauthn/server");
+  const prisma = require("../prismaClient");
+  const { challengeToken, response } = proof || {};
+  if (!response || typeof response.id !== "string") return false;
+  const passkey = await prisma.userPasskey.findFirst({ where: { userId, credentialId: response.id } });
+  if (!passkey) return false;
+  const challenge = await consumeChallenge(challengeToken, { purpose: "reauth", userId });
+  if (!challenge) return false;
+  const rp = relyingParty(req);
+  let verification;
+  try {
+    verification = await verifyAuthenticationResponse({
+      response,
+      expectedChallenge: challenge,
+      expectedOrigin: rp.origins,
+      expectedRPID: rp.rpID,
+      requireUserVerification: true,
+      credential: {
+        id: passkey.credentialId,
+        publicKey: fromB64u(passkey.publicKey),
+        counter: passkey.counter,
+        transports: passkey.transports,
+      },
+    });
+  } catch {
+    return false;
+  }
+  if (!verification.verified) return false;
+  await prisma.userPasskey.update({
+    where: { id: passkey.id },
+    data: { counter: verification.authenticationInfo.newCounter, lastUsedAt: new Date() },
+  });
+  return true;
+}
+
 module.exports = {
+  verifyFreshPasskey,
   configuredOrigin,
   wrongAddressMessage,
   MAX_PASSKEYS,

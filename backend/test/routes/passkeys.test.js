@@ -3,6 +3,9 @@
 // adding one, signing in with it, a replayed or wrongly-signed assertion, a response for
 // another site, the limit of five, removing one (and not the last while two-factor is
 // required), the admin reset, and forced enrolment finishing with a passkey instead of a code.
+// This file removes passkeys more than ten times in one run, past the limit on that action (which
+// securityHardening.test.js tests at its real value), so it raises the limit for its own server.
+process.env.SENSITIVE_AUTH_MAX = "1000";
 const { test, describe, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 require("dotenv").config({ quiet: true });
@@ -395,6 +398,134 @@ describe("admin reset and forced enrolment", () => {
     } finally {
       await setRequirement(false);
     }
+  });
+});
+
+// #591: an account with no password (made with a passkey only) confirms removing a passkey, or making new
+// recovery codes, with a fresh touch of one of its own passkeys instead.
+describe("confirming with a fresh passkey touch (no password)", () => {
+  async function passkeyOnlyUser(tag) {
+    const user = await makeUser(tag);
+    const { cookie } = await login(user.email);
+    const who = as(cookie);
+    const a = newAuthenticator();
+    const b = newAuthenticator();
+    await addPasskey(who, a, "Laptop");
+    await addPasskey(who, b, "Lost phone");
+    // No password from here on, as for an account made with a passkey alone. The session stays valid.
+    await prisma.user.update({ where: { id: user.id }, data: { passwordHash: null } });
+    return { user, who, a, b };
+  }
+  const proofFrom = async (who, authenticator) => {
+    const opts = await who("/api/auth/passkeys/reauth/options", { method: "POST" });
+    assert.equal(opts.status, 200, JSON.stringify(opts.body));
+    return {
+      challengeToken: opts.body.challengeToken,
+      response: authenticator.assert(opts.body.options.challenge),
+    };
+  };
+
+  test("a passkey-only account removes a lost passkey with a touch, and a password is refused", async () => {
+    const { who, a } = await passkeyOnlyUser("reauth-remove");
+    const list = await who("/api/auth/passkeys");
+    assert.equal(list.body.hasPassword, false);
+    const lost = list.body.passkeys.find((p) => p.label === "Lost phone");
+
+    const none = await who(`/api/auth/passkeys/${lost.id}`, { method: "DELETE", body: {} });
+    assert.equal(none.status, 400);
+    assert.match(none.body.error, /Confirm with your passkey/);
+    const pw = await who(`/api/auth/passkeys/${lost.id}`, { method: "DELETE", body: { password: PASSWORD } });
+    assert.equal(pw.status, 400, "there is no password to match");
+
+    const removed = await who(`/api/auth/passkeys/${lost.id}`, {
+      method: "DELETE",
+      body: { passkeyProof: await proofFrom(who, a) },
+    });
+    assert.equal(removed.status, 200, JSON.stringify(removed.body));
+    assert.equal((await who("/api/auth/passkeys")).body.passkeys.length, 1);
+  });
+
+  test("a touch is single use, and someone else's passkey or a wrong challenge is refused", async () => {
+    const { who, a, b } = await passkeyOnlyUser("reauth-refuse");
+    const list = (await who("/api/auth/passkeys")).body.passkeys;
+    const target = list.find((p) => p.label === "Lost phone");
+
+    // Another person's passkey (not one of this account's) does not count.
+    const stranger = newAuthenticator();
+    const opts = await who("/api/auth/passkeys/reauth/options", { method: "POST" });
+    const wrongKey = {
+      challengeToken: opts.body.challengeToken,
+      response: stranger.assert(opts.body.options.challenge),
+    };
+    assert.equal(
+      (await who(`/api/auth/passkeys/${target.id}`, { method: "DELETE", body: { passkeyProof: wrongKey } }))
+        .status,
+      401
+    );
+
+    // A right key answering some other challenge does not count.
+    const wrongChallenge = {
+      challengeToken: opts.body.challengeToken,
+      response: a.assert("not-the-challenge"),
+    };
+    assert.equal(
+      (
+        await who(`/api/auth/passkeys/${target.id}`, {
+          method: "DELETE",
+          body: { passkeyProof: wrongChallenge },
+        })
+      ).status,
+      401
+    );
+
+    // A good touch works once; the same answer replayed does not.
+    const good = await proofFrom(who, b);
+    assert.equal(
+      (await who(`/api/auth/passkeys/${target.id}`, { method: "DELETE", body: { passkeyProof: good } }))
+        .status,
+      200
+    );
+    const other = list.find((p) => p.label === "Laptop");
+    assert.equal(
+      (await who(`/api/auth/passkeys/${other.id}`, { method: "DELETE", body: { passkeyProof: good } }))
+        .status,
+      401,
+      "the same touch cannot be used twice"
+    );
+  });
+
+  test("no passkey, no touch: options are refused when the account has none", async () => {
+    const user = await makeUser("reauth-none");
+    const { cookie } = await login(user.email);
+    const res = await as(cookie)("/api/auth/passkeys/reauth/options", { method: "POST" });
+    assert.equal(res.status, 400);
+  });
+
+  test("new recovery codes can be confirmed with a touch too", async () => {
+    const { user, who, a } = await passkeyOnlyUser("reauth-codes");
+    await prisma.user.update({ where: { id: user.id }, data: { mfaSecret: "stub-secret" } });
+    const none = await who("/api/auth/mfa/recovery-codes", { method: "POST", body: {} });
+    assert.equal(none.status, 400);
+    assert.match(none.body.error, /Confirm with your passkey/);
+    const made = await who("/api/auth/mfa/recovery-codes", {
+      method: "POST",
+      body: { passkeyProof: await proofFrom(who, a) },
+    });
+    assert.equal(made.status, 200, JSON.stringify(made.body));
+    assert.ok(made.body.recoveryCodes?.length > 0);
+  });
+
+  test("the password still works for an account that has one", async () => {
+    const user = await makeUser("reauth-password");
+    const { cookie } = await login(user.email);
+    const who = as(cookie);
+    await addPasskey(who, newAuthenticator(), "One");
+    const [p] = (await who("/api/auth/passkeys")).body.passkeys;
+    assert.equal((await who("/api/auth/passkeys")).body.hasPassword, true);
+    assert.equal(
+      (await who(`/api/auth/passkeys/${p.id}`, { method: "DELETE", body: { password: PASSWORD } })).status,
+      200
+    );
   });
 });
 

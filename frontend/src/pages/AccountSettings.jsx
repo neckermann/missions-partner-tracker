@@ -13,6 +13,7 @@ import {
   updateMyProfile,
   fetchPartners,
   fetchPasskeys,
+  confirmWithPasskey,
   registerPasskey,
   removePasskey,
   browserSupportsWebAuthn,
@@ -466,7 +467,9 @@ function PasskeysSection({ onChange }) {
     setSuccess("");
     setBusy(true);
     try {
-      await removePasskey(removing, password);
+      // An account with no password confirms with a fresh touch of one of its own passkeys instead.
+      const proof = list && list.hasPassword === false ? await confirmWithPasskey() : undefined;
+      await (proof ? removePasskey(removing, password, proof) : removePasskey(removing, password));
       setRemoving(null);
       setPassword("");
       setSuccess("Passkey removed.");
@@ -519,18 +522,25 @@ function PasskeysSection({ onChange }) {
                     margin: "0.5rem 0",
                   }}
                 >
-                  <label>
-                    Current Password
-                    <input
-                      type="password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      required
-                    />
-                  </label>
+                  {list.hasPassword === false ? (
+                    <p style={{ margin: 0, color: "var(--muted)" }}>
+                      You have no password, so confirm with a passkey you still have: your device will ask for
+                      your fingerprint, face or screen lock.
+                    </p>
+                  ) : (
+                    <label>
+                      Current Password
+                      <input
+                        type="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        required
+                      />
+                    </label>
+                  )}
                   <div style={{ display: "flex", gap: "0.5rem" }}>
                     <button type="submit" className="btn danger" disabled={busy}>
-                      Remove passkey
+                      {list.hasPassword === false ? "Confirm with a passkey and remove" : "Remove passkey"}
                     </button>
                     <button
                       type="button"
@@ -602,7 +612,8 @@ function MfaSection({ user, onChange }) {
     setError("");
     setBusy(true);
     try {
-      const { recoveryCodes } = await regenerateRecoveryCodes(codesPassword);
+      const proof = user.hasPassword === false ? await confirmWithPasskey() : undefined;
+      const { recoveryCodes } = await regenerateRecoveryCodes(codesPassword, proof);
       setCodesPassword("");
       setShownCodes(recoveryCodes);
       await onChange();
@@ -702,15 +713,22 @@ function MfaSection({ user, onChange }) {
               marginBottom: "1rem",
             }}
           >
-            <label>
-              Your password, to make new recovery codes
-              <input
-                type="password"
-                value={codesPassword}
-                onChange={(e) => setCodesPassword(e.target.value)}
-                required
-              />
-            </label>
+            {user.hasPassword === false ? (
+              <p style={{ margin: 0, color: "var(--muted)" }}>
+                You have no password, so you confirm with a passkey: your device will ask for your
+                fingerprint, face or screen lock.
+              </p>
+            ) : (
+              <label>
+                Your password, to make new recovery codes
+                <input
+                  type="password"
+                  value={codesPassword}
+                  onChange={(e) => setCodesPassword(e.target.value)}
+                  required
+                />
+              </label>
+            )}
             <div>
               <button type="submit" className="btn secondary" disabled={busy}>
                 Make a new set of recovery codes

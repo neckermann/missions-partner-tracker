@@ -161,7 +161,14 @@ app.use(
 // Authenticated endpoints that still guess at a secret: a session is not a
 // guess limiter. /mfa/verify-setup (6-digit code), /mfa/disable and
 // /change-password (current password).
-const sensitiveAuthLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10 });
+// SENSITIVE_AUTH_MAX is for a test file that makes more than ten such calls in one run; unset, it is ten.
+const sensitiveAuthLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max:
+    Number.isInteger(Number(process.env.SENSITIVE_AUTH_MAX)) && Number(process.env.SENSITIVE_AUTH_MAX) > 0
+      ? Number(process.env.SENSITIVE_AUTH_MAX)
+      : 10,
+});
 app.use("/api/auth/mfa/verify-setup", sensitiveAuthLimiter);
 app.use("/api/auth/mfa/disable", sensitiveAuthLimiter);
 // Passkey sign-in guesses a pending token; the emailed-link request sends mail

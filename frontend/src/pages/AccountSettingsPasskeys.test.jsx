@@ -17,6 +17,8 @@ vi.mock("../api/client.js", () => ({
   fetchPasskeys: vi.fn(),
   registerPasskey: vi.fn(),
   removePasskey: vi.fn(),
+  confirmWithPasskey: vi.fn(),
+  regenerateRecoveryCodes: vi.fn(),
   browserSupportsWebAuthn: vi.fn(() => true),
 }));
 vi.mock("../context/SettingsContext.jsx", () => ({
@@ -94,6 +96,32 @@ describe("Passkeys on My account", () => {
     fireEvent.change(screen.getByLabelText("Current Password"), { target: { value: "hunter2hunter2" } });
     fireEvent.click(screen.getByRole("button", { name: "Remove passkey" }));
     await waitFor(() => expect(client.removePasskey).toHaveBeenCalledWith("p1", "hunter2hunter2"));
+  });
+
+  test("an account with no password removes a passkey by confirming with a passkey, never asking for a password", async () => {
+    client.fetchCurrentUser.mockResolvedValue(
+      user({ mfaEnabled: true, passkeyCount: 2, hasPassword: false })
+    );
+    client.fetchPasskeys.mockResolvedValue({
+      passkeys: [passkey(), passkey({ id: "p2", label: "Laptop" })],
+      max: 5,
+      hasPassword: false,
+    });
+    client.confirmWithPasskey.mockResolvedValue({ challengeToken: "t", response: { id: "x" } });
+    client.removePasskey.mockResolvedValue({ ok: true });
+    render(<AccountSettings />);
+    expect(await screen.findByText("My phone")).toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole("button", { name: "Remove" })[0]);
+    expect(screen.queryByLabelText("Current Password")).not.toBeInTheDocument();
+    expect(screen.getByText(/You have no password/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Confirm with a passkey and remove" }));
+    await waitFor(() =>
+      expect(client.removePasskey).toHaveBeenCalledWith("p1", "", {
+        challengeToken: "t",
+        response: { id: "x" },
+      })
+    );
+    expect(client.confirmWithPasskey).toHaveBeenCalledTimes(1);
   });
 
   test("shows the server's reason when the last factor can't be removed", async () => {
