@@ -2,6 +2,7 @@ const express = require("express");
 const prisma = require("../prismaClient");
 const { requireRole } = require("../middleware/requireAuth");
 const { checkForUpdate, APP_VERSION } = require("../utils/versionCheck");
+const { isTestingSite } = require("../utils/demoMode");
 
 const router = express.Router();
 router.use(requireRole("admin"));
@@ -29,7 +30,18 @@ router.get("/", async (req, res, next) => {
       prisma.$queryRaw`SELECT pg_database_size(current_database()) AS bytes`,
     ]);
 
+    // Things an administrator should see at a glance because they are almost never meant to be on. The testing-
+    // site setting turns off a public demo's guards (passwordless sign-in, real sends); one mistaken variable on
+    // a demo the public can reach would end password sign-in for its published logins.
+    const warnings = [];
+    if (isTestingSite()) {
+      warnings.push(
+        "DEMO_TESTING_SITE is set, so this site is running as a testing site: the public-demo guards are off (passwordless sign-in is allowed, and real integration keys can send). If the public can reach this site, remove that setting."
+      );
+    }
+
     res.json({
+      warnings,
       app: {
         version: APP_VERSION,
         updateAvailable: update?.updateAvailable ?? false,

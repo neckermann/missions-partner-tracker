@@ -16,6 +16,10 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ## [Unreleased]
 
+### Security
+
+- **A public demo refuses passkeys, and System Info warns about the testing-site setting (#595).** On a public demo a visitor could add up to five passkeys to a shared, published login. Adding one is now refused there (the owner's own test deployment, which sets `DEMO_TESTING_SITE`, is not guarded and can still add them). System Info also shows a warning at the top when `DEMO_TESTING_SITE` is set, because one mistaken setting on a demo the public can reach would end password sign-in for its published logins.
+
 ## [0.1.0-beta.4] - 2026-11-27
 
 ### Upgrading

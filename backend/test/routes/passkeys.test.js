@@ -399,31 +399,23 @@ describe("admin reset and forced enrolment", () => {
 });
 
 describe("the public demo", () => {
-  test("lets a visitor add and remove a passkey, but never asks for one at sign-in", async () => {
+  test("refuses a visitor adding a passkey to the shared login, and never asks for one at sign-in", async () => {
     const user = await makeUser("demo");
     process.env.DEMO_RESET_TOKEN = "test-demo-token";
     try {
       const first = await login(user.email);
       const who = as(first.cookie);
-      const a = newAuthenticator();
-      assert.equal((await addPasskey(who, a, "Try it")).status, 200);
+      // A published, shared login: a passkey added to it would let a visitor sign in as that account (#595).
+      assert.equal((await who("/api/auth/passkeys/register/options", { method: "POST" })).status, 403);
       const list = await who("/api/auth/passkeys");
       assert.equal(list.body.demo, true);
-      assert.equal(list.body.passkeys.length, 1);
+      assert.equal(list.body.passkeys.length, 0);
 
-      // The login is shared, so someone else signing in is not asked for the passkey...
+      // The login is shared, so someone else signing in is not asked for a passkey either.
       const second = await login(user.email);
       assert.equal(second.body.mfaRequired, undefined);
       assert.ok(second.cookie.includes("="), "a normal session");
-      // ...and adding one didn't end the sessions that were already open.
       assert.equal((await as(first.cookie)("/api/auth/me")).status, 200);
-
-      const id = list.body.passkeys[0].id;
-      const removed = await who(`/api/auth/passkeys/${id}`, {
-        method: "DELETE",
-        body: { password: PASSWORD },
-      });
-      assert.equal(removed.status, 200, JSON.stringify(removed.body));
     } finally {
       delete process.env.DEMO_RESET_TOKEN;
     }
