@@ -63,6 +63,7 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ### Fixed
 
+- A "Follow up by" date on an old contact entry no longer shows as still waiting once a later contact has answered it; it reads "Followed up (was due ...)". It now follows the same rule as the reminder.
 - A care team member who has been invited but has never signed in no longer takes a partner's reminders (birthdays and anniversaries, reach-outs, updates to pass on) away from the missions team. Until they sign in for the first time the reminders stay with the missions team; the seat is kept and takes over at their first sign-in.
 - One definition of a "quiet" partner. My partners, its bell item and the care chat's quiet-partner post now start the quiet count again whenever a partner is heard from in any way (a logged contact, a newsletter filed, a prayer request received or a visit to your church), the same four things the Last heard from report counts, instead of the contact log alone. The column is renamed "Last heard from". The grace period and "Not this season" work as before.
 - With no public page switched on (directory, map or prayer sign-up), "Show on public site", the "Not public" pills and the Public filter no longer appear on the add-partner form, a partner's page and the Partners list, and the prayer request form offers a single "Include in printed booklet" box instead of "Show on public profile". What was ticked before is kept and returns when a public page is turned on.
