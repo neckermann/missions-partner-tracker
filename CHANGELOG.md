@@ -24,13 +24,11 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 - **Emails that carry a sign-in or setup link say not to forward them (#592).** The setup, password-reset and emailed sign-in-link emails now include a note: whoever opens the link can set up how to sign in to the account, so if several people read the inbox (a shared address such as `missions@`), ask an administrator to send it another way. The welcome email's button now reads "Set up your sign-in" and its text matches the new-account page (a passkey on your own device, or a password plus an authenticator app).
 
+- **A public demo refuses passkeys, and System Info warns about the testing-site setting (#595).** On a public demo a visitor could add up to five passkeys to a shared, published login. Adding one is now refused there (the owner's own test deployment, which sets `DEMO_TESTING_SITE`, is not guarded and can still add them). System Info also shows a warning at the top when `DEMO_TESTING_SITE` is set, because one mistaken setting on a demo the public can reach would end password sign-in for its published logins.
+
 ### Changed
 
 - **Knowing an administrator's email is no longer enough to lock them out (#594).** Failed sign-ins are now counted per address and account: ten failures from one address stop that address, not the real person signing in from somewhere else. A higher ceiling (five times as many, from any mix of addresses) still stops a guesser who keeps changing address, but an address that has signed in with a correct password before (remembered in memory for 30 days) is let through. The same applies to wrong two-factor codes.
-
-### Security
-
-- **A public demo refuses passkeys, and System Info warns about the testing-site setting (#595).** On a public demo a visitor could add up to five passkeys to a shared, published login. Adding one is now refused there (the owner's own test deployment, which sets `DEMO_TESTING_SITE`, is not guarded and can still add them). System Info also shows a warning at the top when `DEMO_TESTING_SITE` is set, because one mistaken setting on a demo the public can reach would end password sign-in for its published logins.
 
 ## [0.1.0-beta.4] - 2026-11-27
 
