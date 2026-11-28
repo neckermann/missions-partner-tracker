@@ -50,7 +50,7 @@ export default function AssignedPartnersTable() {
     },
     {
       key: "daysSinceContact",
-      label: "Last contact",
+      label: "Last heard from",
       sortable: true,
       // A partner nobody has contacted ranks by how long they have been on the list, not above everyone.
       sortBy: (r) => r.daysSinceContact ?? r.daysOnList ?? 0,

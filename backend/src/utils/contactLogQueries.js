@@ -8,6 +8,7 @@ const { autoLogForPrayerRequest } = require("./contactLog");
 const { emailBlockReason, surveyEmailFor } = require("./contactReach");
 const { careTimings } = require("./careSettings");
 const { partnersOwnedBy } = require("./ownership");
+const { lastHeardFromByPartner } = require("./lastHeardFrom");
 
 // Latest contact date per partner, from the log alone. Any entry counts: "has anyone been in touch".
 async function lastContactByPartner(partnerIds) {
@@ -62,6 +63,11 @@ async function loadAssignedPartners(userId, today = new Date()) {
       })
     : [];
   const byId = new Map(partners.map((p) => [p.id, p]));
+  // The quiet clock runs from the last time we heard from them in any way (utils/lastHeardFrom.js), not just the log.
+  const heardFrom = await lastHeardFromByPartner(
+    partners.map((p) => p.id),
+    today
+  );
   const seats = owned
     .filter((o) => byId.has(o.partnerId))
     .map((o) => ({
@@ -72,7 +78,7 @@ async function loadAssignedPartners(userId, today = new Date()) {
     }));
 
   const rows = seats.map(({ isLead, createdAt: seatSince, partner: p, viaMissionsTeam }) => {
-    const last = p.contactLogs.reduce((m, l) => (!m || l.contactDate > m ? l.contactDate : m), null);
+    const last = heardFrom.get(p.id) || null;
     const daysSinceContact = last ? daysBetween(today, last) : null;
     const followUp = openFollowUp(p.contactLogs);
     const followUpDue = !!followUp && daysBetween(today, followUp) >= 0;

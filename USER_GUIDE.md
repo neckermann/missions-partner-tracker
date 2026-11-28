@@ -1042,13 +1042,13 @@ A **trip leader** (a Guest given a trip) has a smaller view: their trips, and th
 
 #### My partners
 
-**My partners** is a tab on the Partners page for anyone on a care team. It lists your partners longest-quiet first: days since the last contact, any follow-up that has come due, the next birthday or anniversary, and open prayer requests and needs. A partner counts as **quiet** after 90 days without a logged contact.
+**My partners** is a tab on the Partners page for anyone on a care team. It lists your partners longest-quiet first: days since the last contact, any follow-up that has come due, the next birthday or anniversary, and open prayer requests and needs. A partner counts as **quiet** after 90 days of not hearing from them: a logged contact, a newsletter filed, a prayer request they sent or a visit to your church each start the count again. The 90 days is a church setting.
 
 ![The My partners tab, listing a care team member's partners longest-quiet first](docs/assets/screenshots/assigned-to-me.png)
 
 **Partners to reach out to**, on the bell and the Home page, counts your partners that are quiet or have a follow-up due.
 
-It works with the [Contact log](#contact-log): logging a contact is what resets a partner's quiet days.
+It works with the [Contact log](#contact-log): logging a contact resets a partner's quiet days, and so does anything else that shows they are in touch (the same four things the **Last heard from** report counts). The column is called **Last heard from**.
 
 A partner nobody has contacted yet is not called quiet straight away: their quiet days count from the day they joined your list, so a new install (or a partner you just added) is not instantly all overdue. For a partner in a busy or private season, open **Edit contact** and set **Not this season**: until that day they are left out of "quiet" on My partners, the bell and the care chat posts, and My partners shows "Not this season until ...". A follow-up date you set on purpose still shows. Clear the date to bring them back.
 
