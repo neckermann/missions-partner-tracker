@@ -12,12 +12,15 @@ const NAV_LINKS = [
     to: "/subscribe",
     label: (partnerTermPlural) => `Pray for our ${partnerTermPlural}`,
     feature: "publicPrayerDigest",
+    // Hidden too while signing up cannot work (no working email), so the link never leads to "Not found".
+    needs: "publicSubscribeAvailable",
   },
   { to: "/trips", label: "Trip Opportunities", feature: "publicTripDiscovery" },
 ];
 
 export default function PublicSiteHeader({ title, subtitle, children }) {
-  const { logo, partnerTermPlural, enabledFeatures } = useSettings();
+  const settings = useSettings();
+  const { logo, partnerTermPlural, enabledFeatures, churchName } = settings;
   const { pathname } = useLocation();
 
   return (
@@ -25,17 +28,27 @@ export default function PublicSiteHeader({ title, subtitle, children }) {
       <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
         {logo?.url && <img src={logo.url} alt="" className="header-logo" />}
         <div>
+          {/* Whose site this is, on every public page (the page title says what the page is). */}
+          {churchName && <p className="header-church">{churchName}</p>}
           <h1>{title}</h1>
           {subtitle && <p className="header-tagline">{subtitle}</p>}
         </div>
       </div>
       <div className="app-header-nav">
-        {NAV_LINKS.filter((l) => l.to !== pathname && enabledFeatures[l.feature]).map((l) => (
+        {NAV_LINKS.filter(
+          (l) => l.to !== pathname && enabledFeatures[l.feature] && (!l.needs || settings[l.needs] !== false)
+        ).map((l) => (
           <Link key={l.to} to={l.to} style={{ color: "white" }}>
             {typeof l.label === "function" ? l.label(partnerTermPlural) : l.label}
           </Link>
         ))}
         {children}
+        {/* The way in for the team, on every public page. */}
+        {pathname !== "/login" && (
+          <Link to="/login" style={{ color: "white", opacity: 0.85 }}>
+            Team sign in
+          </Link>
+        )}
         {/* Visitors follow their device's setting unless they pick Light or Dark here. */}
         <ThemeToggle compact />
       </div>

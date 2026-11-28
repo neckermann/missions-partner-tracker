@@ -11,12 +11,6 @@ export default function NotFound({ inAdmin = false }) {
       <p>The address may be mistyped, or the page may have been moved or removed.</p>
       <p>
         <Link to={inAdmin ? "/admin" : "/"}>{inAdmin ? "Go to Home" : "Go to the home page"}</Link>
-        {!inAdmin && (
-          <>
-            {" · "}
-            <Link to="/login">Team sign in</Link>
-          </>
-        )}
       </p>
     </>
   );

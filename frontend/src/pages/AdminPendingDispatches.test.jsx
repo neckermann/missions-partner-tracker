@@ -2,7 +2,7 @@ import React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import AdminPendingDispatches from "./AdminPendingDispatches.jsx";
-import { fetchPendingDispatches, updatePendingDispatch } from "../api/client.js";
+import { fetchPendingDispatches, updatePendingDispatch, deletePendingDispatch } from "../api/client.js";
 
 // A care team member's prayer request or need is held for staff review whatever the partner.
 // The page has to say WHY it's held ("entered by a care team member", not "restricted"), and
@@ -14,11 +14,12 @@ vi.mock("../api/client.js", () => ({
   updatePendingDispatch: vi.fn(),
 }));
 let confirmArgs;
+let confirmAnswer = false;
 vi.mock("../hooks/useConfirmDialog.jsx", () => ({
   default: () => ({
     confirm: vi.fn(async (args) => {
       confirmArgs = args;
-      return false; // looking at the dialog is enough; don't actually approve
+      return confirmAnswer; // false by default: looking at the dialog is enough; don't actually approve
     }),
     confirmElement: null,
   }),
@@ -44,6 +45,7 @@ const blurb = (over) => ({
 
 beforeEach(() => {
   confirmArgs = null;
+  confirmAnswer = false;
   vi.clearAllMocks();
 });
 
@@ -122,5 +124,35 @@ describe("with no way to send (the email-off option for dispatches)", () => {
     render(<AdminPendingDispatches />);
     await screen.findByText("Updates to Share");
     expect(screen.queryByText("Nothing here goes out on its own")).toBeNull();
+  });
+});
+
+describe("AdminPendingDispatches -- Clear asks first", () => {
+  it("deletes nothing unless the confirmation is accepted", async () => {
+    await renderWith([blurb({ needsReview: false })]);
+    fireEvent.click(screen.getByRole("button", { name: "Clear" }));
+    await waitFor(() => expect(confirmArgs).not.toBeNull());
+    expect(confirmArgs.title).toBe("Clear this update?");
+    expect(confirmArgs.danger).toBe(true);
+    expect(deletePendingDispatch).not.toHaveBeenCalled();
+  });
+
+  it("clears it once confirmed", async () => {
+    confirmAnswer = true;
+    deletePendingDispatch.mockResolvedValue();
+    await renderWith([blurb({ needsReview: false })]);
+    fireEvent.click(screen.getByRole("button", { name: "Clear" }));
+    await waitFor(() => expect(deletePendingDispatch).toHaveBeenCalledWith("d1"));
+  });
+});
+
+describe("approval wording", () => {
+  it("does not say it goes to both 'your team' and 'the whole congregation'", async () => {
+    await renderWith([blurb({ reviewRequired: true })]);
+    fireEvent.click(screen.getByRole("button", { name: "Approve" }));
+    await waitFor(() => expect(confirmArgs).not.toBeNull());
+    const { container } = render(confirmArgs.body);
+    expect(container.textContent).not.toMatch(/whole congregation/);
+    expect(container.textContent).toMatch(/can't be taken back/);
   });
 });

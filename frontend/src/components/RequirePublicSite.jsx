@@ -10,11 +10,13 @@ import { fetchSetupStatus } from "../api/client.js";
 //
 // The public directory and map are off on a new install, so this notice is also the front page of a
 // brand-new site: when no account exists yet it sends the person who just deployed it to /setup.
-export default function RequirePublicSite({ feature, children }) {
-  const { enabledFeatures, loading } = useSettings();
+export default function RequirePublicSite({ feature, needs, children }) {
+  const settings = useSettings();
+  const { enabledFeatures, loading, churchName } = settings;
   const navigate = useNavigate();
   const features = Array.isArray(feature) ? feature : [feature];
-  const allowed = features.some((f) => enabledFeatures[f]);
+  // `needs` names a further resolved setting that must be true (e.g. publicSubscribeAvailable: email can send).
+  const allowed = features.some((f) => enabledFeatures[f]) && (!needs || settings[needs] !== false);
 
   useEffect(() => {
     if (allowed || loading) return;
@@ -26,6 +28,7 @@ export default function RequirePublicSite({ feature, children }) {
   if (!allowed) {
     return (
       <div style={{ maxWidth: "32rem", margin: "4rem auto", textAlign: "center", padding: "0 1rem" }}>
+        {churchName && <p style={{ margin: 0, color: "var(--muted)" }}>{churchName}</p>}
         <h1>This isn't public</h1>
         <p style={{ color: "var(--muted)" }}>The church running this site hasn't made this page public.</p>
         <p>

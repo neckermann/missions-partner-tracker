@@ -5,6 +5,7 @@ import DispatchReviewModal from "../components/admin/DispatchReviewModal.jsx";
 import ApproveRestrictedTextConfirmBody from "../components/admin/ApproveRestrictedTextConfirmBody.jsx";
 import ApproveCareTeamTextConfirmBody from "../components/admin/ApproveCareTeamTextConfirmBody.jsx";
 import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
+import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
 import StatusPill from "../components/admin/StatusPill.jsx";
 import Table from "../components/shared/Table.jsx";
 import { truncate } from "../utils/truncate.js";
@@ -159,9 +160,21 @@ export default function AdminPendingDispatches() {
       .finally(() => setLoading(false));
   }, []);
 
-  // Discards a queued item for good, on any row. No confirm dialog, like other deletes here;
-  // it was never sent anywhere.
+  // Discards a queued item for good, on any row. It was never sent anywhere, and there is no getting it back, so
+  // it asks first.
   async function handleClear(id) {
+    const confirmed = await confirmDialog({
+      title: "Clear this update?",
+      body: (
+        <ConfirmMessageBody>
+          It will not be sent anywhere, and it can't be brought back. If you only want to change the wording,
+          open it instead.
+        </ConfirmMessageBody>
+      ),
+      confirmLabel: "Clear",
+      danger: true,
+    });
+    if (!confirmed) return;
     setClearingId(id);
     setError("");
     setSuccess("");
@@ -303,7 +316,8 @@ export default function AdminPendingDispatches() {
           },
         ]}
         renderActions={(row) => (
-          <>
+          // Stacked, not side by side: two buttons in a row pushed Clear past the edge of a phone.
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "stretch", gap: "0.4rem" }}>
             {canWrite && row.blurb.needsReview && (
               <button
                 type="button"
@@ -330,7 +344,7 @@ export default function AdminPendingDispatches() {
                 {clearingId === row.blurb.id ? "Clearing..." : "Clear"}
               </button>
             )}
-          </>
+          </div>
         )}
       />
 

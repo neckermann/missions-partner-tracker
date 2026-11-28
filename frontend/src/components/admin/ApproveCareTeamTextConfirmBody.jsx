@@ -7,10 +7,10 @@ export default function ApproveCareTeamTextConfirmBody({ text }) {
   return (
     <div>
       <p style={{ marginTop: 0 }}>
-        A care team member entered this. Approving lets it be sent to your team by email and chat, with
-        exactly the wording below.
+        A care team member entered this. Approving lets it go out in your chat posts and update emails (and
+        the public prayer digest, if you use it), with exactly the wording below.
       </p>
-      <p>Read it over first: it goes to the whole congregation, not just the team.</p>
+      <p>Read it over first: once it has gone out it can't be taken back.</p>
       <blockquote
         style={{
           margin: "0.75rem 0 0",

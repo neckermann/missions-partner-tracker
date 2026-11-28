@@ -3,6 +3,7 @@ const prisma = require("../prismaClient");
 const { demoGuestLogins } = require("../utils/demoLogins");
 const { isGuardedDemo } = require("../utils/demoMode");
 const { FEATURE_KEYS, isFeatureEnabled } = require("../utils/features");
+const { isOutboundEmailReady } = require("../utils/emailReady");
 
 const router = express.Router();
 
@@ -61,6 +62,14 @@ router.get("/", async (req, res, next) => {
       // this is the one settings endpoint the frontend always has access to (SettingsContext.jsx).
       enabledFeatures: Object.fromEntries(
         FEATURE_KEYS.map((key) => [key, isFeatureEnabled(settings?.enabledFeatures, key)])
+      ),
+      // Whether signing up for prayer updates can actually work (POST /api/public/subscribe): the digest is on,
+      // there is a public directory to follow partners from, and email can really send. Otherwise the form and its
+      // links are hidden instead of answering "Not found".
+      publicSubscribeAvailable: Boolean(
+        isFeatureEnabled(settings?.enabledFeatures, "publicPrayerDigest") &&
+        isFeatureEnabled(settings?.enabledFeatures, "publicDirectory") &&
+        isOutboundEmailReady(settings)
       ),
     });
   } catch (err) {
