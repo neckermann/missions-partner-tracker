@@ -276,13 +276,16 @@ describe("contact log: the all-entries listing", () => {
 });
 
 describe("contact log: fixing and deleting", () => {
-  test("admin and editor can fix and delete; a viewer can only add", async () => {
+  test("admin and editor can fix and delete; a viewer can add and delete only their own, never fix", async () => {
     const made = (await log(viewer, entry(partnerA.id, { notes: "typo" }))).body;
     assert.equal(
       (await viewer(`/api/contact-log/${made.id}`, { method: "PUT", body: { notes: "fixed" } })).status,
       403
     );
-    assert.equal((await viewer(`/api/contact-log/${made.id}`, { method: "DELETE" })).status, 403);
+    // Someone else's entry is not theirs to delete.
+    const others = (await log(admin, entry(partnerA.id, { notes: "by the admin" }))).body;
+    assert.equal((await viewer(`/api/contact-log/${others.id}`, { method: "DELETE" })).status, 403);
+    assert.equal((await admin(`/api/contact-log/${others.id}`, { method: "DELETE" })).status, 204);
 
     const fixed = await editor(`/api/contact-log/${made.id}`, {
       method: "PUT",
@@ -308,8 +311,32 @@ describe("contact log: guests", () => {
     assert.ok(list.body.some((e) => e.id === res.body.id));
     assert.equal((await m(`/api/contact-log?partnerId=${partnerB.id}`)).status, 403);
     assert.equal((await log(m, entry(partnerB.id))).status, 403);
-    // ...but can't fix or delete, even their own entry
-    assert.equal((await m(`/api/contact-log/${res.body.id}`, { method: "DELETE" })).status, 403);
+    // ...can't fix an entry, can delete one they typed in themselves, and never one by someone else
+    assert.equal(
+      (await m(`/api/contact-log/${res.body.id}`, { method: "PUT", body: { notes: "x" } })).status,
+      403
+    );
+    const bySomeoneElse = (await log(admin, entry(partnerA.id, { notes: "by the admin" }))).body;
+    assert.equal((await m(`/api/contact-log/${bySomeoneElse.id}`, { method: "DELETE" })).status, 403);
+    assert.equal((await m(`/api/contact-log/${res.body.id}`, { method: "DELETE" })).status, 204);
+  });
+
+  test("a guest cannot delete their own entry once they no longer reach that partner", async () => {
+    const m = await member.login();
+    const res = await log(m, entry(partnerA.id, { notes: "will lose the seat" }));
+    assert.equal(res.status, 201);
+    await prisma.careTeamMember.deleteMany({ where: { userId: member.user.id, partnerId: partnerA.id } });
+    try {
+      const refused = await m(`/api/contact-log/${res.body.id}`, { method: "DELETE" });
+      assert.ok([401, 403].includes(refused.status), `refused, got ${refused.status}`);
+      assert.ok(
+        await prisma.contactLog.findUnique({ where: { id: res.body.id } }),
+        "the entry is still there"
+      );
+    } finally {
+      await prisma.careTeamMember.create({ data: { userId: member.user.id, partnerId: partnerA.id } });
+      await admin(`/api/contact-log/${res.body.id}`, { method: "DELETE" });
+    }
   });
 
   test("a trip leader (a trip grant alone) has no access, same line as one-time needs", async () => {

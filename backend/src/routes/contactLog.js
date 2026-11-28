@@ -25,7 +25,8 @@ const {
 //
 // Anyone who can see the partner can log a contact: admin, editor, viewer, and
 // a guest with a care team seat on that partner. A trip leader never reaches
-// it, the same line as one-time needs. Fixing or deleting is admin/editor.
+// it, the same line as one-time needs. Fixing is admin/editor; deleting is admin/editor, or a person's own
+// entry.
 const router = express.Router();
 router.use(requireAuth);
 router.use(requireFeature("contactLog"));
@@ -307,13 +308,18 @@ router.put("/:id", requireRole("admin", "editor"), async (req, res, next) => {
   }
 });
 
-router.delete("/:id", requireRole("admin", "editor"), async (req, res, next) => {
+// Admin/editor delete any entry. Anyone else who can use the log may delete only an entry they typed in
+// themselves (a slip), and only for a partner they can still reach.
+router.delete("/:id", async (req, res, next) => {
   try {
     const existing = await prisma.contactLog.findUnique({
       where: { id: req.params.id },
-      select: { id: true },
+      select: { id: true, partnerId: true, createdById: true },
     });
     if (!existing) return res.status(404).json({ error: "Not found" });
+    const isStaff = req.user.role === "admin" || req.user.role === "editor";
+    const isOwn = existing.createdById === req.user.id && canUse(req.user, existing.partnerId);
+    if (!isStaff && !isOwn) return res.status(403).json({ error: "Insufficient permissions" });
     await prisma.contactLog.delete({ where: { id: existing.id } });
     res.status(204).end();
   } catch (err) {

@@ -1068,7 +1068,7 @@ With **Contact log** turned on in [Enabled Features](ADMIN_GUIDE.md#feature-togg
 ![A Contact card under Use caution: the guidelines in a warning, and only the Email button](docs/assets/screenshots/contact-card-caution.png)
 
 - **Don't contact directly:** their phone, email, buttons and preferred way are hidden, replaced by **who to go through** (a name, role, phone and email, with their own **Call** and **Email** buttons) and the guidelines. The printed booklet also leaves out their phone, email, address and preferred way.
-- **Log a contact** with **+ Log contact**: pick what happened (call, text, email, visit, card, video, prayed for them), who reached out, optional topics, the date, who made the contact (you, by default), an optional note and an optional **follow up by** date. Anyone who can see the partner can log one. Only an admin or editor can edit or delete an entry.
+- **Log a contact** with **+ Log contact**: pick what happened (call, text, email, visit, card, video, prayed for them), who reached out, optional topics, the date, who made the contact (you, by default), an optional note and an optional **follow up by** date. Anyone who can see the partner can log one. Only an admin or editor can edit an entry. An admin or editor can delete any entry, and anyone else can delete one they typed in themselves (**Delete my entry**, after a confirmation), for a slip.
 
 ![The Log a contact dialog](docs/assets/screenshots/log-a-contact.png)
 
