@@ -6,6 +6,7 @@ const assert = require("node:assert/strict");
 require("dotenv").config({ quiet: true });
 const bcrypt = require("bcryptjs");
 const prisma = require("../../src/prismaClient");
+const { churchToday } = require("../../src/utils/today");
 const {
   client,
   stopServer,
@@ -56,9 +57,10 @@ async function makeGuest(tag) {
   return { user, login: () => client({ email, password }) };
 }
 
-// A yyyy-mm-dd that is `n` days from today (UTC), `yearsAgo` years back.
+// A yyyy-mm-dd that is `n` days from today (the church's day, as the app counts it, not the UTC day: the two
+// differ for hours every day and a UTC-based test fails then), `yearsAgo` years back.
 function dateIn(n, yearsAgo = 30) {
-  const d = new Date();
+  const d = churchToday();
   const base = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + n);
   const t = new Date(base);
   return `${t.getUTCFullYear() - yearsAgo}-${String(t.getUTCMonth() + 1).padStart(2, "0")}-${String(t.getUTCDate()).padStart(2, "0")}`;
