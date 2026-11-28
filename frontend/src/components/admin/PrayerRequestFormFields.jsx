@@ -1,6 +1,7 @@
 import React from "react";
 import SourcePicker from "./SourcePicker.jsx";
 import { urgentSendDescription } from "../../utils/urgentSend.js";
+import { useSettings } from "../../context/SettingsContext.jsx";
 
 // The field set shared by PrayerRequestSection.jsx (fixed partnerId) and AdminPrayerRequests.jsx.
 // Renders only the form-grid body; callers keep their own onSubmit and buttons.
@@ -20,6 +21,9 @@ export default function PrayerRequestFormFields({
   partnerPicker,
   limited = false,
 }) {
+  // "Include in printed booklet" only means something while the booklet is on.
+  const { enabledFeatures: churchFeatures } = useSettings();
+  const bookletOn = churchFeatures?.booklet !== false;
   return (
     <div className="form-grid">
       {partnerPicker}
@@ -88,7 +92,7 @@ export default function PrayerRequestFormFields({
             />
             Show on public profile
           </label>
-          {form.isPublic && (
+          {form.isPublic && bookletOn && (
             <label title="Eligible to print in the booklet -- the actual number shown per partner is capped there (see the Booklet page) so this section doesn't take over the page.">
               <input
                 type="checkbox"
