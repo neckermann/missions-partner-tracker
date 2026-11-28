@@ -7,6 +7,7 @@ import {
 } from "libphonenumber-js/min";
 import { useSettings } from "../../context/SettingsContext.jsx";
 import { PHONE_COUNTRIES } from "../../utils/phoneCountries.js";
+import FieldHint from "./FieldHint.jsx";
 
 // A phone box with a country picker, that helps while you type and tells you when a number can't be
 // right. Use it through <PhoneField> (components/shared/PhoneField.jsx), which adds the label.
@@ -168,8 +169,13 @@ export default function PhoneInput({ value, onChange, onBlur, country: countryPr
     pass(nextText, next, rest.name);
   }
 
-  const hint = touched ? phoneHint(text, country) : "";
-  const warning = touched && !hint ? phoneCountryWarning(text, country) : "";
+  // What the note under the box would say for this value (a problem, else the "is the country right?" question).
+  // It is laid out (invisibly) as soon as there is one and shown when the box is left, so leaving the box never
+  // moves the page (components/shared/FieldHint.jsx).
+  const pendingHint = phoneHint(text, country);
+  const pendingWarning = pendingHint ? "" : phoneCountryWarning(text, country);
+  const hint = touched ? pendingHint : "";
+  const warning = touched ? pendingWarning : "";
   const code = callingCode(country);
   const noteId = hint || warning ? hintId : rest["aria-describedby"];
 
@@ -208,16 +214,13 @@ export default function PhoneInput({ value, onChange, onBlur, country: countryPr
         aria-invalid={hint ? "true" : undefined}
         aria-describedby={noteId}
       />
-      {hint && (
-        <span id={hintId} role="status" className="phone-hint">
-          {hint}
-        </span>
-      )}
-      {warning && (
-        <span id={hintId} role="status" className="phone-hint phone-warning">
-          {warning}
-        </span>
-      )}
+      <FieldHint
+        id={hintId}
+        text={pendingHint || pendingWarning}
+        show={touched}
+        className="phone-hint"
+        color={pendingHint ? "var(--danger)" : "var(--warn)"}
+      />
     </span>
   );
 }
