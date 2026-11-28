@@ -12,6 +12,18 @@ const { isFeatureEnabled } = require("../utils/features");
 const { getSettings, partnerFieldLabel, tripPartnerSelect } = require("../utils/publicTripShared");
 const { loadApplicantQuestions } = require("../utils/tripTemplates");
 
+// A link that is real but whose trip is not taking applications (yet, or any more). The caller
+// has already shown the link is valid, so saying so reveals nothing. Still a 404 so nothing else changes.
+function applicationsNotOpen(trip) {
+  return {
+    error: "Applications for this trip are not open.",
+    code: "applications_closed",
+    // A restricted partner's trip name can give away where they serve, so it is left out.
+    tripName: trip.partner?.isRestricted ? null : trip.name,
+    status: trip.status,
+  };
+}
+
 const router = express.Router();
 
 // `questions` is the church-wide application questions first, with this trip's own layered
@@ -110,9 +122,10 @@ router.get("/:id", requireFeature("trips"), async (req, res, next) => {
     });
     if (!trip) return res.status(404).json({ error: "Not found" });
     if (trip.partner?.isRestricted) return res.status(404).json({ error: "Not found" });
-    if (!publiclyDiscoverable || !trip.isPublic || trip.status !== "accepting_applications") {
+    if (!publiclyDiscoverable || !trip.isPublic) {
       return res.status(404).json({ error: "Not found" });
     }
+    if (trip.status !== "accepting_applications") return res.status(404).json(applicationsNotOpen(trip));
     res.json(shapeTripForApplicant(trip, settings, await loadApplicantQuestions(trip.id)));
   } catch (err) {
     next(err);
@@ -140,9 +153,8 @@ router.get("/by-token/:token", requireFeature("trips"), async (req, res, next) =
         ...tripPartnerSelect,
       },
     });
-    if (!trip || trip.status !== "accepting_applications") {
-      return res.status(404).json({ error: "Not found" });
-    }
+    if (!trip) return res.status(404).json({ error: "Not found" });
+    if (trip.status !== "accepting_applications") return res.status(404).json(applicationsNotOpen(trip));
     res.json(shapeTripForApplicant(trip, settings, await loadApplicantQuestions(trip.id)));
   } catch (err) {
     next(err);

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import EmailInput from "../components/shared/EmailInput.jsx";
+import EmailInput, { emailHint } from "../components/shared/EmailInput.jsx";
 import PhoneField from "../components/shared/PhoneField.jsx";
 import { useParams, Link } from "react-router-dom";
 import PublicSiteHeader from "../components/PublicSiteHeader.jsx";
@@ -64,13 +64,17 @@ export default function PublicTripApplication() {
   const { id, token } = useParams();
   const [trip, setTrip] = useState(null);
   const [notFound, setNotFound] = useState(false);
+  const [closed, setClosed] = useState(null);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     const fetcher = token ? fetchPublicTripByToken(token) : fetchPublicTrip(id);
-    fetcher.then(setTrip).catch(() => setNotFound(true));
+    fetcher.then(setTrip).catch((err) => {
+      setClosed(err.response?.data?.code === "applications_closed" ? err.response.data : null);
+      setNotFound(true);
+    });
   }, [id, token]);
 
   if (notFound) {
@@ -78,7 +82,11 @@ export default function PublicTripApplication() {
       <div>
         <PublicSiteHeader title="Trip Opportunities" />
         <div className="admin-shell">
-          <p>This trip couldn't be found.</p>
+          <p>
+            {closed
+              ? `Applications for ${closed.tripName} are not open right now.`
+              : "This trip couldn't be found."}
+          </p>
           <Link to="/trips">← Back to Trip Opportunities</Link>
         </div>
       </div>
@@ -109,6 +117,7 @@ export default function PublicTripApplication() {
       validate: (values) => {
         if (!values.firstName.trim() || !values.lastName.trim()) return "First and last name are required.";
         if (!values.email.trim()) return "Email is required.";
+        if (emailHint(values.email)) return "That email address doesn't look right. Please check it.";
         if (!values.dateOfBirth) {
           return "Date of birth is required.";
         }
