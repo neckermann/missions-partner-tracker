@@ -18,6 +18,7 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ### Fixed
 
+- The "Last heard from" report leaves out the columns of a feature that is switched off (newsletters, logged contacts, prayer requests), no longer counts those as hearing from a partner, and no longer says partners "never sent a newsletter" when Newsletters & Docs is off. Its note names only the sources that apply.
 - Two small noises are gone. Non-admins no longer get a refused request (403) to the update and backup checks on every page, because only admins are asked. A prayer request dated after the day being reported on now shows 0 days open in the prayer report, not "−1".
 - Turning on public fundraising pages in Trips settings now gives a page to everyone already on a team, instead of only to people added afterwards (anyone added while it was off never got one, even after it was turned on). Pages they already had are kept.
 - Three trip slips are closed. Setting a trip to Completed from the status dropdown while it has not started now asks first, because it skips the wrap-up; "Wrap up trip" is no longer offered while a trip is still being planned; and clearing "Actual start" in the wrap-up no longer erases the trip's own start date. A trip's private application link also says, on the team page, that it opens the application only while the trip is accepting applications.

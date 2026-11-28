@@ -297,6 +297,13 @@ const partnerRoster = {
   },
 };
 
+// "a, b or c" for a short list of phrases.
+function joinOr(items) {
+  return items.length <= 1
+    ? items.join("")
+    : `${items.slice(0, -1).join(", ")} or ${items[items.length - 1]}`;
+}
+
 const lastHeardFrom = {
   id: "last-heard-from",
   group: "people",
@@ -323,12 +330,14 @@ const lastHeardFrom = {
   ],
   columns: [
     { key: "partnerName", label: "Partner" },
-    { key: "newsletter", label: "Last newsletter", type: "date" },
-    { key: "newsletterDays", label: "Days ago", type: "number" },
-    { key: "contact", label: "Last logged contact", type: "date" },
-    { key: "contactDays", label: "Days ago (contact)", type: "number" },
+    // Each column belongs to the feature that makes it: with Newsletters & Docs, the Contact log or Prayer requests
+    // off, its column is left out rather than shown empty.
+    { key: "newsletter", label: "Last newsletter", type: "date", requiresFeature: "partnerFiles" },
+    { key: "newsletterDays", label: "Days ago", type: "number", requiresFeature: "partnerFiles" },
+    { key: "contact", label: "Last logged contact", type: "date", requiresFeature: "contactLog" },
+    { key: "contactDays", label: "Days ago (contact)", type: "number", requiresFeature: "contactLog" },
     { key: "photo", label: "Last photo", type: "date" },
-    { key: "prayer", label: "Last prayer request", type: "date" },
+    { key: "prayer", label: "Last prayer request", type: "date", requiresFeature: "prayerRequests" },
     { key: "visit", label: "Last church visit", type: "date" },
     { key: "lastPrayedWithCongregation", label: "Last prayed w/ congregation", type: "date" },
   ],
@@ -343,6 +352,8 @@ const lastHeardFrom = {
     });
     const defaultStaleDays = (await careTimings(prisma)).contactStaleDays;
     const contactLogOn = isFeatureEnabled(settings?.enabledFeatures, "contactLog");
+    const filesOn = isFeatureEnabled(settings?.enabledFeatures, "partnerFiles");
+    const prayersOn = isFeatureEnabled(settings?.enabledFeatures, "prayerRequests");
     const partners = await prisma.partner.findMany({
       where: baseWhere(params),
       select: {
@@ -356,15 +367,17 @@ const lastHeardFrom = {
         ...(contactLogOn ? { contactLogs: { select: { contactDate: true } } } : {}),
       },
     });
-    return { partners, contactLogOn, defaultStaleDays };
+    return { partners, contactLogOn, filesOn, prayersOn, defaultStaleDays };
   },
-  compute({ partners, contactLogOn, defaultStaleDays }, params, { today }) {
+  compute({ partners, contactLogOn, filesOn, prayersOn, defaultStaleDays }, params, { today }) {
     const asOf = params.asOf || today;
     const staleDays = params.staleDays ?? defaultStaleDays ?? 90;
     const latest = (list, key) => list.reduce((m, x) => (!m || x[key] > m ? x[key] : m), null);
     const rows = [];
     for (const p of partners) {
-      const newsletter = latest(p.files, "receivedDate");
+      // A source whose feature is off is not counted (a church that does not keep newsletters here has not "never
+      // sent" one).
+      const newsletter = filesOn ? latest(p.files, "receivedDate") : null;
       const days = newsletter ? daysBetween(asOf, newsletter) : null;
       const contact = contactLogOn ? latest(p.contactLogs || [], "contactDate") : null;
       const contactDays = contact ? daysBetween(asOf, contact) : null;
@@ -372,7 +385,7 @@ const lastHeardFrom = {
       // A visit in the future isn't something we have "heard"; only visits up to the as-of day.
       const visitDays = visit && visit <= asOf ? daysBetween(asOf, visit) : null;
       // A prayer request received from them is hearing from them too (not one dated after the day).
-      const prayerDate = latest(p.prayerRequests, "dateReceived");
+      const prayerDate = prayersOn ? latest(p.prayerRequests, "dateReceived") : null;
       const prayerDays = prayerDate && prayerDate <= asOf ? daysBetween(asOf, prayerDate) : null;
       // Days since the most recent of these; null when none exists.
       const quietDays = [days, contactDays, visitDays, prayerDays]
@@ -406,12 +419,21 @@ const lastHeardFrom = {
           label: "Quiet partners",
           value: rows.filter((r) => r._quietDays === null || r._quietDays >= staleDays).length,
         },
-        { label: "Never sent a newsletter", value: rows.filter((r) => r.newsletterDays === null).length },
+        {
+          label: "Never sent a newsletter",
+          value: rows.filter((r) => r.newsletterDays === null).length,
+          requiresFeature: "partnerFiles",
+        },
       ],
       notes: [
-        contactLogOn
-          ? "'Quiet' is measured from the most recent of a newsletter file, a prayer request, a logged contact or a church visit."
-          : "'Quiet' is measured from the most recent of a newsletter file, a prayer request or a church visit.",
+        `'Quiet' is measured from the most recent of ${joinOr(
+          [
+            filesOn && "a newsletter file",
+            prayersOn && "a prayer request",
+            contactLogOn && "a logged contact",
+            "a church visit",
+          ].filter(Boolean)
+        )}.`,
       ],
     };
   },

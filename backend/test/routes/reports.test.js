@@ -167,6 +167,31 @@ describe("GET /api/reports/:id with real seeded data", () => {
     assert.equal(neverRow.lastPrayedWithCongregation, null);
   });
 
+  test("last-heard-from leaves out the columns of a feature that is off, and does not claim nobody sent a newsletter", async () => {
+    await createPartner({ displayName: `${FIXTURE_TAG} No Newsletter Partner` });
+    try {
+      const keys = (body) => body.columns.map((c) => c.key);
+      const labels = (body) => body.summary.map((x) => x.label);
+
+      await setFeatures({ partnerFiles: true, contactLog: true, prayerRequests: true });
+      const on = (await admin("/api/reports/last-heard-from?onlyStale=false")).body;
+      assert.ok(["newsletter", "contact", "prayer"].every((k) => keys(on).includes(k)));
+      assert.ok(labels(on).includes("Never sent a newsletter"));
+
+      await setFeatures({ partnerFiles: false, contactLog: false, prayerRequests: false });
+      const off = (await admin("/api/reports/last-heard-from?onlyStale=false")).body;
+      for (const k of ["newsletter", "newsletterDays", "contact", "contactDays", "prayer"]) {
+        assert.ok(!keys(off).includes(k), `${k} is left out`);
+      }
+      assert.ok(!labels(off).includes("Never sent a newsletter"));
+      assert.ok(keys(off).includes("visit"), "what still applies stays");
+      assert.match(off.notes.join(" "), /a church visit/);
+      assert.doesNotMatch(off.notes.join(" "), /newsletter|prayer request|logged contact/);
+    } finally {
+      await setFeatures(originalEnabledFeatures);
+    }
+  });
+
   test("format=csv returns an actual CSV body, not the JSON shape", async () => {
     const res = await admin("/api/reports/prayer-requests?format=csv");
     assert.equal(res.status, 200);
