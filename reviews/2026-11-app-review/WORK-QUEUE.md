@@ -204,3 +204,26 @@ The owner authorized the release and a reset of the production demo (no church u
 - **Closed as completed:** 42 `in-dev` issues (#489 to #514 except #495, #544 to #548, #555, #571, #575, #578, #579, #586, #587, #589, #596 to #600). **Left open:** #495 (the Deploy to Render Blueprint is untried on a real Render account), #590 (the per-person "require two-factor" checkbox remains), #591 to #595, #601 to #604, #549, #552, and the feature ideas.
 - **Still the owner's:** delete the old worker service (`missions-partner-tracker-worker`, still running old code); tell self-hosted churches `FIELD_ENCRYPTION_KEY` is now required (#550); try the demo's sign-in and guest logins; test the Blueprint on a real Render account (#495).
 
+## After the release: follow-ups on `dev` (2026-11-28)
+
+All on `dev` only; `main` and the production demo are on 0.1.0-beta.4, and the owner decides the next release. Each was one PR, merged when the four checks were green.
+
+| Issue | PR | What |
+|---|---|---|
+| #590 (sign-in page) | #617 | passkey first, then email, then password |
+| #590 (new account) | #619 | the guided "where will you mostly sign in?" page; one limit, 15 seconds, on setup and reset links |
+| #590, #589 | #620 | first-run `/setup` uses the same choice; skippable second-administrator screen |
+| #594 (part) | #628 | sign-in failures counted per address and account. **Open:** the shared sign-in-link limit, and an admin Unlock button (not built, by the owner's choice) |
+| #595 | #630 | public demo refuses passkeys; System Info warns when `DEMO_TESTING_SITE` is set |
+| #592 | #634 | link emails say not to forward them; welcome email wording fixed |
+| #591 | #636 | accounts with no password confirm with a fresh passkey touch |
+| #602 | #637 | nav-link guard cannot pass by finding nothing |
+| #603 | #639 | route-test cleanup fails loudly; waits wait for something |
+| #601 | #640 | two-factor setup and disable have their own tests |
+
+- **Worker service deleted** on the owner's go-ahead (`missions-partner-tracker-worker`, the old background worker on `main`). The four other Render services were left alone.
+- **Demo checked** by the owner; no church uses production, so no notice about `FIELD_ENCRYPTION_KEY` is needed yet (it is in the 0.1.0-beta.4 upgrade notes).
+- **Deferred by the owner:** #604 (cut test time) until #477 settles; #495 (test the Deploy to Render Blueprint on a real account) until #477's new first-run flow is done; the per-person "require two-factor" checkbox (rest of #590) with #477's "Your team" step.
+- **Held:** #593 (email people when their sign-in methods change) for the email rebuild.
+- **Left to the #477 session:** #618 (bugs from the simplify review).
+
