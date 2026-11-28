@@ -46,7 +46,9 @@ after(async () => {
   await prisma.userPasskey.deleteMany({ where: { userId: { in: made } } });
   await prisma.userRecoveryCode.deleteMany({ where: { userId: { in: made } } });
   await prisma.passwordSetupToken.deleteMany({ where: { userId: { in: made } } });
-  await prisma.auditEvent?.deleteMany?.({ where: { targetId: { in: made } } }).catch(() => {});
+  await prisma.auditLog.deleteMany({
+    where: { OR: [{ targetUserId: { in: made } }, { actorUserId: { in: made } }] },
+  });
   await prisma.user.deleteMany({ where: { id: { in: made } } });
   await stopServer();
 });

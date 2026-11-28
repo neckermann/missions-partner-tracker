@@ -9,6 +9,7 @@ const {
   removeTestUsers,
   removeFixturePartners,
   FIXTURE_TAG,
+  cleanupRow,
 } = require("./helpers");
 
 let admin;
@@ -265,7 +266,7 @@ describe("GET /api/dispatches/pending -- any logged-in role", () => {
       }
     } finally {
       await prisma.dispatchRecord.deleteMany({ where: { partnerId: restrictedId } });
-      await prisma.partner.delete({ where: { id: restrictedId } }).catch(() => {});
+      await cleanupRow(prisma.partner.delete({ where: { id: restrictedId } }));
     }
   });
 
@@ -307,7 +308,7 @@ describe("GET /api/dispatches/pending -- any logged-in role", () => {
         body: { restrictedPartnerInitialsEnabled: true },
       });
       await prisma.dispatchRecord.deleteMany({ where: { partnerId: restrictedId } });
-      await prisma.partner.delete({ where: { id: restrictedId } }).catch(() => {});
+      await cleanupRow(prisma.partner.delete({ where: { id: restrictedId } }));
     }
   });
 
@@ -335,7 +336,7 @@ describe("GET /api/dispatches/pending -- any logged-in role", () => {
       assert.equal(item.needsReview, false, "newsletters are review-exempt even for a restricted partner");
     } finally {
       await prisma.dispatchRecord.deleteMany({ where: { partnerId: restrictedId } });
-      await prisma.partner.delete({ where: { id: restrictedId } }).catch(() => {});
+      await cleanupRow(prisma.partner.delete({ where: { id: restrictedId } }));
     }
   });
 });
@@ -464,7 +465,7 @@ describe("restricted-partner notification review & edit (#187)", () => {
 
   after(async () => {
     await prisma.dispatchRecord.deleteMany({ where: { partnerId: restrictedPartnerId } });
-    await prisma.partner.delete({ where: { id: restrictedPartnerId } }).catch(() => {});
+    await cleanupRow(prisma.partner.delete({ where: { id: restrictedPartnerId } }));
   });
 
   async function createRestrictedPrayerRequest(requestText) {

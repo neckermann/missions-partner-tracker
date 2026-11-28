@@ -307,21 +307,37 @@ describe("trips departing soon: one alert", () => {
     assert.ok(keys.includes("tripsDepartingSoon"));
   });
 
+  // Other files share this database, so each test reads the alert before and after adding its own trip and checks
+  // what changed, instead of assuming nothing else is departing soon.
+  const departingSoon = async () => (await alertOf()).find((c) => c.key === "tripsDepartingSoon");
+  const missingIn = (item) => Number(item?.label?.match(/\((\d+) missing something\)/)?.[1] ?? 0);
+
   test("a trip with everything in order counts, with the plain label", async () => {
+    const before = await departingSoon();
     const trip = await makeTrip("all fine", { missing: false });
-    const item = (await alertOf()).find((c) => c.key === "tripsDepartingSoon");
-    assert.equal(item.count, 1);
-    assert.equal(item.label, "Trips departing soon");
-    await prisma.trip.delete({ where: { id: trip.id } });
+    try {
+      const item = await departingSoon();
+      assert.equal(item.count, (before?.count ?? 0) + 1, "this trip is counted");
+      assert.equal(missingIn(item), missingIn(before), "and says nothing is missing for it");
+      if (!before || before.count === 0) assert.equal(item.label, "Trips departing soon");
+    } finally {
+      await prisma.trip.delete({ where: { id: trip.id } });
+    }
   });
 
   test("a trip with something missing says so, and links to its requirements", async () => {
+    const before = await departingSoon();
     const trip = await makeTrip("missing a passport", { missing: true });
-    const item = (await alertOf()).find((c) => c.key === "tripsDepartingSoon");
-    assert.equal(item.count, 1);
-    assert.equal(item.label, "Trips departing soon (1 missing something)");
-    // The link goes straight to the requirements when this is the only trip departing soon.
-    assert.equal(item.linkTo, `/admin/trips/${trip.id}/requirements`);
-    await prisma.trip.delete({ where: { id: trip.id } });
+    try {
+      const item = await departingSoon();
+      assert.equal(item.count, (before?.count ?? 0) + 1, "this trip is counted");
+      assert.equal(missingIn(item), missingIn(before) + 1, "and one more is missing something");
+      assert.match(item.label, /^Trips departing soon \(\d+ missing something\)$/);
+      // The link goes straight to the requirements only when this is the only trip departing soon; with others
+      // (left by another test file) it goes to the list, so that is the one case that can be asserted.
+      if (!before || before.count === 0) assert.equal(item.linkTo, `/admin/trips/${trip.id}/requirements`);
+    } finally {
+      await prisma.trip.delete({ where: { id: trip.id } });
+    }
   });
 });

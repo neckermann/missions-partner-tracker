@@ -7,7 +7,14 @@ const { acquireJobsLock } = require("../../src/utils/backgroundJobs");
 
 const held = [];
 after(async () => {
-  for (const client of held) await client.end().catch(() => {});
+  for (const client of held) {
+    try {
+      await client.end();
+    } catch (err) {
+      // One the test already ended on purpose ("once the first exits") may be asked to end again; nothing else is fine.
+      if (!/already|closed|ended/i.test(String(err?.message))) throw err;
+    }
+  }
 });
 
 describe("the background jobs lock", () => {
