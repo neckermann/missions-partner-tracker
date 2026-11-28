@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { isFollowUpOpen } from "../../utils/followUp.js";
 import {
   fetchContactLogOptions,
   fetchContactTimeline,
@@ -220,8 +221,16 @@ export default function ContactLogSection({
       </div>
       {e.notes && <p style={{ margin: "0.4rem 0 0", whiteSpace: "pre-wrap" }}>{e.notes}</p>}
       {e.followUpDate && (
-        <div style={{ fontSize: "0.85rem", marginTop: "0.3rem" }}>
-          Follow up by {formatDateLong(e.followUpDate)}
+        <div
+          style={{
+            fontSize: "0.85rem",
+            marginTop: "0.3rem",
+            ...(isFollowUpOpen(e, entries) ? {} : { color: "var(--muted)" }),
+          }}
+        >
+          {isFollowUpOpen(e, entries)
+            ? `Follow up by ${formatDateLong(e.followUpDate)}`
+            : `Followed up (was due ${formatDateLong(e.followUpDate)})`}
         </div>
       )}
     </div>

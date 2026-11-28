@@ -210,4 +210,27 @@ describe("ContactLogSection (#288)", () => {
       "/admin/contact-log?partnerId=p9"
     );
   });
+
+  it("shows Follow up by only while it is still waiting; a later contact marks it done", async () => {
+    const old = {
+      ...entry,
+      id: "e0",
+      contactDate: "2026-03-01T00:00:00.000Z",
+      createdAt: "2026-03-01T10:00:00Z",
+      followUpDate: "2026-03-15T00:00:00.000Z",
+    };
+    const later = {
+      ...entry,
+      id: "e2",
+      contactDate: "2026-04-01T00:00:00.000Z",
+      createdAt: "2026-04-01T10:00:00Z",
+    };
+    const { unmount } = renderIt({ entries: [old] });
+    expect(await screen.findByText(/Follow up by/)).toBeTruthy();
+    unmount();
+    renderIt({ entries: [later, old] });
+    await screen.findAllByText("Phone call");
+    expect(screen.queryByText(/Follow up by/)).toBeNull();
+    expect(screen.getByText(/Followed up \(was due/)).toBeTruthy();
+  });
 });
