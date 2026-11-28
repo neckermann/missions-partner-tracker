@@ -181,3 +181,44 @@ describe("alerts for a channel that is on but cannot send", () => {
     assert.equal(item.isNew, false);
   });
 });
+
+describe("the site's web address", () => {
+  const keep = { base: process.env.APP_BASE_URL, render: process.env.RENDER_EXTERNAL_URL };
+  const restore = () => {
+    for (const [name, value] of [
+      ["APP_BASE_URL", keep.base],
+      ["RENDER_EXTERNAL_URL", keep.render],
+    ]) {
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
+    }
+  };
+
+  test("an admin is told once when it is not set and email or surveys would need it", async () => {
+    await setSettings(emailSetUp);
+    try {
+      delete process.env.APP_BASE_URL;
+      delete process.env.RENDER_EXTERNAL_URL;
+      const item = (await alerts()).siteAddressNotSet;
+      assert.ok(item, "the alert is showing");
+      assert.equal(item.linkTo, "/admin/settings/system-info");
+      assert.ok(!(await alerts(editor)).siteAddressNotSet, "an editor is not shown it");
+
+      process.env.APP_BASE_URL = "https://church.example.test";
+      assert.equal((await alerts()).siteAddressNotSet, undefined, "gone once the address is set");
+    } finally {
+      restore();
+    }
+  });
+
+  test("nothing is shown while nothing that builds a link is on", async () => {
+    await setSettings({});
+    try {
+      delete process.env.APP_BASE_URL;
+      delete process.env.RENDER_EXTERNAL_URL;
+      assert.equal((await alerts()).siteAddressNotSet, undefined);
+    } finally {
+      restore();
+    }
+  });
+});

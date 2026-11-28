@@ -1148,6 +1148,7 @@ the page that fixes it:
 | **GroupMe isn't finished setting up** | GroupMe is on, but there is no access token, or no group has been chosen. | Settings → GroupMe |
 | **WhatsApp isn't finished setting up** | WhatsApp is on, but no phone has been linked, or no community has been chosen to post in. | Settings → WhatsApp |
 | **Chat posts have no send time, so none will go out** | GroupMe or WhatsApp is on, but the daily posting time is not set. | Settings → Sending Updates |
+| **The site's web address isn't set, so links can't be made** | Email (Sending) or Partner surveys is on, but `APP_BASE_URL` is not set (and the host does not provide one, as Render does), so emailed setup, sign-in and survey links cannot be built. | Settings → About App |
 
 A brand-new install starts with a schedule already set (chat posts at 9am, and the monthly update email on the 1st at 9am, in your church's time zone), so these two alerts only appear on an install that cleared it or predates it; change it any time under Settings → Sending Updates.
 

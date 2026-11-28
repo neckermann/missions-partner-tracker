@@ -349,6 +349,13 @@ async function updatesToPassOn({ userId }) {
 
 // Email (Sending) is switched on but no mail account / sender address has been entered, so nothing can be
 // sent. Everything that would have emailed falls back (copy-link, "not sent") until this is finished.
+// The site's own web address (APP_BASE_URL, or Render's own) is what every emailed or copied link is built from:
+// a survey link, a setup link, a sign-in link. Without it each of those fails on its own screen, so say it once.
+async function siteAddressNotSet() {
+  const set = Boolean((process.env.APP_BASE_URL || process.env.RENDER_EXTERNAL_URL || "").trim());
+  return { count: set ? 0 : 1, latest: set ? null : new Date() };
+}
+
 async function emailNotFinished() {
   const settings = await prisma.churchSettings.findUnique({
     where: { id: "singleton" },
@@ -629,6 +636,18 @@ const CATEGORIES = [
     tripScoped: false,
     guestVisible: true,
     resolve: updatesToPassOn,
+  },
+  {
+    key: "siteAddressNotSet",
+    // Only while something is on that builds a link from it.
+    requiresAny: ["outboundEmail", "surveys"],
+    label: "The site's web address isn't set, so links can't be made",
+    icon: "🔗",
+    linkTo: "/admin/settings/system-info",
+    adminOnly: true,
+    perUser: false,
+    tripScoped: false,
+    resolve: siteAddressNotSet,
   },
   {
     key: "emailNotFinished",

@@ -18,6 +18,7 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ### Fixed
 
+- When the site's own web address is not set (an install off Render with no APP_BASE_URL), an admin gets one alert, on the bell and Home, while email or surveys is on, and the survey "Get link" and send messages say so in plain words instead of "APP_BASE_URL isn't set".
 - The user list now says "No access left" for a guest with nothing left to reach (it said "No trips left", which was wrong for a care team guest who lost their partners).
 - The Monthly Support page counts the amount in force today for each partner, the same as the reports, instead of the latest entry even when it is dated in the future. A partner whose only entry starts later shows no amount yet, and the page total matches the report.
 - Screens no longer offer what a person cannot use: a viewer no longer sees a "Survey Updates" menu item (the server refuses it) or an "Updates waiting for your OK" alert; the red photo Delete button shows only to admins, who are the only ones it works for; a viewer or guest who types the New Partner address goes back to the list instead of an empty form that cannot save; and a trip leader signing in lands on their trip without a "You don't have access to that page" note (it still appears if they go somewhere they should not).
