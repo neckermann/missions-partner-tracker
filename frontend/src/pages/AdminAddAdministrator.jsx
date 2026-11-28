@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { createUser } from "../api/client.js";
 import CopyButton from "../components/shared/CopyButton.jsx";
 import { markAddAdministratorAsked } from "../hooks/usePublicSiteChoiceRedirect.js";
@@ -62,7 +62,8 @@ export default function AdminAddAdministrator() {
               </p>
             )}
             <p style={{ color: "var(--muted)" }}>
-              The link works once and expires. You can make a new one any time under Settings → Manage Users.
+              The link works once and expires. You can make a new one any time under{" "}
+              <Link to="/admin/settings/users">Settings → Manage Users</Link>.
             </p>
           </>
         )}
@@ -82,7 +83,7 @@ export default function AdminAddAdministrator() {
       </p>
       <p style={{ color: "var(--muted)" }}>
         Pick someone you trust. They get a link to set up their own sign-in, and you never see their password.
-        You can do this any time under Settings → Manage Users.
+        You can do this any time under <Link to="/admin/settings/users">Settings → Manage Users</Link>.
       </p>
       <form onSubmit={handleAdd} style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
         <label>

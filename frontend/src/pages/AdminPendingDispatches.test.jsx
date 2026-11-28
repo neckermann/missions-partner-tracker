@@ -1,6 +1,7 @@
 import React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import AdminPendingDispatches from "./AdminPendingDispatches.jsx";
 import { fetchPendingDispatches, updatePendingDispatch, deletePendingDispatch } from "../api/client.js";
 
@@ -51,7 +52,11 @@ beforeEach(() => {
 
 async function renderWith(items) {
   fetchPendingDispatches.mockResolvedValue(items);
-  render(<AdminPendingDispatches />);
+  render(
+    <MemoryRouter>
+      <AdminPendingDispatches />
+    </MemoryRouter>
+  );
   await screen.findByText("Example Partner");
 }
 
@@ -104,7 +109,11 @@ describe("with no way to send (the email-off option for dispatches)", () => {
   it("offers to copy what is ready, leaving out what is held for review", async () => {
     channels = { outboundEmail: false, groupme: false, whatsapp: false };
     fetchPendingDispatches.mockResolvedValue([ready, held]);
-    render(<AdminPendingDispatches />);
+    render(
+      <MemoryRouter>
+        <AdminPendingDispatches />
+      </MemoryRouter>
+    );
     expect(await screen.findByText("Nothing here goes out on its own")).toBeInTheDocument();
     expect(screen.getByText(/Copy the 1 that is ready/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Copy the updates that are ready/ })).toBeInTheDocument();
@@ -113,7 +122,11 @@ describe("with no way to send (the email-off option for dispatches)", () => {
   it("says nothing when any channel is on", async () => {
     channels = { outboundEmail: false, groupme: true, whatsapp: false };
     fetchPendingDispatches.mockResolvedValue([ready]);
-    render(<AdminPendingDispatches />);
+    render(
+      <MemoryRouter>
+        <AdminPendingDispatches />
+      </MemoryRouter>
+    );
     await screen.findByText("Updates to Share");
     expect(screen.queryByText("Nothing here goes out on its own")).toBeNull();
   });
@@ -121,7 +134,11 @@ describe("with no way to send (the email-off option for dispatches)", () => {
   it("says nothing when there is nothing ready (only held items)", async () => {
     channels = { outboundEmail: false, groupme: false, whatsapp: false };
     fetchPendingDispatches.mockResolvedValue([held]);
-    render(<AdminPendingDispatches />);
+    render(
+      <MemoryRouter>
+        <AdminPendingDispatches />
+      </MemoryRouter>
+    );
     await screen.findByText("Updates to Share");
     expect(screen.queryByText("Nothing here goes out on its own")).toBeNull();
   });
@@ -154,5 +171,15 @@ describe("approval wording", () => {
     const { container } = render(confirmArgs.body);
     expect(container.textContent).not.toMatch(/whole congregation/);
     expect(container.textContent).toMatch(/can't be taken back/);
+  });
+});
+
+describe("Updates to Share: the Settings page it mentions is a link", () => {
+  it("links to Sending Updates", async () => {
+    await renderWith([blurb({ needsReview: false })]);
+    expect(screen.getByRole("link", { name: "Settings → Sending Updates" })).toHaveAttribute(
+      "href",
+      "/admin/settings/dispatches"
+    );
   });
 });

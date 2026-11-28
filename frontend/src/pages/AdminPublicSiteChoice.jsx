@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { fetchChurchSettings, updateChurchSettings } from "../api/client.js";
 import { useSettings } from "../context/SettingsContext.jsx";
 
@@ -43,8 +43,8 @@ export default function AdminPublicSiteChoice() {
       </p>
       <p style={{ color: "var(--muted)" }}>
         Nothing is shown until you choose each partner: a partner only appears when "Show on public site" is
-        ticked on their page, and partners start unticked. You can change this at any time under Settings →
-        Privacy and Safety.
+        ticked on their page, and partners start unticked. You can change this at any time under{" "}
+        <Link to="/admin/settings/privacy">Settings → Privacy and Safety</Link>.
       </p>
       {error && (
         <p className="form-error" role="alert">

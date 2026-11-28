@@ -422,7 +422,7 @@ export default function AdminSettingsSurveyDetail() {
                 Email (Sending) is off, so links can&apos;t be emailed from here. Pick partners and choose{" "}
                 <strong>Get links</strong> (or <strong>Get link</strong> beside one name) to copy their
                 personal links and send them yourself (a text, WhatsApp, or your own email), or turn on Email
-                (Sending) in Settings → Enabled Features.
+                (Sending) in <Link to="/admin/settings/features">Settings → Enabled Features</Link>.
               </p>
             )}
             <p style={{ color: "var(--muted)", marginTop: 0 }}>

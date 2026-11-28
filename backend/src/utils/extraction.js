@@ -74,7 +74,7 @@ async function client() {
   });
   if (!settings?.anthropicApiKey) {
     const err = new Error(
-      "AI request scanning isn't configured -- add an API key under Settings → AI Features"
+      "AI request scanning isn't configured -- add an API key under Settings → Integrations → AI Features"
     );
     err.status = 400;
     throw err;
@@ -160,7 +160,7 @@ async function extractRequestsFromFile(record) {
     // NotFoundError): give the same user-facing error as the "no key configured"
     // case above instead of a generic 500. Other APIErrors propagate as-is.
     if (err instanceof Anthropic.NotFoundError) {
-      const wrapped = new Error("The configured AI model isn't available — check Settings → AI Features");
+      const wrapped = new Error("The configured AI model isn't available — check Settings → Integrations → AI Features");
       wrapped.status = 400;
       throw wrapped;
     }
