@@ -22,6 +22,8 @@ export default function Setup() {
   // choose | passkey | password | app
   const [step, setStep] = useState("choose");
   const [email, setEmail] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [choice, setChoice] = useState("device");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -62,7 +64,7 @@ export default function Setup() {
       // The account is created the first time; a cancelled prompt keeps the enrolment token so trying again works.
       let token = setupToken;
       if (!token) {
-        token = (await completeSetup(email, undefined, "passkey")).setupToken;
+        token = (await completeSetup(email, undefined, "passkey", { firstName, lastName })).setupToken;
         setSetupToken(token);
       }
       await registerPasskey("", token);
@@ -86,7 +88,7 @@ export default function Setup() {
     }
     setSaving(true);
     try {
-      const result = await completeSetup(email, password);
+      const result = await completeSetup(email, password, "password", { firstName, lastName });
       setSetupToken(result.setupToken);
       setStep("app");
     } catch (err) {
@@ -127,14 +129,33 @@ export default function Setup() {
           </p>
           <form onSubmit={handleChoose} style={column}>
             <label>
-              Your email
+              Your first name
               <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
+                type="text"
+                autoComplete="given-name"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                maxLength={100}
                 autoFocus
               />
+            </label>
+            <label>
+              Your last name
+              <input
+                type="text"
+                autoComplete="family-name"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                maxLength={100}
+              />
+            </label>
+            <p style={{ ...muted, margin: "-0.25rem 0 0", fontSize: "0.85rem" }}>
+              Shown beside the changes you make, so your team can see who did what. You can leave it blank and
+              add it later in My Account.
+            </p>
+            <label>
+              Your email
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
             </label>
             <SignInChoice
               choice={choice}
