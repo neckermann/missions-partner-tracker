@@ -163,6 +163,55 @@ for (const role of ["guest", "viewer"]) {
       assert.equal(stored.notes, "a note", "their other edits still apply");
     });
 
+    test("editing what is printed on a request staff made public takes it off until staff review it", async () => {
+      const text = `${FIXTURE_TAG} ${role} reworded`;
+      const staffMade = await admin("/api/prayer-requests", {
+        method: "POST",
+        body: body({ requestText: text, isPublic: true, includeInBooklet: true }),
+      });
+      assert.equal(await onTheSheet(text), true, "staff's public request is on the sheet");
+      const res = await me(`/api/prayer-requests/${staffMade.body.id}`, {
+        method: "PUT",
+        body: { requestText: `${text} (changed by a care team member)` },
+      });
+      assert.equal(res.status, 200, JSON.stringify(res.body));
+      const stored = await prisma.prayerRequest.findUnique({ where: { id: staffMade.body.id } });
+      assert.equal(stored.isPublic, false);
+      assert.equal(stored.includeInBooklet, false);
+      assert.equal(await onTheSheet(stored.requestText), false, "the reworded text is not on the sheet");
+    });
+
+    test("an answer note or status change on a public request is held back the same way", async () => {
+      const text = `${FIXTURE_TAG} ${role} answered`;
+      const staffMade = await admin("/api/prayer-requests", {
+        method: "POST",
+        body: body({ requestText: text, isPublic: true, includeInBooklet: true }),
+      });
+      const res = await me(`/api/prayer-requests/${staffMade.body.id}`, {
+        method: "PUT",
+        body: { status: "answered", dateAnswered: "2026-11-25", answeredNote: "unreviewed note" },
+      });
+      assert.equal(res.status, 200, JSON.stringify(res.body));
+      const stored = await prisma.prayerRequest.findUnique({ where: { id: staffMade.body.id } });
+      assert.equal(stored.isPublic, false);
+      assert.equal(stored.includeInBooklet, false);
+    });
+
+    test("a staff edit to a public request leaves it public", async () => {
+      const text = `${FIXTURE_TAG} ${role} staffedit`;
+      const staffMade = await admin("/api/prayer-requests", {
+        method: "POST",
+        body: body({ requestText: text, isPublic: true, includeInBooklet: true }),
+      });
+      await admin(`/api/prayer-requests/${staffMade.body.id}`, {
+        method: "PUT",
+        body: { requestText: `${text} v2` },
+      });
+      const stored = await prisma.prayerRequest.findUnique({ where: { id: staffMade.body.id } });
+      assert.equal(stored.isPublic, true);
+      assert.equal(stored.includeInBooklet, true);
+    });
+
     test("their request is still held for staff review", async () => {
       const made = await me("/api/prayer-requests", {
         method: "POST",

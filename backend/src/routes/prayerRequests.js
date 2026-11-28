@@ -180,6 +180,33 @@ router.put("/:id", requireRole("admin", "editor", "viewer", "guest"), async (req
       .refine(answeredDateGiven, ANSWERED_DATE_ISSUE)
       .parse(req.body);
 
+    // A care team member's edit to something staff already put on the public sheet or booklet would go out
+    // unreviewed, so it is taken off until staff look at it and tick it again. Only changes to what is printed
+    // count: notes and the source link do not.
+    if (!staff) {
+      const live = await prisma.prayerRequest.findUnique({
+        where: { id: req.params.id },
+        select: {
+          isPublic: true,
+          includeInBooklet: true,
+          partnerId: true,
+          category: true,
+          requestText: true,
+          status: true,
+          answeredNote: true,
+        },
+      });
+      const printed = ["partnerId", "category", "requestText", "status", "answeredNote"];
+      if (
+        live &&
+        (live.isPublic || live.includeInBooklet) &&
+        printed.some((k) => k in data && data[k] !== live[k])
+      ) {
+        data.isPublic = false;
+        data.includeInBooklet = false;
+      }
+    }
+
     // Notify only on a genuine transition into "answered"; the before?.status check below stops a
     // re-sent status from re-notifying.
     const before =

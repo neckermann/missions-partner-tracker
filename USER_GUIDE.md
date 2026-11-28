@@ -567,7 +567,11 @@ or leave it as "None."
   they save, the form says "Your request has gone to the missions team
   for review" (using your church's name for that group), and it waits
   for staff on **Updates to Share**. Staff decide later whether it is
-  shown publicly or printed. Admins and editors are unchanged.
+  shown publicly or printed. If they edit a request staff have already
+  made public (its wording, category, partner, or its answered status or
+  answer note), it comes off the public profile, the Sunday sheet and the
+  booklet until staff look at it and tick those boxes again. Changing
+  only notes or the source does not. Admins and editors are unchanged.
 - A ministry request marked **Show on public profile** can also be
   checked **Include in printed booklet** — a separate setting, since a
   partner can build up more public strategic requests over time than
