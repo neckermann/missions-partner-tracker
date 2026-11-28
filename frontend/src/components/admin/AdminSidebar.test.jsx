@@ -145,3 +145,20 @@ describe("AdminSidebar -- guest tier", () => {
     expect(screen.queryByRole("link", { name: /Monthly Support/i })).not.toBeInTheDocument();
   });
 });
+
+describe("AdminSidebar -- Survey Updates", () => {
+  const link = () => screen.queryByRole("link", { name: /Survey Updates/i });
+  beforeEach(() => {
+    enabledFeatures = { surveys: true, prayerRequests: true };
+  });
+  it("is in the menu for an editor, who can approve answers", () => {
+    currentUser = { loading: false, isAdmin: false, isGuest: false, canWrite: true, careTeamSeats: [] };
+    renderSidebar();
+    expect(link()).toBeInTheDocument();
+  });
+  it("is not in the menu for a viewer, who cannot", () => {
+    currentUser = { loading: false, isAdmin: false, isGuest: false, canWrite: false, careTeamSeats: [] };
+    renderSidebar();
+    expect(link()).not.toBeInTheDocument();
+  });
+});

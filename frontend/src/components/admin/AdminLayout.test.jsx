@@ -71,6 +71,21 @@ describe("AdminLayout -- guest route guard", () => {
     expect(router.state.location.pathname).toBe("/admin/trips/trip-1");
   });
 
+  it("says nothing about access when a guest simply arrives at the admin home, but does when they go astray", async () => {
+    currentUser = guest(["trip-1"]);
+    const home = renderAt("/admin");
+    await screen.findByText("Trip Page");
+    expect(home.state.location.pathname).toBe("/admin/trips/trip-1");
+    expect(home.state.location.state?.accessDenied).toBeUndefined();
+  });
+
+  it("explains the redirect when a guest goes to a trip they hold no grant for", async () => {
+    currentUser = guest(["trip-1"]);
+    const router = renderAt("/admin/trips/trip-9");
+    await screen.findByText("Trip Page");
+    expect(router.state.location.state?.accessDenied).toBe(true);
+  });
+
   it("still lets a guest open a partner page (the backend decides which)", async () => {
     currentUser = guest(["trip-1"]);
     renderAt("/admin/partners/partner-1");

@@ -64,7 +64,10 @@ export default function AdminLayout() {
       // one with nothing at all goes to sign in.
       const home = guestTripIds[0];
       const to = home ? `/admin/trips/${home}` : careTeamSeats.length > 0 ? "/admin/partners" : "/login";
-      return <Navigate to={to} state={home ? { accessDenied: true } : undefined} replace />;
+      // Only when they went somewhere they should not. Arriving at the plain /admin home (right after signing
+      // in) is not a mistake, so it gets no "you don't have access" note, just their trip.
+      const arrivedAtHome = location.pathname === "/admin" || location.pathname === "/admin/";
+      return <Navigate to={to} state={home && !arrivedAtHome ? { accessDenied: true } : undefined} replace />;
     }
   }
 

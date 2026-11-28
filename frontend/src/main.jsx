@@ -32,6 +32,7 @@ const PublicMap = lazy(() => import("./pages/PublicMap.jsx"));
 const AdminLayout = lazy(() => import("./components/admin/AdminLayout.jsx"));
 const AdminHome = lazy(() => import("./pages/AdminHome.jsx"));
 const AdminPartners = lazy(() => import("./pages/AdminPartners.jsx"));
+import RequireCanWrite from "./components/RequireCanWrite.jsx";
 const AdminPartnerForm = lazy(() => import("./pages/AdminPartnerForm.jsx"));
 const AdminPartnerDetail = lazy(() => import("./pages/AdminPartnerDetail.jsx"));
 const AdminBooklet = lazy(() => import("./pages/AdminBooklet.jsx"));
@@ -163,7 +164,14 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                 <Route path="public-site" element={<AdminPublicSiteChoice />} />
                 <Route path="add-administrator" element={<AdminAddAdministrator />} />
                 <Route path="partners" element={<AdminPartners />} />
-                <Route path="partners/new" element={<AdminPartnerForm />} />
+                <Route
+                  path="partners/new"
+                  element={
+                    <RequireCanWrite>
+                      <AdminPartnerForm />
+                    </RequireCanWrite>
+                  }
+                />
                 <Route path="partners/:id" element={<AdminPartnerDetail />} />
                 <Route
                   path="prayer-sheet"

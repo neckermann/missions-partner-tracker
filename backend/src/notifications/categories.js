@@ -459,6 +459,8 @@ const CATEGORIES = [
     label: "Updates waiting for your OK",
     icon: "📨",
     linkTo: "/admin/pending-dispatches",
+    // Only people who can approve them: a viewer can read the queue but has no button to act on it.
+    roles: ["admin", "editor"],
     adminOnly: false,
     perUser: false,
     tripScoped: false,
