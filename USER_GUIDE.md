@@ -1584,6 +1584,8 @@ restricted partner's request or need](#updates-to-share) above),
 and a muted GroupMe content type still blocks that one channel — urgent
 only skips waiting for a schedule, never either of those safety rules.
 
+An urgent item that was held for review goes out the moment someone approves it in [Updates to Share](#updates-to-share), instead of waiting for the next scheduled send. Editing its wording afterwards does not send it again.
+
 **Review and approve now.** For a restricted partner specifically, a
 second checkbox appears alongside "Mark as urgent": **Review and
 approve now**. Checking it confirms, right then, that the text you just

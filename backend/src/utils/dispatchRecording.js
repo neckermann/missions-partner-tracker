@@ -73,7 +73,15 @@ async function createDispatchRecord(type, partner, payload, review, requireRevie
   };
   const held = needsReview(wouldBe, freshPartner);
   if (!options.urgent && !held && !anyEnabledChannelWouldTake(wouldBe, freshPartner, settings)) return null;
-  return enqueue(type, partner.id, payload, review, requireReview);
+  // An urgent one is marked in its payload, so that if it is held for review (so cannot go out now) it can
+  // still go out at once when someone approves it (routes/dispatches.js), not wait for a schedule.
+  return enqueue(
+    type,
+    partner.id,
+    options.urgent ? { ...payload, urgent: true } : payload,
+    review,
+    requireReview
+  );
 }
 
 // True when at least one switched-on channel is allowed to carry this kind of event. Recipients and schedules
