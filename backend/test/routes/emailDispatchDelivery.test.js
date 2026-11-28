@@ -83,6 +83,7 @@ function createAdminUser(overrides) {
       role: "editor",
       active: true,
       digestScope: "all",
+      lastLoginAt: new Date(),
       ...overrides,
     },
   });

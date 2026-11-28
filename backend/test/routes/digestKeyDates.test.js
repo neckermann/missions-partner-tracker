@@ -59,6 +59,7 @@ async function person(tag, extra = {}) {
       passwordHash: "x",
       role: "editor",
       authProvider: "local",
+      lastLoginAt: new Date(), // has signed in: a seat held only by an invite does not take reminders
       active: true,
       cadence: "monthly",
       digestScope: "owned",

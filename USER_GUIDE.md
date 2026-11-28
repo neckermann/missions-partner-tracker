@@ -1886,7 +1886,12 @@ screen lock (or a security key) used as the second step at sign-in, so there
 is no code to type. Add one on each device you use (**Add a passkey**, up to
 five, each with a name you choose): a lost phone is then one of several, not
 the only way in. It shows when each was added and last used, and **Remove**
-asks for your password. If your church requires two-factor, you can't remove
+asks for your password. If you have no password (you set up with a passkey
+only), it asks you to confirm with a passkey you still have instead: your
+device asks for your fingerprint, face or screen lock, so you can remove a
+lost phone's passkey from your laptop. (If you have lost every passkey, use
+**Email me a new link** on the sign-in page, or ask an admin to reset your
+sign-in.) If your church requires two-factor, you can't remove
 your last way of signing in; add another first. A passkey only works on the
 address your church's site is served from. An admin's **Reset MFA** clears
 your passkeys along with your authenticator app.

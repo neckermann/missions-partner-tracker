@@ -35,7 +35,7 @@ const {
   refuseOnGuardedDemo,
 } = require("../utils/demoMode");
 const accountLoginLimiter = require("../utils/accountLoginLimiter");
-const { configuredOrigin } = require("../utils/passkeys");
+const { configuredOrigin, verifyFreshPasskey } = require("../utils/passkeys");
 
 const noPasswordChangeOnDemo = refuseOnGuardedDemo("Changing the password");
 const {
@@ -801,17 +801,29 @@ router.post("/mfa/disable", requireAuth, async (req, res, next) => {
 // disabling does, and only an account that has an authenticator app has any use for them.
 router.post("/mfa/recovery-codes", requireAuth, async (req, res, next) => {
   try {
-    const { password } = req.body;
-    if (!password) return res.status(400).json({ error: "Current password is required" });
+    const { password, passkeyProof } = req.body;
     const user = await prisma.user.findUnique({ where: { id: req.user.id } });
-    if (!user || !user.passwordHash) return res.status(400).json({ error: "Invalid account" });
+    if (!user) return res.status(400).json({ error: "Invalid account" });
     if (!user.mfaEnabled || !user.mfaSecret) {
       return res
         .status(400)
         .json({ error: "Recovery codes go with an authenticator app. Set one up first." });
     }
-    if (!(await bcrypt.compare(password, user.passwordHash))) {
-      return res.status(401).json({ error: "Current password is incorrect" });
+    if (passkeyProof) {
+      // A fresh passkey touch stands in for the password, and is the only proof an account without one has.
+      if (!(await verifyFreshPasskey(req, user.id, passkeyProof))) {
+        return res.status(401).json({ error: "That passkey didn't work. Try again." });
+      }
+    } else {
+      if (!password) {
+        return res.status(400).json({
+          error: user.passwordHash ? "Current password is required" : "Confirm with your passkey",
+        });
+      }
+      if (!user.passwordHash) return res.status(400).json({ error: "Confirm with your passkey" });
+      if (!(await bcrypt.compare(password, user.passwordHash))) {
+        return res.status(401).json({ error: "Current password is incorrect" });
+      }
     }
     const recoveryCodes = await issueRecoveryCodes(user.id);
     await recordAuditSafe(null, { action: "auth.recovery_codes_regenerated", actor: user, req });
@@ -1118,6 +1130,8 @@ async function sanitizeUser(user) {
     mfaEnabled: user.mfaEnabled,
     authenticatorApp: Boolean(user.mfaEnabled && user.mfaSecret),
     passkeyCount: await prisma.userPasskey.count({ where: { userId: user.id } }),
+    // An account made with a passkey and no password confirms sensitive actions with a fresh passkey touch.
+    hasPassword: Boolean(user.passwordHash),
     recoveryCodesRemaining:
       user.mfaEnabled && user.mfaSecret ? await countUnusedRecoveryCodes(user.id) : null,
     cadence: user.cadence,

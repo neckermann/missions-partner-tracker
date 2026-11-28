@@ -16,17 +16,19 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ## [Unreleased]
 
+### Fixed
+
+- **An account with no password can remove a lost passkey and make new recovery codes (#591).** Both asked for the current password, which an account made with a passkey alone doesn't have, so only an administrator could help. They now accept a fresh touch of one of the person's own passkeys (fingerprint, face or screen lock) instead: the answer is single use, tied to the signed-in person, and must come from one of their own passkeys. It is for someone who still has at least one working passkey; someone who has lost every passkey uses "Email me a new link" or an administrator's Reset MFA. Accounts with a password are unchanged.
+
 ### Security
 
 - **Emails that carry a sign-in or setup link say not to forward them (#592).** The setup, password-reset and emailed sign-in-link emails now include a note: whoever opens the link can set up how to sign in to the account, so if several people read the inbox (a shared address such as `missions@`), ask an administrator to send it another way. The welcome email's button now reads "Set up your sign-in" and its text matches the new-account page (a passkey on your own device, or a password plus an authenticator app).
 
+- **A public demo refuses passkeys, and System Info warns about the testing-site setting (#595).** On a public demo a visitor could add up to five passkeys to a shared, published login. Adding one is now refused there (the owner's own test deployment, which sets `DEMO_TESTING_SITE`, is not guarded and can still add them). System Info also shows a warning at the top when `DEMO_TESTING_SITE` is set, because one mistaken setting on a demo the public can reach would end password sign-in for its published logins.
+
 ### Changed
 
 - **Knowing an administrator's email is no longer enough to lock them out (#594).** Failed sign-ins are now counted per address and account: ten failures from one address stop that address, not the real person signing in from somewhere else. A higher ceiling (five times as many, from any mix of addresses) still stops a guesser who keeps changing address, but an address that has signed in with a correct password before (remembered in memory for 30 days) is let through. The same applies to wrong two-factor codes.
-
-### Security
-
-- **A public demo refuses passkeys, and System Info warns about the testing-site setting (#595).** On a public demo a visitor could add up to five passkeys to a shared, published login. Adding one is now refused there (the owner's own test deployment, which sets `DEMO_TESTING_SITE`, is not guarded and can still add them). System Info also shows a warning at the top when `DEMO_TESTING_SITE` is set, because one mistaken setting on a demo the public can reach would end password sign-in for its published logins.
 
 ## [0.1.0-beta.4] - 2026-11-27
 
@@ -63,6 +65,7 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ### Fixed
 
+- A care team member who has been invited but has never signed in no longer takes a partner's reminders (birthdays and anniversaries, reach-outs, updates to pass on) away from the missions team. Until they sign in for the first time the reminders stay with the missions team; the seat is kept and takes over at their first sign-in.
 - One definition of a "quiet" partner. My partners, its bell item and the care chat's quiet-partner post now start the quiet count again whenever a partner is heard from in any way (a logged contact, a newsletter filed, a prayer request received or a visit to your church), the same four things the Last heard from report counts, instead of the contact log alone. The column is renamed "Last heard from". The grace period and "Not this season" work as before.
 - With no public page switched on (directory, map or prayer sign-up), "Show on public site", the "Not public" pills and the Public filter no longer appear on the add-partner form, a partner's page and the Partners list, and the prayer request form offers a single "Include in printed booklet" box instead of "Show on public profile". What was ticked before is kept and returns when a public page is turned on.
 - Pages reached only through a private link (a survey, a team member's own trip page, a private trip application link) show the church's name and logo but no longer the public menu (Directory, Map, Trip Opportunities) or "Team sign in", so a partner or team member is not offered pages that are not meant for them.

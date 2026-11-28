@@ -23,6 +23,7 @@ const {
   toB64u,
   fromB64u,
   wrongAddressMessage,
+  verifyFreshPasskey,
 } = require("../utils/passkeys");
 
 // Passkeys as a second sign-in factor (#386). Mounted at /api/auth/passkeys by routes/auth.js,
@@ -44,7 +45,17 @@ module.exports = function passkeyRoutes({ completeLogin }) {
         where: { userId: req.user.id },
         orderBy: { createdAt: "asc" },
       });
-      res.json({ passkeys: rows.map(publicPasskey), max: MAX_PASSKEYS, demo: isDemoDeployment() });
+      const owner = await prisma.user.findUnique({
+        where: { id: req.user.id },
+        select: { passwordHash: true },
+      });
+      res.json({
+        passkeys: rows.map(publicPasskey),
+        max: MAX_PASSKEYS,
+        demo: isDemoDeployment(),
+        // An account with no password confirms removing a passkey with a fresh passkey touch instead.
+        hasPassword: Boolean(owner?.passwordHash),
+      });
     } catch (err) {
       next(err);
     }
@@ -197,14 +208,53 @@ module.exports = function passkeyRoutes({ completeLogin }) {
     }
   });
 
+  // Options for confirming an action with a fresh passkey touch (#591). The person must already be signed in and
+  // hold at least one passkey; the answer goes back with the action itself as `passkeyProof`.
+  router.post("/reauth/options", requireAuth, async (req, res, next) => {
+    try {
+      const passkeys = await prisma.userPasskey.findMany({ where: { userId: req.user.id } });
+      if (passkeys.length === 0)
+        return res.status(400).json({ error: "You have no passkey to confirm with" });
+      const rp = relyingParty(req);
+      const options = await generateAuthenticationOptions({
+        rpID: rp.rpID,
+        userVerification: "required",
+        allowCredentials: passkeys.map((p) => ({ id: p.credentialId, transports: p.transports })),
+      });
+      res.json({
+        options,
+        challengeToken: signChallenge({
+          challenge: options.challenge,
+          purpose: "reauth",
+          userId: req.user.id,
+        }),
+      });
+    } catch (err) {
+      next(err);
+    }
+  });
+
   router.delete("/:id", requireAuth, async (req, res, next) => {
     try {
-      const { password } = req.body || {};
-      if (!password) return res.status(400).json({ error: "Current password is required" });
+      const { password, passkeyProof } = req.body || {};
       const user = await prisma.user.findUnique({ where: { id: req.user.id } });
-      if (!user || !user.passwordHash) return res.status(400).json({ error: "Invalid account" });
-      if (!(await bcrypt.compare(password, user.passwordHash))) {
-        return res.status(401).json({ error: "Current password is incorrect" });
+      if (!user) return res.status(400).json({ error: "Invalid account" });
+      if (passkeyProof) {
+        // A fresh touch of one of their own passkeys stands in for the password (and is the only proof an
+        // account with no password has).
+        if (!(await verifyFreshPasskey(req, user.id, passkeyProof))) {
+          return res.status(401).json({ error: "That passkey didn't work. Try again." });
+        }
+      } else {
+        if (!password) {
+          return res.status(400).json({
+            error: user.passwordHash ? "Current password is required" : "Confirm with your passkey",
+          });
+        }
+        if (!user.passwordHash) return res.status(400).json({ error: "Confirm with your passkey" });
+        if (!(await bcrypt.compare(password, user.passwordHash))) {
+          return res.status(401).json({ error: "Current password is incorrect" });
+        }
       }
       const passkey = await prisma.userPasskey.findFirst({
         where: { id: req.params.id, userId: user.id },

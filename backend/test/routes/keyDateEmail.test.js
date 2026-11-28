@@ -37,13 +37,14 @@ async function makeUser(tag) {
   const email = `route-test-kdmail-${tag}@example.test`;
   const user = await prisma.user.upsert({
     where: { email },
-    update: { role: "guest", active: true },
+    update: { role: "guest", active: true, lastLoginAt: new Date() },
     create: {
       email,
       firstName: tag,
       passwordHash: await bcrypt.hash("x", 4),
       role: "guest",
       authProvider: "local",
+      lastLoginAt: new Date(), // has signed in: a seat held only by an invite does not take reminders
       active: true,
     },
   });
