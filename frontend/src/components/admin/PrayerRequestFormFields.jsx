@@ -2,6 +2,7 @@ import React from "react";
 import SourcePicker from "./SourcePicker.jsx";
 import { urgentSendDescription } from "../../utils/urgentSend.js";
 import { useSettings } from "../../context/SettingsContext.jsx";
+import { publicSiteOn } from "../../utils/publicSite.js";
 
 // The field set shared by PrayerRequestSection.jsx (fixed partnerId) and AdminPrayerRequests.jsx.
 // Renders only the form-grid body; callers keep their own onSubmit and buttons.
@@ -24,6 +25,8 @@ export default function PrayerRequestFormFields({
   // "Include in printed booklet" only means something while the booklet is on.
   const { enabledFeatures: churchFeatures } = useSettings();
   const bookletOn = churchFeatures?.booklet !== false;
+  // With no public page on, "public profile" would name something that does not exist; the booklet is the only place left.
+  const publicPages = publicSiteOn(churchFeatures);
   return (
     <div className="form-grid">
       {partnerPicker}
@@ -76,23 +79,37 @@ export default function PrayerRequestFormFields({
           required
         />
       </label>
-      {form.category === "strategic" && !limited && (
+      {form.category === "strategic" && !limited && (publicPages || bookletOn) && (
         <div className="admin-checkbox-row" style={{ gridColumn: mode === "edit" ? "1 / -1" : undefined }}>
-          <label title="Shows on this partner's public profile page, if the public site is enabled.">
-            <input
-              type="checkbox"
-              checked={form.isPublic}
-              onChange={(e) =>
-                setForm((f) => ({
-                  ...f,
-                  isPublic: e.target.checked,
-                  includeInBooklet: e.target.checked && f.includeInBooklet,
-                }))
-              }
-            />
-            Show on public profile
-          </label>
-          {form.isPublic && bookletOn && (
+          {publicPages ? (
+            <label title="Shows on this partner's public profile page, if the public site is enabled.">
+              <input
+                type="checkbox"
+                checked={form.isPublic}
+                onChange={(e) =>
+                  setForm((f) => ({
+                    ...f,
+                    isPublic: e.target.checked,
+                    includeInBooklet: e.target.checked && f.includeInBooklet,
+                  }))
+                }
+              />
+              Show on public profile
+            </label>
+          ) : (
+            // No public page is on, so the booklet is the only place a request can be shared: one tick, both fields.
+            <label title="Eligible to print in the booklet -- the actual number shown per partner is capped there (see the Booklet page) so this section doesn't take over the page.">
+              <input
+                type="checkbox"
+                checked={form.isPublic && form.includeInBooklet}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, isPublic: e.target.checked, includeInBooklet: e.target.checked }))
+                }
+              />
+              Include in printed booklet
+            </label>
+          )}
+          {publicPages && form.isPublic && bookletOn && (
             <label title="Eligible to print in the booklet -- the actual number shown per partner is capped there (see the Booklet page) so this section doesn't take over the page.">
               <input
                 type="checkbox"

@@ -83,6 +83,7 @@ import { LANGUAGE_NAMES } from "../utils/languageNames.js";
 import { supportNeedStatus } from "../utils/supportNeedStatus.js";
 import { truncate } from "../utils/truncate.js";
 import { useSettings } from "../context/SettingsContext.jsx";
+import { publicSiteOn } from "../utils/publicSite.js";
 import { getFipsCode } from "../utils/countryFipsCodes.js";
 import { isoCountryCode } from "../utils/countryIsoCodes.js";
 import { sentForReviewNote } from "../utils/heldForReview.js";
@@ -187,6 +188,7 @@ export default function AdminPartnerDetail() {
     tripTypes: [],
   });
   const { churchName, enabledFeatures, ownerGroupName } = useSettings();
+  const publicOn = publicSiteOn(enabledFeatures);
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
   const { settings: churchSettings } = useChurchSettings();
   const confirmBeforeCreate = useUrgentApprovalGate({ confirmDialog, enabledFeatures });
@@ -760,7 +762,7 @@ export default function AdminPartnerDetail() {
               color="#a6540f"
             />
           ),
-          !p.isPublic && <StatusPill key="notpublic" label="Not public" color="#6b6f76" />,
+          publicOn && !p.isPublic && <StatusPill key="notpublic" label="Not public" color="#6b6f76" />,
           p.isRestricted && <StatusPill key="restricted" label="Restricted-access" color="#a6540f" />,
           !isOrg && p.sentByOurChurch && (
             <span key="sent" title="Edit in the Sending Church box below to change this.">
@@ -831,7 +833,7 @@ export default function AdminPartnerDetail() {
             <>
               <Field label={isOrg ? "Organization Name" : "Display Name"} value={v.displayName} showEmpty />
               <div className="admin-checkbox-row" style={{ marginTop: "0.75rem" }}>
-                <Field label="Shown on public site" value={v.isPublic ? "Yes" : "No"} />
+                {publicOn && <Field label="Shown on public site" value={v.isPublic ? "Yes" : "No"} />}
                 <Field label="Restricted-access location" value={v.isRestricted ? "Yes" : "No"} />
               </div>
             </>
@@ -843,15 +845,17 @@ export default function AdminPartnerDetail() {
                 <input value={d.displayName} onChange={(e) => set("displayName", e.target.value)} required />
               </label>
               <div className="admin-checkbox-row" style={{ marginTop: "0.75rem" }}>
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={d.isPublic}
-                    disabled={isGuest}
-                    onChange={(e) => set("isPublic", e.target.checked)}
-                  />
-                  Show on public site
-                </label>
+                {publicOn && (
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={d.isPublic}
+                      disabled={isGuest}
+                      onChange={(e) => set("isPublic", e.target.checked)}
+                    />
+                    Show on public site
+                  </label>
+                )}
                 <label title="Masks the name to initials and coarsens the map pin to a country centroid on the public site.">
                   <input
                     type="checkbox"

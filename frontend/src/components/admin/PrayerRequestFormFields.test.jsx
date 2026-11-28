@@ -6,7 +6,7 @@ import { sentForReviewNote } from "../../utils/heldForReview.js";
 import { useSettings } from "../../context/SettingsContext.jsx";
 
 vi.mock("../../context/SettingsContext.jsx", () => ({
-  useSettings: vi.fn(() => ({ enabledFeatures: { booklet: true } })),
+  useSettings: vi.fn(() => ({ enabledFeatures: { booklet: true, publicDirectory: true } })),
 }));
 
 const base = {
@@ -86,10 +86,28 @@ describe("sentForReviewNote", () => {
 
 describe("PrayerRequestFormFields: features that are off", () => {
   it("does not offer 'Include in printed booklet' when the booklet is off", () => {
-    useSettings.mockReturnValue({ enabledFeatures: { booklet: false } });
+    useSettings.mockReturnValue({ enabledFeatures: { booklet: false, publicDirectory: true } });
     render(<Harness mode="create" />);
     expect(screen.getByLabelText("Show on public profile")).toBeInTheDocument();
     expect(screen.queryByLabelText("Include in printed booklet")).toBeNull();
+    useSettings.mockReturnValue({ enabledFeatures: { booklet: true, publicDirectory: true } });
+  });
+});
+
+describe("PrayerRequestFormFields with no public page on", () => {
+  it("offers one booklet box instead of a public-profile box, and it sets both fields", () => {
     useSettings.mockReturnValue({ enabledFeatures: { booklet: true } });
+    render(<Harness initial={{ ...base, isPublic: false, includeInBooklet: false }} mode="create" />);
+    expect(screen.queryByLabelText("Show on public profile")).toBeNull();
+    fireEvent.click(screen.getByLabelText("Include in printed booklet"));
+    expect(state()).toMatchObject({ isPublic: true, includeInBooklet: true });
+    useSettings.mockReturnValue({ enabledFeatures: { booklet: true, publicDirectory: true } });
+  });
+
+  it("offers neither with the booklet off too", () => {
+    useSettings.mockReturnValue({ enabledFeatures: { booklet: false } });
+    render(<Harness mode="create" />);
+    expect(screen.queryByLabelText("Show on public profile")).toBeNull();
+    expect(screen.queryByLabelText("Include in printed booklet")).toBeNull();
   });
 });

@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { createPartner } from "../api/client.js";
 import { useSettings } from "../context/SettingsContext.jsx";
+import { publicSiteOn } from "../utils/publicSite.js";
 import useCurrentUser from "../hooks/useCurrentUser.js";
 import { getFipsCode } from "../utils/countryFipsCodes.js";
 import { COUNTRY_CONTINENTS } from "../utils/countryContinents.js";
@@ -21,7 +22,8 @@ const COUNTRY_NAMES = Object.keys(COUNTRY_CONTINENTS).sort();
 export default function AdminPartnerForm() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { churchName } = useSettings();
+  const { churchName, enabledFeatures } = useSettings();
+  const publicOn = publicSiteOn(enabledFeatures);
   const { isAdmin } = useCurrentUser();
 
   const initialValues = {
@@ -172,19 +174,23 @@ export default function AdminPartnerForm() {
                 </select>
               </label>
             )}
-            <label>
-              <input
-                type="checkbox"
-                checked={values.isPublic}
-                onChange={(e) => setValue("isPublic", e.target.checked)}
-              />
-              Show on public site
-            </label>
-            <p style={{ color: "var(--muted)", fontSize: "0.9rem", margin: "0 0 0.5rem" }}>
-              Ticked: anyone on the internet can see this partner's name, photo, place on the map and short
-              overview. Not ticked: only signed-in people can see them. You can change this at any time on the
-              partner's page.
-            </p>
+            {publicOn && (
+              <>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={values.isPublic}
+                    onChange={(e) => setValue("isPublic", e.target.checked)}
+                  />
+                  Show on public site
+                </label>
+                <p style={{ color: "var(--muted)", fontSize: "0.9rem", margin: "0 0 0.5rem" }}>
+                  Ticked: anyone on the internet can see this partner's name, photo, place on the map and
+                  short overview. Not ticked: only signed-in people can see them. You can change this at any
+                  time on the partner's page.
+                </p>
+              </>
+            )}
             <label>
               <input
                 type="checkbox"
