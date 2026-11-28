@@ -37,6 +37,13 @@ const {
 
 const SOON_DAYS = 30;
 const BACKUP_REMIND_AGAIN_AFTER_MS = 30 * 24 * 60 * 60 * 1000;
+// How long a new install is left alone by the backup banner, counted from its first account.
+const NEW_INSTALL_QUIET_MS = 3 * 24 * 60 * 60 * 1000;
+
+async function installIsBrandNew(now = Date.now()) {
+  const first = await prisma.user.findFirst({ orderBy: { createdAt: "asc" }, select: { createdAt: true } });
+  return Boolean(first) && now - first.createdAt.getTime() < NEW_INSTALL_QUIET_MS;
+}
 
 function latestOf(rows, pick) {
   if (rows.length === 0) return null;
@@ -412,6 +419,9 @@ async function timeToCheckBackups({ userId }) {
   });
   if (settings?.backupReminderDisabled) return { count: 0, latest: null };
   const seenAt = await getSeenAt(userId, "timeToCheckBackups");
+  // Not on a brand-new install's first screens: with nothing in it yet there is nothing to lose, and a warning
+  // banner is the wrong first impression. It starts after the first few days, or sooner by being asked for.
+  if (!seenAt && (await installIsBrandNew())) return { count: 0, latest: null };
   const due = !seenAt || Date.now() - seenAt.getTime() >= BACKUP_REMIND_AGAIN_AFTER_MS;
   return { count: due ? 1 : 0, latest: due ? new Date() : null };
 }
