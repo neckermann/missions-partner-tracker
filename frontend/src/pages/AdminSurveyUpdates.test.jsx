@@ -213,3 +213,19 @@ describe("AdminSurveyUpdates", () => {
     expect(approveSurveyUpdate).not.toHaveBeenCalledWith("g3");
   });
 });
+
+describe("AdminSurveyUpdates: which survey a change came from", () => {
+  it("names the survey once in the heading when all of a partner's changes came from one", async () => {
+    renderPage();
+    expect(await screen.findByText(/· Annual update/)).toBeInTheDocument();
+    expect(screen.queryByText(/surveys$/)).toBeNull();
+  });
+
+  it("names each change's own survey, not the first one's, when they came from different surveys", async () => {
+    fetchSurveyUpdates.mockResolvedValue([phone, { ...photo, surveyTitle: "Prayer letter" }]);
+    renderPage();
+    expect(await screen.findByText("· 2 surveys")).toBeInTheDocument();
+    expect(screen.getByText(/· Annual update/)).toBeInTheDocument();
+    expect(screen.getByText(/· Prayer letter/)).toBeInTheDocument();
+  });
+});

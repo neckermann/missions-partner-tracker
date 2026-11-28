@@ -37,6 +37,11 @@ const showSuggested = (u) =>
 // What partners' survey answers suggest changing on their record. Nothing here has been applied:
 // a person approves it (optionally editing the value first), or rejects it and the record stays
 // as it is. A photo is held until approved, then becomes the partner's current photo.
+// The distinct survey titles among one partner's waiting changes, in the order they first appear.
+export function surveyTitlesOf(group) {
+  return [...new Set(group.items.map((u) => u.surveyTitle))];
+}
+
 export default function AdminSurveyUpdates() {
   const [tab, setTab] = useState("pending");
   const [rows, setRows] = useState(null);
@@ -153,7 +158,10 @@ export default function AdminSurveyUpdates() {
                 <Link to={`/admin/partners/${g.partnerId}`}>{g.partnerName}</Link>
                 <span style={{ color: "var(--muted)", fontWeight: "normal", fontSize: "0.9rem" }}>
                   {" "}
-                  · {g.items[0].surveyTitle}
+                  {/* One survey: its title here. Several: each change names its own, never the first one's. */}
+                  {surveyTitlesOf(g).length === 1
+                    ? `· ${surveyTitlesOf(g)[0]}`
+                    : `· ${surveyTitlesOf(g).length} surveys`}
                 </span>
               </h3>
               {g.items.length > 1 && (
@@ -174,7 +182,12 @@ export default function AdminSurveyUpdates() {
             <ul className="survey-change-list">
               {g.items.map((u) => (
                 <li key={u.id} className="survey-change">
-                  <div className="survey-change-field">{u.fieldLabel}</div>
+                  <div className="survey-change-field">
+                    {u.fieldLabel}
+                    {surveyTitlesOf(g).length > 1 && (
+                      <span style={{ color: "var(--muted)", fontWeight: "normal" }}> · {u.surveyTitle}</span>
+                    )}
+                  </div>
                   <div className="survey-change-values">
                     {u.photoUploadId ? (
                       <img
