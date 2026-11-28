@@ -114,6 +114,8 @@ const FEATURES = {
     label: "Email (Receiving)",
     description:
       "Receive email through a configured Postmark account, held for a quick review, then assigned to the partner.",
+    // Mail is filed as a newsletter or document on the partner, so it cannot work without Newsletters & Docs.
+    requires: ["partnerFiles"],
     defaultEnabled: false,
     group: "admin",
     section: "communications",

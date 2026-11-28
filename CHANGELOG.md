@@ -18,6 +18,7 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ### Fixed
 
+- Email (Receiving) now requires Newsletters & Docs, which is where the mail it receives is filed: with Newsletters & Docs off it shows as off and explains why, instead of queuing mail that cannot be filed ("Not found"). And when Support preferences is switched off, a survey no longer asks a partner its support question or holds them to it, so a partner can still submit the rest.
 - A trip release or other e-signature for someone under 18 on the trip's start date can only be signed by a parent or legal guardian: their page no longer offers "Myself" and says a parent or guardian signs, and the server refuses a signature as "Myself" for a minor. Adults are unchanged.
 - A brand-new install now starts with a sharing schedule (chat posts at 9am, the monthly update email on the 1st at 9am, church time), set when the first administrator is created and only where nothing was set already, so updates are going out from the start instead of silently not. Existing churches are unchanged; they still get the "no schedule" alerts.
 - A care team member, or anyone else who can log a contact, can now delete a contact entry they typed in themselves (a slip), after a confirmation, with **Delete my entry**. They still cannot edit an entry, or delete anyone else's. Admins and editors are unchanged.
