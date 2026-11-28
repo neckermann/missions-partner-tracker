@@ -53,7 +53,10 @@ describe("Setup", () => {
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
     fireEvent.click(await screen.findByRole("button", { name: "Create a passkey on this device" }));
     await waitFor(() =>
-      expect(client.completeSetup).toHaveBeenCalledWith("first@church.test", undefined, "passkey")
+      expect(client.completeSetup).toHaveBeenCalledWith("first@church.test", undefined, "passkey", {
+        firstName: "",
+        lastName: "",
+      })
     );
     await waitFor(() => expect(client.registerPasskey).toHaveBeenCalledWith("", "setup-1"));
     expect(await screen.findByText("the admin app")).toBeInTheDocument();
@@ -83,7 +86,15 @@ describe("Setup", () => {
     fireEvent.change(confirm, { target: { value: "A-Strong-Passw0rd!" } });
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
     await waitFor(() =>
-      expect(client.completeSetup).toHaveBeenCalledWith("first@church.test", "A-Strong-Passw0rd!")
+      expect(client.completeSetup).toHaveBeenCalledWith(
+        "first@church.test",
+        "A-Strong-Passw0rd!",
+        "password",
+        {
+          firstName: "",
+          lastName: "",
+        }
+      )
     );
     expect(await screen.findByRole("heading", { name: "Add your authenticator app" })).toBeInTheDocument();
     fireEvent.change(await screen.findByLabelText("Code"), { target: { value: "123456" } });
@@ -102,5 +113,28 @@ describe("Setup", () => {
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
     expect(await screen.findByText("Passwords don't match")).toBeInTheDocument();
     expect(client.completeSetup).not.toHaveBeenCalled();
+  });
+
+  it("asks for the administrator's name, optional, and sends it with the account", async () => {
+    client.registerPasskey.mockResolvedValue({});
+    renderSetup();
+    fireEvent.change(await screen.findByLabelText("Your first name"), { target: { value: "Dana" } });
+    fireEvent.change(screen.getByLabelText("Your last name"), { target: { value: "Reed" } });
+    expect(screen.getByText(/Shown beside the changes you make/)).toBeInTheDocument();
+    await typeEmail();
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Create a passkey on this device" }));
+    await waitFor(() =>
+      expect(client.completeSetup).toHaveBeenCalledWith("first@church.test", undefined, "passkey", {
+        firstName: "Dana",
+        lastName: "Reed",
+      })
+    );
+  });
+
+  it("does not require a name", async () => {
+    renderSetup();
+    expect(await screen.findByLabelText("Your first name")).not.toBeRequired();
+    expect(screen.getByLabelText("Your last name")).not.toBeRequired();
   });
 });

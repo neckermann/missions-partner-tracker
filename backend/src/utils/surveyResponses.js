@@ -20,6 +20,11 @@ async function saveSurveyAnswers({ survey, partnerId, answers, submit = false, e
   const supportMenu = questions.some((q) => q.kind === SUPPORT_KIND) ? await loadMenuForPartner() : null;
   const byId = new Map(questions.map((q) => [q.id, q]));
 
+  // "Save and finish later" by the partner keeps every answer that is valid and reports the ones it could not keep
+  // (`skipped`), so one mistyped phone number doesn't lose the rest. Submitting, and anything staff enter, stays
+  // all-or-nothing: the whole thing is refused with the reason.
+  const lenient = !submit && !enteredBy;
+  const skipped = [];
   const toSave = [];
   const toClear = [];
   for (const item of answers) {
@@ -28,7 +33,11 @@ async function saveSurveyAnswers({ survey, partnerId, answers, submit = false, e
     if (question.kind === "photo") continue; // answered by uploading, see saveSurveyPhoto
     const shown = presentQuestion(question);
     const result = normalizeAnswer(supportMenu ? { ...shown, supportMenu } : shown, item);
-    if (result.error) return { error: result.error };
+    if (result.error) {
+      if (!lenient) return { error: result.error };
+      skipped.push({ questionId: question.id, label: question.label, error: result.error });
+      continue;
+    }
     // A question linked to a field of the partner's record takes only a value that field accepts
     // (a phone number that is one, an email that is one) and keeps it in the one saved form, so
     // what staff review later is never junk and reads the same as what is on file.
@@ -36,7 +45,11 @@ async function saveSurveyAnswers({ survey, partnerId, answers, submit = false, e
     if (linked?.normalize && !result.empty) {
       const typed = result.value || result.other;
       const checked = linked.normalize(typed);
-      if (checked.error) return { error: `${question.label}: ${checked.error}` };
+      if (checked.error) {
+        if (!lenient) return { error: `${question.label}: ${checked.error}` };
+        skipped.push({ questionId: question.id, label: question.label, error: checked.error });
+        continue;
+      }
       if (checked.value && question.kind === "text") result.value = checked.value;
     }
     if (result.empty) toClear.push(question.id);
@@ -103,7 +116,7 @@ async function saveSurveyAnswers({ survey, partnerId, answers, submit = false, e
     return row;
   });
   if (response.submittedAt && submit) await proposeFromResponse(response.id);
-  return { response };
+  return { response, skipped };
 }
 
 const PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];

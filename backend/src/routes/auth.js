@@ -142,6 +142,10 @@ const SETUP_LOCK_KEY = 7204117102;
 router.post("/setup", async (req, res, next) => {
   try {
     const { email, password } = req.body;
+    // Optional, but asked for: without a name every change the first admin makes is recorded as "Someone".
+    const nameOf = (v) => (typeof v === "string" ? v.trim().slice(0, 100) || null : null);
+    const firstName = nameOf(req.body.firstName);
+    const lastName = nameOf(req.body.lastName);
     // Two ways in, as for any new account: a password (then an authenticator app), or a passkey on this
     // device with no password at all.
     const passkeyOnly = req.body.method === "passkey";
@@ -167,6 +171,8 @@ router.post("/setup", async (req, res, next) => {
       const admin = await tx.user.create({
         data: {
           email: email.toLowerCase().trim(),
+          firstName,
+          lastName,
           passwordHash,
           role: "admin",
           authProvider: "local",

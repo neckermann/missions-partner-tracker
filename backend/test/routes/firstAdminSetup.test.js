@@ -120,6 +120,32 @@ describe("the first administrator's choice of how to sign in", () => {
     assert.equal(me.body.user?.role ?? me.body.role, "admin");
   });
 
+  test("the first administrator's name is saved when given, and is optional", async (t) => {
+    if (!canRun) return cannotRun(t);
+    await prisma.user.deleteMany({});
+    const named = await post("/api/auth/setup", {
+      email: "first-admin-password@example.test",
+      password: "A-Long-Passw0rd-For-Tests!",
+      firstName: "  Dana ",
+      lastName: "Reed",
+    });
+    assert.equal(named.status, 201, JSON.stringify(named.body));
+    const row = await prisma.user.findUnique({ where: { email: "first-admin-password@example.test" } });
+    assert.equal(row.firstName, "Dana", "trimmed");
+    assert.equal(row.lastName, "Reed");
+
+    await prisma.user.deleteMany({});
+    const unnamed = await post("/api/auth/setup", {
+      email: "first-admin-passkey@example.test",
+      method: "passkey",
+      firstName: "   ",
+    });
+    assert.equal(unnamed.status, 201, JSON.stringify(unnamed.body));
+    const plain = await prisma.user.findUnique({ where: { email: "first-admin-passkey@example.test" } });
+    assert.equal(plain.firstName, null, "blank is no name");
+    assert.equal(plain.lastName, null);
+  });
+
   test("a passkey needs no password: the account has none, and the enrolment token can register one", async (t) => {
     if (!canRun) return cannotRun(t);
     await prisma.user.deleteMany({});

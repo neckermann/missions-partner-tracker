@@ -932,8 +932,14 @@ export async function fetchSetupStatus() {
 
 // First-run account creation. `method` is "password" or "passkey" (no password); either way the reply holds an
 // enrolment token the page uses to add the second factor, and adding it opens the session.
-export async function completeSetup(email, password, method = "password") {
-  const { data } = await api.post("/auth/setup", { email, password, method });
+export async function completeSetup(email, password, method = "password", name = {}) {
+  const { data } = await api.post("/auth/setup", {
+    email,
+    password,
+    method,
+    firstName: name.firstName || undefined,
+    lastName: name.lastName || undefined,
+  });
   return data; // { ok, mfaSetupRequired, setupToken }
 }
 
