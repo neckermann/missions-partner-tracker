@@ -63,6 +63,7 @@ before(async () => {
     careTeam: true,
     contactLog: true,
     publicDirectory: true,
+    keyDates: true,
   };
   await prisma.churchSettings.upsert({
     where: { id: "singleton" },
@@ -72,13 +73,14 @@ before(async () => {
   const email = "route-test-snooze-user@example.test";
   user = await prisma.user.upsert({
     where: { email },
-    update: { active: true, role: "editor" },
+    update: { active: true, role: "editor", lastLoginAt: new Date() },
     create: {
       email,
       passwordHash: await bcrypt.hash("RouteTestSnooze123!", 4),
       role: "editor",
       authProvider: "local",
       active: true,
+      lastLoginAt: new Date(), // a seat takes reminders only once the person has signed in
     },
   });
 });
@@ -307,5 +309,50 @@ describe("any sign of life resets the quiet clock, not only a logged contact", (
     });
     await prisma.churchVisit.create({ data: { partnerId: p.id, visitDate: utcDay(30) } });
     assert.equal((await rowFor(p.id)).quiet, true);
+  });
+});
+
+describe("each row says whether it is in the bell's other two partner alerts", () => {
+  test("updatesWaiting counts an answered prayer not yet passed on, and an outbound contact clears it", async () => {
+    const p = await partnerOnList({ tag: "updates" });
+    assert.equal((await rowFor(p.id)).updatesWaiting, 0);
+    await prisma.prayerRequest.create({
+      data: {
+        partnerId: p.id,
+        category: "strategic",
+        requestText: "x",
+        dateReceived: utcDay(-5),
+        status: "answered",
+        dateAnswered: utcDay(-1),
+      },
+    });
+    assert.equal((await rowFor(p.id)).updatesWaiting, 1);
+    await prisma.contactLog.create({
+      data: {
+        partnerId: p.id,
+        contactDate: utcDay(0),
+        contactType: "email",
+        direction: "outbound",
+        topics: ["encouragement"],
+      },
+    });
+    assert.equal((await rowFor(p.id)).updatesWaiting, 0);
+  });
+
+  test("keyDateOpen is true only for a key date inside the reminder window", async () => {
+    const near = await partnerOnList({ tag: "keydate near" });
+    const far = await partnerOnList({ tag: "keydate far" });
+    const soon = utcDay(3);
+    const later = utcDay(120);
+    await prisma.partner.update({
+      where: { id: near.id },
+      data: { anniversary: new Date(Date.UTC(2015, soon.getUTCMonth(), soon.getUTCDate())) },
+    });
+    await prisma.partner.update({
+      where: { id: far.id },
+      data: { anniversary: new Date(Date.UTC(2015, later.getUTCMonth(), later.getUTCDate())) },
+    });
+    assert.equal((await rowFor(near.id)).keyDateOpen, true);
+    assert.equal((await rowFor(far.id)).keyDateOpen, false);
   });
 });

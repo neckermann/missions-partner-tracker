@@ -9,6 +9,7 @@ const { emailBlockReason, surveyEmailFor } = require("./contactReach");
 const { careTimings } = require("./careSettings");
 const { partnersOwnedBy } = require("./ownership");
 const { lastHeardFromByPartner } = require("./lastHeardFrom");
+const { loadOpenKeyDatesFor } = require("./keyDateQueries");
 
 // Latest contact date per partner, from the log alone. Any entry counts: "has anyone been in touch".
 async function lastContactByPartner(partnerIds) {
@@ -68,6 +69,18 @@ async function loadAssignedPartners(userId, today = new Date()) {
     partners.map((p) => p.id),
     today
   );
+  // What the bell's other two partner alerts count, so each can open the list narrowed to its own partners:
+  // a key date still waiting to be acted on, and an answered prayer or decided need not yet passed on.
+  const [openKeyDates, openUpdates] = await Promise.all([
+    loadOpenKeyDatesFor(userId),
+    loadUpdatesToPassOn(
+      partners.map((p) => p.id),
+      today
+    ),
+  ]);
+  const keyDatePartners = new Set(openKeyDates.map((k) => k.partnerId));
+  const updatesByPartner = new Map();
+  openUpdates.forEach((u) => updatesByPartner.set(u.partnerId, (updatesByPartner.get(u.partnerId) || 0) + 1));
   const seats = owned
     .filter((o) => byId.has(o.partnerId))
     .map((o) => ({
@@ -131,6 +144,8 @@ async function loadAssignedPartners(userId, today = new Date()) {
       // Where a greeting for that date could be emailed: null when we must not (restricted, don't
       // contact directly, ways exclude email) or have no address.
       greetingEmail: emailBlockReason(p) ? null : surveyEmailFor(p, p.adults),
+      keyDateOpen: keyDatePartners.has(p.id),
+      updatesWaiting: updatesByPartner.get(p.id) || 0,
       openPrayers: p.prayerRequests.length,
       openNeeds: p.needRequests.length,
     };

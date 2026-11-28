@@ -18,6 +18,7 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ### Fixed
 
+- "Partners to reach out to", "Key dates coming up" and "Updates to pass on to partners" no longer open the same unfiltered My partners list: each opens it narrowed to the partners that alert counted, with a note saying so and a "Show all my partners" button.
 - Approving an urgent update that was held for review (an urgent request or need about a restricted partner) now sends it at once, as marking it urgent promised, instead of leaving it for the next scheduled send. Only the first approval sends; editing the wording afterwards does not send it again, and an update that was not urgent still goes out on its schedule.
 - **An account with no password can remove a lost passkey and make new recovery codes (#591).** Both asked for the current password, which an account made with a passkey alone doesn't have, so only an administrator could help. They now accept a fresh touch of one of the person's own passkeys (fingerprint, face or screen lock) instead: the answer is single use, tied to the signed-in person, and must come from one of their own passkeys. It is for someone who still has at least one working passkey; someone who has lost every passkey uses "Email me a new link" or an administrator's Reset MFA. Accounts with a password are unchanged.
 

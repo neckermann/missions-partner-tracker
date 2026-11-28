@@ -19,7 +19,16 @@ const KEY_DATE_SOON_DAYS = 7;
 const sinceLabel = (days) =>
   days === null ? "Never" : days === 0 ? "Today" : days === 1 ? "Yesterday" : `${days} days ago`;
 
-export default function AssignedPartnersTable() {
+// The bell and Home link here already narrowed to what they counted: `show` is "reachout" (quiet, or a
+// follow-up due), "keydates" (a key date still waiting) or "updates" (an answered prayer or decided need not
+// yet passed on). Anything else shows every partner.
+const SHOW_FILTERS = {
+  reachout: { label: "partners to reach out to", keep: (r) => r.quiet || r.followUpDue },
+  keydates: { label: "partners with a key date coming up", keep: (r) => r.keyDateOpen },
+  updates: { label: "partners with an update to pass on", keep: (r) => r.updatesWaiting > 0 },
+};
+
+export default function AssignedPartnersTable({ show = null, onShowAll }) {
   const navigate = useNavigate();
   const { enabledFeatures, churchName, ownerGroupName } = useSettings();
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
@@ -150,9 +159,20 @@ export default function AssignedPartnersTable() {
     }
   }
 
+  const filter = SHOW_FILTERS[show] || null;
+  const filtered = rows && filter ? rows.filter(filter.keep) : rows || [];
+
   if (error) return <p role="alert">{error}</p>;
   return (
     <>
+      {filter && (
+        <p style={{ margin: "0.5rem 0 0", color: "var(--muted)" }}>
+          Showing only your {filter.label}.{" "}
+          <button type="button" className="btn secondary small" onClick={onShowAll}>
+            Show all my partners
+          </button>
+        </p>
+      )}
       {enabledFeatures?.keyDates && !enabledFeatures?.outboundEmail && <KeyDatesCopyList />}
       {message && (
         <p role="status" style={{ color: "var(--accent)" }}>
@@ -162,11 +182,17 @@ export default function AssignedPartnersTable() {
       <Table
         className="admin-table"
         style={{ marginTop: "0.75rem" }}
-        rows={rows || []}
+        rows={filtered}
         rowKey={(r) => r.partnerId}
         onRowClick={(r) => navigate(`/admin/partners/${r.partnerId}`)}
         rowHref={(r) => `/admin/partners/${r.partnerId}`}
-        emptyMessage={rows === null ? "Loading…" : "You aren't on any partner's care team yet."}
+        emptyMessage={
+          rows === null
+            ? "Loading…"
+            : filter && rows.length > 0
+              ? `None of your partners are in this list now. Nothing to do here.`
+              : "You aren't on any partner's care team yet."
+        }
         columns={columns}
       />
       {confirmElement}

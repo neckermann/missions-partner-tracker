@@ -47,10 +47,10 @@ beforeEach(() => {
   fetchAssignedPartners.mockResolvedValue(rows);
 });
 
-const renderIt = () =>
+const renderIt = (props = {}) =>
   render(
     <MemoryRouter>
-      <AssignedPartnersTable />
+      <AssignedPartnersTable {...props} />
     </MemoryRouter>
   );
 
@@ -197,5 +197,64 @@ describe("AssignedPartnersTable: key-date flag (#291)", () => {
       })
     );
     Object.defineProperty(window, "location", { configurable: true, value: original });
+  });
+});
+
+describe("the list narrowed by the bell or Home link", () => {
+  const mixed = [
+    {
+      ...rows[0],
+      partnerId: "a",
+      displayName: "Quiet Ones",
+      quiet: true,
+      followUpDue: false,
+      keyDateOpen: false,
+      updatesWaiting: 0,
+    },
+    {
+      ...rows[0],
+      partnerId: "b",
+      displayName: "Birthday Folks",
+      quiet: false,
+      followUpDue: false,
+      keyDateOpen: true,
+      updatesWaiting: 0,
+    },
+    {
+      ...rows[0],
+      partnerId: "c",
+      displayName: "News Waiting",
+      quiet: false,
+      followUpDue: false,
+      keyDateOpen: false,
+      updatesWaiting: 2,
+    },
+  ];
+  beforeEach(() => fetchAssignedPartners.mockResolvedValue(mixed));
+  const names = () => ["Quiet Ones", "Birthday Folks", "News Waiting"].filter((n) => screen.queryByText(n));
+
+  it("shows everyone without a filter", async () => {
+    renderIt();
+    await screen.findByText("Quiet Ones");
+    expect(names()).toHaveLength(3);
+  });
+
+  it.each([
+    ["reachout", ["Quiet Ones"]],
+    ["keydates", ["Birthday Folks"]],
+    ["updates", ["News Waiting"]],
+  ])("show=%s lists only what that alert counted, and says so", async (show, expected) => {
+    renderIt({ show });
+    await screen.findByText(expected[0]);
+    expect(names()).toEqual(expected);
+    expect(screen.getByText(/Showing only your/)).toBeTruthy();
+  });
+
+  it("Show all my partners calls back, and an unknown filter shows everyone", async () => {
+    const onShowAll = vi.fn();
+    renderIt({ show: "reachout", onShowAll });
+    await screen.findByText("Quiet Ones");
+    fireEvent.click(screen.getByRole("button", { name: "Show all my partners" }));
+    expect(onShowAll).toHaveBeenCalled();
   });
 });

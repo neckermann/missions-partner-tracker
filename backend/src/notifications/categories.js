@@ -74,7 +74,7 @@ async function partnersNeedingContact({ userId }) {
     const d = r.overdueSince ? new Date(r.overdueSince) : null;
     return d && (!m || d > m) ? d : m;
   }, null);
-  return { count: due.length, latest, linkTo: "/admin/partners?assigned=1" };
+  return { count: due.length, latest, linkTo: "/admin/partners?assigned=1&show=reachout" };
 }
 
 // Upcoming birthdays, anniversaries and supported-since milestones for the
@@ -96,7 +96,10 @@ async function keyDatesComing({ userId }) {
   return {
     count: items.length,
     latest,
-    linkTo: partnerIds.length === 1 ? `/admin/partners/${partnerIds[0]}` : "/admin/partners?assigned=1",
+    linkTo:
+      partnerIds.length === 1
+        ? `/admin/partners/${partnerIds[0]}`
+        : "/admin/partners?assigned=1&show=keydates",
   };
 }
 
@@ -339,7 +342,8 @@ async function updatesToPassOn({ userId }) {
   return {
     count: open.length,
     latest: latestOf(open, (o) => o.date),
-    linkTo: distinct.length === 1 ? `/admin/partners/${distinct[0]}` : "/admin/partners?assigned=1",
+    linkTo:
+      distinct.length === 1 ? `/admin/partners/${distinct[0]}` : "/admin/partners?assigned=1&show=updates",
   };
 }
 
@@ -512,7 +516,7 @@ const CATEGORIES = [
     key: "partnersNeedingContact",
     label: "Partners to reach out to",
     icon: "💬",
-    linkTo: "/admin/partners?assigned=1",
+    linkTo: "/admin/partners?assigned=1&show=reachout",
     adminOnly: false,
     perUser: false,
     tripScoped: false,
@@ -524,7 +528,7 @@ const CATEGORIES = [
     key: "keyDatesComing",
     label: "Key dates coming up",
     icon: "🎂",
-    linkTo: "/admin/partners?assigned=1",
+    linkTo: "/admin/partners?assigned=1&show=keydates",
     adminOnly: false,
     perUser: false,
     tripScoped: false,
@@ -617,7 +621,7 @@ const CATEGORIES = [
     key: "updatesToPassOn",
     label: "Updates to pass on to partners",
     icon: "📣",
-    linkTo: "/admin/partners?assigned=1",
+    linkTo: "/admin/partners?assigned=1&show=updates",
     adminOnly: false,
     perUser: false,
     tripScoped: false,
