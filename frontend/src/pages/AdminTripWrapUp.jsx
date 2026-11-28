@@ -78,8 +78,9 @@ export default function AdminTripWrapUp() {
     setSubmitError("");
     try {
       const payload = {
-        startDate: values.startDate || null,
-        endDate: values.endDate || null,
+        // Left out when cleared, never sent as empty: clearing a box here used to erase the trip's own date.
+        ...(values.startDate ? { startDate: values.startDate } : {}),
+        ...(values.endDate ? { endDate: values.endDate } : {}),
         debrief: {
           whatWeDid: values.whatWeDid,
           wentWell: values.wentWell,

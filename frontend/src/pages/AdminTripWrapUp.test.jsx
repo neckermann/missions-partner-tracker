@@ -103,6 +103,22 @@ describe("AdminTripWrapUp", () => {
     expect(setTrip).toHaveBeenCalled();
   });
 
+  it("never sends a cleared date, so clearing the box cannot erase the trip's own date", async () => {
+    wrapUpTrip.mockResolvedValue({ trip: { id: "t1", status: "completed" }, contactLogged: false });
+    renderWizard();
+    fireEvent.change(screen.getByLabelText("Actual start"), { target: { value: "" } });
+    next(); // debrief
+    skip();
+    skip(); // follow-up
+    skip(); // loose ends
+    skip(); // photos
+    fireEvent.click(screen.getByRole("button", { name: "Finish" }));
+    await waitFor(() => expect(wrapUpTrip).toHaveBeenCalled());
+    const payload = wrapUpTrip.mock.calls[0][1];
+    expect("startDate" in payload).toBe(false);
+    expect(payload.endDate).toBe("2026-06-12");
+  });
+
   it("won't go past the dates when the end is before the start", () => {
     renderWizard();
     fireEvent.change(screen.getByLabelText("Actual end"), { target: { value: "2026-05-01" } });

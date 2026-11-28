@@ -2,12 +2,15 @@ import React, { useState } from "react";
 import { Link, useOutletContext } from "react-router-dom";
 import { updateTrip } from "../api/client.js";
 import EditableSection from "../components/admin/EditableSection.jsx";
+import useConfirmDialog from "../hooks/useConfirmDialog.jsx";
+import ConfirmMessageBody from "../components/ConfirmMessageBody.jsx";
 import ManualSendNotice from "../components/shared/ManualSendNotice.jsx";
 import { DEBRIEF_PROMPTS } from "./AdminTripWrapUp.jsx";
 import { formatDate, formatCurrency } from "../utils/format.js";
 
 export default function AdminTripOverview() {
   const { trip, setTrip, enableTripBudgeting, canWrite } = useOutletContext();
+  const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
   // Set when saving dates triggered sendTripDatesUpdateEmail with outbound email off.
   // EditableSection ignores onSave's return value, so this lives outside it.
   const [manualDatesLink, setManualDatesLink] = useState(null); // [{ name, email, url }] | null
@@ -15,6 +18,27 @@ export default function AdminTripOverview() {
   const budgetTotal = (trip.budgetLines || []).reduce((sum, b) => sum + b.estimatedAmount, 0);
 
   async function saveSetup(fields) {
+    // Setting a trip to Completed by hand skips the wrap-up (the debrief, the contact, when leader access ends). For
+    // a trip that has not started yet that is almost certainly a slip, so ask first. Declining leaves it unsaved.
+    const notStarted = fields.startDate && new Date(fields.startDate) > new Date();
+    if (fields.status === "completed" && trip.status !== "completed" && notStarted) {
+      const ok = await confirmDialog({
+        title: "Mark this trip completed?",
+        body: (
+          <ConfirmMessageBody>
+            This trip starts on {formatDate(fields.startDate)}. Marking it completed now skips the wrap-up
+            (the debrief and who looks after the partner next). To finish a trip properly, use Wrap up trip
+            once it has run.
+          </ConfirmMessageBody>
+        ),
+        confirmLabel: "Mark completed anyway",
+      });
+      if (!ok) {
+        throw Object.assign(new Error("declined"), {
+          response: { data: { error: "Not saved: the status is unchanged." } },
+        });
+      }
+    }
     const updated = await updateTrip(trip.id, fields);
     setTrip((t) => ({ ...t, ...updated }));
     setManualDatesLink(updated.datesUpdateEmail?.manual?.length > 0 ? updated.datesUpdateEmail.manual : null);
@@ -186,6 +210,7 @@ export default function AdminTripOverview() {
         )}
       />
       <TripDebrief trip={trip} canWrite={canWrite} />
+      {confirmElement}
     </>
   );
 }

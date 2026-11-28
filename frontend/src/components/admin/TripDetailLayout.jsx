@@ -127,7 +127,7 @@ export default function TripDetailLayout() {
         <h2 style={{ margin: 0 }}>{trip.name || trip.type || "Trip"}</h2>
         <TripStatusBadge status={trip.status} />
         {/* Finishing a trip is its own guided step; a finished one is edited from its debrief. */}
-        {canWrite && trip.status !== "completed" && (
+        {canWrite && trip.status !== "completed" && trip.status !== "planning" && (
           <Link className="btn small" to="wrap-up" style={{ marginLeft: "auto" }}>
             Wrap up trip
           </Link>
