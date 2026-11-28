@@ -160,7 +160,9 @@ async function extractRequestsFromFile(record) {
     // NotFoundError): give the same user-facing error as the "no key configured"
     // case above instead of a generic 500. Other APIErrors propagate as-is.
     if (err instanceof Anthropic.NotFoundError) {
-      const wrapped = new Error("The configured AI model isn't available — check Settings → Integrations → AI Features");
+      const wrapped = new Error(
+        "The configured AI model isn't available — check Settings → Integrations → AI Features"
+      );
       wrapped.status = 400;
       throw wrapped;
     }
