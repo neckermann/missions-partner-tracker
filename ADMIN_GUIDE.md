@@ -1143,8 +1143,9 @@ the page that fixes it:
 | **WhatsApp isn't finished setting up** | WhatsApp is on, but no phone has been linked, or no community has been chosen to post in. | Settings → WhatsApp |
 | **Chat posts have no send time, so none will go out** | GroupMe or WhatsApp is on, but the daily posting time is not set. | Settings → Sending Updates |
 
-An alert stays listed until the thing is fixed (or the channel is
-switched off); opening the bell only stops it counting as new. The
+An alert stays listed, and counted on the bell's badge, until the thing
+is fixed (or the channel is switched off); opening the bell changes
+nothing. The
 email schedule alerts wait until email itself is set up, so you are
 told about one thing at a time. A WhatsApp number that was linked and
 has since dropped its connection is a separate alert, **WhatsApp

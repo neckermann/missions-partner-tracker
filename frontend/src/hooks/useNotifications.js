@@ -53,12 +53,14 @@ export default function useNotifications() {
     return () => clearInterval(id);
   }, [refresh]);
 
-  const totalUnread = categories.filter((c) => c.isNew && c.count > 0).length;
+  // What the bell's badge shows: how many alerts are waiting, which is exactly how many lines its list has. An
+  // alert stays until the thing it is about is dealt with; looking at the bell never clears it.
+  const totalWaiting = categories.filter((c) => c.count > 0).length;
 
   async function markSeen(category) {
     await markNotificationSeen(category).catch(() => {});
     refresh();
   }
 
-  return { categories, loading, totalUnread, refresh, markSeen };
+  return { categories, loading, totalWaiting, refresh, markSeen };
 }

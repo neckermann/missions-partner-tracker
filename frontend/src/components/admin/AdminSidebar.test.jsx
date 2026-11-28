@@ -18,7 +18,7 @@ vi.mock("../../hooks/useCurrentUser.js", () => ({
 }));
 
 vi.mock("../../hooks/useNotifications.js", () => ({
-  default: () => ({ categories: [], totalUnread: 0, markSeen: vi.fn() }),
+  default: () => ({ categories: [], totalWaiting: 0, markSeen: vi.fn() }),
 }));
 
 let enabledFeatures = { trips: true, prayerRequests: true };
