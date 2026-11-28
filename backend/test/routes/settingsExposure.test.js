@@ -56,9 +56,7 @@ before(async () => {
 });
 
 after(async () => {
-  await prisma.churchSettings
-    .update({ where: { id: "singleton" }, data: originalSettings ?? {} })
-    .catch(() => {});
+  await prisma.churchSettings.update({ where: { id: "singleton" }, data: originalSettings ?? {} });
   await removeTestUsers();
   await stopServer();
 });

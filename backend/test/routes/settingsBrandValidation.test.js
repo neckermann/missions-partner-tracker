@@ -21,9 +21,7 @@ before(async () => {
 
 after(async () => {
   if (originalSettings) {
-    await prisma.churchSettings
-      .update({ where: { id: "singleton" }, data: originalSettings })
-      .catch(() => {});
+    await prisma.churchSettings.update({ where: { id: "singleton" }, data: originalSettings });
   }
   await removeTestUsers();
   await stopServer();

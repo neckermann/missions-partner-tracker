@@ -8,7 +8,14 @@ const assert = require("node:assert/strict");
 require("dotenv").config({ quiet: true });
 const prisma = require("../../src/prismaClient");
 const { encryptField } = require("../../src/utils/crypto");
-const { client, stopServer, ensureTestUsers, removeTestUsers, FIXTURE_TAG } = require("./helpers");
+const {
+  client,
+  stopServer,
+  ensureTestUsers,
+  removeTestUsers,
+  FIXTURE_TAG,
+  cleanupRow,
+} = require("./helpers");
 const { sendUrgentDispatch, clearDispatchRecords } = require("../../src/utils/dispatchOrchestrator");
 const { sendDigestTier } = require("../../src/utils/emailDispatchDelivery");
 const { runGroupMePass } = require("../../src/utils/groupmeChannel");
@@ -165,7 +172,7 @@ after(async () => {
   await prisma.partner.deleteMany({ where: { displayName: { contains: FIXTURE_TAG } } });
   await Promise.all(
     originalCadences.map((u) =>
-      prisma.user.update({ where: { id: u.id }, data: { cadence: u.cadence } }).catch(() => {})
+      cleanupRow(prisma.user.update({ where: { id: u.id }, data: { cadence: u.cadence } }))
     )
   );
   await prisma.churchSettings.update({ where: { id: "singleton" }, data: originalSettings });

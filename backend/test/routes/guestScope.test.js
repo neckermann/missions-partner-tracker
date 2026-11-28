@@ -322,7 +322,7 @@ describe("Guest: inbound email queue blocked entirely", () => {
   });
 
   after(async () => {
-    await prisma.inboundEmail.deleteMany({ where: { id: queued.id } }).catch(() => {});
+    await prisma.inboundEmail.deleteMany({ where: { id: queued.id } });
   });
 
   test("403s the queue list", async () => {

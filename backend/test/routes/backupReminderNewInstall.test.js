@@ -4,7 +4,7 @@ const { test, describe, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 require("dotenv").config({ quiet: true });
 const prisma = require("../../src/prismaClient");
-const { client, stopServer, ensureTestUsers, removeTestUsers } = require("./helpers");
+const { client, stopServer, ensureTestUsers, removeTestUsers, cleanupRow } = require("./helpers");
 
 let admin;
 let originalCreatedAt;
@@ -35,7 +35,7 @@ before(async () => {
 after(async () => {
   await Promise.all(
     originalCreatedAt.map((u) =>
-      prisma.user.update({ where: { id: u.id }, data: { createdAt: u.createdAt } }).catch(() => {})
+      cleanupRow(prisma.user.update({ where: { id: u.id }, data: { createdAt: u.createdAt } }))
     )
   );
   await prisma.notificationSeen.deleteMany({ where: { category: "timeToCheckBackups" } });
