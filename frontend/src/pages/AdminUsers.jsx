@@ -57,7 +57,7 @@ const emptyForm = {
 const INACTIVE_LABELS = {
   deactivated: "Deactivated",
   expired: "Access expired",
-  no_access: "No trips left",
+  no_access: "No access left",
 };
 
 // A user list like the other consolidated list pages (Table, row opens a QuickActionModal edit form).

@@ -882,7 +882,13 @@ export default function AdminPartnerDetail() {
           )}
         />
 
-        <PhotoHistorySection partnerId={p.id} photos={p.photos} onChange={reload} canEdit={canEdit} />
+        <PhotoHistorySection
+          partnerId={p.id}
+          photos={p.photos}
+          onChange={reload}
+          canEdit={canEdit}
+          canDelete={canDelete}
+        />
 
         <EditableSection
           title="Ministry Overview"

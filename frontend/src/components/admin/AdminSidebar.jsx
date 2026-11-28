@@ -125,7 +125,7 @@ function NotificationBell({ categories, totalWaiting }) {
   );
 }
 
-function buildNavItems(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures) {
+function buildNavItems(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures, canWrite = true) {
   return [
     { key: "home", to: "/admin", end: true, icon: "🏠", label: "Home" },
     {
@@ -171,12 +171,14 @@ function buildNavItems(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures
       icon: "📥",
       label: "Emails to Sort",
     },
-    enabledFeatures.surveys && {
-      key: "surveyUpdates",
-      to: "/admin/survey-updates",
-      icon: "📝",
-      label: "Survey Updates",
-    },
+    // Reviewing answers is for admins and editors (the server refuses everyone else), so no menu item for a viewer.
+    enabledFeatures.surveys &&
+      canWrite && {
+        key: "surveyUpdates",
+        to: "/admin/survey-updates",
+        icon: "📝",
+        label: "Survey Updates",
+      },
     enabledFeatures.monthlySupport && {
       key: "monthlySupport",
       to: "/admin/support/monthly",
@@ -291,7 +293,7 @@ const TRIP_GUEST_NAV_KEYS = new Set(["partners", "trips"]);
 const CARE_GUEST_NAV_KEYS = new Set(["partners", "partnerFiles", "prayerRequests", "oneTimeNeeds", "trips"]);
 
 export default function AdminSidebar() {
-  const { loading: userLoading, isAdmin, isGuest, careTeamSeats } = useCurrentUser();
+  const { loading: userLoading, isAdmin, isGuest, careTeamSeats, canWrite } = useCurrentUser();
   const { categories, totalWaiting } = useNotifications();
   const categoryByKey = new Map(categories.map((c) => [c.key, c]));
   const [collapsedPref, setCollapsed] = useState(readSidebarCollapsed);
@@ -326,7 +328,7 @@ export default function AdminSidebar() {
     );
   }
 
-  const navItems = buildNavItems(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures)
+  const navItems = buildNavItems(partnerTermPlural, usePartnerTermInAdmin, enabledFeatures, canWrite)
     .filter(
       (item) =>
         !isGuest || (careTeamSeats.length > 0 ? CARE_GUEST_NAV_KEYS : TRIP_GUEST_NAV_KEYS).has(item.key)

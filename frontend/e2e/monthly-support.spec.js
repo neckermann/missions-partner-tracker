@@ -19,9 +19,10 @@ test.describe("Monthly Support", () => {
     await page.click("button:has-text('+ Add Support Entry')");
     await page.getByLabel("Partner").selectOption({ label: target.displayName });
     await page.getByLabel("Monthly Amount (USD)").fill("777");
-    // Far in the future so this entry is unambiguously the latest
-    // effectiveDate (== "current") regardless of whatever else is on file.
-    await page.getByLabel("Effective Date").fill("2099-01-01");
+    // Yesterday: the latest entry already in force (== "current") regardless of whatever else is on file. A date in
+    // the future would not do, because an amount that has not started yet is not the current one.
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    await page.getByLabel("Effective Date").fill(yesterday);
     await page.getByLabel("Notes").fill(uniqueNotes);
     await page.click('button[type="submit"]:has-text("Save Entry")');
 

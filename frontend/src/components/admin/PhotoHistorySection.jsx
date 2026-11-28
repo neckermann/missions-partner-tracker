@@ -14,7 +14,7 @@ export default function PhotoHistorySection({
   photos,
   onChange,
   canEdit = true,
-  canDelete = true,
+  canDelete = false,
 }) {
   const { confirm: confirmDialog, confirmElement } = useConfirmDialog();
   const [showAddForm, setShowAddForm] = useState(false);

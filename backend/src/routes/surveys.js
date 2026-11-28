@@ -28,6 +28,11 @@ const { listFields, pageQuestion } = require("../utils/surveyFields");
 // (see publicSurveys.js for the partner's side); staff or a care team member can also fill one in
 // on a partner's behalf. Answers are read by anyone who can see the partner except a trip leader.
 // Nothing here is public, in the booklet or in a dispatch.
+// Shown when a survey link cannot be built because the site's own web address is not set (an install off Render).
+// Plain words for the person at the screen; the setting's name is for whoever runs the site.
+const SITE_ADDRESS_MISSING =
+  "This site's web address isn't set, so a survey link can't be made yet. Whoever runs the site needs to set it (APP_BASE_URL; see the Admin Guide, Authentication setup).";
+
 const router = express.Router();
 router.use(requireAuth);
 router.use(requireFeature("surveys"));
@@ -389,7 +394,7 @@ router.post("/:id/send", manage, async (req, res, next) => {
       });
     }
     if (!buildSurveyUrl("probe")) {
-      return res.status(400).json({ error: "APP_BASE_URL isn't set, so a link can't be built" });
+      return res.status(400).json({ error: SITE_ADDRESS_MISSING });
     }
 
     const partners = await prisma.partner.findMany({
@@ -482,7 +487,7 @@ router.post("/:id/link", manage, async (req, res, next) => {
     if (!survey) return res.status(404).json({ error: "Not found" });
     if (survey.status !== "open") return res.status(400).json({ error: "Open the survey before sharing it" });
     if (!buildSurveyUrl("probe")) {
-      return res.status(400).json({ error: "APP_BASE_URL isn't set, so a link can't be built" });
+      return res.status(400).json({ error: SITE_ADDRESS_MISSING });
     }
     const partner = await prisma.partner.findFirst({ where: { id: partnerId, archived: false } });
     if (!partner) return res.status(404).json({ error: "Partner not found" });

@@ -92,10 +92,11 @@ describe("GET /api/notifications/summary", () => {
     const viewerKeys = viewerRes.body.categories.map((c) => c.key);
     assert.ok(!viewerKeys.includes("adminMfaDisabled"));
 
-    // Every role still sees the shared, all-visibility categories.
+    // "Updates waiting for your OK" is for the people who can approve them: a viewer can read that page but
+    // has no button, so an alert asking for their OK would be wrong.
     assert.ok(adminKeys.includes("dispatchesNeedingApproval"));
     assert.ok(editorKeys.includes("dispatchesNeedingApproval"));
-    assert.ok(viewerKeys.includes("dispatchesNeedingApproval"));
+    assert.ok(!viewerKeys.includes("dispatchesNeedingApproval"));
   });
 
   test("dispatchesNeedingApproval counts only restricted, unreviewed rows -- not the whole pending queue", async () => {
