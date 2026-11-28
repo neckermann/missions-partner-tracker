@@ -793,7 +793,8 @@ report's date math: Feb 29 lands on Feb 28, and the age or years turning come
 with it).
 
 **Who.** The one ownership rule, `utils/ownership.js`: the partner's care team (active
-members, only while `careTeam` is on) when it has one, else the church's **missions team**
+members who have signed in at least once (`lastLoginAt`), so an invited-only seat does not take
+reminders from the missions team; only while `careTeam` is on) when it has one, else the church's **missions team**
 (`User.onMissionsTeam`, active non-guest logins; set at `PUT /api/partner-care/missions-team`,
 admin only, or per user; its display name is `ChurchSettings.ownerGroupName`, wording only);
 if neither, nobody. The same rule feeds _My partners_ and _Partners to reach out to_
