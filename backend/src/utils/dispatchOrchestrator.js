@@ -112,15 +112,15 @@ async function clearDispatchRecords() {
   return { cleared: clearableIds.length, remaining: rows.length - clearableIds.length };
 }
 
-// How many admins and confirmed public subscribers would be notified about this
-// partner now, cadence-blind, for the urgent-send confirm dialog. Approximate on
-// purpose (scoped by partner only). Both are 0 when outboundEmail is off, matching
+// How many admins and confirmed public subscribers would be emailed about this
+// partner now, for the urgent-send confirm dialog: only logins that have chosen to get email. Approximate
+// on purpose (scoped by partner only; a public subscriber's own tier is ignored). Both are 0 when outboundEmail is off, matching
 // sendUrgentDispatch(), so the numbers never overstate.
 // Active logins whose digest scope covers this partner (all, followed, or looked after; a guest only for
 // partners they hold a seat on).
 async function countAdminsCovering(partnerId) {
   const users = await prisma.user.findMany({
-    where: { active: true, role: { in: DIGEST_RECIPIENT_ROLES } },
+    where: { active: true, cadence: { not: null }, role: { in: DIGEST_RECIPIENT_ROLES } },
     select: { id: true, role: true, digestScope: true, followedPartners: { select: { partnerId: true } } },
   });
   const covered = await Promise.all(users.map((u) => digestCovers(u, partnerId)));
@@ -240,8 +240,10 @@ async function sendUrgentDispatch(row, { id: partnerId }) {
   if (emailOn) {
     [admins, publicSubscribers] = await Promise.all([
       prisma.user.findMany({
-        // A guest only through the partners they hold a seat on (digestScope is forced to "owned").
-        where: { active: true, role: { in: DIGEST_RECIPIENT_ROLES } },
+        // A guest only through the partners they hold a seat on (digestScope is forced to "owned"). Only
+        // people who have chosen to get email (a digest schedule): urgent skips the wait for a schedule, not
+        // someone's choice to get no email.
+        where: { active: true, cadence: { not: null }, role: { in: DIGEST_RECIPIENT_ROLES } },
         select: {
           id: true,
           email: true,

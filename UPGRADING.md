@@ -79,6 +79,21 @@ the ones to know about:
   the booklet includes changed: it still prints partners whether or not they are
   on the public site. A booklet you print the same way as before will have
   **fewer partners** until you tick the box.
+- **Urgent updates no longer email staff who chose no email.** Marking an
+  update urgent skips the wait for a schedule, but it used to email every
+  active staff login, including people who had never picked a digest schedule
+  (a new login has none until they choose one under My account). It now emails
+  only logins that have chosen a schedule, so expect **fewer urgent emails**,
+  and on an install where nobody has opted in, none. They still see it in the
+  app and in chat; public subscribers, GroupMe and WhatsApp are unchanged.
+- **Partners can stop showing as "Quiet".** A partner is now quiet only when
+  nothing has been heard from them for the grace period: a logged contact, a
+  newsletter filed, a prayer request received or a visit to your church. Before,
+  only the contact log counted, so expect **fewer "Partners to reach out to"**
+  and fewer quiet-partner posts.
+- **A care team member who has never signed in no longer takes a partner's
+  reminders from the missions team.** Their seat is kept; reminders move to them
+  at their first sign-in.
 
 ## The easy way: GitHub's "Sync fork" button
 
