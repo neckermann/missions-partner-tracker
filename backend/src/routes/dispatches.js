@@ -3,7 +3,7 @@ const prisma = require("../prismaClient");
 const { requireAuth, requireRole } = require("../middleware/requireAuth");
 const { buildBlurb } = require("../utils/dispatchBlurbs");
 const { needsReview } = require("../utils/dispatchEligibility");
-const { countUrgentRecipients } = require("../utils/dispatchOrchestrator");
+const { countUrgentRecipients, sendUrgentDispatch } = require("../utils/dispatchOrchestrator");
 
 // The review queue for recorded events: a row is written by dispatchRecording.js
 // when something happens and leaves once every applicable channel has handled
@@ -97,6 +97,7 @@ router.put("/pending/:id", requireRole("admin", "editor"), async (req, res, next
     const row = await prisma.dispatchRecord.findUnique({ where: { id: req.params.id } });
     if (!row) return res.status(404).json({ error: "Not found" });
 
+    const firstApproval = !row.dispatchReviewedAt;
     const updated = await prisma.dispatchRecord.update({
       where: { id: row.id },
       data: {
@@ -105,6 +106,17 @@ router.put("/pending/:id", requireRole("admin", "editor"), async (req, res, next
         dispatchReviewedText: text,
       },
     });
+    // An urgent update that was held for review could not go out when it was made. Approving it is what
+    // lets it go, so it goes now (every channel still applies its own rules) rather than at the next
+    // scheduled send. Only the first approval does this; editing the wording afterwards never re-sends.
+    let urgentSent = null;
+    if (firstApproval && updated.payload?.urgent === true) {
+      try {
+        urgentSent = await sendUrgentDispatch(updated, { id: updated.partnerId });
+      } catch (err) {
+        console.error("Urgent send after approval failed:", err.message);
+      }
+    }
     const [partner, settings] = await Promise.all([
       prisma.partner.findUnique({
         where: { id: updated.partnerId },
@@ -122,6 +134,7 @@ router.put("/pending/:id", requireRole("admin", "editor"), async (req, res, next
       reviewRequired: !!updated.reviewRequired,
       needsReview: false,
       dispatchReviewedAt: updated.dispatchReviewedAt,
+      urgentSent,
     });
   } catch (err) {
     next(err);

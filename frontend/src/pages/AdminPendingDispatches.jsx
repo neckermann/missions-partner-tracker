@@ -216,6 +216,12 @@ export default function AdminPendingDispatches() {
     try {
       const updated = await updatePendingDispatch(blurb.id, blurb.bodyText);
       setPending((list) => list.map((item) => (item.id === updated.id ? { ...item, ...updated } : item)));
+      // An urgent update held for review goes out the moment it is approved.
+      if (updated.urgentSent) {
+        const { groupmePosted, whatsappPosted, emailSent } = updated.urgentSent;
+        if (groupmePosted || whatsappPosted || emailSent)
+          setSuccess("Approved, and sent now because it was marked urgent.");
+      }
     } catch (err) {
       setError(err.response?.data?.error || "Couldn't approve that update.");
     } finally {
