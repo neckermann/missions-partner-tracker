@@ -55,6 +55,16 @@ test.describe("Updates to Share", () => {
     await expect(row).toBeVisible();
     await expect(row).toContainText(target.displayName);
     await row.getByRole("button", { name: "Clear" }).click();
+    // Clearing asks first; cancelling leaves the update where it was.
+    const dialog = page.getByRole("dialog", { name: "Clear this update?" });
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole("button", { name: "Cancel" }).click();
+    await expect(row).toBeVisible();
+    await row.getByRole("button", { name: "Clear" }).click();
+    await page
+      .getByRole("dialog", { name: "Clear this update?" })
+      .getByRole("button", { name: "Clear" })
+      .click();
     await expect(page.getByText(uniqueText)).toHaveCount(0);
   });
 });
