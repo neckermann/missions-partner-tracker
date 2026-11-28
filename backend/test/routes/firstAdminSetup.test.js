@@ -35,7 +35,12 @@ after(async () => {
     if (savedSettings) {
       await prisma.churchSettings.update({
         where: { id: "singleton" },
-        data: { requireTwoFactor: savedSettings.requireTwoFactor },
+        data: {
+          requireTwoFactor: savedSettings.requireTwoFactor,
+          chatDispatchHour: savedSettings.chatDispatchHour,
+          emailDispatchDayOfMonth: savedSettings.emailDispatchDayOfMonth,
+          emailDispatchHour: savedSettings.emailDispatchHour,
+        },
       });
     } else {
       await prisma.churchSettings.deleteMany({ where: { id: "singleton" } });
@@ -144,6 +149,47 @@ describe("the first administrator's choice of how to sign in", () => {
     const plain = await prisma.user.findUnique({ where: { email: "first-admin-passkey@example.test" } });
     assert.equal(plain.firstName, null, "blank is no name");
     assert.equal(plain.lastName, null);
+  });
+
+  test("a new install starts with a sharing schedule, and one already set is never overwritten", async (t) => {
+    if (!canRun) return cannotRun(t);
+    const schedule = () =>
+      prisma.churchSettings.findUnique({
+        where: { id: "singleton" },
+        select: { chatDispatchHour: true, emailDispatchDayOfMonth: true, emailDispatchHour: true },
+      });
+    await prisma.user.deleteMany({});
+    await prisma.churchSettings.upsert({
+      where: { id: "singleton" },
+      update: { chatDispatchHour: null, emailDispatchDayOfMonth: null, emailDispatchHour: null },
+      create: { id: "singleton" },
+    });
+    const first = await post("/api/auth/setup", {
+      email: "first-admin-schedule@example.test",
+      password: "A-Long-Passw0rd-For-Tests!",
+    });
+    assert.equal(first.status, 201, JSON.stringify(first.body));
+    assert.deepEqual(await schedule(), {
+      chatDispatchHour: 9,
+      emailDispatchDayOfMonth: 1,
+      emailDispatchHour: 9,
+    });
+
+    await prisma.user.deleteMany({});
+    await prisma.churchSettings.update({
+      where: { id: "singleton" },
+      data: { chatDispatchHour: 14, emailDispatchDayOfMonth: null, emailDispatchHour: 7 },
+    });
+    const again = await post("/api/auth/setup", {
+      email: "first-admin-schedule2@example.test",
+      password: "A-Long-Passw0rd-For-Tests!",
+    });
+    assert.equal(again.status, 201, JSON.stringify(again.body));
+    assert.deepEqual(
+      await schedule(),
+      { chatDispatchHour: 14, emailDispatchDayOfMonth: 1, emailDispatchHour: 7 },
+      "what was set stays; only the empty one is filled"
+    );
   });
 
   test("a passkey needs no password: the account has none, and the enrolment token can register one", async (t) => {

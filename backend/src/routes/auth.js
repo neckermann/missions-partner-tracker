@@ -131,6 +131,12 @@ router.get("/setup-status", async (req, res, next) => {
   }
 });
 
+// The sharing schedule a brand-new install starts with (see POST /setup): chat posts at 9am, the monthly email on
+// the 1st at 9am, in the church's time zone.
+const DEFAULT_CHAT_HOUR = 9;
+const DEFAULT_EMAIL_DAY_OF_MONTH = 1;
+const DEFAULT_EMAIL_HOUR = 9;
+
 // Fixed key for the Postgres advisory lock that makes first-run setup a single step (see below).
 const SETUP_LOCK_KEY = 7204117102;
 
@@ -186,10 +192,23 @@ router.post("/setup", async (req, res, next) => {
       // A fresh install starts with the church-wide two-factor requirement ON;
       // the first admin can turn it off. Upsert, not create: only zero prior
       // Users is guaranteed, not zero prior ChurchSettings.
+      //
+      // A new install also starts with a sharing schedule (chat posts at 9am, email on the 1st at 9am, church
+      // time), so "updates are going out" is true from the start instead of silently not. Each is filled in
+      // only if empty, so settings that were already there are never overwritten.
+      const existing = await tx.churchSettings.findUnique({
+        where: { id: "singleton" },
+        select: { chatDispatchHour: true, emailDispatchDayOfMonth: true, emailDispatchHour: true },
+      });
+      const schedule = {
+        chatDispatchHour: existing?.chatDispatchHour ?? DEFAULT_CHAT_HOUR,
+        emailDispatchDayOfMonth: existing?.emailDispatchDayOfMonth ?? DEFAULT_EMAIL_DAY_OF_MONTH,
+        emailDispatchHour: existing?.emailDispatchHour ?? DEFAULT_EMAIL_HOUR,
+      };
       await tx.churchSettings.upsert({
         where: { id: "singleton" },
-        update: { requireTwoFactor: true },
-        create: { id: "singleton", requireTwoFactor: true },
+        update: { requireTwoFactor: true, ...schedule },
+        create: { id: "singleton", requireTwoFactor: true, ...schedule },
       });
       return admin;
     });

@@ -1149,6 +1149,8 @@ the page that fixes it:
 | **WhatsApp isn't finished setting up** | WhatsApp is on, but no phone has been linked, or no community has been chosen to post in. | Settings → WhatsApp |
 | **Chat posts have no send time, so none will go out** | GroupMe or WhatsApp is on, but the daily posting time is not set. | Settings → Sending Updates |
 
+A brand-new install starts with a schedule already set (chat posts at 9am, and the monthly update email on the 1st at 9am, in your church's time zone), so these two alerts only appear on an install that cleared it or predates it; change it any time under Settings → Sending Updates.
+
 An alert stays listed, and counted on the bell's badge, until the thing
 is fixed (or the channel is switched off); opening the bell changes
 nothing. The
