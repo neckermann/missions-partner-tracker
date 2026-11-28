@@ -16,6 +16,10 @@ see [UPGRADING.md](UPGRADING.md) for the actual update steps.
 
 ## [Unreleased]
 
+### Fixed
+
+- **An account with no password can remove a lost passkey and make new recovery codes (#591).** Both asked for the current password, which an account made with a passkey alone doesn't have, so only an administrator could help. They now accept a fresh touch of one of the person's own passkeys (fingerprint, face or screen lock) instead: the answer is single use, tied to the signed-in person, and must come from one of their own passkeys. It is for someone who still has at least one working passkey; someone who has lost every passkey uses "Email me a new link" or an administrator's Reset MFA. Accounts with a password are unchanged.
+
 ### Security
 
 - **Emails that carry a sign-in or setup link say not to forward them (#592).** The setup, password-reset and emailed sign-in-link emails now include a note: whoever opens the link can set up how to sign in to the account, so if several people read the inbox (a shared address such as `missions@`), ask an administrator to send it another way. The welcome email's button now reads "Set up your sign-in" and its text matches the new-account page (a passkey on your own device, or a password plus an authenticator app).
